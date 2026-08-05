@@ -40,12 +40,12 @@ The live tuning overlay supports tower, enemy, wall, and power metrics, quick re
 
 ## Validation at this commit
 
-- `npm test`: 217 passing tests; three optional benchmark tests skipped during the normal suite.
+- `npm test`: 245 passing tests; three optional benchmark tests skipped during the normal suite.
 - `npm run build`: passing production build.
 - `npm run benchmark:combat`:
-  - 2,000 live enemies: approximately 1.01 ms average fixed simulation step.
-  - 5,000 live enemies: approximately 2.26 ms average fixed simulation step.
-  - 50,000 enemies streamed through ten bounded 5,000-enemy cohorts: approximately 1.61 ms per measured step.
+  - 2,000 live enemies: approximately 1.39 ms average fixed simulation step.
+  - 5,000 live enemies: approximately 2.40 ms average fixed simulation step.
+  - 50,000 enemies streamed through ten bounded 5,000-enemy cohorts: approximately 1.70 ms per measured step.
 - Desktop and 720×900 browser acceptance QA completed with zero application console errors.
 - Campaign pacing is estimated at roughly 8–10 minutes per successful run, with 636–2,244 authored enemies depending on the mission.
 

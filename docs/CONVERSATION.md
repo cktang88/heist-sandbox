@@ -450,3 +450,15 @@ The performance profile shows a reusable typed-array uniform grid is a better fi
 ## 83. Codex
 
 The new map model is playable. Legacy maps still use route corridors. Shattered Expanse uses the entire field as walkable space, three spawn anchors, nine buildable polygon platforms, one non-buildable blocker, and a 2,244-orc campaign. Map Forge can draw, edit, delete, validate, save, import, and replay those polygons. Browser QA confirmed tower placement on a raised platform, three-lane spawning, 5,000 live/drawn instances, telemetry, and zero application console errors.
+
+## 84. User
+
+Reported a crash shortly after starting a round: `combat.ts:223 Uncaught TypeError: Cannot read properties of undefined (reading 'health')`, reached through `EnemySpatialIndex.nearest` and the battle tower render.
+
+## 85. User
+
+Asked to ensure combat towers, health points, deaths, and related lifecycle behavior are covered by unit tests.
+
+## 86. Codex
+
+The crash came from the spatial index aliasing the mutable enemy array. Death cleanup compacted that array after the grid was built, leaving bucket indices beyond the shortened array. The index now keeps a reusable fixed snapshot of enemy references. Added deterministic coverage for all ten towers, enemy health and exact-once death/removal, statuses, leaks, fortress shields/health, wall health, wave completion, and the precise compaction regression. The complete suite passes 245 tests, and browser QA advanced through multiple kills and the next wave with zero application errors.

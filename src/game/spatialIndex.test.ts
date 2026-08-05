@@ -16,6 +16,20 @@ describe('EnemySpatialIndex', () => {
     expect(index.telemetry()).toMatchObject({ entities: 2, queries: 1 })
   })
 
+  it('keeps a stable snapshot when the source population is compacted in place', () => {
+    const first = { id: 1, x: 0, z: 0, alive: false }
+    const second = { id: 2, x: 4, z: 0, alive: true }
+    const population = [first, second]
+    const index = new EnemySpatialIndex(population, 1)
+
+    population[0] = population[1]
+    population.length = 1
+
+    expect(() => index.nearest({ x: 4, z: 0 }, 1, (entity) => entity.alive)).not.toThrow()
+    expect(index.nearest({ x: 4, z: 0 }, 1, (entity) => entity.alive)).toBe(second)
+    expect(index.telemetry().entities).toBe(2)
+  })
+
   const entities = seededEntities(240)
   const index = new EnemySpatialIndex(entities, 1.25)
 

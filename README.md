@@ -40,4 +40,6 @@ npm run build
 
 The complete design, 60-node upgrade plan, content roster, technical plan, and staged acceptance criteria are in [docs/GAME_SPEC.md](docs/GAME_SPEC.md). The exact current milestone, known limitations, and recommended future work are recorded in [docs/STATE_AND_ROADMAP.md](docs/STATE_AND_ROADMAP.md).
 
+Combat behavior and lifecycle coverage are listed in [docs/COMBAT_TEST_MATRIX.md](docs/COMBAT_TEST_MATRIX.md).
+
 For the opt-in 2,000/5,000-enemy and 50,000-total streamed throughput report, run `npm run benchmark:combat`. During a battle, live frame, rendering, fixed-tick, stream, and spatial-query metrics are also available in the tuning panel and browser console as `globalThis.__ORCFALL_TELEMETRY__`.

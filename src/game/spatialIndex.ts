@@ -8,8 +8,8 @@ type Predicate<T> = (entity: T) => boolean
 
 /** A fixed-snapshot uniform grid. Buckets and links stay in compact typed arrays. */
 export class EnemySpatialIndex<T extends SpatialEntity> {
-  items: readonly T[]
   readonly cellSize: number
+  private readonly items: T[] = []
   private bounds: SpatialBounds
   private columns: number
   private rows: number
@@ -21,7 +21,6 @@ export class EnemySpatialIndex<T extends SpatialEntity> {
   private candidatesChecked = 0
 
   constructor(items: readonly T[], cellSize = 1.5, bounds?: SpatialBounds) {
-    this.items = []
     this.cellSize = Math.max(0.1, cellSize)
     this.bounds = normalizeBounds([], bounds, this.cellSize)
     this.columns = 0
@@ -35,7 +34,6 @@ export class EnemySpatialIndex<T extends SpatialEntity> {
 
   /** Rebuilds buckets in-place, retaining buffers while entity count and map bounds stay stable. */
   rebuild(items: readonly T[], bounds?: SpatialBounds): void {
-    this.items = items
     this.bounds = normalizeBounds(items, bounds, this.cellSize)
     this.columns = Math.max(1, Math.ceil((this.bounds.maxX - this.bounds.minX) / this.cellSize))
     this.rows = Math.max(1, Math.ceil((this.bounds.maxZ - this.bounds.minZ) / this.cellSize))
@@ -51,8 +49,10 @@ export class EnemySpatialIndex<T extends SpatialEntity> {
     this.next.fill(-1, 0, items.length)
     this.queries = 0
     this.candidatesChecked = 0
+    this.items.length = items.length
     for (let index = 0; index < items.length; index += 1) {
       const item = items[index]
+      this.items[index] = item
       this.xs[index] = item.x
       this.zs[index] = item.z
       const cell = this.cellIndex(item.x, item.z)
