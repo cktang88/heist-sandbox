@@ -66,6 +66,10 @@ Orcs enter continuously in waves. Weapon towers acquire targets only when an ene
 
 Temporary walls are the one construction exception: they are an equipped combat power with charges, cooldown, health, and a lifetime. If a wall creates a reasonable detour, orcs flow around it; otherwise nearby orcs attack it.
 
+Combat feedback is layered but restrained. A tower recoils and flashes at the muzzle, a heavy projectile follows a weapon-specific arc, the impact emits a bounded spark burst and force, and a killed orc leaves a readable corpse. These are instanced pools with fixed budgets rather than independent React or ECS entities. Corpses have a separate history budget so rapid gunfire cannot erase them prematurely.
+
+Knockback is an impulse that decays over several fixed steps. Its strength comes from weapon data, blast falloff, upgrades, and variants; heavy units and Ogres resist it. Each impulse advances in small navigation-grid-tested steps and may slide along a blocker, but it cannot tunnel through a terrain polygon, map boundary, or temporary wall.
+
 ### 2.4 Results
 
 Show victory/defeat, survival time, waves, kills, leaks, fortress health, damage by source, medals earned, best run, and newly available upgrades. Both victory and defeat award medals.
@@ -84,9 +88,13 @@ Each map contains one or more spawn areas, a fortress, walkable terrain, buildab
 
 For the first few hundred enemies, a polyline route is sufficient. At larger scale, maps use a navigation grid and a flow field pointing toward the fortress. Nearby enemies apply small separation forces so the horde spreads naturally. Temporary walls trigger a rate-limited flow-field rebuild. An invalid full blockade causes orcs to attack the blocking wall.
 
-The fortress has visible health, a damage flash, and optional shield. Orcs reaching it attack or deal leak damage. A run ends at zero health.
+The fortress has visible health, a damage flash, and optional shield. Damage persists through worn and critical stages with cracks, rubble, smoke, and a restrained critical glow. Orcs reaching it attack or deal leak damage. A run ends at zero health.
 
 Wave data controls enemy composition, count, entry lane, spawn interval, health multiplier, speed multiplier, reward multiplier, and boss presence. Maps should run 8–15 minutes in the finished game.
+
+Orcs use phase-offset procedural stride, bob, lean, and head sway on the existing instanced meshes; freeze and stun stop the stride. Ogres add a pulsing ground marker and world-space health bar without leaving the instanced crowd pipeline.
+
+The orthographic camera automatically fits each map and supports bounded wheel or button zoom. Fortress shake offsets the camera rig instead of owning it, so shake never resets zoom. Pointer targeting is raycast in world space, and all gameplay continues simulating outside the visible camera bounds.
 
 ## 4. Tower roster
 
@@ -252,7 +260,7 @@ At several thousand enemies, replace one-render-object-per-orc with `InstancedMe
 
 ### Live Combat Tuning
 
-- Searches and edits starting supply, tower cost/damage/range/fire rate/firing angle, orc health/speed/fortress damage/wall damage, and wall cost/health/collision size.
+- Searches and edits starting supply, tower cost/damage/range/fire rate/firing angle/knockback force, orc health/speed/fortress damage/wall damage, and wall cost/health/collision size.
 - Saves immediately and offers Apply & Restart.
 - Provides a session-only Unlock All Content switch for fast prototyping without corrupting ranked progression.
 - During combat, injects unranked 2,000- or 5,000-Grunt diagnostic hordes, or streams 50,000 total through a bounded 5,000-live envelope, without changing authored wave totals.
@@ -338,6 +346,8 @@ Full MVP adds aircraft strafe, combat wall charges, six upgrade nodes, a title/m
 
 Performance targets are 60 FPS with 5,000 live Grunts and stable 50,000-total continuous rounds that keep the live crowd bounded near 5,000 on a typical recent laptop.
 
+Particles, corpses, projectile trails, Ogre markers, and boss bars use fixed-capacity instanced meshes. No ECS is required for this scope: combat already stores flat bounded event arrays, while per-particle motion is derived from event age and ID. Revisit an ECS only if effects gain long-lived interacting state that the current pools cannot express cleanly.
+
 ## 17. Manual QA checklist
 
 - [ ] Place and reject towers in the correct terrain.
@@ -352,6 +362,10 @@ Performance targets are 60 FPS with 5,000 live Grunts and stable 50,000-total co
 - [ ] Allow leaks and reach defeat.
 - [ ] Pause/resume repeatedly without time jumps.
 - [ ] Switch 1×/2× during a large wave.
+- [ ] Zoom with wheel and buttons during setup, combat, pause, and fortress shake; confirm pointer placement stays aligned and off-screen orcs keep progressing.
+- [ ] Fire direct, Cannon, Rocket, and Mortar weapons; confirm recoil, muzzle flash, distinct arcs, restrained sparks, and corpses.
+- [ ] Knock an orc into a platform, map edge, and temporary wall; confirm it stops or slides but never crosses the blocker.
+- [ ] Damage the fortress through worn and critical states, and spawn an Ogre; confirm persistent damage and boss health presentation remain readable.
 - [ ] Place a wall and observe blocking, damage, and destruction.
 - [ ] Reload and confirm medals, best run, map, and tuning persist.
 - [ ] Build and save a new route in Map Forge, then play it.

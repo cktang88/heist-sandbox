@@ -9,6 +9,7 @@ import { deriveWallRotation, distanceToWall } from './wall'
 import { calculateDamage, createEmptyDamageBySource, isAttackInFront, recordDamageCredit, type DamageCredit } from './damageSources'
 import { applyTowerVariant, getTowerVariant } from './towerVariants'
 import { getTowerArcDegrees, isPointWithinTowerArc } from './towerFacing'
+import { addKnockback, knockbackResistance, stepKnockback } from './knockback'
 import type { ActivePowerKind, BattleSnapshot, DamageSource, DamageType, EnemyKind, EnemyMultipliers, GameRules, GameTuning, MapDefinition, Placement, Point, RunRules, TowerKind, TowerStats, WaveDefinition } from './types'
 import type { CombatEventTotals } from './audio'
 
@@ -29,11 +30,13 @@ export type EnemyStatus = {
   spreadsBurnOnDeath?: boolean
 }
 
-export type Enemy = Point & { id: number; kind: EnemyKind; pathIndex: number; progress: number; previousX?: number; previousZ?: number; facingX?: number; facingZ?: number; health: number; healthMultiplier: number; speedMultiplier: number; damageMultiplier: number; status: EnemyStatus }
+export type Enemy = Point & { id: number; kind: EnemyKind; pathIndex: number; progress: number; previousX?: number; previousZ?: number; facingX?: number; facingZ?: number; knockbackX?: number; knockbackZ?: number; health: number; maxHealth?: number; healthMultiplier: number; speedMultiplier: number; damageMultiplier: number; status: EnemyStatus }
 export type RuntimeWall = NavigationWall & { health: number; life: number }
-export type Tracer = { id: number; tower: TowerKind; from: Point; to: Point; life: number }
-export type CombatVisual = Point & { id: number; kind: 'death' | 'impact' | 'wallBreak'; life: number }
-export const MAX_COMBAT_VISUALS = 96
+export type Tracer = { id: number; tower: TowerKind; from: Point; to: Point; life: number; duration: number; arcHeight: number }
+export type CombatVisual = Point & { id: number; kind: 'death' | 'impact' | 'wallBreak'; life: number; duration: number; enemyKind?: EnemyKind; rotation?: number }
+export const MAX_CORPSE_VISUALS = 192
+export const MAX_TRANSIENT_VISUALS = 128
+export const MAX_COMBAT_VISUALS = MAX_CORPSE_VISUALS + MAX_TRANSIENT_VISUALS
 export type TowerEngagement = { targetId: number; seconds: number }
 export type PowerRun = {
   id: number
@@ -71,6 +74,7 @@ export type CombatEffect =
     burnSeconds?: number
     burnDamagePerSecond?: number
     cluster?: boolean
+    knockbackForce?: number
   }
   | {
     id: number
@@ -109,6 +113,7 @@ export type SimulationState = {
   spawnedInGroup: number
   towerCooldowns: Map<number, number>
   towerEngagements: Map<number, TowerEngagement>
+  towerLastShotAt: Map<number, number>
   tracers: Tracer[]
   powerCooldowns: Record<ActivePowerKind, number>
   powers: PowerRun[]
@@ -143,7 +148,7 @@ export function createSimulation(placements: Placement[], rules: GameRules, base
     damageByTower: { gunner: 0, heavyGun: 0, cannon: 0, rocket: 0, flamethrower: 0, cryo: 0, tesla: 0, laser: 0, mortar: 0, support: 0 },
     damageBySource: createEmptyDamageBySource(),
     enemies: [], nextEnemyId: 1, nextTracerId: 1, reportTimer: 0, spawnTimer: 0.5,
-    spawned: 0, spawnedInGroup: 0, towerCooldowns: new Map(), towerEngagements: new Map(), tracers: [],
+    spawned: 0, spawnedInGroup: 0, towerCooldowns: new Map(), towerEngagements: new Map(), towerLastShotAt: new Map(), tracers: [],
     powerCooldowns: { strafe: 0, barrage: 0, cryoBeam: 0, nuke: 0, orbitalLaser: 0, repair: 0 }, powers: [],
     effects: [], nextEffectId: 1,
     wallById: new Map(placements.filter(isWall).map((wall) => [wall.id, createWall(wall, rules, map)])),
@@ -381,8 +386,8 @@ function updatePowers(state: SimulationState, rules: GameRules, delta: number, i
 
 function applyPowerKnockback(enemy: Enemy, power: PowerRun, radius: number): void {
   const displacement = powerKnockback(power.kind, enemy, power.point, radius, power.lineEnd)
-  enemy.x += displacement.x
-  enemy.z += displacement.z
+  enemy.knockbackX = (enemy.knockbackX ?? 0) + displacement.x
+  enemy.knockbackZ = (enemy.knockbackZ ?? 0) + displacement.z
 }
 
 export function barrageImpactPoint(center: Point, targetRadius: number, index: number): Point {
@@ -454,6 +459,7 @@ function resolveImpact(state: SimulationState, effect: ImpactEffect, rules: Game
       enemy.status.burnRemaining = Math.max(enemy.status.burnRemaining, effect.burnSeconds)
       enemy.status.burnDamagePerSecond = Math.max(enemy.status.burnDamagePerSecond, effect.burnDamagePerSecond ?? 0)
     }
+    if (effect.knockbackForce) addKnockback(enemy, effect.point, effect.knockbackForce, knockbackResistance(enemy.kind))
   }
   if (!effect.cluster) return
   for (let index = 0; index < 3; index += 1) {
@@ -509,7 +515,9 @@ function moveEnemies(state: SimulationState, context: SimulationContext, delta: 
   const navigation = state.navigationCache.field
   const separationScratch = { x: 0, z: 0 }
   for (const enemy of state.enemies) {
-    if (enemy.health <= 0 || enemy.status.freezeRemaining > 0 || enemy.status.stunRemaining > 0) continue
+    if (enemy.health <= 0) continue
+    stepKnockback(enemy, navigation, delta)
+    if (enemy.status.freezeRemaining > 0 || enemy.status.stunRemaining > 0) continue
     const stats = context.rules.tuning.enemies[enemy.kind]
     const route = sampleNavigation(navigation, enemy)
     const sapperTarget = enemy.kind === 'sapper' ? findSapperWallTarget(enemy, liveWalls) : undefined
@@ -643,8 +651,14 @@ function fireTowers(state: SimulationState, towers: Placement[], rules: GameRule
     state.towerEngagements.set(tower.id, engagement)
     const bonuses = towerEngagementBonuses(tower.kind, engagement.seconds)
     resolveAttack(state, tower.kind, tower, target, stats, rules, index, bonuses.damage)
+    if (stats.attack.kind !== 'splash' || !stats.projectileSpeed) addCombatVisual(state, 'impact', target, 0.16)
     state.eventTotals.shots += 1
-    state.tracers.push({ id: state.nextTracerId++, tower: tower.kind, from: tower, to: { x: target.x, z: target.z }, life: 0.14 })
+    const duration = stats.projectileSpeed ? Math.max(0.12, distance(tower, target) / stats.projectileSpeed) : 0.14
+    state.tracers.push({
+      id: state.nextTracerId++, tower: tower.kind, from: tower, to: { x: target.x, z: target.z },
+      life: duration, duration, arcHeight: projectileArcHeight(tower.kind, distance(tower, target)),
+    })
+    state.towerLastShotAt.set(tower.id, state.elapsedSeconds)
     state.towerCooldowns.set(tower.id, 1 / (stats.shotsPerSecond * bonuses.fireRate))
   }
 }
@@ -677,6 +691,10 @@ function resolveAttack(state: SimulationState, towerKind: TowerKind, tower: Plac
           || (towerKind === 'heavyGun' && variant?.id === 'heavy-anti-armor'),
         attackOrigin: tower,
       }))
+      const directForce = stats.knockbackForce ?? 0
+      if (directForce > 0) targets.forEach((enemy) => {
+        if (enemy.health > 0) addKnockback(enemy, tower, variantKnockback(tower, directForce), knockbackResistance(enemy.kind))
+      })
       break
     }
     case 'splash': {
@@ -688,6 +706,7 @@ function resolveAttack(state: SimulationState, towerKind: TowerKind, tower: Plac
           damage: stats.damage,
           damageType: stats.damageType,
           tower: towerKind,
+          knockbackForce: variantKnockback(tower, stats.knockbackForce ?? 0),
           stunSeconds: towerKind === 'mortar' && (rules.behaviors.mortarStun || tower.variantId === 'mortar-concussion') ? 0.65 : undefined,
           cluster: towerKind === 'cannon' ? rules.behaviors.cannonClusterShells || tower.variantId === 'cannon-cluster'
             : towerKind === 'mortar' ? rules.behaviors.mortarClusterShells || tower.variantId === 'mortar-cluster' : false,
@@ -697,6 +716,7 @@ function resolveAttack(state: SimulationState, towerKind: TowerKind, tower: Plac
       const targets = index.withinRadius(target, stats.attack.radius, isAlive)
       for (const enemy of targets) {
         damageEnemy(state, enemy, stats.damage, stats.damageType, rules, { tower: towerKind })
+        if (enemy.health > 0 && stats.knockbackForce) addKnockback(enemy, target, variantKnockback(tower, stats.knockbackForce), knockbackResistance(enemy.kind))
         if (towerKind === 'mortar' && rules.behaviors.mortarStun && enemy.health > 0) {
           enemy.status.stunRemaining = Math.max(enemy.status.stunRemaining, 0.65)
         }
@@ -759,7 +779,7 @@ function damageEnemy(state: SimulationState, enemy: Enemy, damage: number, damag
   recordDamageCredit(state.damageByTower, state.damageBySource, options, applied, healthBefore)
   if (enemy.health <= 0) {
     state.defeated += 1
-    addCombatVisual(state, 'death', enemy, 5)
+    addCombatVisual(state, 'death', enemy, 12, { enemyKind: enemy.kind, rotation: Math.atan2(enemy.facingZ ?? 0, enemy.facingX ?? 1) })
     if (wasBurning && (rules.behaviors.burningDeathSpread || enemy.status.spreadsBurnOnDeath)) {
       queueImpact(state, {
         point: { x: enemy.x, z: enemy.z }, radius: 1.4, damage: 0, damageType: 'fire',
@@ -865,9 +885,29 @@ function compactAliveEnemies(enemies: Enemy[]): void {
   enemies.length = write
 }
 
-export function addCombatVisual(state: Pick<SimulationState, 'visuals' | 'nextVisualId'>, kind: CombatVisual['kind'], point: Point, life: number): void {
-  state.visuals.push({ id: state.nextVisualId++, kind, x: point.x, z: point.z, life })
-  if (state.visuals.length > MAX_COMBAT_VISUALS) state.visuals.splice(0, state.visuals.length - MAX_COMBAT_VISUALS)
+export function addCombatVisual(state: Pick<SimulationState, 'visuals' | 'nextVisualId'>, kind: CombatVisual['kind'], point: Point, life: number, metadata: Pick<CombatVisual, 'enemyKind' | 'rotation'> = {}): void {
+  state.visuals.push({ id: state.nextVisualId++, kind, x: point.x, z: point.z, life, duration: life, ...metadata })
+  const isCorpse = kind === 'death'
+  const limit = isCorpse ? MAX_CORPSE_VISUALS : MAX_TRANSIENT_VISUALS
+  let matching = 0
+  for (const visual of state.visuals) if ((visual.kind === 'death') === isCorpse) matching += 1
+  if (matching <= limit) return
+  const oldest = state.visuals.findIndex((visual) => (visual.kind === 'death') === isCorpse)
+  if (oldest >= 0) state.visuals.splice(oldest, 1)
+}
+
+export function projectileArcHeight(kind: TowerKind, distanceToTarget: number): number {
+  if (kind === 'mortar') return Math.min(3.8, 1.4 + distanceToTarget * 0.3)
+  if (kind === 'rocket') return Math.min(1.6, 0.35 + distanceToTarget * 0.12)
+  if (kind === 'cannon') return Math.min(0.8, 0.15 + distanceToTarget * 0.07)
+  return 0
+}
+
+function variantKnockback(tower: Placement, base: number): number {
+  if (tower.variantId === 'mortar-concussion') return base * 1.65
+  if (tower.variantId === 'cannon-cluster' || tower.variantId === 'mortar-cluster') return base * 0.72
+  if (tower.variantId === 'rocket-guided') return base * 1.2
+  return base
 }
 
 function recordImpactVisual(state: SimulationState, point: Point): void {
@@ -951,9 +991,10 @@ function spawnEnemy(
   const healthMultiplier = multipliers?.health ?? 1
   const speedMultiplier = multipliers?.speed ?? 1
   const damageMultiplier = multipliers?.damage ?? 1
+  const maxHealth = rules.tuning.enemies[kind].health * healthMultiplier
   state.enemies.push({
     id: state.nextEnemyId++, kind, pathIndex, progress: 0,
-    health: rules.tuning.enemies[kind].health * healthMultiplier,
+    health: maxHealth, maxHealth,
     healthMultiplier, speedMultiplier, damageMultiplier,
     x: start.x, z: start.z, previousX: start.x, previousZ: start.z,
     facingX: facing.x, facingZ: facing.z, status: emptyStatus(),

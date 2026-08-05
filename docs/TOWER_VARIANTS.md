@@ -11,8 +11,8 @@ A placement stores the stable ID in `variantId`. Omitting it, using an unknown o
 | Heavy Gun | Anti-Armor | `heavy-anti-armor` | Slower, narrow sustained heavy fire | `gunner-05` |
 | Heavy Gun | Siege Feed | `heavy-siege` | Faster sustained suppression at shorter range | `gunner-06` |
 | Blast Cannon | Hypervelocity | `cannon-hypervelocity` | Fast dense shell with a tight blast | `explosives-04` |
-| Blast Cannon | Cluster | `cannon-cluster` | Lower initial hit followed by secondary blasts | `explosives-05` |
-| Rocket Battery | Guided | `rocket-guided` | Slow precise anti-heavy rockets with a tight blast | `explosives-04` |
+| Blast Cannon | Cluster | `cannon-cluster` | Lower-force initial hit followed by secondary blasts | `explosives-05` |
+| Rocket Battery | Guided | `rocket-guided` | Slow precise anti-heavy rockets with a tight, stronger-force blast | `explosives-04` |
 | Rocket Battery | Salvo | `rocket-salvo` | Rapid smaller rockets for crowds | `explosives-05` |
 | Flame Thrower | Napalm | `flame-napalm` | Lower direct damage and a longer, stronger burn | `fire-05` |
 | Flame Thrower | Funeral Pyre | `flame-funeral-pyre` | Wider flame whose burning victims spread fire | `fire-06` |
@@ -22,8 +22,8 @@ A placement stores the stable ID in `variantId`. Omitting it, using an unknown o
 | Tesla Coil | Overcharge | `tesla-overcharge` | Slow, high-damage single-target electric bursts | `energy-03` |
 | Laser Lance | Piercing | `laser-piercing` | A thinner beam damages aligned enemies behind its target | `energy-06` |
 | Laser Lance | Prism | `laser-prism` | Rapid short beam for scattered targets | `energy-05` |
-| Field Mortar | Concussion | `mortar-concussion` | Weaker, faster, wider blasts stun survivors | `artillery-05` |
-| Field Mortar | Cluster | `mortar-cluster` | Slower long-range blast with secondary shells | `artillery-06` |
+| Field Mortar | Concussion | `mortar-concussion` | Weaker, faster, wider high-force blasts stun survivors | `artillery-05` |
+| Field Mortar | Cluster | `mortar-cluster` | Slower long-range, lower-force blast with secondary shells | `artillery-06` |
 | Support Beacon | Overclock | `support-overclock` | Smaller aura favors a much stronger fire-rate boost | `command-05` |
 | Support Beacon | Fortress | `support-fortress` | Wider, balanced damage and fire-rate network | `command-06` |
 

@@ -33,6 +33,18 @@ const towerArcField = (kind: TowerKind): TuningField => ({
   }),
 })
 
+const towerForceField = (kind: TowerKind): TuningField => ({
+  id: `${kind}-knockbackForce`,
+  label: `${BUILD.items[kind].label} knockback force`,
+  step: 0.05,
+  min: 0,
+  read: (tuning) => tuning.towers[kind].knockbackForce ?? 0,
+  write: (tuning, value) => ({
+    ...tuning,
+    towers: { ...tuning.towers, [kind]: { ...tuning.towers[kind], knockbackForce: value } },
+  }),
+})
+
 const enemyField = (kind: EnemyKind, stat: 'health' | 'speed' | 'baseDamage' | 'wallDamagePerSecond', label: string, step: number): TuningField => ({
   id: `${kind}-${stat}`,
   label,
@@ -60,6 +72,7 @@ const FIELDS: readonly TuningField[] = [
     towerField(kind, 'range', `${BUILD.items[kind].label} range`, 0.1),
     towerArcField(kind),
     towerField(kind, 'shotsPerSecond', `${BUILD.items[kind].label} fire rate`, 0.1),
+    towerForceField(kind),
   ]),
   ...ENEMY_KINDS.flatMap((kind) => [
     enemyField(kind, 'health', `${kind} health`, 1),

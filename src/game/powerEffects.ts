@@ -1,4 +1,5 @@
 import type { ActivePowerKind, EnemyKind, Point } from './types'
+import { knockbackResistance } from './knockback'
 
 type KnockbackTarget = Point & { id: number; kind: EnemyKind }
 
@@ -8,9 +9,9 @@ export function powerDamageAt(kind: ActivePowerKind, damage: number, target: Poi
   return damage * radialFalloff(target, center, radius, 0.25)
 }
 
-/** Returns a displacement rather than mutating an enemy, which keeps this easy to tune and test. */
+/** Returns an impulse rather than mutating an enemy, which keeps this easy to tune and test. */
 export function powerKnockback(kind: ActivePowerKind, target: KnockbackTarget, center: Point, radius: number, lineEnd?: Point): Point {
-  const resistance = target.kind === 'ogre' ? 0.25 : 1
+  const resistance = knockbackResistance(target.kind)
   if (kind === 'strafe') {
     if (lineEnd) {
       const dx = lineEnd.x - center.x

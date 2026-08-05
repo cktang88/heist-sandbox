@@ -1,4 +1,4 @@
-# Directional defenses, tower profiles, and saved layouts
+# Command-board interface and battlefield game feel
 
 ## Player impact
 
@@ -6,7 +6,9 @@ Preparation now communicates the real economy: players see starting and remainin
 
 The Armory is now a branching 60-node graph instead of a forced six-step line. Cards clearly label permanent tower, power, wall, and variant unlocks. Stat and profile choices fan out from their relevant tool, so a player can pursue the behavior they want without first buying unrelated stats.
 
-All ten towers now have Standard plus two special profiles that change their role while preserving the weapon family's identity. Standard is always available. Research permanently makes special profiles available, and the player chooses at most one per equipped tower family for each level. Each map remembers its own tower/power loadout, positions, facing, targeting, starting walls, and profile choices across restart, map switching, and reload; challenge layouts remain separate from the normal map layout. If later tuning lowers the supply budget, the saved defense remains visible and editable while Start stays blocked until enough towers are sold.
+The battlefield now responds at every important event without turning slapstick: towers recoil and flash, heavy rounds arc, impacts emit bounded sparks and force, orcs march instead of gliding, dead orcs remain as corpses, the fortress accumulates visible damage, and Ogres carry a clear boss marker and health bar. Knockback strength follows weapon/upgrades/profile data and collision-tested substeps prevent it from crossing walls or terrain.
+
+The camera fits each map and offers bounded wheel/button zoom without changing the simulation. The UI now uses an original forged field-command style—iron frames, parchment/brass type, red orders, stronger selections, and code-native ornament—instead of generic flat panels.
 
 ## Manual QA
 
@@ -34,6 +36,12 @@ All ten towers now have Standard plus two special profiles that change their rol
 - [ ] Build a challenge layout on a campaign map and confirm it does not replace that map's campaign/endless layout.
 - [ ] Place a temporary wall during combat, restart, and confirm that combat-only wall was not added to the saved setup.
 - [ ] Use a Strafe and Nuke; confirm repeated Strafe impacts, center-weighted Nuke damage, knockback, and Ogre resistance.
+- [ ] Fire direct and heavy weapons; confirm muzzle recoil, distinct Cannon/Rocket/Mortar arcs, restrained particles, and visible corpses.
+- [ ] Knock enemies toward temporary walls, polygon terrain, and the map edge; confirm they stop or slide rather than crossing.
+- [ ] Let fortress health cross 70% and 30%; confirm cracks, rubble, and smoke stage clearly without covering the route.
+- [ ] Spawn an Ogre and confirm its marker and health bar remain readable in a dense horde.
+- [ ] Use wheel and `− / FIT / +` zoom while paused and under fortress shake; confirm world targeting remains aligned and off-screen enemies continue moving.
+- [ ] Review briefing, deployment, battle controls, Armory, settings, and results at desktop and narrow widths for the forged command-board visual language.
 - [ ] Drag Strafe/Cryo horizontally and diagonally, guide Orbital while active, and confirm spent Repair charges disable its control.
 - [ ] Let enemies leak; confirm leak totals and visible fortress health/shield hit feedback.
 - [ ] Confirm results attribute damage to towers, powers, and wall effects.

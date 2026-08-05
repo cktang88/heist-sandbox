@@ -24,7 +24,11 @@ The implementation was built in playable layers. Each layer was reviewed, tested
 - Persistent medals, best runs, campaign progress, selected difficulty/loadout/doctrine, per-level layouts and variants, maps, tuning, and settings.
 - Fortress shields, leak tracking, supply-cache objectives, boss/reward wave metadata, and results with damage by source.
 - Pause/resume, 1×/2× speed, keyboard controls, settings, contextual help, reduced flashes, screen shake, corpse density, volume controls, and narrow-screen layouts.
-- Generated combat/UI audio plus pooled impact, corpse, tracer, and wall-break effects.
+- Generated combat/UI audio plus bounded instanced projectiles, impact particles, wall debris, and separate persistent corpse history.
+- Tower recoil and muzzle flashes, weapon-specific projectile arcs, stride/bob locomotion, staged fortress cracks/rubble/smoke, and boss rings with world-space health bars.
+- Camera fit plus bounded wheel/button zoom. Camera shake is layered onto the rig without resetting zoom, while simulation and crowd updates remain independent of the viewport.
+- Data-driven weapon force with Ogre/heavy-unit resistance. High Explosive and Concussion profiles increase force; small collision-tested substeps stop even extreme impulses at terrain and temporary walls.
+- A forged field-command UI language with iron frames, parchment/brass typography, red order ribbons, stronger selected states, and original code-native CSS ornament.
 - Shattered Expanse, a three-spawn open-field campaign map with nine buildable polygon platforms, one solid blocker, and 2,244 streamed enemies.
 
 ## Creator and prototyping tools
@@ -39,16 +43,16 @@ Map Forge can create and persist multiple custom battlefields using the same `Ma
 - Wave groups, lane assignment, delays, intervals, health/speed/damage multipliers, reward multipliers, and boss markers.
 - JSON import/export and direct Sandbox play.
 
-The live tuning overlay supports tower cost, damage, range, rate, and firing angle plus enemy, wall, and power metrics; quick restart; per-enemy spawning; 2,000/5,000-enemy stress hordes; a 50,000-total continuous stream held inside a 5,000-live envelope; live frame/simulation telemetry; unlock-all; and fortress invulnerability. Cheat-assisted runs are clearly unranked and runtime cheats are not saved.
+The live tuning overlay supports tower cost, damage, range, rate, firing angle, and knockback force plus enemy, wall, and power metrics; quick restart; per-enemy spawning; 2,000/5,000-enemy stress hordes; a 50,000-total continuous stream held inside a 5,000-live envelope; live frame/simulation telemetry; unlock-all; and fortress invulnerability. Cheat-assisted runs are clearly unranked and runtime cheats are not saved.
 
 ## Validation at this commit
 
-- `npm test`: 283 deterministic rules tests pass; three optional performance cases are skipped in the normal suite. Coverage includes combat, facing sectors, variant selection and behavior, setup economy, layout isolation/sanitizing, saves, maps, and progression.
+- `npm test`: 295 deterministic rules tests pass; three optional performance cases are skipped in the normal suite. Coverage includes combat, force/wall collision, projectile arcs, corpse budgets, camera bounds, fortress states, facing sectors, variant selection and behavior, setup economy, layout isolation/sanitizing, saves, maps, and progression.
 - `npm run build` is the required production-build gate.
 - `npm run benchmark:combat`:
-  - 2,000 live enemies: approximately 1.49 ms average fixed simulation step.
-  - 5,000 live enemies: approximately 2.64 ms average fixed simulation step.
-  - 50,000 enemies streamed through ten bounded 5,000-enemy cohorts: approximately 1.99 ms per measured step.
+  - 2,000 live enemies: approximately 1.08 ms average fixed simulation step.
+  - 5,000 live enemies: approximately 2.46 ms average fixed simulation step.
+  - 50,000 enemies streamed through ten bounded 5,000-enemy cohorts: approximately 1.77 ms per measured step.
 - Browser acceptance verified the briefing profile picker, starting/remaining supply, two-click placement, visible directional sectors, reload persistence, and switching to another map and back. The broader release checklist remains in `PR_DESCRIPTION.md`.
 - Campaign pacing is estimated at roughly 8–10 minutes per successful run, with 636–2,244 authored enemies depending on the mission.
 
@@ -61,7 +65,7 @@ We evaluated general spatial-tree libraries but did not add one. Flatbush is exp
 ## Known limitations
 
 - Progress, custom maps, tuning, settings, and defense layouts use browser `localStorage`; there is no account system, cloud synchronization, or server backend.
-- Visuals are deliberately code-native low-poly prototypes. There is no production animation, rigging, cinematic, localization, or external art pipeline yet.
+- Visuals remain code-native low-poly prototypes. Procedural locomotion and event animation are present, but there is no skeletal rigging, cinematic, localization, or external production-art pipeline yet.
 - Audio is procedurally generated rather than a final mastered soundtrack/effects package.
 - The main Three.js bundle is large and Vite reports a chunk-size warning. Runtime performance is good in current stress tests, but route-level code splitting is still worthwhile.
 - Balance numbers are designed for fast iteration and need broader human playtesting across all difficulties and research combinations.
@@ -80,7 +84,7 @@ We evaluated general spatial-tree libraries but did not add one. Flatbush is exp
 ### Content and feel
 
 1. Add more Commander Doctrines, secondary-objective types, challenge modifiers, and map decorations.
-2. Improve tower firing animation, projectile arcs, orc locomotion, fortress damage states, and boss presentation.
+2. Refine the implemented firing/locomotion/effect timing with wider human playtesting and final art/audio assets.
 3. Add touch controls, remappable keys, and controller support.
 4. Add production sound design, music, mixing, and more complete accessibility options.
 5. Continue tuning upgrade costs, firing sectors, tower profile tradeoffs, wave pacing, and endless scaling.

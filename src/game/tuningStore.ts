@@ -2,7 +2,7 @@ import { DEFAULT_TUNING, TOWER_KINDS } from './config'
 import type { ActivePowerKind, DamageType, EnemyKind, GameTuning } from './types'
 
 const TUNING_KEY = 'orcfall-command-tuning'
-const TUNING_VERSION = 4
+const TUNING_VERSION = 5
 const ENEMY_KINDS: readonly EnemyKind[] = ['grunt', 'runner', 'brute', 'shieldbearer', 'armored', 'shaman', 'banner', 'sapper', 'berserker', 'ogre']
 const DAMAGE_TYPES: readonly DamageType[] = ['ballistic', 'explosive', 'fire', 'cryo', 'electric', 'energy']
 const POWER_KINDS: readonly ActivePowerKind[] = ['strafe', 'barrage', 'cryoBeam', 'nuke', 'orbitalLaser', 'repair']
@@ -99,8 +99,12 @@ function cloneDefaults(): GameTuning {
 function withOptionalDefaults(tuning: GameTuning): GameTuning {
   const next = structuredClone(tuning)
   next.powers ??= structuredClone(DEFAULT_TUNING.powers)
-  for (const kind of TOWER_KINDS) next.towers[kind].firingArcDegrees ??= DEFAULT_TUNING.towers[kind].firingArcDegrees
+  for (const kind of TOWER_KINDS) {
+    next.towers[kind].firingArcDegrees ??= DEFAULT_TUNING.towers[kind].firingArcDegrees
+    next.towers[kind].knockbackForce ??= DEFAULT_TUNING.towers[kind].knockbackForce
+  }
   next.towers.cannon.projectileSpeed ??= DEFAULT_TUNING.towers.cannon.projectileSpeed
+  next.towers.rocket.projectileSpeed ??= DEFAULT_TUNING.towers.rocket.projectileSpeed
   next.towers.mortar.projectileSpeed ??= DEFAULT_TUNING.towers.mortar.projectileSpeed
   next.towers.mortar.minRange ??= DEFAULT_TUNING.towers.mortar.minRange
   return next

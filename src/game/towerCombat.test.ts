@@ -96,6 +96,8 @@ describe('tower combat contracts', () => {
     step(state, [tower('rocket')], rules)
 
     expect(tooClose.health).toBe(DEFAULT_TUNING.enemies.ogre.health)
+    expect(primary.health).toBe(DEFAULT_TUNING.enemies.ogre.health)
+    step(state, [], rules, 0.6)
     expect(primary.health).toBeLessThan(DEFAULT_TUNING.enemies.ogre.health)
     expect(nearby.health).toBeLessThan(DEFAULT_TUNING.enemies.ogre.health)
   })

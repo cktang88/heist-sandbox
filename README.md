@@ -27,7 +27,8 @@ npm run build
 7. Live tuning for every tower, enemy, and battlefield power, plus unranked per-type spawning, fortress invulnerability, stress hordes, and quick restart.
 8. Versioned saves, a separate persistent defense layout for every map and challenge, campaign/challenge progress, medals, a Commander Doctrine passive slot, pause, 1×/2× speed, and persistent accessibility settings including screen shake.
 9. Flow-field wall detours, overlapping horde streams, and unranked 2,000/5,000-enemy plus 50,000-total stream stress controls.
-10. Spatially indexed combat queries, interpolated instanced crowds, and pooled tracer rendering.
+10. Spatially indexed combat queries, interpolated instanced crowds, collision-safe force, and bounded projectile/particle/corpse pools.
+11. A forged field-command interface, wheel/button camera zoom, tower recoil and muzzle flashes, ballistic shell arcs, marching orcs, persistent fortress damage, and marked Ogre bosses.
 
 ## Controls
 
@@ -38,6 +39,7 @@ npm run build
 - Click a placed defense to move, sell, or change targeting; `R` rotates walls, and Space starts.
 - On corridor maps, towers belong off the road and walls belong on it. On open-field maps, towers sit on raised platforms while orcs flood around them.
 - Battle: Space pauses, 1×/2× changes speed, drag Strafe/Cryo lanes, point other ready powers, and guide an active Orbital with the pointer. `REPAIR` fires immediately and has finite charges.
+- Camera: use the mouse wheel or the lower-right `− / FIT / +` controls. Zoom changes rendering only; the full battlefield continues simulating off-screen.
 - Backtick opens live tuning.
 - `MAP FORGE` opens the lane, polygon, terrain, wave, and JSON editor during setup.
 - `SETTINGS` controls UI scale, screen shake, reduced flashes, focus-loss pause, and saved volume levels.

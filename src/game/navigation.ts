@@ -152,6 +152,19 @@ export function sampleNavigation(field: NavigationField, point: Point): Navigati
   }
 }
 
+/** Exact grid lookup used by collision-safe impulses; unlike sampling it never snaps through a blocker. */
+export function isNavigationPointWalkable(field: NavigationField, point: Point): boolean {
+  return isNavigationPositionWalkable(field, point.x, point.z)
+}
+
+/** Coordinate form avoids allocating temporary points in the 5k-enemy movement loop. */
+export function isNavigationPositionWalkable(field: NavigationField, x: number, z: number): boolean {
+  const column = Math.floor((x - field.originX) / field.cellSize)
+  const row = Math.floor((z - field.originZ) / field.cellSize)
+  if (column < 0 || column >= field.columns || row < 0 || row >= field.rows) return false
+  return field.walkable[row * field.columns + column] === 1
+}
+
 export function navigationTopologyKey(map: MapDefinition, walls: readonly NavigationWall[], options: NavigationOptions = DEFAULT_NAVIGATION_OPTIONS): string {
   const mapShape = [map.id, map.width, map.depth, map.pathWidth,
     map.navigationMode ?? 'corridor',

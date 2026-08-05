@@ -8,13 +8,13 @@ This matrix records the deterministic unit coverage for the combat rules. It tes
 |---|---|
 | Rivet Gun | Single-target damage, damage credit, firing-sector acceptance/rejection, armor-piercing behavior |
 | Heavy Gun | Sustained damage and firing-sector acceptance/rejection |
-| Blast Cannon | Delayed projectile and clustered splash damage |
-| Rocket Battery | Minimum-range dead zone and splash damage |
+| Blast Cannon | Delayed arcing projectile, clustered splash damage, and force |
+| Rocket Battery | Minimum-range dead zone, delayed arcing splash damage, and force |
 | Flame Thrower | Direct fire damage and continuing burn damage |
 | Cryo Projector | Slow, freeze charge, threshold, and freeze duration |
 | Tesla Coil | Chained targets and chain-gap termination |
 | Laser Lance | Same-target focus damage ramp |
-| Field Mortar | Minimum-range dead zone, delay, and wide splash |
+| Field Mortar | Minimum-range dead zone, high arc, wide splash, stun profile, and increased Concussion force |
 | Support Beacon | No direct attack, nearby buff, out-of-range rejection, and 360° aura |
 
 ## Facing, variants, and setup
@@ -47,6 +47,9 @@ The prototype does not currently give ordinary towers health; they are locked an
 | Leaks | Orc removed and leak/event counters increment exactly once |
 | Waves | Spawn count, survivor wait, wave advance, victory predicate, and result snapshot |
 | Walls | Health, damage, break/removal, rerouting, Sapper targeting, spikes, and break explosion |
+| Knockback | Caliber/profile force, shared heavy-unit resistance, decay, map bounds, wall tunnelling rejection, and blocked-corner sliding |
+| Visual budgets | Independent corpse/transient caps, newest-projectile retention, corpse density, and weapon-specific arc ordering |
+| Camera and fortress | Bounded zoom math, larger-map fit, and intact/worn/critical/ruined presentation thresholds |
 
 ## Main test files
 
@@ -61,5 +64,10 @@ The prototype does not currently give ordinary towers health; they are locked an
 - `src/game/layoutStore.test.ts`
 - `src/game/setupEditing.test.ts`
 - `src/game/upgrades.test.ts`
+- `src/game/knockback.test.ts`
+- `src/game/combatEffects.test.ts`
+- `src/components/CameraRig.test.ts`
+- `src/components/CombatEffects.test.ts`
+- `src/components/FortressDamageEffects.test.ts`
 
 The React pointer flow, drawn sector, reload behavior, and phase callbacks remain browser/integration behavior. Manual browser QA covers two-click anchor/aim, cancel and move flows, range/dead-zone readability, per-level restoration, starting a battle immediately, multiple enemy deaths and compactions, continued tower targeting, wave advancement, and absence of application console errors.

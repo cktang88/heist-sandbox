@@ -48,6 +48,8 @@ export type TowerStats = {
   attack: TowerAttack
   projectileSpeed?: number
   minRange?: number
+  /** Initial push speed applied by a hit. Zero keeps utility weapons steady. */
+  knockbackForce?: number
 }
 
 export type EnemyStats = {

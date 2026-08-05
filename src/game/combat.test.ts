@@ -39,6 +39,8 @@ describe('combat simulation', () => {
     farState.enemies.push(makeEnemy('brute', 702, 3, 0))
     farState.enemies[0].status.freezeRemaining = 10
     stepSimulation(farState, { ...context, towers: [rocket] }, 0.01)
+    expect(farState.enemies[0].health).toBe(DEFAULT_TUNING.enemies.brute.health)
+    stepSimulation(farState, { ...context, towers: [] }, 0.6)
     expect(farState.enemies[0].health).toBeLessThan(DEFAULT_TUNING.enemies.brute.health)
   })
 
@@ -585,14 +587,14 @@ describe('combat simulation', () => {
     nukeRules.powers.nuke.size = 4
     const state = createSimulation([], nukeRules)
     state.spawnTimer = 999
-    state.enemies.push(makeEnemy('brute', 754, 0.2, 0), makeEnemy('brute', 755, 3.8, 0))
+    state.enemies.push(makeEnemy('brute', 754, 0.93, 2.55), makeEnemy('brute', 755, 3.27, -0.18))
     state.enemies.forEach((enemy) => { enemy.status.freezeRemaining = 10 })
-    addPower(state, 756, 'nuke', { x: 0, z: 0 }, nukeRules)
+    addPower(state, 756, 'nuke', { x: 0.8, z: 2.7 }, nukeRules)
 
     stepSimulation(state, { ...context, rules: nukeRules }, 0.01)
     expect(state.enemies[0].health).toBeLessThan(state.enemies[1].health)
-    expect(state.enemies[0].x).toBeGreaterThan(0.2)
-    expect(state.enemies[1].x).toBeGreaterThan(3.8)
+    expect(state.enemies[0].x).toBeGreaterThan(0.93)
+    expect(state.enemies[1].x).toBeGreaterThan(3.27)
     expect(state.damageBySource.nuke).toBeGreaterThan(0)
   })
 

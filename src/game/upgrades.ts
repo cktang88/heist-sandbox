@@ -54,7 +54,10 @@ export const UPGRADE_BRANCHES: readonly UpgradeBranch[] = [
   ]},
   { id: 'explosives', name: 'Explosives', nodes: [
     n('explosives-01', 'Blast Cannon', 'Unlock the explosive cannon.', [25]),
-    n('explosives-02', 'High Explosive', '+10% cannon damage per rank.', [12, 20, 32], (t, r) => tower(t, 'cannon', { damage: t.towers.cannon.damage * power(1.1, r) })),
+    n('explosives-02', 'High Explosive', '+10% cannon damage and blast force per rank.', [12, 20, 32], (t, r) => tower(t, 'cannon', {
+      damage: t.towers.cannon.damage * power(1.1, r),
+      knockbackForce: (t.towers.cannon.knockbackForce ?? 0) * power(1.1, r),
+    })),
     n('explosives-03', 'Wide Bursts', '+8% cannon splash per rank.', [12, 20, 32], (t, r) => attack(t, 'cannon', 'splash', { radius: splash(t, 'cannon').radius * power(1.08, r) })),
     n('explosives-04', 'Hardened Propellant', '+20% cannon projectile speed per rank.', [10, 18, 28], (t, r) => tower(t, 'cannon', { projectileSpeed: (t.towers.cannon.projectileSpeed ?? 7) * power(1.2, r) })),
     rn('explosives-05', 'Cluster Shell', 'Cannon impacts release three secondary bomblets.', [35], (rules) => behaviorRules(rules, 'cannonClusterShells')),
@@ -83,7 +86,7 @@ export const UPGRADE_BRANCHES: readonly UpgradeBranch[] = [
     n('energy-01', 'Tesla Coil', 'Unlock the chaining Tesla Coil.', [30]), n('energy-02', 'Forked Current', '+1 chain target per rank.', [14, 24], (t, r) => attack(t, 'tesla', 'chain', { targets: chain(t).targets + r })), n('energy-03', 'Overvoltage', '+10% electric damage per rank.', [12, 20, 32], (t, r) => tower(t, 'tesla', { damage: t.towers.tesla.damage * power(1.1, r) })), rn('energy-04', 'Capacitor Shock', 'Tesla hits briefly stun chained targets.', [35], (rules) => behaviorRules(rules, 'teslaStun')), n('energy-05', 'Laser', 'Unlock the continuous Laser and Orbital Laser power.', [55]), rn('energy-06', 'Piercing Beam', 'Laser beams pierce up to three enemies behind the target.', [65], (rules) => behaviorRules(rules, 'piercingLaser')),
   ]},
   { id: 'artillery', name: 'Artillery', nodes: [
-    n('artillery-01', 'Mortar', 'Unlock the arcing mortar.', [30]), n('artillery-02', 'Larger Charges', '+10% mortar splash per rank.', [12, 20, 32], (t, r) => attack(t, 'mortar', 'splash', { radius: splash(t, 'mortar').radius * power(1.1, r) })), n('artillery-03', 'Autoloader', '+8% mortar fire rate per rank.', [12, 20, 32], (t, r) => tower(t, 'mortar', { shotsPerSecond: t.towers.mortar.shotsPerSecond * power(1.08, r) })), n('artillery-04', 'Close Support', '-20% mortar minimum range per rank.', [10, 18, 28], (t, r) => tower(t, 'mortar', { minRange: (t.towers.mortar.minRange ?? 2.4) * power(0.8, r) })), rn('artillery-05', 'Concussion Shell', 'Mortar blasts briefly stun survivors.', [35], (rules) => behaviorRules(rules, 'mortarStun')), rn('artillery-06', 'Cluster Mortar', 'Mortar impacts release three secondary bomblets.', [55], (rules) => behaviorRules(rules, 'mortarClusterShells')),
+    n('artillery-01', 'Mortar', 'Unlock the arcing mortar.', [30]), n('artillery-02', 'Larger Charges', '+10% mortar splash per rank.', [12, 20, 32], (t, r) => attack(t, 'mortar', 'splash', { radius: splash(t, 'mortar').radius * power(1.1, r) })), n('artillery-03', 'Autoloader', '+8% mortar fire rate per rank.', [12, 20, 32], (t, r) => tower(t, 'mortar', { shotsPerSecond: t.towers.mortar.shotsPerSecond * power(1.08, r) })), n('artillery-04', 'Close Support', '-20% mortar minimum range per rank.', [10, 18, 28], (t, r) => tower(t, 'mortar', { minRange: (t.towers.mortar.minRange ?? 2.4) * power(0.8, r) })), rn('artillery-05', 'Concussion Shell', 'Mortar blasts briefly stun and strongly push survivors.', [35], (rules) => behaviorRules(rules, 'mortarStun')), rn('artillery-06', 'Cluster Mortar', 'Mortar impacts release three secondary bomblets.', [55], (rules) => behaviorRules(rules, 'mortarClusterShells')),
   ]},
   { id: 'command', name: 'Command', nodes: [
     n('command-01', 'Supply Requisition', '+15 starting supply per rank.', [8, 16, 26], (t, r) => ({ ...t, budget: t.budget + 15 * r })),

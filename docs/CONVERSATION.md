@@ -476,3 +476,13 @@ Asked for directional weapon coverage. During setup every tower's reach should r
 ## 88. Codex
 
 Implemented the combined preparation/progression layer. The architecture review found and corrected destructive cross-level layout filtering, stale aim cancellation, the Support preview radius, and a full-horde Chain Freeze scan. Each level now preserves its tower/power loadout, positions, facing, targeting, starting walls, and profile choices; over-budget layouts stay visible and editable instead of being deleted. Browser QA verified the variant picker, supply display, two-click sector placement, reload restoration, and switching maps away and back.
+
+## 89. User request summary
+
+Asked for a restrained game-feel pass: better tower firing, projectile arcs, orc locomotion, fortress damage, bosses, corpses, and performant particles. Knockback should reflect caliber, explosions, upgrades, and variants without ever pushing an orc through walls. Camera zoom and camera-relative drawing must remain robust while the complete battle continues off-screen. Requested maintainable reusable modules instead of adding every effect to the scene file.
+
+Also asked for a UI with personality rather than generic web styling, providing references with forged frames, parchment panels, banners, strong selection states, and illustrated game interfaces.
+
+## 90. Codex
+
+Implemented separate camera, combat-effect, fortress-damage, and knockback modules. Effects use fixed instanced pools rather than an ECS; corpses keep an independent budget. Towers recoil and flash, Cannon/Rocket/Mortar rounds arc, orcs use procedural stride and bob, fortress damage persists in stages, and Ogres have a boss ring and health bar. Collision-tested force stops at navigation blockers and is driven by tower/upgrades/profile data. The interface now uses an original forged command-board visual language. Browser QA covered briefing, deployment, battle, zoom controls, corpses, and a 2,000-orc stress spawn.

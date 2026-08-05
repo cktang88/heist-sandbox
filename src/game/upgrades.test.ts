@@ -23,6 +23,11 @@ describe('gunner upgrades', () => {
     expect(tuning.towers.gunner.range).toBeCloseTo(DEFAULT_TUNING.towers.gunner.range * 1.07)
   })
 
+  it('High Explosive improves cannon force as well as damage', () => {
+    const tuning = applyUpgrades(DEFAULT_TUNING, { 'explosives-01': 1, 'explosives-02': 1 })
+    expect(tuning.towers.cannon.knockbackForce).toBeGreaterThan(DEFAULT_TUNING.towers.cannon.knockbackForce ?? 0)
+  })
+
   it('defines ten complete branches with sixty unique nodes', () => {
     expect(UPGRADE_BRANCHES).toHaveLength(10)
     expect(UPGRADE_BRANCHES.every((branch) => branch.nodes.length === 6)).toBe(true)
