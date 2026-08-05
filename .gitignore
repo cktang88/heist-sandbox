@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.playwright-cli/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+!.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
