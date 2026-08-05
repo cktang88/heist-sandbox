@@ -28,7 +28,7 @@ The design pillars are:
 2. **Plan first, react later.** Towers are placed only during preparation. Combat decisions come from limited active powers.
 3. **Readable spectacle.** Tracers, explosions, ice, knockback, and corpses are dramatic without hiding the route, base, or cooldowns.
 4. **Every run matters.** Win or lose, the player earns permanent medals.
-5. **Large but understandable growth.** A 60-node tree unlocks new tools and improves clear stats.
+5. **Large but understandable growth.** An 83-node tree separates tool, profile, doctrine, power, and stat decisions.
 6. **Fast iteration.** Maps and balance values are editable through built-in developer tools.
 
 ## 2. Run structure
@@ -47,7 +47,7 @@ Tower placement uses two clicks:
 2. Move the pointer to aim the weapon. Its full distance sector, inner dead zone when relevant, and facing follow the pointer.
 3. Click again to lock the facing. A weapon can acquire targets only within half of its firing angle to either side of that direction.
 
-All placed towers keep a faint range sector visible during preparation, with the selected tower and current preview emphasized. Weapon arcs are normally 30–60 degrees; Support Beacon remains a 360-degree aura. Legacy layouts without a facing receive a deterministic direction toward the nearest fortress endpoint.
+All placed towers keep a faint range sector visible during preparation, with the selected tower and current preview emphasized. Weapon arcs are normally 30–60 degrees; Support Beacon remains a 360-degree aura. Legacy layouts without a facing receive a deterministic direction toward the nearest fortress endpoint. Tower bodies and previews use a compact half-scale footprint; spacing follows that visible footprint with slight overlap tolerance and smaller road, terrain, platform-edge, and map-edge buffers.
 
 Rules:
 
@@ -66,25 +66,28 @@ Orcs enter continuously in waves. Each spawn tick emits a road-width rank rather
 
 Temporary walls are the one construction exception: they are an equipped combat power with charges, cooldown, health, and a lifetime. If a wall creates a reasonable detour, orcs flow around it; otherwise nearby orcs attack it.
 
-Combat feedback is layered but restrained. A tower recoils and flashes at the muzzle, a heavy projectile follows a weapon-specific arc, the impact emits a bounded spark burst and force, and a killed orc leaves a readable corpse. These are instanced pools with fixed budgets rather than independent React or ECS entities. Corpses have a separate history budget so rapid gunfire cannot erase them prematurely.
+Combat feedback is layered but restrained. A tower recoils and flashes at the muzzle, and its pooled tracer begins at the same measured barrel-tip position. Ballistic shots use bright yellow/orange lines; energy and status weapons retain readable family colors. A heavy projectile follows a weapon-specific arc, the impact emits a bounded spark burst and force, and a killed orc leaves a readable corpse. These are instanced pools with fixed budgets rather than independent React or ECS entities. Corpses have a separate history budget so rapid gunfire cannot erase them prematurely.
 
 Knockback is an impulse that decays over several fixed steps. Its strength comes from weapon data, blast falloff, upgrades, and variants; heavy units and Ogres resist it. Each impulse advances in small navigation-grid-tested steps and may slide along a blocker, but it cannot tunnel through a terrain polygon, map boundary, or temporary wall.
 
 ### 2.4 Results
 
-Show victory/defeat/ordered retreat, survival time, waves, kills, leaks, fortress health, damage by source, medals earned, best run, and newly available upgrades. Victory and defeat award medals. Surrender preserves medals earned from kills and cleared waves, but grants no free minimum medal, victory bonus, or intact-objective bonus.
+Show victory/defeat/ordered retreat, survival time, waves, kills, leaks, fortress health, damage by source, Command Medals earned, best run, and newly available upgrades. Campaign progress awards one base medal per percentage point of the map's total horde eliminated. A map's first successful clear adds 50 medals. Once that map has been completed, all later elimination and objective rewards from it are paid at 50%; the one-time clear bonus is not repeated. Difficulty bonuses are calculated after those adjustments. Surrender preserves elimination medals already earned, but grants no first-clear or intact-objective bonus.
 
 Example medal formula:
 
 ```text
-medals = max(1, floor(kills / 4)) + wavesCleared * 4 + victoryBonus + difficultyBonus
+eliminationPercent = floor(100 * enemiesKilled / totalMapEnemies)
+firstClearMedals = wonForFirstTime ? 50 : 0
+replayRate = mapWasAlreadyCompleted ? 0.5 : 1
+medals = floor((eliminationPercent + objectiveBonus) * replayRate) + firstClearMedals + difficultyBonus
 ```
 
-Repeatedly farming an early map receives diminishing bonus rewards but never zero rewards.
+A full first clear pays 150 base medals before objectives or difficulty, while a full replay pays 50. That scale normally buys at least two early or mid-cost research upgrades after a level, keeping each result meaningful.
 
 ## 3. Battlefield rules
 
-Each map contains one or more spawn areas, a fortress, walkable terrain, buildable terrain or pads, impassable terrain, and optional secondary objectives. Corridor maps constrain movement around authored route lines. Open-field maps make the whole field walkable except for arbitrary solid polygons: platform polygons accept towers while still blocking orcs, and blocker polygons reject both.
+Each map contains one or more spawn areas, a fortress, walkable terrain, buildable terrain or pads, impassable terrain, and optional secondary objectives. Corridor maps constrain ordinary movement to the painted road; a narrow local shoulder opens only beside a temporary wall so orcs can detour around it. Crowd separation is checked against that same navigation field, so a dense horde cannot be pushed into the grass. Open-field maps make the whole field walkable except for arbitrary solid polygons: platform polygons accept towers while still blocking orcs, and blocker polygons reject both.
 
 For the first few hundred enemies, a polyline route is sufficient. At larger scale, maps use a navigation grid and a flow field pointing toward the fortress. Nearby enemies apply small separation forces so the horde spreads naturally. Temporary walls trigger a rate-limited flow-field rebuild. An invalid full blockade causes orcs to attack the blocking wall.
 
@@ -163,7 +166,7 @@ Power targeting always shows its area and whether the target is valid. Cooldown-
 
 ## 8. Content maps
 
-1. **The Green March:** one broad bending route and open central ground. Its five teaching waves introduce Grunts, Runners, Shieldbearers, then Brutes without lane-specific pressure.
+1. **The Green March:** one broad bending route and open central ground. Its five short teaching waves contain 107 enemies, delivered in three-wide ranks, and introduce Grunts, Runners, Shieldbearers, then Brutes without lane-specific pressure. Enemy fortress damage is reduced on this operation; four legally placed, well-aimed starter Rivet Guns can complete it.
 2. **Twin Fork:** two mirrored spawn lanes merge late. Every wave sends authored pairs down both lanes, rewarding splash coverage before adding Sappers and Brutes.
 3. **Frozen Pass:** one narrow switchback through icefall boulders with four marked firing pockets. Dense Shieldbearer, Armored, Brute, and Shaman waves test focused choke defense.
 4. **Ash Fields:** one unusually wide route crosses scattered volcanic rubble. Armored Orcs screen overlapping Sapper, Berserker, Banner, and Brute pressure.
@@ -174,24 +177,24 @@ Campaign missions own distinct five-wave sets; they do not all reuse the standar
 
 The built-in Map Forge edits the same `MapDefinition` used by battle code. It switches between corridor and open-field navigation; creates ordered spawn/fortress anchor routes; draws, moves, edits, and deletes platform or blocker polygons; and adds terrain stamps, build zones, a defendable supply-cache objective, decorations, wave sets, validation, JSON import/export, and a saved map library.
 
-## 9. Meta progression: 60-node branching graph
+## 9. Meta progression: 83-node branching graph
 
-Ten branches contain six nodes each. Save data stores stable node IDs and ranks, never derived totals. Research is a graph: after a tower or power unlock, its directly related stat and variant nodes fan out. A player can choose a desired variant before buying unrelated damage, rate, or range improvements. The Strategic branch has separate roots for Barrage, Cryo Beam, and Nuke, each with its own follow-up node. The interface draws the graph and marks permanent `TOWER`, `POWER`, `WALL`, and `VARIANT` unlocks directly on their cards.
+Ten branches contain 83 stable cards. Save data stores node IDs and ranks, never derived totals. Each card has one clear role: `STAT`, `TOWER`, `VARIANT`, `POWER`, `WALL`, or `DOCTRINE`. A stat card never also unlocks a profile. Every special profile has its own visually distinct card, and all incoming arrow requirements must be complete; profile and doctrine parents normally require maximum rank. Heavy Gun, Rocket, and Laser each have their own damage/rate or guidance/focus stat paths instead of borrowing another weapon's upgrades.
 
-| IDs | Branch | Nodes in order |
-|---|---|---|
-| 1–6 | Gunner | Rivet Gun root; damage; fire rate/Rapid Feed; range/arc; armor piercing variants; Heavy Gun/Siege Feed |
-| 7–12 | Explosives | Cannon; explosive damage; splash; projectile speed; cluster shell; Rocket Battery |
-| 13–18 | Fire | Flamethrower; burn duration; fire damage; cone width; sticky fuel; spread on death |
-| 19–24 | Cryo | Cryo Projector; slow; freeze buildup; freeze duration; brittle; chain freeze |
-| 25–30 | Energy | Tesla; chain target; electric damage; stun; Laser; piercing beam |
-| 31–36 | Artillery | Mortar; splash; fire rate; lower minimum range; stun shell; cluster mortar |
-| 37–42 | Command | supply/Forward Supply; refund/Lean Logistics; fourth tower slot/Rapid Response; Support Beacon; aura; fortress shield/Bastion Reserve |
-| 43–48 | Air Support | Strafe; extra charge; lane width; damage; cooldown; armor break |
-| 49–54 | Strategic | Barrage; extra salvo; Cryo Beam; frozen ground; Nuke; fallout |
-| 55–60 | Fortification | Temporary walls; health; charge; length; spikes; break explosion |
+| Branch | Cards | Major paths |
+|---|---:|---|
+| Gunner | 11 | Rivet stats → two Rivet profiles; Heavy Gun → Heavy Caliber/Feed → two Heavy profiles |
+| Explosives | 11 | Cannon stats → two Cannon profiles; Rocket → Guidance/Loader → two Rocket profiles |
+| Fire | 7 | Flame stats → Napalm and Funeral Pyre profiles |
+| Cryo | 6 | Slow/freeze stats → Brittle and Chain-Freeze profiles |
+| Energy | 11 | Tesla stats → Overcharge/Stun; Laser → Focus/Cycling → Piercing/Prism; Orbital Laser power |
+| Artillery | 6 | Mortar stats → Concussion and Cluster profiles |
+| Command | 13 | Supply, logistics, slots, Support, Repair, two Support profiles, four doctrine unlocks |
+| Air Support | 6 | Strafe power and charge/width/damage/cooldown/armor-break ranks |
+| Strategic | 6 | Separate Barrage, Cryo Beam, and Nuke chains |
+| Fortification | 6 | Temporary walls and health/charge/length/spike/break ranks |
 
-Major unlocks cost more than small stat nodes. Prerequisites and permanent unlock badges remain visible. Both special profiles for every tower are attached to existing nodes without changing the 60 stable IDs. Early development allows a free full respec. A versioned save migration protects progress when balance changes.
+The interface measures actual card positions and draws parent-to-child right-angle arrows, including multiple-parent and depth-four links. It does not repeat visible `REQUIRES X` prose. Standard weapon profiles remain unchanged by profile research; their special mechanics apply only when that profile is equipped. Early development allows a free full respec. Save version 8 migrates every unlock formerly bundled into a mixed card.
 
 ## 10. Game modes
 
@@ -269,7 +272,7 @@ At several thousand enemies, replace one-render-object-per-orc with `InstancedMe
 ### Current implementation status
 
 - Stages 1–7 are complete and playable.
-- Stage 8 includes the full tower/enemy roster, six maps, six active powers plus walls, 60 implemented research nodes, sequential campaign unlocks, endless scaling, and six challenges.
+- Stage 8 includes the full tower/enemy roster, six maps, six active powers plus walls, the original 60 implemented research nodes, sequential campaign unlocks, endless scaling, and six challenges.
 - Stage 9 includes flow-field wall detours, spatially indexed combat queries, interpolated instanced crowds, adaptive crowd detail, pooled tracers/effects/corpses, independently scheduled overlapping wave groups, 2,000/5,000-live and 50,000-total stream stress controls, generated combat audio, saved accessibility settings, UI scaling, reduced-flash visuals, contextual onboarding, and campaign pacing estimated at 8–10 minutes. Balance remains easy to iterate through tuning and Map Forge.
 - The current preparation/progression layer adds branching research, permanent unlock badges, per-level profile selection, persistent map/challenge layouts, two-click tower facing, visible range sectors, full setup refunds, and firing-angle tuning.
 
@@ -307,7 +310,7 @@ Cannon, Flamethrower, Cryo; Runner, Brute, Shieldbearer; second map; status effe
 
 ### Stage 8 — Full arsenal and meta game
 
-All towers, orcs, powers, maps, variants, full 60-node tree, difficulty tiers, endless, challenges.
+All towers, orcs, powers, maps, variants, full 83-node tree, difficulty tiers, endless, challenges.
 
 ### Stage 9 — Scale and polish
 
@@ -319,7 +322,7 @@ Add arbitrary polygon platforms/blockers, full-field flow navigation, a sixth 2,
 
 ### Stage 11 — Directional arsenal and saved deployments
 
-Turn the 60-node research checklist into a branching graph, expose all tower/power/profile unlocks, add Standard plus two distinct profiles for each tower, persist one deployment per map or challenge, clarify supply/refunds, and use two-click placement to lock a visible firing sector.
+Turn the original research checklist into an 83-node branching graph, expose separate tower/power/profile/doctrine unlocks, add Standard plus two distinct profiles for each tower, persist one deployment per map or challenge, clarify supply/refunds, and use two-click placement to lock a visible firing sector.
 
 ## 16. Acceptance criteria
 

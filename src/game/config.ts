@@ -3,7 +3,7 @@ import { createEmptyDamageBySource } from './damageSources'
 export { DEFAULT_MAP } from './maps'
 
 export const BUILD = {
-  minSpacing: 1.35,
+  minSpacing: 0.55,
   items: {
     gunner: { label: 'Rivet Gun', hint: 'Rapid • single target' },
     heavyGun: { label: 'Heavy Gun', hint: 'Spins up • narrow cone' },

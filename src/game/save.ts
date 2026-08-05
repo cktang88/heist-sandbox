@@ -1,11 +1,11 @@
-import { sanitizeUpgradeRanks, STARTER_UPGRADES, type UpgradeRanks } from './upgrades'
+import { migrateLegacyUpgradeUnlocks, sanitizeUpgradeRanks, STARTER_UPGRADES, type UpgradeRanks } from './upgrades'
 import { CAMPAIGN_MISSIONS, CHALLENGES } from './runs'
 import { getDifficulty, isDifficultyTier } from './difficulty'
 import type { DifficultyTier } from './types'
 import { normalizeCommanderDoctrine, type CommanderDoctrine } from './loadout'
 
 const SAVE_KEY = 'orcfall-command-save'
-const SAVE_VERSION = 7
+const SAVE_VERSION = 8
 
 export type RunResult = {
   mode: 'campaign' | 'endless' | 'challenge' | 'sandbox'
@@ -17,6 +17,7 @@ export type RunResult = {
   wavesCleared: number
   elapsedSeconds: number
   baseHealth: number
+  totalEnemies?: number
   rewardMultiplier?: number
   objectiveSurvived?: boolean
   objectiveBonusMedals?: number
@@ -60,6 +61,7 @@ export function loadSave(): SaveData {
     const parsed: unknown = JSON.parse(stored)
     if (!parsed || typeof parsed !== 'object') return EMPTY_SAVE
     const candidate = parsed as Record<string, unknown>
+    const storedVersion = typeof candidate.version === 'number' && Number.isFinite(candidate.version) ? candidate.version : 0
     return {
       ...EMPTY_SAVE,
       medals: safeNumber(candidate.medals),
@@ -72,7 +74,10 @@ export function loadSave(): SaveData {
       bestEndlessScore: safeNumber(candidate.bestEndlessScore),
       selectedDifficulty: isDifficultyTier(candidate.selectedDifficulty) ? candidate.selectedDifficulty : 'standard',
       selectedDoctrine: normalizeCommanderDoctrine(candidate.selectedDoctrine),
-      upgrades: sanitizeUpgradeRanks(candidate.upgrades), version: SAVE_VERSION,
+      upgrades: storedVersion < SAVE_VERSION
+        ? migrateLegacyUpgradeUnlocks(sanitizeUpgradeRanks(candidate.upgrades))
+        : sanitizeUpgradeRanks(candidate.upgrades),
+      version: SAVE_VERSION,
     }
   } catch {
     return EMPTY_SAVE
@@ -113,20 +118,30 @@ export type RunReward = {
   victoryBonus: number
   difficultyBonus: number
   objectiveBonus: number
+  eliminationPercent: number | null
+  replayMultiplier: 1 | 0.5
   total: number
 }
 
 export function calculateRunReward(save: SaveData, result: RunResult): RunReward {
-  const repeatedCampaignWin = result.mode === 'campaign' && result.won && result.missionId !== undefined && save.completedMissionIds.includes(result.missionId)
-  const victoryBonus = result.won ? repeatedCampaignWin ? 6 : 20 : 0
-  const baseProgress = Math.max(result.surrendered ? 0 : 1, Math.floor(result.kills / 4)) + result.wavesCleared * 4
+  const campaign = result.mode === 'campaign'
+  const previouslyCompleted = campaign && result.missionId !== undefined && save.completedMissionIds.includes(result.missionId)
+  const replayMultiplier = previouslyCompleted ? 0.5 : 1
+  const enemyTotal = campaign && result.totalEnemies !== undefined && result.totalEnemies > 0 ? result.totalEnemies : null
+  const eliminationPercent = enemyTotal !== null
+    ? Math.floor(Math.min(1, Math.max(0, result.kills) / enemyTotal) * 100)
+    : null
+  const legacyProgress = Math.max(result.surrendered ? 0 : 1, Math.floor(result.kills / 4)) + result.wavesCleared * 4
   const rewardMultiplier = Math.min(5, Math.max(0.25, result.rewardMultiplier ?? 1))
-  const progressMedals = baseProgress > 0 ? Math.max(1, Math.floor(baseProgress * rewardMultiplier)) : 0
-  const objectiveBonus = !result.surrendered && result.objectiveSurvived ? Math.max(0, Math.floor(result.objectiveBonusMedals ?? 0)) : 0
+  const unscaledProgress = eliminationPercent ?? (legacyProgress > 0 ? Math.max(1, Math.floor(legacyProgress * rewardMultiplier)) : 0)
+  const progressMedals = Math.floor(unscaledProgress * replayMultiplier)
+  const victoryBonus = result.won && !result.surrendered ? campaign ? previouslyCompleted ? 0 : 50 : 20 : 0
+  const unscaledObjectiveBonus = !result.surrendered && result.objectiveSurvived ? Math.max(0, Math.floor(result.objectiveBonusMedals ?? 0)) : 0
+  const objectiveBonus = Math.floor(unscaledObjectiveBonus * replayMultiplier)
   const earnsDifficultyBonus = result.mode === 'campaign' || result.mode === 'endless'
   const rate = earnsDifficultyBonus ? getDifficulty(result.difficulty ?? 'standard').medalBonusRate : 0
   const difficultyBonus = Math.floor((progressMedals + victoryBonus + objectiveBonus) * rate)
-  return { progressMedals, victoryBonus, objectiveBonus, difficultyBonus, total: progressMedals + victoryBonus + objectiveBonus + difficultyBonus }
+  return { progressMedals, victoryBonus, objectiveBonus, difficultyBonus, eliminationPercent, replayMultiplier, total: progressMedals + victoryBonus + objectiveBonus + difficultyBonus }
 }
 
 export function calculateEndlessScore(result: Pick<RunResult, 'wavesCleared' | 'kills' | 'elapsedSeconds' | 'baseHealth'>): number {

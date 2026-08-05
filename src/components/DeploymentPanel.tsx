@@ -18,6 +18,8 @@ type DeploymentPanelProps = {
   movingPlacement: Placement | null
   canStart: boolean
   ranked: boolean
+  unrankedReason: string | null
+  canRestoreRanked: boolean
   onSelectTool: (tool: BuildTool) => void
   onSellSelected: () => void
   onMoveSelected: () => void
@@ -25,6 +27,7 @@ type DeploymentPanelProps = {
   onUndo: () => void
   onClear: () => void
   onStart: () => void
+  onRestoreRanked: () => void
 }
 
 export function DeploymentPanel(props: DeploymentPanelProps) {
@@ -66,7 +69,11 @@ export function DeploymentPanel(props: DeploymentPanelProps) {
       </div>
       {!props.canStart && <p className="panel-note">Place at least one weapon tower within the supply limit.</p>}
       {props.placementCount > 0 && <p className="panel-note">UNDO, CLEAR, and SELL restore 100% of setup costs.</p>}
-      {!props.ranked && <p className="panel-note unranked-note">DEV/SANDBOX RUN · PROGRESSION DISABLED</p>}
+      {!props.ranked && <section className="progression-lock-notice">
+        <strong>NO COMMAND MEDALS THIS RUN</strong>
+        <span>{props.unrankedReason}</span>
+        {props.canRestoreRanked && <button className="secondary-button" onClick={props.onRestoreRanked}>RESTORE RANKED SETTINGS</button>}
+      </section>}
     </aside>
   )
 }

@@ -2,15 +2,17 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import { Color, Object3D, type InstancedMesh } from 'three'
 import { MAX_CORPSE_VISUALS, MAX_TRANSIENT_VISUALS, type SimulationState } from '../game/combat'
+import { TOWER_KINDS } from '../game/config'
 import type { GameSettings } from '../game/settings'
+import { getTowerMuzzle } from '../game/towerMuzzle'
+import type { TowerKind } from '../game/types'
 
 const MAX_TRACERS = 2048
 const MAX_PARTICLES = 512
 const CORPSE_LIMIT = { off: 0, low: 64, high: MAX_CORPSE_VISUALS } as const
-const TRACER_COLORS = {
-  cryo: new Color('#8ee8f2'), flamethrower: new Color('#ff6637'), cannon: new Color('#ffb14f'),
-  rocket: new Color('#ef7c45'), mortar: new Color('#e9b36b'), default: new Color('#ffe585'),
-}
+const TRACER_COLORS = Object.fromEntries(
+  TOWER_KINDS.map((kind) => [kind, new Color(getTowerMuzzle(kind).color)])
+) as Record<TowerKind, Color>
 const CORPSE_COLORS = {
   ogre: new Color('#35452b'), brute: new Color('#304027'), runner: new Color('#435638'), default: new Color('#304027'),
 }
@@ -22,6 +24,8 @@ export function ProjectilePool({ simulation }: { simulation: SimulationState }) 
   const beams = useRef<InstancedMesh>(null)
   const shells = useRef<InstancedMesh>(null)
   const dummy = useMemo(() => new Object3D(), [])
+  const beamColors = useMemo(() => new Float32Array(MAX_TRACERS * 3).fill(1), [])
+  const shellColors = useMemo(() => new Float32Array(MAX_TRACERS * 3).fill(1), [])
   useFrame(() => {
     if (!beams.current || !shells.current) return
     let beamCount = 0
@@ -37,7 +41,7 @@ export function ProjectilePool({ simulation }: { simulation: SimulationState }) 
       if (tracer.arcHeight > 0 && shellCount < MAX_TRACERS) {
         dummy.position.set(
           tracer.from.x + dx * progress,
-          0.72 + 4 * progress * (1 - progress) * tracer.arcHeight,
+          tracer.fromY + (tracer.toY - tracer.fromY) * progress + 4 * progress * (1 - progress) * tracer.arcHeight,
           tracer.from.z + dz * progress,
         )
         dummy.rotation.set(0, -Math.atan2(dz, dx), progress * 5)
@@ -49,7 +53,7 @@ export function ProjectilePool({ simulation }: { simulation: SimulationState }) 
         shellCount += 1
       } else if (beamCount < MAX_TRACERS) {
         const fade = Math.max(0.15, Math.min(1, tracer.life / tracer.duration))
-        dummy.position.set((tracer.from.x + tracer.to.x) / 2, 0.65, (tracer.from.z + tracer.to.z) / 2)
+        dummy.position.set((tracer.from.x + tracer.to.x) / 2, (tracer.fromY + tracer.toY) / 2, (tracer.from.z + tracer.to.z) / 2)
         dummy.rotation.set(0, -Math.atan2(dz, dx), 0)
         dummy.scale.set(length, fade, fade)
         dummy.updateMatrix()
@@ -63,9 +67,11 @@ export function ProjectilePool({ simulation }: { simulation: SimulationState }) 
   })
   return <>
     <instancedMesh ref={beams} args={[undefined, undefined, MAX_TRACERS]} frustumCulled={false}>
-      <boxGeometry args={[1, 0.035, 0.035]} /><meshBasicMaterial vertexColors />
+      <instancedBufferAttribute attach="instanceColor" args={[beamColors, 3]} />
+      <boxGeometry args={[1, 0.035, 0.035]} /><meshBasicMaterial vertexColors toneMapped={false} />
     </instancedMesh>
     <instancedMesh ref={shells} args={[undefined, undefined, MAX_TRACERS]} frustumCulled={false}>
+      <instancedBufferAttribute attach="instanceColor" args={[shellColors, 3]} />
       <sphereGeometry args={[1, 6, 4]} /><meshStandardMaterial vertexColors emissive="#4a2415" emissiveIntensity={0.45} />
     </instancedMesh>
   </>
@@ -172,10 +178,8 @@ function setParticle(dummy: Object3D, id: number, spark: number, x: number, z: n
   dummy.updateMatrix()
 }
 
-function tracerColor(kind: string): Color {
-  return kind === 'cryo' ? TRACER_COLORS.cryo : kind === 'flamethrower' ? TRACER_COLORS.flamethrower
-    : kind === 'cannon' ? TRACER_COLORS.cannon : kind === 'rocket' ? TRACER_COLORS.rocket
-      : kind === 'mortar' ? TRACER_COLORS.mortar : TRACER_COLORS.default
+function tracerColor(kind: TowerKind): Color {
+  return TRACER_COLORS[kind]
 }
 
 function corpseColor(kind: string | undefined): Color {

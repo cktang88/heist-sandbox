@@ -33,6 +33,7 @@ export function createRunResult(run: RunRules, snapshot: BattleSnapshot, won: bo
     wavesCleared: snapshot.wavesCleared,
     elapsedSeconds: snapshot.elapsedSeconds,
     baseHealth: snapshot.baseHealth,
+    totalEnemies: snapshot.totalEnemies ?? undefined,
     rewardMultiplier: getCompletedWaveRewardMultiplier(run, snapshot.wavesCleared),
     objectiveSurvived: snapshot.secondaryObjectiveHealth !== null && snapshot.secondaryObjectiveHealth > 0,
     objectiveBonusMedals: snapshot.secondaryObjectiveBonusMedals,

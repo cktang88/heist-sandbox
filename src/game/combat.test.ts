@@ -249,9 +249,9 @@ describe('combat simulation', () => {
     const nearby = createSimulation([], rules)
     const distant = createSimulation([], rules)
     plain.spawnTimer = nearby.spawnTimer = distant.spawnTimer = 999
-    plain.enemies.push(makeEnemy('runner', 22))
-    nearby.enemies.push(makeEnemy('runner', 23), makeEnemy('shaman', 24, -7, -4))
-    distant.enemies.push(makeEnemy('runner', 25), makeEnemy('shaman', 26, 0, 0))
+    plain.enemies.push(makeEnemy('runner', 22, -8, -2.8))
+    nearby.enemies.push(makeEnemy('runner', 23, -8, -2.8), makeEnemy('shaman', 24, -7, -2.8))
+    distant.enemies.push(makeEnemy('runner', 25, -8, -2.8), makeEnemy('shaman', 26, 0, 0))
 
     stepSimulation(plain, context, 0.1)
     stepSimulation(nearby, context, 0.1)
@@ -296,22 +296,21 @@ describe('combat simulation', () => {
   })
 
   it('releases delayed secondary bomblets from Cannon and Mortar clusters', () => {
-    const cases: readonly [TowerKind, 'explosives-05' | 'artillery-06'][] = [
-      ['cannon', 'explosives-05'], ['mortar', 'artillery-06'],
+    const cases: readonly [TowerKind, 'cannon-cluster' | 'mortar-cluster'][] = [
+      ['cannon', 'cannon-cluster'], ['mortar', 'mortar-cluster'],
     ]
-    for (const [kind, upgrade] of cases) {
-      const clusterRules = deriveGameRules(DEFAULT_TUNING, { [upgrade]: 1 })
-      const tower: Placement = { id: kind === 'cannon' ? 36 : 37, kind, x: 0, z: 0 }
-      const state = createSimulation([], clusterRules)
+    for (const [kind, variantId] of cases) {
+      const tower: Placement = { id: kind === 'cannon' ? 36 : 37, kind, variantId, x: 0, z: 0 }
+      const state = createSimulation([], rules)
       state.spawnTimer = 999
       state.enemies.push(makeEnemy('brute', kind === 'cannon' ? 38 : 39, 3, 0))
       state.enemies[0].status.freezeRemaining = 10
-      stepSimulation(state, { ...context, rules: clusterRules, towers: [tower] }, 0.01)
+      stepSimulation(state, { ...context, towers: [tower] }, 0.01)
       const primary = state.effects.find((effect) => effect.kind === 'impact')!
-      stepSimulation(state, { ...context, rules: clusterRules, towers: [] }, primary.delay + 0.01)
+      stepSimulation(state, { ...context, towers: [] }, primary.delay + 0.01)
       expect(state.effects.filter((effect) => effect.kind === 'impact')).toHaveLength(3)
       const afterPrimary = state.enemies[0].health
-      stepSimulation(state, { ...context, rules: clusterRules, towers: [] }, 0.3)
+      stepSimulation(state, { ...context, towers: [] }, 0.3)
       expect(state.enemies[0].health).toBeLessThan(afterPrimary)
     }
   })
@@ -386,21 +385,20 @@ describe('combat simulation', () => {
     expect(tuning.enemies.shieldbearer.health - state.enemies[0].health).toBeCloseTo(tuning.towers.gunner.damage * 0.1)
   })
 
-  it('lets Piercing Rivets bypass ballistic armor without adding raw damage', () => {
-    const piercingRules = deriveGameRules(DEFAULT_TUNING, { 'gunner-05': 1 })
-    const gunner: Placement = { id: 47, kind: 'gunner', x: 2, z: 0 }
+  it('lets the Armor Piercer profile bypass ballistic armor with its heavy rivet damage', () => {
+    const gunner: Placement = { id: 47, kind: 'gunner', variantId: 'gunner-armor-piercer', x: 2, z: 0 }
     const plain = createSimulation([], rules)
-    const piercing = createSimulation([], piercingRules)
+    const piercing = createSimulation([], rules)
     plain.spawnTimer = piercing.spawnTimer = 999
     plain.enemies.push(makeEnemy('shieldbearer', 48, 1, 0))
     piercing.enemies.push(makeEnemy('shieldbearer', 49, 1, 0))
     plain.enemies[0].facingX = piercing.enemies[0].facingX = 1
     plain.enemies[0].facingZ = piercing.enemies[0].facingZ = 0
     plain.enemies[0].status.freezeRemaining = piercing.enemies[0].status.freezeRemaining = 10
-    stepSimulation(plain, { ...context, towers: [gunner] }, 0.01)
-    stepSimulation(piercing, { ...context, rules: piercingRules, towers: [gunner] }, 0.01)
+    stepSimulation(plain, { ...context, towers: [{ ...gunner, variantId: undefined }] }, 0.01)
+    stepSimulation(piercing, { ...context, towers: [gunner] }, 0.01)
     const piercingDamage = DEFAULT_TUNING.enemies.shieldbearer.health - piercing.enemies[0].health
-    expect(piercingDamage).toBeCloseTo(DEFAULT_TUNING.towers.gunner.damage)
+    expect(piercingDamage).toBeCloseTo(DEFAULT_TUNING.towers.gunner.damage * 1.9)
     expect(piercingDamage).toBeGreaterThan(DEFAULT_TUNING.enemies.shieldbearer.health - plain.enemies[0].health)
   })
 
@@ -434,19 +432,18 @@ describe('combat simulation', () => {
   })
 
   it('spreads a burning enemy death once without double-counting the kill', () => {
-    const pyreRules = deriveGameRules(DEFAULT_TUNING, { 'fire-06': 1 })
-    const gunner: Placement = { id: 52, kind: 'gunner', x: 0, z: 0 }
-    const state = createSimulation([], pyreRules)
+    const pyre: Placement = { id: 52, kind: 'flamethrower', variantId: 'flame-funeral-pyre', x: 0, z: 0 }
+    const state = createSimulation([], rules)
     state.spawnTimer = 999
     state.enemies.push(makeEnemy('grunt', 53, 1, 0), makeEnemy('brute', 54, 1.8, 0))
     state.enemies[0].health = 1
     state.enemies[0].status.burnRemaining = 2
     state.enemies[0].status.burnDamagePerSecond = 1
     state.enemies.forEach((enemy) => { enemy.status.freezeRemaining = 10 })
-    stepSimulation(state, { ...context, rules: pyreRules, towers: [gunner] }, 0.01)
+    stepSimulation(state, { ...context, towers: [pyre] }, 0.01)
     expect(state.defeated).toBe(1)
     expect(state.effects.filter((effect) => effect.kind === 'impact')).toHaveLength(1)
-    stepSimulation(state, { ...context, rules: pyreRules, towers: [] }, 0.01)
+    stepSimulation(state, { ...context, towers: [] }, 0.01)
     expect(state.enemies[0].status.burnRemaining).toBeGreaterThan(0)
     expect(state.defeated).toBe(1)
   })
@@ -487,8 +484,8 @@ describe('combat simulation', () => {
     tuning.towers.cryo.attack.freezeThreshold = 1
     tuning.towers.cryo.damage = 0
     const plainRules = createBaseGameRules(tuning)
-    const brittleRules = deriveGameRules(tuning, { 'cryo-05': 1 })
-    const cryo: Placement = { id: 62, kind: 'cryo', x: -8, z: -4 }
+    const brittleRules = createBaseGameRules(tuning)
+    const cryo: Placement = { id: 62, kind: 'cryo', variantId: 'cryo-brittle', x: -8, z: -4 }
     const cannon: Placement = { id: 63, kind: 'cannon', x: -8, z: -4 }
     const plain = createSimulation([], plainRules)
     const brittle = createSimulation([], brittleRules)
@@ -508,8 +505,8 @@ describe('combat simulation', () => {
     const tuning = structuredClone(DEFAULT_TUNING)
     if (tuning.towers.cryo.attack.kind !== 'cryo') throw new Error('Expected Cryo attack')
     tuning.towers.cryo.attack.freezeThreshold = 1
-    const chainRules = deriveGameRules(tuning, { 'cryo-06': 1 })
-    const cryo: Placement = { id: 66, kind: 'cryo', x: 0, z: 0 }
+    const chainRules = createBaseGameRules(tuning)
+    const cryo: Placement = { id: 66, kind: 'cryo', variantId: 'cryo-chain-freeze', x: 0, z: 0 }
     const state = createSimulation([], chainRules)
     state.spawnTimer = 999
     state.enemies.push(makeEnemy('brute', 67, 1, 0), makeEnemy('brute', 68, 1.8, 0), makeEnemy('brute', 69, 4, 0))
@@ -753,48 +750,47 @@ describe('combat simulation', () => {
   })
 
   it('briefly stops movement for Tesla-shocked targets', () => {
-    const shockRules = deriveGameRules(DEFAULT_TUNING, { 'energy-04': 1 })
-    const tesla: Placement = { id: 94, kind: 'tesla', x: -8, z: -4 }
-    const state = createSimulation([], shockRules)
+    const tesla: Placement = { id: 94, kind: 'tesla', variantId: 'tesla-stun', x: -8, z: -4 }
+    const state = createSimulation([], rules)
     state.spawnTimer = 999
-    state.enemies.push(makeEnemy('runner', 95))
-    stepSimulation(state, { ...context, rules: shockRules, towers: [tesla] }, 0.01)
+    state.enemies.push(makeEnemy('runner', 95, -8, -2.8))
+    stepSimulation(state, { ...context, towers: [tesla] }, 0.01)
     const shockedProgress = state.enemies[0].progress
     expect(state.enemies[0].status.stunRemaining).toBeGreaterThan(0)
-    stepSimulation(state, { ...context, rules: shockRules, towers: [] }, 0.2)
+    stepSimulation(state, { ...context, towers: [] }, 0.2)
     expect(state.enemies[0].progress).toBe(shockedProgress)
-    stepSimulation(state, { ...context, rules: shockRules, towers: [] }, 0.2)
+    stepSimulation(state, { ...context, towers: [] }, 0.2)
+    expect(state.enemies[0].progress).toBe(shockedProgress)
+    stepSimulation(state, { ...context, towers: [] }, 0.2)
     expect(state.enemies[0].progress).toBeGreaterThan(shockedProgress)
   })
 
   it('pierces aligned enemies behind the Laser target', () => {
-    const piercingRules = deriveGameRules(DEFAULT_TUNING, { 'energy-06': 1 })
-    const laser: Placement = { id: 96, kind: 'laser', x: 0, z: 0 }
-    const state = createSimulation([], piercingRules)
+    const laser: Placement = { id: 96, kind: 'laser', variantId: 'laser-piercing', x: 0, z: 0 }
+    const state = createSimulation([], rules)
     state.spawnTimer = 999
     state.enemies.push(
       makeEnemy('brute', 97, 1, 0), makeEnemy('brute', 98, 2, 0.15),
       makeEnemy('brute', 99, 3, 0), makeEnemy('brute', 100, 2, 0.8),
     )
     state.enemies.forEach((enemy) => { enemy.status.freezeRemaining = 10 })
-    stepSimulation(state, { ...context, rules: piercingRules, towers: [laser] }, 0.01)
+    stepSimulation(state, { ...context, towers: [laser] }, 0.01)
     expect(state.enemies.slice(0, 3).every((enemy) => enemy.health < DEFAULT_TUNING.enemies.brute.health)).toBe(true)
     expect(state.enemies[3].health).toBe(DEFAULT_TUNING.enemies.brute.health)
   })
 
   it('stuns survivors inside a Concussion Shell blast', () => {
-    const stunRules = deriveGameRules(DEFAULT_TUNING, { 'artillery-05': 1 })
-    const mortar: Placement = { id: 104, kind: 'mortar', x: -5, z: -4 }
-    const state = createSimulation([], stunRules)
+    const mortar: Placement = { id: 104, kind: 'mortar', variantId: 'mortar-concussion', x: -5, z: -4 }
+    const state = createSimulation([], rules)
     state.spawnTimer = 999
     state.enemies.push(makeEnemy('brute', 105))
     state.enemies[0].status.freezeRemaining = 0.8
-    stepSimulation(state, { ...context, rules: stunRules, towers: [mortar] }, 0.01)
-    stepSimulation(state, { ...context, rules: stunRules, towers: [] }, 0.7)
-    stepSimulation(state, { ...context, rules: stunRules, towers: [] }, 0.1)
+    stepSimulation(state, { ...context, towers: [mortar] }, 0.01)
+    stepSimulation(state, { ...context, towers: [] }, 0.7)
+    stepSimulation(state, { ...context, towers: [] }, 0.1)
     const stunnedProgress = state.enemies[0].progress
     expect(state.enemies[0].status.stunRemaining).toBeGreaterThan(0)
-    stepSimulation(state, { ...context, rules: stunRules, towers: [] }, 0.3)
+    stepSimulation(state, { ...context, towers: [] }, 0.3)
     expect(state.enemies[0].progress).toBe(stunnedProgress)
   })
 

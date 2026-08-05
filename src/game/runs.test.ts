@@ -41,7 +41,7 @@ describe('run rules', () => {
     const compositions = CAMPAIGN_MISSIONS.map((mission) => JSON.stringify(mission.waves.map((wave) =>
       wave.groups.map((group) => `${group.enemy}:${group.count}:${group.lane ?? '*'}`))))
     expect(CAMPAIGN_MISSIONS.every((mission) => mission.waves.length === 5)).toBe(true)
-    expect(totals).toEqual([636, 816, 780, 876, 919, 2244])
+    expect(totals).toEqual([107, 816, 780, 876, 919, 2244])
     expect(new Set(totals).size).toBe(CAMPAIGN_MISSIONS.length)
     expect(new Set(compositions).size).toBe(CAMPAIGN_MISSIONS.length)
   })

@@ -494,3 +494,43 @@ Asked for more Commander Doctrines, with every doctrine requiring a permanent re
 ## 92. Codex
 
 Added four mutually exclusive, data-driven doctrines tied to existing Command research nodes: Forward Supply, Lean Logistics, Rapid Response, and Bastion Reserve. Added bounded right/middle field dragging, FIT recentering, and two-step surrender with an ordered-retreat result that cannot be used for free medals. Reworked campaign spawning so intervals emit road-width ranks: Green March sends three abreast, Ash Fields four, and Shattered Expanse uses a 24-position front across nearly the full entrance edge. The full deterministic suite now passes 301 tests and the production build succeeds.
+
+## 93. User request summary
+
+Reported that Green March's lower horde line followed the valley shape but appeared offset outside the painted road. Requested Command Medals based on the percentage of each map's total enemies eliminated, a large one-time first-clear bonus, and reduced rewards when grinding a completed map. Clarified that completed-map replays should pay one half rather than one quarter, and that a typical level result should buy at least two upgrades so every round feels meaningful.
+
+## 94. Codex
+
+Tightened normal corridor navigation to the painted road and made dense-crowd separation obey the same boundary, while retaining a small local shoulder only where a temporary wall needs a detour. Campaign rewards now pay the exact whole-number eliminated percentage, add 50 medals on the first clear, and halve elimination and objective rewards on every later run of that map. A full first clear pays 150 base medals and a full replay pays 50, matching at least two common research purchases. The after-action report names Command Medals and explains elimination percentage, first-clear bonus, and replay rate.
+
+## 95. User request summary
+
+Reported losing a round without receiving Command Medals and asked whether losses should display their earned medals in the battle report. Also asked to clean up the after-action report so important numbers—especially medals—appear before the less important battle statistics.
+
+## 96. Codex
+
+Confirmed that the reproduced run was unranked because custom combat tuning was active; the old interface buried that fact. Deployment now prominently warns when a run cannot award medals, and the result names the exact reason with a one-click ranked-settings restore. Ranked wins and losses lead with a large Command Medals Earned result and a clear reward breakdown. Eliminations, time, waves, leaks, fortress health, and best run move into a secondary summary, while damage by source is collapsed by default.
+
+## 97. User request summary
+
+Reported that 636 enemies still made the first map unreasonable for a four-Rivet starter defense. Also showed that tower models were too large for the available battlefield and that placement rejection did not match the visible footprint, asking for roughly half-size towers and more tolerance near neighboring towers, roads, and constrained map regions.
+
+## 98. Codex
+
+Reduced Green March to 107 enemies across five short three-wide teaching waves and lowered fortress damage for that operation. Added a deterministic balance scenario proving four legal, well-aimed starter Rivet Guns can clear it. Scaled every tower body and placement preview to 50%, reduced center spacing from 1.35 to 0.55 world units, and tightened road, obstacle, polygon, objective, platform-edge, and map-edge clearances to the new footprint with slight visual-overlap tolerance.
+
+## 99. User request summary
+
+Reported that bullet lines began at tower centers instead of barrel tips and asked for every weapon offset to be corrected, with brighter yellow/orange ballistic fire. Then reported that the flashes were fixed but the pooled shot lines still rendered black.
+
+## 100. Codex
+
+Added one shared typed muzzle catalog used by both the tower model and combat simulation, including per-weapon forward distance, world height, and color. Tracers now start at the rotated barrel tip and interpolate vertically to the target. Initialized the pooled Three.js instance-color buffers before their first frame so ballistic lines render yellow/orange instead of zero-RGB black while energy/status families keep their own colors.
+
+## 101. User request summary
+
+Reported ambiguous crosses in the upgrade dependency graph, preferred right-angle directional arrows, and asked to remove redundant visible `REQUIRES X` text. Then clarified that stat ranks and weapon/profile unlocks must be separate nodes: max the relevant stat first, then unlock a visually distinct tower or variant card, consistently across the entire catalog.
+
+## 102. Codex
+
+Replaced generic CSS spines with measured SVG parent-to-child elbow arrows supporting multiple parents and depth-four paths. Expanded progression from 60 mixed cards to 83 single-purpose cards. All 20 special profiles now have dedicated variant cards; Heavy Gun, Rocket, and Laser gained relevant stat paths; mixed Laser/Orbital, Support/Repair, and doctrine unlocks were separated. Cards identify stat, tower, variant, power, wall, or doctrine through both text and shape/color. Variant dependencies require maximum parent ranks, Standard no longer receives variant behavior globally, and save version 8 preserves previously bundled unlocks.

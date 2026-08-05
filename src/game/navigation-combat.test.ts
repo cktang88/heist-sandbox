@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createBaseGameRules, DEFAULT_TUNING } from './config'
 import { createSimulation, interpolatedEnemyPosition, stepSimulation, syncWalls, type Enemy } from './combat'
-import { buildPathInfo } from './path'
+import { buildPathInfo, distanceToPath } from './path'
 import { DEFAULT_RUN } from './runs'
 import type { MapDefinition, Placement } from './types'
 
@@ -65,6 +65,17 @@ describe('combat flow navigation', () => {
     state.enemies.push(enemyAt(-3, 0, 210), enemyAt(-3, 0, 211))
     stepSimulation(state, contextFor(rules), 1 / 30)
     expect(Math.hypot(state.enemies[0].x - state.enemies[1].x, state.enemies[0].z - state.enemies[1].z)).toBeGreaterThan(0.01)
+  })
+
+  it('keeps a separating horde on the painted road', () => {
+    const rules = createBaseGameRules(DEFAULT_TUNING)
+    const state = createSimulation([], rules, 100, map)
+    state.spawnTimer = 999
+    for (let index = 0; index < 18; index += 1) state.enemies.push(enemyAt(-3, 0, 220 + index))
+    for (let tick = 0; tick < 90; tick += 1) stepSimulation(state, contextFor(rules), 1 / 30)
+    for (const enemy of state.enemies) {
+      expect(distanceToPath(enemy, map.paths[0])).toBeLessThanOrEqual(map.pathWidth / 2)
+    }
   })
 
   it('keeps previous positions for render-frame interpolation', () => {

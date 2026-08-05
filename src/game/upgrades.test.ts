@@ -28,11 +28,11 @@ describe('gunner upgrades', () => {
     expect(tuning.towers.cannon.knockbackForce).toBeGreaterThan(DEFAULT_TUNING.towers.cannon.knockbackForce ?? 0)
   })
 
-  it('defines ten complete branches with sixty unique nodes', () => {
+  it('defines ten complete branches with 83 unique, typed nodes', () => {
     expect(UPGRADE_BRANCHES).toHaveLength(10)
-    expect(UPGRADE_BRANCHES.every((branch) => branch.nodes.length === 6)).toBe(true)
-    expect(new Set(ALL_UPGRADES.map((node) => node.id)).size).toBe(60)
+    expect(new Set(ALL_UPGRADES.map((node) => node.id)).size).toBe(83)
     expect(ALL_UPGRADES.every((node) => node.implemented)).toBe(true)
+    expect(ALL_UPGRADES.every((node) => ['stat', 'tower', 'variant', 'power', 'wall', 'doctrine'].includes(node.kind))).toBe(true)
   })
 
   it('charges the correct next-rank cost and caps saved ranks', () => {
@@ -56,12 +56,12 @@ describe('gunner upgrades', () => {
     expect(isBuildToolUnlocked(STARTER_UPGRADES, 'cannon')).toBe(false)
     expect(isBuildToolUnlocked({ ...STARTER_UPGRADES, 'explosives-01': 1 }, 'cannon')).toBe(true)
     expect(isPowerUnlocked({ 'strategic-05': 1 }, 'nuke')).toBe(true)
-    expect(isPowerUnlocked({ 'command-04': 1 }, 'repair')).toBe(true)
+    expect(isPowerUnlocked({ 'command-10': 1 }, 'repair')).toBe(true)
   })
 
   it('fans stat and variant choices out from their relevant unlock', () => {
     const prerequisite = (id: (typeof ALL_UPGRADES)[number]['id']) => getPurchasePrerequisite(ALL_UPGRADES.find((node) => node.id === id)!)
-    expect(prerequisite('artillery-06')).toBe('artillery-01')
+    expect(prerequisite('artillery-06')).toBe('artillery-03')
     expect(prerequisite('command-04')).toBeUndefined()
     expect(prerequisite('strategic-03')).toBeUndefined()
     expect(prerequisite('strategic-05')).toBeUndefined()
@@ -70,30 +70,34 @@ describe('gunner upgrades', () => {
     expect(prerequisite('strategic-06')).toBe('strategic-05')
   })
 
-  it('lets players buy one branch choice without unrelated stat research', () => {
+  it('requires maxed relevant stats before buying their separate variants', () => {
     expect(purchaseUpgrade({ 'explosives-01': 1 }, 100, 'explosives-06')).not.toBeNull()
-    expect(purchaseUpgrade({ 'explosives-01': 1 }, 100, 'explosives-05')).not.toBeNull()
+    expect(purchaseUpgrade({ 'explosives-01': 1, 'explosives-03': 2 }, 100, 'explosives-05')).toBeNull()
+    expect(purchaseUpgrade({ 'explosives-01': 1, 'explosives-03': 3 }, 100, 'explosives-05')).not.toBeNull()
     expect(purchaseUpgrade({ 'energy-01': 1 }, 100, 'energy-05')).not.toBeNull()
     expect(purchaseUpgrade({ 'energy-01': 1 }, 100, 'energy-06')).toBeNull()
-    expect(purchaseUpgrade({ 'energy-01': 1, 'energy-05': 1 }, 100, 'energy-06')).not.toBeNull()
+    expect(purchaseUpgrade({ 'energy-01': 1, 'energy-05': 1, 'energy-12': 3 }, 100, 'energy-06')).not.toBeNull()
+    expect(purchaseUpgrade({ 'gunner-01': 1, 'gunner-03': 2 }, 100, 'gunner-07')).toBeNull()
+    expect(purchaseUpgrade({ 'gunner-01': 1, 'gunner-03': 3 }, 100, 'gunner-07')).not.toBeNull()
   })
 
   it('marks permanent unlock nodes for every tower variant and battlefield power', () => {
     const variantNames = ALL_UPGRADES.flatMap((node) => node.unlocks ?? [])
       .filter((unlock) => unlock.kind === 'variant')
       .map((unlock) => unlock.name)
-    expect(variantNames).toEqual([
+    expect(new Set(variantNames)).toEqual(new Set([
       'Rapid-Feed Rivet Gun', 'Armor-Piercer Rivet Gun', 'Anti-Armor Heavy Gun', 'Siege Heavy Gun',
       'Hypervelocity Blast Cannon', 'Guided Rocket Battery', 'Cluster Blast Cannon', 'Salvo Rocket Battery',
       'Napalm Flame Thrower', 'Funeral Pyre Flame Thrower', 'Brittle Cryo Projector', 'Chain-Freeze Cryo Projector',
       'Overcharge Tesla Coil', 'Stun Tesla Coil', 'Prism Laser', 'Piercing Laser',
       'Concussion Mortar', 'Cluster Mortar', 'Overclock Support Beacon', 'Fortress Support Beacon',
-    ])
+    ]))
     expect(new Set(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).map((unlock) => unlock.id)).size)
       .toBe(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).length)
     expect(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).filter((unlock) => unlock.kind === 'power')).toHaveLength(6)
     expect(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).filter((unlock) => unlock.kind === 'wall')).toHaveLength(1)
     expect(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).filter((unlock) => unlock.kind === 'doctrine')).toHaveLength(4)
+    expect(ALL_UPGRADES.filter((node) => node.unlocks).every((node) => node.unlocks?.length === 1)).toBe(true)
   })
 
   it('shows every runtime variant on the same research node that unlocks it', () => {
@@ -106,12 +110,21 @@ describe('gunner upgrades', () => {
   it('keeps every implemented node reachable through purchases', () => {
     for (const branch of UPGRADE_BRANCHES) {
       let ranks = { ...STARTER_UPGRADES }
-      for (const node of branch.nodes.filter((candidate) => candidate.implemented)) {
-        if (ranks[node.id]) continue
-        const purchase = purchaseUpgrade(ranks, 100_000, node.id)
-        expect(purchase, `${node.id} should be reachable`).not.toBeNull()
-        ranks = purchase!.ranks
+      const pending = new Set(branch.nodes.filter((node) => node.implemented).map((node) => node.id))
+      for (let pass = 0; pass < branch.nodes.length * 2 && pending.size; pass += 1) {
+        for (const id of [...pending]) {
+          const node = ALL_UPGRADES.find((candidate) => candidate.id === id)!
+          if ((ranks[id] ?? 0) >= node.rankCosts.length) { pending.delete(id); continue }
+          let purchase = purchaseUpgrade(ranks, 100_000, id)
+          if (!purchase) continue
+          while (purchase) {
+            ranks = purchase.ranks
+            purchase = purchaseUpgrade(ranks, 100_000, id)
+          }
+          pending.delete(id)
+        }
       }
+      expect([...pending], `${branch.id} nodes should be reachable`).toEqual([])
     }
   })
 
@@ -175,7 +188,7 @@ describe('gunner upgrades', () => {
     }
     const powerUnlocks: Record<ActivePowerKind, UpgradeId> = {
       strafe: 'air-01', barrage: 'strategic-01', cryoBeam: 'strategic-03', nuke: 'strategic-05',
-      orbitalLaser: 'energy-05', repair: 'command-04',
+      orbitalLaser: 'energy-09', repair: 'command-10',
     }
     for (const [tool, id] of Object.entries(buildUnlocks) as [BuildTool, UpgradeId][]) {
       expect(isBuildToolUnlocked({}, tool), `${tool} should begin locked`).toBe(false)
@@ -188,13 +201,8 @@ describe('gunner upgrades', () => {
   })
 
   it('preserves a derived rule effect for every implemented non-unlock node', () => {
-    const unlockOnly = new Set<UpgradeId>([
-      'gunner-01', 'gunner-06', 'explosives-01', 'explosives-06', 'fire-01', 'cryo-01', 'energy-01',
-      'energy-05', 'artillery-01', 'command-04', 'air-01', 'strategic-01', 'strategic-03',
-      'strategic-05', 'fortification-01',
-    ])
     const baseline = JSON.stringify(deriveGameRules(DEFAULT_TUNING, STARTER_UPGRADES))
-    for (const node of ALL_UPGRADES.filter((candidate) => candidate.implemented && !unlockOnly.has(candidate.id))) {
+    for (const node of ALL_UPGRADES.filter((candidate) => candidate.implemented && candidate.kind === 'stat')) {
       const rules = deriveGameRules(DEFAULT_TUNING, { ...STARTER_UPGRADES, [node.id]: 1 })
       expect(JSON.stringify(rules), `${node.id} should still change derived rules`).not.toBe(baseline)
     }
@@ -223,16 +231,9 @@ describe('gunner upgrades', () => {
     }
   })
 
-  it('derives status and penetration research as explicit behavior flags', () => {
+  it('keeps global behavior research separate from equip-only tower variants', () => {
     const ids = {
-      'gunner-05': 'armorPiercingRivets',
-      'cryo-05': 'brittleFrozenEnemies',
-      'cryo-06': 'chainFreeze',
-      'energy-04': 'teslaStun',
-      'energy-06': 'piercingLaser',
-      'artillery-05': 'mortarStun',
       'air-06': 'strafeArmorBreak',
-      'fire-06': 'burningDeathSpread',
       'strategic-04': 'cryoFrozenGround',
       'strategic-06': 'nukeFallout',
       'fortification-05': 'wallSpikes',
@@ -240,6 +241,9 @@ describe('gunner upgrades', () => {
     } as const
     for (const [id, behavior] of Object.entries(ids) as [UpgradeId, (typeof ids)[keyof typeof ids]][]) {
       expect(deriveGameRules(DEFAULT_TUNING, { [id]: 1 }).behaviors[behavior], `${id} should enable ${behavior}`).toBe(true)
+    }
+    for (const node of ALL_UPGRADES.filter((candidate) => candidate.kind === 'variant')) {
+      expect(Object.values(deriveGameRules(DEFAULT_TUNING, { [node.id]: 1 }).behaviors).every((enabled) => !enabled), node.id).toBe(true)
     }
   })
 })

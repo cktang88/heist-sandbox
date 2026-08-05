@@ -81,7 +81,7 @@ describe('pre-run loadouts', () => {
       expect(isCommanderDoctrineUnlocked({ [doctrine.researchId]: 1 }, doctrine.id)).toBe(true)
     }
     expect(normalizeUnlockedCommanderDoctrine('forwardSupply', {})).toBeNull()
-    expect(normalizeUnlockedCommanderDoctrine('forwardSupply', { 'command-01': 1 })).toBe('forwardSupply')
+    expect(normalizeUnlockedCommanderDoctrine('forwardSupply', { 'command-07': 1 })).toBe('forwardSupply')
   })
 
   it('normalizes and applies distinct Commander Doctrine effects', () => {

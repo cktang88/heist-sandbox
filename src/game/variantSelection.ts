@@ -1,7 +1,7 @@
 import { TOWER_KINDS } from './config'
 import { getTowerVariant, getTowerVariants, type TowerVariantDefinition } from './towerVariants'
 import type { TowerKind, TowerVariantId } from './types'
-import type { UpgradeId, UpgradeRanks } from './upgrades'
+import type { UpgradeRanks } from './upgrades'
 
 export type TowerVariantSelections = Partial<Record<TowerKind, TowerVariantId>>
 
@@ -19,7 +19,7 @@ export const STANDARD_VARIANT_CHOICE: TowerVariantChoice = {
 }
 
 function ownsResearchNode(ranks: UpgradeRanks, variant: TowerVariantDefinition): boolean {
-  return (ranks[variant.researchNode as UpgradeId] ?? 0) > 0
+  return (ranks[variant.researchNode] ?? 0) > 0
 }
 
 export function getUnlockedTowerVariants(tower: TowerKind, ranks: UpgradeRanks): readonly TowerVariantDefinition[] {

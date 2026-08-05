@@ -1,5 +1,5 @@
 import { INITIAL_SNAPSHOT, isTowerKind } from './config'
-import { sampleNavigation, updateNavigationCache, type NavigationCache, type NavigationWall } from './navigation'
+import { isNavigationPositionWalkable, sampleNavigation, updateNavigationCache, type NavigationCache, type NavigationField, type NavigationWall } from './navigation'
 import { distance, type PathInfo } from './path'
 import { duePowerImpacts, powerDamageAt, powerKnockback } from './powerEffects'
 import { isPointInPowerLane } from './powerTargeting'
@@ -9,6 +9,7 @@ import { deriveWallRotation, distanceToWall } from './wall'
 import { calculateDamage, createEmptyDamageBySource, isAttackInFront, recordDamageCredit, type DamageCredit } from './damageSources'
 import { applyTowerVariant, getTowerVariant } from './towerVariants'
 import { getTowerArcDegrees, isPointWithinTowerArc } from './towerFacing'
+import { towerMuzzlePoint } from './towerMuzzle'
 import { addKnockback, knockbackResistance, stepKnockback } from './knockback'
 import type { ActivePowerKind, BattleSnapshot, DamageSource, DamageType, EnemyKind, EnemyMultipliers, GameRules, GameTuning, MapDefinition, Placement, Point, RunRules, TowerKind, TowerStats, WaveDefinition } from './types'
 import type { CombatEventTotals } from './audio'
@@ -32,7 +33,7 @@ export type EnemyStatus = {
 
 export type Enemy = Point & { id: number; kind: EnemyKind; pathIndex: number; progress: number; previousX?: number; previousZ?: number; facingX?: number; facingZ?: number; knockbackX?: number; knockbackZ?: number; health: number; maxHealth?: number; healthMultiplier: number; speedMultiplier: number; damageMultiplier: number; status: EnemyStatus }
 export type RuntimeWall = NavigationWall & { health: number; life: number }
-export type Tracer = { id: number; tower: TowerKind; from: Point; to: Point; life: number; duration: number; arcHeight: number }
+export type Tracer = { id: number; tower: TowerKind; from: Point; fromY: number; to: Point; toY: number; life: number; duration: number; arcHeight: number }
 export type CombatVisual = Point & { id: number; kind: 'death' | 'impact' | 'wallBreak'; life: number; duration: number; enemyKind?: EnemyKind; rotation?: number }
 export const MAX_CORPSE_VISUALS = 192
 export const MAX_TRANSIENT_VISUALS = 128
@@ -553,11 +554,13 @@ function moveEnemies(state: SimulationState, context: SimulationContext, delta: 
     const direction = normalizedDirection(desiredDirection.x + separation.x * 0.32, desiredDirection.z + separation.z * 0.32)
     const travel = stats.speed * enemy.speedMultiplier * slow * shamanAura * rage * delta
     const step = route.atGoal ? Math.min(travel, distance(enemy, route.next)) : travel
-    enemy.x += direction.x * step
-    enemy.z += direction.z * step
-    if (direction.x !== 0 || direction.z !== 0) {
-      enemy.facingX = direction.x
-      enemy.facingZ = direction.z
+    const previousX = enemy.x
+    const previousZ = enemy.z
+    moveEnemyWithinNavigation(enemy, navigation, direction.x * step, direction.z * step)
+    const moved = normalizedDirection(enemy.x - previousX, enemy.z - previousZ)
+    if (moved.x !== 0 || moved.z !== 0) {
+      enemy.facingX = moved.x
+      enemy.facingZ = moved.z
     }
     enemy.progress = Math.max(enemy.progress, progressAlongPath(enemy, path, pathInfo))
     const fortress = path[path.length - 1]
@@ -572,6 +575,19 @@ function moveEnemies(state: SimulationState, context: SimulationContext, delta: 
       applyFortressDamage(state, stats.baseDamage * enemy.damageMultiplier * bannerAura)
     }
   }
+}
+
+/** Crowd separation may slide along a road edge, but never moves an orc into grass or a solid cell. */
+function moveEnemyWithinNavigation(enemy: Enemy, field: NavigationField, stepX: number, stepZ: number): void {
+  const nextX = enemy.x + stepX
+  const nextZ = enemy.z + stepZ
+  if (isNavigationPositionWalkable(field, nextX, nextZ)) {
+    enemy.x = nextX
+    enemy.z = nextZ
+    return
+  }
+  if (isNavigationPositionWalkable(field, nextX, enemy.z)) enemy.x = nextX
+  if (isNavigationPositionWalkable(field, enemy.x, nextZ)) enemy.z = nextZ
 }
 
 export function applyFortressDamage(state: Pick<SimulationState, 'baseHealth' | 'fortressShield'>, damage: number): void {
@@ -654,8 +670,9 @@ function fireTowers(state: SimulationState, towers: Placement[], rules: GameRule
     if (stats.attack.kind !== 'splash' || !stats.projectileSpeed) addCombatVisual(state, 'impact', target, 0.16)
     state.eventTotals.shots += 1
     const duration = stats.projectileSpeed ? Math.max(0.12, distance(tower, target) / stats.projectileSpeed) : 0.14
+    const muzzle = towerMuzzlePoint({ ...tower, kind: tower.kind }, target)
     state.tracers.push({
-      id: state.nextTracerId++, tower: tower.kind, from: tower, to: { x: target.x, z: target.z },
+      id: state.nextTracerId++, tower: tower.kind, from: muzzle, fromY: muzzle.y, to: { x: target.x, z: target.z }, toY: 0.38,
       life: duration, duration, arcHeight: projectileArcHeight(tower.kind, distance(tower, target)),
     })
     state.towerLastShotAt.set(tower.id, state.elapsedSeconds)

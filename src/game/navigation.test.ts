@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildNavigationField, sampleNavigation, updateNavigationCache, type NavigationWall } from './navigation'
+import { distanceToPath } from './path'
 import type { MapDefinition, Point } from './types'
 
 const map: MapDefinition = {
@@ -15,6 +16,21 @@ describe('route-corridor navigation', () => {
     const result = walk(field, map.paths[0][0])
     expect(result.reached).toBe(true)
     expect(result.point.x).toBeGreaterThan(5.4)
+  })
+
+  it('keeps ordinary walkable cells inside the painted road', () => {
+    const field = buildNavigationField(map)
+    for (let row = 0; row < field.rows; row += 1) {
+      for (let column = 0; column < field.columns; column += 1) {
+        const index = row * field.columns + column
+        if (!field.walkable[index]) continue
+        const point = {
+          x: field.originX + (column + 0.5) * field.cellSize,
+          z: field.originZ + (row + 0.5) * field.cellSize,
+        }
+        expect(distanceToPath(point, map.paths[0])).toBeLessThanOrEqual(map.pathWidth / 2)
+      }
+    }
   })
 
   it('detours around a partial temporary wall', () => {

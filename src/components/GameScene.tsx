@@ -14,6 +14,7 @@ import type { GameSettings } from '../game/settings'
 import { createStressStream, scheduleStressSpawns, type StressStream } from '../game/stressStream'
 import { advanceTowerAim, aimRotation, defaultTowerRotation, getTowerArcDegrees, getTowerDisplayedRange } from '../game/towerFacing'
 import { getTowerVariant } from '../game/towerVariants'
+import { getTowerMuzzle, TOWER_VISUAL_SCALE } from '../game/towerMuzzle'
 import { CameraRig, cameraPanAfterDrag, clampZoomFactor, fitMapZoom, zoomFactorAfterWheel } from './CameraRig'
 import { CombatEffectPool, ProjectilePool } from './CombatEffects'
 import { FortressDamageEffects } from './FortressDamageEffects'
@@ -464,19 +465,19 @@ function BuildPreview({ point, kind, valid, range, minRange = 0, firingArcDegree
       {kind === 'wall' ? <mesh position={[0, 0.15, 0]} rotation={[0, wallRotation, 0]}>
         <boxGeometry args={[0.45, 0.3, wallVisualLength(wallLength)]} />
         <meshBasicMaterial color={valid ? '#d9e28e' : '#ff594d'} transparent opacity={0.55} />
-      </mesh> : <mesh position={[0, 0.15, 0]}>
-        <cylinderGeometry args={[0.44, 0.44, 0.3, 16]} />
+      </mesh> : <mesh position={[0, 0.075, 0]}>
+        <cylinderGeometry args={[0.22, 0.22, 0.15, 16]} />
         <meshBasicMaterial color={valid ? '#d9e28e' : '#ff594d'} transparent opacity={0.55} />
       </mesh>}
       {valid ? (
-        <mesh position={[0, 0.48, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.18, 0.045, 6, 18]} />
+        <mesh position={[0, 0.3, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.13, 0.035, 6, 18]} />
           <meshBasicMaterial color="#f7efc0" />
         </mesh>
       ) : (
-        <group position={[0, 0.48, 0]} rotation={[0, Math.PI / 4, 0]}>
-          <mesh><boxGeometry args={[0.55, 0.055, 0.09]} /><meshBasicMaterial color="#fff4db" /></mesh>
-          <mesh rotation={[0, Math.PI / 2, 0]}><boxGeometry args={[0.55, 0.055, 0.09]} /><meshBasicMaterial color="#fff4db" /></mesh>
+        <group position={[0, 0.3, 0]} rotation={[0, Math.PI / 4, 0]}>
+          <mesh><boxGeometry args={[0.34, 0.045, 0.07]} /><meshBasicMaterial color="#fff4db" /></mesh>
+          <mesh rotation={[0, Math.PI / 2, 0]}><boxGeometry args={[0.34, 0.045, 0.07]} /><meshBasicMaterial color="#fff4db" /></mesh>
         </group>
       )}
     </group>
@@ -520,7 +521,7 @@ function PlacementModel({ placement, map, wallMaxHealth, wallLength, selected, s
       </group>
     })()}
     {selected && <mesh position={[placement.x, 0.07, placement.z]} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[0.62, 0.72, 40]} />
+      <ringGeometry args={[0.31, 0.38, 40]} />
       <meshBasicMaterial color="#f5d66d" transparent opacity={0.85} />
     </mesh>}
     {placement.kind === 'wall'
@@ -542,6 +543,7 @@ function TowerModel({ tower, target, simulation }: { tower: Placement; target?: 
               : ['#4f5650', '#b7a45c']
   const barrelRadius = tower.kind === 'cannon' || tower.kind === 'mortar' || tower.kind === 'rocket' ? 0.14 : tower.kind === 'flamethrower' ? 0.1 : 0.07
   const variant = isTowerKind(tower.kind) ? getTowerVariant(tower.kind, tower.variantId) : undefined
+  const muzzle = isTowerKind(tower.kind) ? getTowerMuzzle(tower.kind) : getTowerMuzzle('gunner')
   useFrame(() => {
     if (!weaponMount.current || !muzzleFlash.current || !simulation) return
     const age = simulation.elapsedSeconds - (simulation.towerLastShotAt.get(tower.id) ?? -100)
@@ -553,7 +555,7 @@ function TowerModel({ tower, target, simulation }: { tower: Placement; target?: 
     muzzleFlash.current.scale.setScalar(flashScale)
   })
   return (
-    <group position={[tower.x, 0, tower.z]}>
+    <group position={[tower.x, 0, tower.z]} scale={TOWER_VISUAL_SCALE}>
       {variant && <mesh position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.48, 0.57, 18]} />
         <meshStandardMaterial color={variant.accent} emissive={variant.accent} emissiveIntensity={0.35} />
@@ -573,9 +575,9 @@ function TowerModel({ tower, target, simulation }: { tower: Placement; target?: 
         </mesh>}
         <group ref={weaponMount}>
           <TowerWeapon kind={tower.kind} barrelRadius={barrelRadius} />
-          <mesh ref={muzzleFlash} visible={false} position={[tower.kind === 'mortar' ? 0.65 : 1.08, tower.kind === 'mortar' ? 0.48 : 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+          <mesh ref={muzzleFlash} visible={false} position={[muzzle.forward / TOWER_VISUAL_SCALE, muzzle.height / TOWER_VISUAL_SCALE - 0.62, 0]} rotation={[0, 0, -Math.PI / 2]}>
             <coneGeometry args={[0.13, 0.42, 6]} />
-            <meshBasicMaterial color={tower.kind === 'cryo' ? '#b8f6ff' : '#ffd786'} transparent opacity={0.82} depthWrite={false} />
+            <meshBasicMaterial color={muzzle.color} transparent opacity={0.9} depthWrite={false} toneMapped={false} />
           </mesh>
         </group>
       </group>

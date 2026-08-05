@@ -30,8 +30,12 @@ This matrix records the deterministic unit coverage for the combat rules. It tes
 | Variant safety | Unknown, locked, or wrong-family IDs resolve to Standard |
 | Variant behavior | Armor piercing, piercing beam, stun, burn spread, support-profile effects, and distinct stat transforms |
 | Variant selection | Standard is always present; at most one unlocked profile is selected per tower family |
+| Research separation | Every runtime variant has one dedicated unlock card; max-rank and multiple-parent requirements gate purchases without changing Standard behavior |
+| Muzzle/tracer alignment | Every tower has a typed barrel-tip height/offset and weapon color; Rivet direction rotates the origin toward its live target |
 | Saved deployments | Per-map and per-challenge isolation, reload round-trip, facing/targeting/profile preservation, malformed-data repair |
 | Setup economy | Placement costs, budget enforcement, move, sell, undo, clear, and full-price refunds |
+| Teaching balance | Four legal, well-aimed starter Rivet Guns clear the 107-enemy Green March with fortress health remaining |
+| Compact placement | Half-size tower spacing accepts 0.56-unit centers and modest road/platform-edge overlap while rejecting true intersections |
 
 The prototype does not currently give ordinary towers health; they are locked and invulnerable after deployment. Temporary and starting walls do have health, and existing navigation/combat tests cover wall contact damage, destruction, removal, rerouting, and break effects.
 
@@ -48,6 +52,8 @@ The prototype does not currently give ordinary towers health; they are locked an
 | Waves | Spawn count, survivor wait, wave advance, victory predicate, and result snapshot |
 | Horde fronts | Corridor rank size from road width, lateral offsets, multi-lane distribution, and full-width open-map entrances |
 | Surrender | Earned kill/wave progress remains, while zero-progress and objective bonuses cannot be farmed |
+| Campaign rewards | Exact eliminated percentage, one-time 50-medal first clear, 50% completed-map replay rate, objective scaling, and post-scaling difficulty bonus |
+| Corridor bounds | Navigation cells and dense-pack separation remain inside the painted road while local wall detours remain possible |
 | Walls | Health, damage, break/removal, rerouting, Sapper targeting, spikes, and break explosion |
 | Knockback | Caliber/profile force, shared heavy-unit resistance, decay, map bounds, wall tunnelling rejection, and blocked-corner sliding |
 | Visual budgets | Independent corpse/transient caps, newest-projectile retention, corpse density, and weapon-specific arc ordering |

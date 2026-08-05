@@ -8,26 +8,31 @@ function group(enemy: EnemyKind, count: number, interval: number, startDelay?: n
 const CAMPAIGN_COUNT_SCALE = 6
 const CAMPAIGN_INTERVAL_SCALE = 0.72
 
-function wave(groups: readonly SpawnGroup[], intermission = 1.4, intervalScale = 1): WaveDefinition {
+function scaledWave(groups: readonly SpawnGroup[], countScale: number, intermission = 1.4, intervalScale = 1): WaveDefinition {
   return {
     groups: groups.map((entry) => entry.enemy === 'ogre' ? entry : {
       ...entry,
-      count: entry.count * CAMPAIGN_COUNT_SCALE,
+      count: Math.max(1, Math.round(entry.count * countScale)),
       interval: entry.interval * CAMPAIGN_INTERVAL_SCALE * intervalScale,
     }),
     intermission: Math.max(6, intermission),
   }
 }
 
+const wave = (groups: readonly SpawnGroup[], intermission = 1.4, intervalScale = 1) => scaledWave(groups, CAMPAIGN_COUNT_SCALE, intermission, intervalScale)
+const teachingWave = (groups: readonly SpawnGroup[], intermission = 1.4): WaveDefinition => ({
+  ...scaledWave(groups, 1.25, intermission),
+  multipliers: { damage: 0.3 },
+})
 const forkWave = (groups: readonly SpawnGroup[], intermission = 1.4) => wave(groups, intermission, 1.45)
 const citadelWave = (groups: readonly SpawnGroup[], intermission = 1.4) => wave(groups, intermission, 1.95)
 
 export const GREEN_MARCH_WAVES: readonly WaveDefinition[] = [
-  wave([group('grunt', 12, 0.58)]),
-  wave([group('grunt', 12, 0.5, 0), group('runner', 6, 0.36, 1.5)]),
-  wave([group('grunt', 12, 0.45, 0), group('shieldbearer', 6, 0.65, 1.8)]),
-  wave([group('grunt', 14, 0.4, 0), group('runner', 8, 0.3, 1.2), group('brute', 3, 0.9, 3.4)]),
-  wave([group('grunt', 16, 0.34, 0), group('runner', 8, 0.27, 1), group('shieldbearer', 6, 0.55, 2.2), group('brute', 3, 0.8, 4)]),
+  teachingWave([group('grunt', 12, 0.58)]),
+  teachingWave([group('grunt', 10, 0.5, 0), group('runner', 5, 0.36, 1.5)]),
+  teachingWave([group('grunt', 10, 0.45, 0), group('shieldbearer', 4, 0.65, 1.8)]),
+  teachingWave([group('grunt', 10, 0.4, 0), group('runner', 6, 0.3, 1.2), group('brute', 2, 0.9, 3.4)]),
+  teachingWave([group('grunt', 12, 0.34, 0), group('runner', 6, 0.27, 1), group('shieldbearer', 4, 0.55, 2.2), group('brute', 2, 0.8, 4)]),
 ]
 
 export const TWIN_FORK_WAVES: readonly WaveDefinition[] = [

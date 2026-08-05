@@ -14,10 +14,10 @@ export type CommanderDoctrineDefinition = {
 }
 
 export const COMMANDER_DOCTRINES: readonly CommanderDoctrineDefinition[] = [
-  { id: 'forwardSupply', name: 'Forward Supply', effect: '+30 preparation supply', researchId: 'command-01', researchName: 'Supply Requisition' },
-  { id: 'leanLogistics', name: 'Lean Logistics', effect: 'Towers and walls cost 10% less', researchId: 'command-02', researchName: 'Efficient Logistics' },
-  { id: 'rapidResponse', name: 'Rapid Response', effect: 'All command cooldowns recover 15% faster', researchId: 'command-03', researchName: 'Expanded Loadout' },
-  { id: 'bastionReserve', name: 'Bastion Reserve', effect: '+50 fortress shield and +20% wall health', researchId: 'command-06', researchName: 'Fortress Shield' },
+  { id: 'forwardSupply', name: 'Forward Supply', effect: '+30 preparation supply', researchId: 'command-07', researchName: 'Forward Supply' },
+  { id: 'leanLogistics', name: 'Lean Logistics', effect: 'Towers and walls cost 10% less', researchId: 'command-08', researchName: 'Lean Logistics' },
+  { id: 'rapidResponse', name: 'Rapid Response', effect: 'All command cooldowns recover 15% faster', researchId: 'command-09', researchName: 'Rapid Response' },
+  { id: 'bastionReserve', name: 'Bastion Reserve', effect: '+50 fortress shield and +20% wall health', researchId: 'command-13', researchName: 'Bastion Reserve' },
 ]
 
 export type Loadout = {

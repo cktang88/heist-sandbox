@@ -7,24 +7,24 @@ A placement stores the stable ID in `variantId`. Omitting it, using an unknown o
 | Tower | Special profile | Stable ID | Gameplay change | Research node |
 |---|---|---|---|---|
 | Rivet Gun | Armor Piercer | `gunner-armor-piercer` | Slower, harder, longer-range anti-armor rivets | `gunner-05` |
-| Rivet Gun | Rapid Feed | `gunner-rapid-feed` | Very fast light rivets at shorter range | `gunner-03` |
-| Heavy Gun | Anti-Armor | `heavy-anti-armor` | Slower, narrow sustained heavy fire | `gunner-05` |
-| Heavy Gun | Siege Feed | `heavy-siege` | Faster sustained suppression at shorter range | `gunner-06` |
-| Blast Cannon | Hypervelocity | `cannon-hypervelocity` | Fast dense shell with a tight blast | `explosives-04` |
+| Rivet Gun | Rapid Feed | `gunner-rapid-feed` | Very fast light rivets at shorter range | `gunner-07` |
+| Heavy Gun | Anti-Armor | `heavy-anti-armor` | Slower, narrow sustained heavy fire | `gunner-09` |
+| Heavy Gun | Siege Feed | `heavy-siege` | Faster sustained suppression at shorter range | `gunner-10` |
+| Blast Cannon | Hypervelocity | `cannon-hypervelocity` | Fast dense shell with a tight blast | `explosives-07` |
 | Blast Cannon | Cluster | `cannon-cluster` | Lower-force initial hit followed by secondary blasts | `explosives-05` |
-| Rocket Battery | Guided | `rocket-guided` | Slow precise anti-heavy rockets with a tight, stronger-force blast | `explosives-04` |
-| Rocket Battery | Salvo | `rocket-salvo` | Rapid smaller rockets for crowds | `explosives-05` |
-| Flame Thrower | Napalm | `flame-napalm` | Lower direct damage and a longer, stronger burn | `fire-05` |
+| Rocket Battery | Guided | `rocket-guided` | Slow precise anti-heavy rockets with a tight, stronger-force blast | `explosives-08` |
+| Rocket Battery | Salvo | `rocket-salvo` | Rapid smaller rockets for crowds | `explosives-10` |
+| Flame Thrower | Napalm | `flame-napalm` | Lower direct damage and a longer, stronger burn | `fire-07` |
 | Flame Thrower | Funeral Pyre | `flame-funeral-pyre` | Wider flame whose burning victims spread fire | `fire-06` |
 | Cryo Projector | Brittle | `cryo-brittle` | Faster deep freeze that primes explosive damage | `cryo-05` |
 | Cryo Projector | Chain Freeze | `cryo-chain-freeze` | Freeze jumps to another nearby target | `cryo-06` |
 | Tesla Coil | Stun Coil | `tesla-stun` | Weaker arcs chain farther and briefly stop survivors | `energy-04` |
-| Tesla Coil | Overcharge | `tesla-overcharge` | Slow, high-damage single-target electric bursts | `energy-03` |
+| Tesla Coil | Overcharge | `tesla-overcharge` | Slow, high-damage single-target electric bursts | `energy-07` |
 | Laser Lance | Piercing | `laser-piercing` | A thinner beam damages aligned enemies behind its target | `energy-06` |
-| Laser Lance | Prism | `laser-prism` | Rapid short beam for scattered targets | `energy-05` |
+| Laser Lance | Prism | `laser-prism` | Rapid short beam for scattered targets | `energy-10` |
 | Field Mortar | Concussion | `mortar-concussion` | Weaker, faster, wider high-force blasts stun survivors | `artillery-05` |
 | Field Mortar | Cluster | `mortar-cluster` | Slower long-range, lower-force blast with secondary shells | `artillery-06` |
-| Support Beacon | Overclock | `support-overclock` | Smaller aura favors a much stronger fire-rate boost | `command-05` |
-| Support Beacon | Fortress | `support-fortress` | Wider, balanced damage and fire-rate network | `command-06` |
+| Support Beacon | Overclock | `support-overclock` | Smaller aura favors a much stronger fire-rate boost | `command-11` |
+| Support Beacon | Fortress | `support-fortress` | Wider, balanced damage and fire-rate network | `command-12` |
 
-The catalog and stat transforms live in `src/game/towerVariants.ts`. The selection rules live in `src/game/variantSelection.ts`; the research badges use the same stable mapping in `src/game/upgrades.ts`; combat reads the stored profile from each placement. This keeps research availability, setup choice, saved layout, visuals, and combat behavior aligned without putting profile switches throughout the UI.
+The catalog and stat transforms live in `src/game/towerVariants.ts`. The selection rules live in `src/game/variantSelection.ts`; each dedicated variant card uses the same stable mapping in `src/game/upgrades.ts`; combat reads the stored profile from each placement. This keeps research availability, setup choice, saved layout, visuals, and combat behavior aligned without putting profile switches throughout the UI.

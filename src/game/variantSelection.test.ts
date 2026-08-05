@@ -17,7 +17,7 @@ describe('tower variant selection', () => {
   })
 
   it('offers only special variants unlocked by owned research', () => {
-    const ranks: UpgradeRanks = { 'gunner-03': 1, 'gunner-05': 1 }
+    const ranks: UpgradeRanks = { 'gunner-07': 1, 'gunner-05': 1, 'gunner-09': 1 }
 
     expect(getUnlockedTowerVariants('gunner', ranks).map((variant) => variant.id)).toEqual([
       'gunner-armor-piercer',
@@ -28,7 +28,7 @@ describe('tower variant selection', () => {
   })
 
   it('normalizes locked, unknown, and wrong-family saved ids to Standard', () => {
-    const ranks: UpgradeRanks = { 'gunner-05': 1, 'explosives-04': 1 }
+    const ranks: UpgradeRanks = { 'gunner-05': 1, 'explosives-07': 1 }
 
     expect(normalizeTowerVariantSelection('gunner', 'gunner-armor-piercer', ranks)).toBe('gunner-armor-piercer')
     expect(normalizeTowerVariantSelection('gunner', 'gunner-armor-piercer', {})).toBeUndefined()
@@ -38,7 +38,7 @@ describe('tower variant selection', () => {
   })
 
   it('keeps at most one choice for each equipped tower and drops other saved keys', () => {
-    const ranks: UpgradeRanks = { 'gunner-03': 1, 'explosives-04': 1 }
+    const ranks: UpgradeRanks = { 'gunner-07': 1, 'explosives-07': 1 }
 
     expect(normalizeTowerVariantSelections({
       gunner: 'gunner-rapid-feed',
@@ -52,7 +52,7 @@ describe('tower variant selection', () => {
   })
 
   it('replaces a special choice and returns to Standard without mutating the input', () => {
-    const ranks: UpgradeRanks = { 'gunner-03': 1, 'gunner-05': 1 }
+    const ranks: UpgradeRanks = { 'gunner-07': 1, 'gunner-05': 1 }
     const first = selectTowerVariant({}, 'gunner', 'gunner-armor-piercer', ranks)
     const second = selectTowerVariant(first, 'gunner', 'gunner-rapid-feed', ranks)
     const standard = selectTowerVariant(second, 'gunner', null, ranks)

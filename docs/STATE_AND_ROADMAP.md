@@ -14,22 +14,26 @@ The implementation was built in playable layers. Each layer was reviewed, tested
 - Ten orc types, including directional shields, wall-seeking Sappers, aura carriers, Berserkers, and knockback-resistant Ogres.
 - Pre-battle deployment with visible starting/remaining supply and tower prices; move is free and sell, undo, and clear refund 100% of setup cost.
 - Two-click tower deployment: anchor the base, aim the visible sector, then lock facing. All setup towers show their sectors; Rocket and Mortar also show minimum-range dead zones.
+- Tower models/previews are half their former dimensions, and placement uses matching compact spacing with small road, terrain, platform-edge, and map-edge tolerance.
 - Weapon towers use 30–60° combat sectors, Support Beacon uses a 360° aura, and firing angle is adjustable through tuning and selected research.
 - One persistent defense layout per map, with challenges stored separately. Tower/power loadout, positions, facing, targeting, starting walls, and selected variants survive restart, map switching, and reload. Over-budget layouts remain editable but cannot start until supply is brought back under the limit.
 - No normal tower placement after the battle starts.
 - Seven battlefield tools: Strafe, Barrage, Cryo Beam, Nuke, Orbital Laser, Repair, and temporary walls.
 - Drag-oriented Strafe and Cryo lines, guided Orbital Laser, Nuke falloff, knockback, finite power charges, and wall recharge.
-- A branching 60-node persistent research graph with visible tower, power, wall, and variant unlock badges. Related stat and profile choices fan out from their root unlock.
+- A branching 83-node persistent research graph. Stat, tower, variant, power, wall, and doctrine cards have distinct shapes/labels; right-angle arrows show real dependencies, and special profiles require their relevant stat path at maximum rank.
 - Four distinct Commander Doctrines, each unlocked by Command research, with one passive slot per run.
-- Persistent medals, best runs, campaign progress, selected difficulty/loadout/doctrine, per-level layouts and variants, maps, tuning, and settings.
+- Persistent Command Medals, best runs, campaign progress, selected difficulty/loadout/doctrine, per-level layouts and variants, maps, tuning, and settings. Campaign medals equal the eliminated percentage, first clears add 50, and completed-map replays pay half rate; a full result is sized to buy at least two common upgrades.
 - Fortress shields, leak tracking, supply-cache objectives, boss/reward wave metadata, and results with damage by source.
+- Reward-first after-action reports: earned Command Medals and their breakdown lead the report, losses show progress, unranked runs explain why no medals were saved, and secondary damage statistics are collapsible.
 - Pause/resume, confirmed surrender, 1×/2× speed, keyboard controls, settings, contextual help, reduced flashes, screen shake, corpse density, volume controls, and narrow-screen layouts.
 - Generated combat/UI audio plus bounded instanced projectiles, impact particles, wall debris, and separate persistent corpse history.
-- Tower recoil and muzzle flashes, weapon-specific projectile arcs, stride/bob locomotion, staged fortress cracks/rubble/smoke, and boss rings with world-space health bars.
+- Tower recoil and muzzle flashes, shared barrel-tip tracer origins, bright weapon-colored shot lines, weapon-specific projectile arcs, stride/bob locomotion, staged fortress cracks/rubble/smoke, and boss rings with world-space health bars.
 - Camera fit plus bounded wheel/button zoom and right/middle-button field dragging. FIT recenters the view; camera shake remains layered onto the rig while simulation stays independent of the viewport.
 - Data-driven weapon force with Ogre/heavy-unit resistance. High Explosive and Concussion profiles increase force; small collision-tested substeps stop even extreme impulses at terrain and temporary walls.
 - A forged field-command UI language with iron frames, parchment/brass typography, red order ribbons, stronger selected states, and original code-native CSS ornament.
 - Road-width horde ranks instead of single-file spawning: two to four abreast on corridor roads and a 24-position entrance front across Shattered Expanse.
+- Green March is a 107-enemy teaching operation rather than a 636-enemy endurance map. Four legal, well-aimed starter Rivet Guns pass its deterministic balance scenario.
+- Corridor navigation stays inside the visible road during normal travel, while temporary-wall detours open only a local shoulder; crowd separation cannot push orcs through that boundary.
 - Shattered Expanse, a three-spawn open-field campaign map with nine buildable polygon platforms, one solid blocker, and 2,244 streamed enemies.
 
 ## Creator and prototyping tools
@@ -48,14 +52,14 @@ The live tuning overlay supports tower cost, damage, range, rate, firing angle, 
 
 ## Validation at this commit
 
-- `npm test`: 301 deterministic rules tests pass; three optional performance cases are skipped in the normal suite. Coverage includes combat, rank spawning, force/wall collision, projectile arcs, corpse budgets, camera zoom/pan bounds, fortress states, facing sectors, doctrines, surrender rewards, variant selection and behavior, setup economy, layout isolation/sanitizing, saves, maps, and progression.
+- `npm test`: 313 deterministic rules tests pass; three optional performance cases are skipped in the normal suite. Coverage includes combat, barrel-tip definitions, research dependency ordering/max-rank gates, save migration, first-map balance, compact placement tolerances, rank spawning, painted-road confinement, force/wall collision, projectile arcs, corpse budgets, camera zoom/pan bounds, fortress states, facing sectors, doctrines, rewards, surrender, variant behavior, setup economy, layouts, maps, and progression.
 - `npm run build` is the required production-build gate.
 - `npm run benchmark:combat`:
   - 2,000 live enemies: approximately 1.08 ms average fixed simulation step.
   - 5,000 live enemies: approximately 2.46 ms average fixed simulation step.
   - 50,000 enemies streamed through ten bounded 5,000-enemy cohorts: approximately 1.77 ms per measured step.
 - Browser acceptance verified the briefing profile picker, starting/remaining supply, two-click placement, visible directional sectors, reload persistence, and switching to another map and back. The broader release checklist remains in `PR_DESCRIPTION.md`.
-- Campaign pacing is estimated at roughly 8–10 minutes per successful run, with 636–2,244 authored enemies depending on the mission.
+- Green March is a short teaching clear with 107 enemies. Later campaign operations escalate to 780–2,244 enemies and longer endurance pacing.
 
 ### Why the crowd index stays dependency-free
 

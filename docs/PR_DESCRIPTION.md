@@ -4,13 +4,19 @@
 
 Preparation now communicates the real economy: players see starting and remaining supply, every defense price, free movement, and full-price setup refunds. Tower placement is a deliberate two-click action—anchor, aim, then lock—and every placed tower displays its real combat sector during setup. Rocket and Mortar show their inner dead zones. Combat uses the same distance and angle shown in the preview.
 
-The Armory is now a branching 60-node graph instead of a forced six-step line. Cards clearly label permanent tower, power, wall, and variant unlocks. Stat and profile choices fan out from their relevant tool, so a player can pursue the behavior they want without first buying unrelated stats.
+The Armory is now an 83-node dependency graph. Stats, towers, variants, powers, walls, and doctrines have distinct card treatments. Every special weapon profile owns a separate card after its relevant fully ranked stat path; Standard weapons no longer inherit a profile's special behavior. Right-angle parent-to-child arrows replace ambiguous crossed lines, and redundant visible requirement text is gone.
 
-The battlefield now responds at every important event without turning slapstick: towers recoil and flash, heavy rounds arc, impacts emit bounded sparks and force, orcs march instead of gliding, dead orcs remain as corpses, the fortress accumulates visible damage, and Ogres carry a clear boss marker and health bar. Knockback strength follows weapon/upgrades/profile data and collision-tested substeps prevent it from crossing walls or terrain.
+The battlefield now responds at every important event without turning slapstick: towers recoil and flash, bright weapon-colored tracers begin at the measured barrel tip, heavy rounds arc, impacts emit bounded sparks and force, orcs march instead of gliding, dead orcs remain as corpses, the fortress accumulates visible damage, and Ogres carry a clear boss marker and health bar. Knockback strength follows weapon/upgrades/profile data and collision-tested substeps prevent it from crossing walls or terrain.
 
 The camera fits each map and offers bounded wheel/button zoom without changing the simulation. The UI now uses an original forged field-command style—iron frames, parchment/brass type, red orders, stronger selections, and code-native ornament—instead of generic flat panels.
 
 Command research now unlocks four exclusive doctrine choices with different run effects. Right- and middle-button dragging pans the battlefield, and FIT recenters it. A confirmed surrender produces an ordered retreat and preserves only progress genuinely earned before withdrawal. Campaign enemies arrive in road-width ranks instead of single file; Shattered Expanse spreads its front across nearly the full left entrance.
+
+Corridor hordes now remain on the painted road instead of using an invisible full-length shoulder; temporary walls still open a small local detour. Campaign Command Medals are readable and predictable: the eliminated percentage is the base reward, the first clear adds 50, and completed-map replays pay half. A full first clear pays 150 base medals and a full replay pays 50, enough for at least two common research purchases.
+
+The after-action report now leads with Command Medals instead of an undifferentiated number grid. Ranked losses visibly award elimination medals. Unranked reports name the exact progression lock—Sandbox, custom tuning, Unlock All, or a runtime diagnostic—and offer a one-click return to default ranked settings. Battle details sit below the reward, while damage by source is collapsed until requested.
+
+Green March is now a short 107-enemy teaching battle instead of a 636-enemy endurance wall. It keeps three-wide horde fronts but reduces tutorial fortress damage; a deterministic four-Rivet deployment can clear it. Tower bodies and previews are half-size, and placement clearances now match their compact visible footprint with a little edge/overlap tolerance.
 
 ## Manual QA
 
@@ -18,9 +24,18 @@ Command research now unlocks four exclusive doctrine choices with different run 
 - [ ] Preview each campaign map; confirm Twin Fork has two lanes, Frozen/Ash have obstacles, and Broken Citadel has three approaches and limited build zones.
 - [ ] Play Shattered Expanse; confirm all three spawn regions flow around polygon platforms toward the shared fortress.
 - [ ] Start Green March and confirm three-orc ranks arrive rapidly instead of one orc per long interval. On Shattered Expanse, confirm the opening front spans nearly the full left edge.
+- [ ] Follow Green March through its lower bend; confirm the horde stays inside the painted road except for a local detour around a temporary wall.
+- [ ] Eliminate 54 of Green March's 107 enemies and confirm the report shows 50% eliminated and 50 base Command Medals. Complete it once for the +50 first-clear bonus, then replay it and confirm the same elimination reward is halved.
+- [ ] Deploy four well-aimed Rivet Guns on Green March and confirm the 107-enemy teaching operation is winnable without powers or research.
+- [ ] Pack towers closely beside a road and near platform/map edges; confirm visibly separated half-size bases are accepted while true intersections remain rejected.
+- [ ] Finish a new map and confirm the result can normally purchase at least two available early or mid-cost research upgrades.
+- [ ] Lose a ranked campaign or challenge run after earning kills; confirm Command Medals Earned is the first result and the saved medal bank increases.
+- [ ] Change a tuning value, lose a run, and confirm both deployment and results clearly state that custom tuning disables medals. Use Restore Ranked Settings and confirm the warning disappears.
 - [ ] Start endless mode; confirm the HUD shows ∞ and waves continue beyond five.
 - [ ] Open all six challenges and confirm their roster, power, speed, or fortress modifier.
 - [ ] Buy research, reload, and confirm unlocked cards and stat changes persist.
+- [ ] Inspect Gunner, Explosives, Energy, and Command research. Confirm arrows end at their actual child cards, no `REQUIRES X` labels appear, and stat/tower/variant/power/doctrine cards are distinguishable without reading their descriptions.
+- [ ] Max Polished Action to 3/3, then unlock the separate Rapid Feed card. Confirm 1/3 or 2/3 cannot unlock it and Standard remains unchanged until Rapid Feed is equipped.
 - [ ] Confirm Armory branches fan out from their tool root and tower, power, wall, and variant unlock badges are readable.
 - [ ] Unlock both profiles for one tower, select each and Standard in turn, and confirm only one profile is active for that tower family.
 - [ ] Confirm a locked, unknown, or wrong-family saved profile safely loads as Standard.
@@ -42,7 +57,7 @@ Command research now unlocks four exclusive doctrine choices with different run 
 - [ ] Build a challenge layout on a campaign map and confirm it does not replace that map's campaign/endless layout.
 - [ ] Place a temporary wall during combat, restart, and confirm that combat-only wall was not added to the saved setup.
 - [ ] Use a Strafe and Nuke; confirm repeated Strafe impacts, center-weighted Nuke damage, knockback, and Ogre resistance.
-- [ ] Fire direct and heavy weapons; confirm muzzle recoil, distinct Cannon/Rocket/Mortar arcs, restrained particles, and visible corpses.
+- [ ] Fire direct and heavy weapons; confirm each tracer begins at the visible barrel tip, Rivet/ballistic lines are yellow-orange rather than black, Cannon/Rocket/Mortar arcs remain distinct, and corpses remain visible.
 - [ ] Knock enemies toward temporary walls, polygon terrain, and the map edge; confirm they stop or slide rather than crossing.
 - [ ] Let fortress health cross 70% and 30%; confirm cracks, rubble, and smoke stage clearly without covering the route.
 - [ ] Spawn an Ogre and confirm its marker and health bar remain readable in a dense horde.

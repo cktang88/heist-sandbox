@@ -16,6 +16,16 @@ describe('build placement', () => {
     expect(isValidPlacement({ x: 0, z: -5 }, 'gunner', [], map)).toBe(false)
   })
 
+  it('allows tightly packed half-size towers with a small visual-overlap tolerance', () => {
+    const existing = [{ id: 1, kind: 'gunner' as const, x: 0, z: -5 }]
+    expect(isValidPlacement({ x: 0.56, z: -5 }, 'gunner', existing, GREEN_MARCH)).toBe(true)
+    expect(isValidPlacement({ x: 0.45, z: -5 }, 'gunner', existing, GREEN_MARCH)).toBe(false)
+  })
+
+  it('allows half-size towers closer to a corridor edge', () => {
+    expect(isValidPlacement({ x: 0, z: 3.76 }, 'gunner', [], GREEN_MARCH)).toBe(true)
+  })
+
   it('keeps walls clear of spawn and fortress protection zones', () => {
     const spawn = GREEN_MARCH.paths[0][0]
     const fortress = GREEN_MARCH.paths[0].at(-1)!

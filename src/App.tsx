@@ -23,9 +23,9 @@ import { consumePowerCharge, hasPowerCharge, type PowerChargeState } from './gam
 import { beginPlacementMove, cancelPlacementMove, placeMovedPlacement, removeSetupPlacement, rotateWallPlacement, setPlacementTargeting } from './game/setupEditing'
 import { CHALLENGES, createInitialSnapshot, findChallenge, findMission, isMissionUnlocked, missionForMap, nextMissionId, runForChallenge, runForMap } from './game/runs'
 import { createBattleSessionStart, createRunResult, keepPermanentPlacements } from './game/runSession'
-import { calculateRunReward, loadSave, recordRun, storeSave } from './game/save'
+import { calculateRunReward, loadSave, recordRun, storeSave, type RunReward } from './game/save'
 import { loadSettings, storeSettings } from './game/settings'
-import { loadTuning } from './game/tuningStore'
+import { loadTuning, storeTuning } from './game/tuningStore'
 import { ALL_UPGRADES, deriveGameRules, getNewlyAffordableUpgradeNames, isBuildToolUnlocked, isPowerUnlocked, type UpgradeRanks } from './game/upgrades'
 import type { ActivePowerKind, BattleSnapshot, BuildTool, CombatPower, DifficultyTier, GameMode, GamePhase, MapDefinition, Placement, Point, PowerCommand, TargetingRule, TowerKind, TowerVariantId } from './game/types'
 import { isTowerVariantSelectionsEqual, normalizeTowerVariantSelections, selectTowerVariant, type TowerVariantSelections } from './game/variantSelection'
@@ -70,8 +70,7 @@ export default function App() {
   const [rankedRun, setRankedRun] = useState(true)
   const [settings, setSettings] = useState(loadSettings)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [lastMedalsEarned, setLastMedalsEarned] = useState(0)
-  const [lastDifficultyBonus, setLastDifficultyBonus] = useState(0)
+  const [lastReward, setLastReward] = useState<RunReward | null>(null)
   const [battleStatsOpen, setBattleStatsOpen] = useState(false)
   const [loadout, setLoadout] = useState<Loadout>(() => ({ ...DEFAULT_LOADOUT, doctrine: save.selectedDoctrine }))
   const [helpOpen, setHelpOpen] = useState(() => save.totalRuns === 0)
@@ -79,6 +78,7 @@ export default function App() {
   const [setupCancelRevision, setSetupCancelRevision] = useState(0)
   const [surrenderRevision, setSurrenderRevision] = useState(0)
   const [lastBattleSurrendered, setLastBattleSurrendered] = useState(false)
+  const [battleUnrankedReason, setBattleUnrankedReason] = useState<string | null>(null)
   const layoutReadyId = useRef<string | null>(null)
   const run = useMemo(() => mode === 'challenge' ? runForChallenge(challengeId) : runForMap(mode, map, difficulty), [mode, map, challengeId, difficulty])
 
@@ -103,7 +103,14 @@ export default function App() {
   const hasOffensiveTower = placements.some((item) => isTowerKind(item.kind) && isOffensiveTowerKind(item.kind, effectiveTuning))
   const canStart = !movingPlacement && remaining >= 0 && canStartWithDeployment(hasOffensiveTower, run.mode === 'challenge' ? run.modifiers : undefined)
   const selectedPlacement = placements.find((placement) => placement.id === selectedPlacementId)
-  const setupIsRanked = run.mode !== 'sandbox' && !devUnlockAll && JSON.stringify(tuning) === JSON.stringify(DEFAULT_TUNING)
+  const setupUnrankedReason = run.mode === 'sandbox'
+    ? 'Sandbox mode does not award progression.'
+    : devUnlockAll
+      ? 'Unlock All Content is enabled.'
+      : JSON.stringify(tuning) !== JSON.stringify(DEFAULT_TUNING)
+        ? 'Custom combat tuning is active.'
+        : null
+  const setupIsRanked = setupUnrankedReason === null
   const availableTowers = TOWER_KINDS.filter((tower) => devUnlockAll || isBuildToolUnlocked(save.upgrades, tower))
   const availablePowers: CombatPower[] = [
     ...ACTIVE_POWER_OPTIONS.filter((power) => devUnlockAll || isPowerUnlocked(save.upgrades, power.kind)).map((power) => power.kind),
@@ -328,11 +335,11 @@ export default function App() {
     setStressCommand(null)
     setDevInvulnerable(false)
     setPowerCharges(start.powerCharges)
-    setLastMedalsEarned(0)
-    setLastDifficultyBonus(0)
+    setLastReward(null)
     setLastBattleSurrendered(false)
+    setBattleUnrankedReason(setupUnrankedReason)
     setPhase('battle')
-  }, [canStart, gameRules, run, settings, setupIsRanked])
+  }, [canStart, gameRules, run, settings, setupIsRanked, setupUnrankedReason])
 
   const togglePause = useCallback(() => {
     if (phase === 'battle') {
@@ -514,15 +521,13 @@ export default function App() {
     playSound(won ? 'victory' : 'defeat', settings)
     setPaused(false)
     if (!rankedRun) {
-      setLastMedalsEarned(0)
-      setLastDifficultyBonus(0)
+      setLastReward(null)
       return
     }
     const result = createRunResult(run, finalSnapshot, won, reason === 'surrendered')
     const reward = calculateRunReward(save, result)
     const next = recordRun(save, result)
-    setLastMedalsEarned(next.medals - save.medals)
-    setLastDifficultyBonus(reward.difficultyBonus)
+    setLastReward(reward)
     storeSave(next)
     setSave(next)
   }, [rankedRun, run, save, settings])
@@ -534,6 +539,29 @@ export default function App() {
     setDevInvulnerable(false)
     setStressCommand(null)
     setPhase('setup')
+  }
+
+  const restoreRankedSetup = () => {
+    const defaults = structuredClone(DEFAULT_TUNING)
+    setTuning(defaults)
+    storeTuning(defaults)
+    setDevUnlockAll(false)
+    setDevInvulnerable(false)
+    setStressCommand(null)
+    setSelectedTool('gunner')
+    setSelectedPower(null)
+    setPlacements((items) => items.filter((item) => isBuildToolUnlocked(save.upgrades, item.kind)))
+    setLoadout((current) => normalizeLoadout(
+      current,
+      TOWER_KINDS.filter((tower) => isBuildToolUnlocked(save.upgrades, tower)),
+      [
+        ...ACTIVE_POWER_OPTIONS.filter((power) => isPowerUnlocked(save.upgrades, power.kind)).map((power) => power.kind),
+        ...(isBuildToolUnlocked(save.upgrades, 'wall') ? ['wall' as const] : []),
+      ],
+      loadoutLimits,
+    ))
+    setBattleUnrankedReason(null)
+    returnToSetup()
   }
 
   const continueCampaign = () => {
@@ -702,6 +730,8 @@ export default function App() {
           movingPlacement={movingPlacement}
           canStart={canStart}
           ranked={setupIsRanked}
+          unrankedReason={setupUnrankedReason}
+          canRestoreRanked={run.mode !== 'sandbox'}
           onSelectTool={(tool) => { cancelSetupEdit(); setSelectedTool(tool) }}
           onSellSelected={sellSelectedPlacement}
           onMoveSelected={moveSelectedPlacement}
@@ -716,6 +746,7 @@ export default function App() {
           }}
           onClear={() => { setPlacements([]); setMovingPlacement(null); setSelectedPlacementId(null) }}
           onStart={startBattle}
+          onRestoreRanked={restoreRankedSetup}
         />}
 
         {phase === 'battle' && <BattleControls
@@ -751,9 +782,9 @@ export default function App() {
           run={run}
           snapshot={snapshot}
           save={save}
-          medalsEarned={lastMedalsEarned}
-          difficultyBonus={lastDifficultyBonus}
-          newlyAffordableResearch={rankedRun ? getNewlyAffordableUpgradeNames(save.upgrades, Math.max(0, save.medals - lastMedalsEarned), save.medals) : []}
+          reward={lastReward}
+          unrankedReason={battleUnrankedReason}
+          newlyAffordableResearch={rankedRun ? getNewlyAffordableUpgradeNames(save.upgrades, Math.max(0, save.medals - (lastReward?.total ?? 0)), save.medals) : []}
           surrendered={lastBattleSurrendered}
           primaryLabel={run.mode === 'campaign' && phase === 'victory' ? 'CONTINUE CAMPAIGN' : run.mode === 'challenge' ? 'RETURN TO CHALLENGES' : 'RETURN TO DEPLOYMENT'}
           onPrimary={run.mode === 'campaign' && phase === 'victory' ? continueCampaign : run.mode === 'challenge' ? () => {
@@ -762,6 +793,7 @@ export default function App() {
           } : returnToSetup}
           onArmory={() => setUpgradeOpen(true)}
           onSettings={() => setSettingsOpen(true)}
+          onRestoreRanked={restoreRankedSetup}
         />}
         {tuningOpen && (
           <TuningPanel
@@ -772,6 +804,7 @@ export default function App() {
             onSpawnStress={(count, streamed = false) => {
               if (phase !== 'battle') return
               setRankedRun(false)
+              setBattleUnrankedReason('A diagnostic horde was spawned during this run.')
               setStressCommand((current) => ({
                 id: (current?.id ?? 0) + 1,
                 count,
@@ -784,6 +817,7 @@ export default function App() {
             onSpawnEnemy={(kind) => {
               if (phase !== 'battle') return
               setRankedRun(false)
+              setBattleUnrankedReason('A diagnostic enemy was spawned during this run.')
               setStressCommand((current) => ({ id: (current?.id ?? 0) + 1, count: 1, kind }))
               setTuningOpen(false)
               setPaused(false)
@@ -791,6 +825,7 @@ export default function App() {
             onToggleInvulnerable={() => {
               if (phase !== 'battle') return
               setRankedRun(false)
+              setBattleUnrankedReason('Fortress invulnerability was used during this run.')
               setDevInvulnerable((current) => !current)
             }}
             onResetRuntimeCheats={() => {
@@ -799,7 +834,10 @@ export default function App() {
             }}
             onToggleDevUnlockAll={() => {
               setDevUnlockAll((current) => {
-                if (!current && phase === 'battle') setRankedRun(false)
+                if (!current && phase === 'battle') {
+                  setRankedRun(false)
+                  setBattleUnrankedReason('Unlock All Content was enabled during this run.')
+                }
                 if (!current) {
                   setLoadout((current) => ({ ...current, towers: TOWER_KINDS.slice(0, towerSlotLimit), powers: ACTIVE_POWER_OPTIONS.slice(0, powerSlotLimit).map((power) => power.kind) }))
                 }

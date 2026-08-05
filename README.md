@@ -20,15 +20,15 @@ npm run build
 
 1. Six campaign missions with distinct themed waves, deterministic endless mode, and six modifier challenges.
 2. Six maps, including corridor battles, a three-approach boss citadel, and the open-field polygon arena Shattered Expanse, plus custom saved maps.
-3. Ten towers, each with Standard plus two research-unlocked special variants, ten enemy roles, status effects, support buffs, and damage statistics.
+3. Ten compact half-scale towers with forgiving footprint-matched placement, each with Standard plus two research-unlocked special variants, ten enemy roles, status effects, support buffs, and damage statistics.
 4. Drag-aimed Strafe/Cryo, barrage, nuke, guideable orbital laser, finite emergency repair, and temporary combat walls.
-5. A persistent branching 60-node armory with clear tower, power, wall, and variant unlock badges. Weapon stat and variant choices fan out from their relevant unlock instead of forming one long checklist.
+5. A persistent branching 83-node armory with visually distinct stat, tower, variant, power, wall, and doctrine cards. Every special profile is a separate unlock reached only after its relevant stat path is fully ranked.
 6. Map Forge with a reload-safe custom library, corridor/open-field navigation, editable polygon platforms and blockers, multiple lanes, build zones, supply-cache objectives, terrain palettes, decoration stamps, authored Sandbox waves, validation, and JSON import/export.
 7. Live tuning for every tower, enemy, and battlefield power, plus unranked per-type spawning, fortress invulnerability, stress hordes, and quick restart.
-8. Versioned saves, a separate persistent defense layout for every map and challenge, campaign/challenge progress, medals, four research-unlocked Commander Doctrines, pause, surrender, 1×/2× speed, and persistent accessibility settings including screen shake.
+8. Versioned saves, a separate persistent defense layout for every map and challenge, campaign/challenge progress, percentage-based Command Medals with a large first-clear bonus and half-rate replays, four research-unlocked Commander Doctrines, pause, surrender, 1×/2× speed, and persistent accessibility settings including screen shake.
 9. Flow-field wall detours, overlapping horde streams, and unranked 2,000/5,000-enemy plus 50,000-total stream stress controls.
 10. Spatially indexed combat queries, interpolated instanced crowds, collision-safe force, and bounded projectile/particle/corpse pools.
-11. A forged field-command interface, wheel/button camera zoom, tower recoil and muzzle flashes, ballistic shell arcs, marching orcs, persistent fortress damage, and marked Ogre bosses.
+11. A forged field-command interface, wheel/button camera zoom, shared barrel-tip muzzle/tracer origins, bright weapon-colored shot lines, ballistic shell arcs, marching orcs, persistent fortress damage, and marked Ogre bosses.
 
 ## Controls
 
@@ -44,7 +44,7 @@ npm run build
 - `MAP FORGE` opens the lane, polygon, terrain, wave, and JSON editor during setup.
 - `SETTINGS` controls UI scale, screen shake, reduced flashes, focus-loss pause, and saved volume levels.
 
-The complete design, 60-node upgrade plan, content roster, technical plan, and staged acceptance criteria are in [docs/GAME_SPEC.md](docs/GAME_SPEC.md). The exact current milestone, known limitations, and recommended future work are recorded in [docs/STATE_AND_ROADMAP.md](docs/STATE_AND_ROADMAP.md).
+The complete design, 83-node upgrade plan, content roster, technical plan, and staged acceptance criteria are in [docs/GAME_SPEC.md](docs/GAME_SPEC.md). The exact current milestone, known limitations, and recommended future work are recorded in [docs/STATE_AND_ROADMAP.md](docs/STATE_AND_ROADMAP.md).
 
 Combat behavior and lifecycle coverage are listed in [docs/COMBAT_TEST_MATRIX.md](docs/COMBAT_TEST_MATRIX.md).
 The exact Standard/special profile catalog and research-node mapping are in [docs/TOWER_VARIANTS.md](docs/TOWER_VARIANTS.md).
