@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { BattleControls } from './components/BattleControls'
 import { BattleStatsPanel } from './components/BattleStatsPanel'
 import { BriefingPanel } from './components/BriefingPanel'
@@ -15,6 +15,7 @@ import { hasNewReadyCooldown, playSound, setBattleMusic } from './game/audio'
 import { ACTIVE_POWER_OPTIONS, DEFAULT_TUNING, getBuildCost, isOffensiveTowerKind, isTowerKind, TOWER_KINDS } from './game/config'
 import { applyCommanderDoctrine, canStartWithDeployment, COMMANDER_DOCTRINE, DEFAULT_LOADOUT, getRunLoadoutLimits, getSetupBuildTools, loadoutsEqual, MAX_LOADOUT_POWERS, MAX_LOADOUT_TOWERS, normalizeCommanderDoctrine, normalizeLoadout, resolveRunLoadout, toggleLoadoutPower, toggleLoadoutTower, type Loadout } from './game/loadout'
 import { keyboardAction } from './game/input'
+import { layoutIdForLevel, loadDefenseLayout, restoreLayout, storeDefenseLayout } from './game/layoutStore'
 import { createCustomMap, deleteCustomMap, loadAvailableMaps, loadMap, storeMap } from './game/mapStore'
 import { DEFAULT_MAP, findBuiltInMap } from './game/maps'
 import { isValidPlacement } from './game/placement'
@@ -25,9 +26,11 @@ import { createBattleSessionStart, createRunResult, keepPermanentPlacements } fr
 import { calculateRunReward, loadSave, recordRun, storeSave } from './game/save'
 import { loadSettings, storeSettings } from './game/settings'
 import { loadTuning } from './game/tuningStore'
-import { deriveGameRules, getNewlyAffordableUpgradeNames, isBuildToolUnlocked, isPowerUnlocked } from './game/upgrades'
-import type { ActivePowerKind, BattleSnapshot, BuildTool, CombatPower, DifficultyTier, GameMode, GamePhase, MapDefinition, Placement, Point, PowerCommand, TargetingRule } from './game/types'
+import { ALL_UPGRADES, deriveGameRules, getNewlyAffordableUpgradeNames, isBuildToolUnlocked, isPowerUnlocked, type UpgradeRanks } from './game/upgrades'
+import type { ActivePowerKind, BattleSnapshot, BuildTool, CombatPower, DifficultyTier, GameMode, GamePhase, MapDefinition, Placement, Point, PowerCommand, TargetingRule, TowerKind, TowerVariantId } from './game/types'
+import { isTowerVariantSelectionsEqual, normalizeTowerVariantSelections, selectTowerVariant, type TowerVariantSelections } from './game/variantSelection'
 import { deriveWallRotation } from './game/wall'
+import { aimRotation, defaultTowerRotation } from './game/towerFacing'
 import { advanceWallRecharge } from './game/wallRecharge'
 
 export default function App() {
@@ -72,10 +75,16 @@ export default function App() {
   const [battleStatsOpen, setBattleStatsOpen] = useState(false)
   const [loadout, setLoadout] = useState<Loadout>(() => ({ ...DEFAULT_LOADOUT, doctrine: save.selectedDoctrine }))
   const [helpOpen, setHelpOpen] = useState(() => save.totalRuns === 0)
+  const [variantSelections, setVariantSelections] = useState<TowerVariantSelections>({})
+  const [setupCancelRevision, setSetupCancelRevision] = useState(0)
+  const layoutReadyId = useRef<string | null>(null)
   const run = useMemo(() => mode === 'challenge' ? runForChallenge(challengeId) : runForMap(mode, map, difficulty), [mode, map, challengeId, difficulty])
 
   const gameRules = useMemo(() => applyCommanderDoctrine(deriveGameRules(tuning, save.upgrades), normalizeCommanderDoctrine(loadout.doctrine)), [tuning, save.upgrades, loadout.doctrine])
   const effectiveTuning = gameRules.tuning
+  const variantRanks = useMemo<UpgradeRanks>(() => devUnlockAll
+    ? Object.fromEntries(ALL_UPGRADES.map((upgrade) => [upgrade.id, Math.max(1, upgrade.rankCosts.length)])) as UpgradeRanks
+    : save.upgrades, [devUnlockAll, save.upgrades])
   const spent = useMemo(
     () => placements.reduce((sum, item) => sum + getBuildCost(item.kind, effectiveTuning), 0),
     [placements, effectiveTuning],
@@ -108,6 +117,55 @@ export default function App() {
   const briefingTowers = fixedArsenal ? runLoadout.towers : availableTowers
   const briefingPowers = fixedArsenal ? runLoadout.powers : availablePowers
   const activeSpeed = run.mode === 'challenge' ? run.modifiers.forcedSpeed ?? speed : speed
+  const layoutId = layoutIdForLevel(map.id, run.mode === 'challenge' ? run.challengeId : undefined)
+  const savedDefense = useCallback(() => {
+    const saved = loadDefenseLayout(layoutId)
+    const levelLoadout = normalizeLoadout(saved.loadout
+      ? { ...loadout, towers: saved.loadout.towers, powers: saved.loadout.powers }
+      : loadout, availableTowers, availablePowers, loadoutLimits)
+    const levelRunLoadout = resolveRunLoadout(levelLoadout, run.mode === 'challenge' ? run.modifiers : undefined)
+    const levelSetupTools = getSetupBuildTools(levelRunLoadout, startingWallAvailable)
+    const variants = normalizeTowerVariantSelections(saved.variants, TOWER_KINDS, variantRanks)
+    const restored = restoreLayout(saved.placements, map, levelSetupTools, effectiveTuning)
+      .map((placement) => isTowerKind(placement.kind)
+        ? { ...placement, variantId: variants[placement.kind] }
+        : placement)
+    return { placements: restored, variants, loadout: levelLoadout }
+  }, [layoutId, map, loadout, availableTowers.join('|'), availablePowers.join('|'), towerSlotLimit, powerSlotLimit, run, startingWallAvailable, effectiveTuning, variantRanks])
+  const savedDeployment = useCallback(() => savedDefense().placements, [savedDefense])
+
+  useEffect(() => {
+    layoutReadyId.current = null
+    const saved = savedDefense()
+    setPlacements(saved.placements)
+    setVariantSelections(saved.variants)
+    setLoadout(saved.loadout)
+    setSelectedPlacementId(null)
+    setMovingPlacement(null)
+  }, [layoutId, map, mode])
+
+  useEffect(() => {
+    if (phase !== 'setup') return
+    if (layoutReadyId.current !== layoutId) {
+      layoutReadyId.current = layoutId
+      return
+    }
+    storeDefenseLayout(layoutId, {
+      placements, variants: variantSelections,
+      loadout: { towers: [...normalizedLoadout.towers], powers: [...normalizedLoadout.powers] },
+    })
+  }, [layoutId, phase, placements, variantSelections, normalizedLoadout])
+
+  useEffect(() => {
+    const normalized = normalizeTowerVariantSelections(variantSelections, TOWER_KINDS, variantRanks)
+    if (!isTowerVariantSelectionsEqual(variantSelections, normalized)) setVariantSelections(normalized)
+  }, [variantRanks, variantSelections])
+
+  useEffect(() => {
+    setPlacements((items) => items.map((placement) => isTowerKind(placement.kind)
+      ? { ...placement, variantId: variantSelections[placement.kind] }
+      : placement))
+  }, [variantSelections])
 
   useEffect(() => {
     if (!loadoutsEqual(loadout, normalizedLoadout)) setLoadout(normalizedLoadout)
@@ -119,6 +177,11 @@ export default function App() {
     if (selectedPower === 'wall' && !wallPowerAvailable) setSelectedPower(null)
     setPlacements((items) => items.filter((item) => item.temporary || setupBuildTools.includes(item.kind)))
   }, [setupBuildTools.join('|'), activePowers.map((power) => power.kind).join('|'), wallPowerAvailable])
+
+  useEffect(() => {
+    if (phase !== 'setup') return
+    setPlacements((items) => restoreLayout(items, map, setupBuildTools, effectiveTuning))
+  }, [map, phase, setupBuildTools.join('|'), effectiveTuning])
 
   useEffect(() => {
     if (phase !== 'battle' || paused || wallCooldown <= 0) return
@@ -157,6 +220,20 @@ export default function App() {
     storeSave(nextSave)
     setSave(nextSave)
     if (mode === 'campaign' || mode === 'endless') setSnapshot(createInitialSnapshot(runForMap(mode, map, nextDifficulty)))
+  }
+
+  const updateLevelLoadout = (nextLoadout: Loadout) => {
+    const normalized = normalizeLoadout(nextLoadout, availableTowers, availablePowers, loadoutLimits)
+    const resolved = resolveRunLoadout(normalized, run.mode === 'challenge' ? run.modifiers : undefined)
+    const allowedTools = new Set(getSetupBuildTools(resolved, startingWallAvailable))
+    const nextPlacements = placements.filter((placement) => allowedTools.has(placement.kind))
+    setLoadout(normalized)
+    setPlacements(nextPlacements)
+    storeDefenseLayout(layoutId, {
+      placements: nextPlacements,
+      variants: variantSelections,
+      loadout: { towers: [...normalized.towers], powers: [...normalized.powers] },
+    })
   }
 
   const selectMode = (nextMode: GameMode) => {
@@ -255,6 +332,7 @@ export default function App() {
     setPlacements((current) => cancelPlacementMove(current, movingPlacement))
     setMovingPlacement(null)
     setSelectedPlacementId(null)
+    setSetupCancelRevision((revision) => revision + 1)
   }, [movingPlacement])
 
   const sellSelectedPlacement = useCallback(() => {
@@ -391,7 +469,11 @@ export default function App() {
     if (phase !== 'setup') return
     if (movingPlacement) {
       if (!isValidPlacement(point, movingPlacement.kind, placements, map)) return
-      setPlacements((current) => placeMovedPlacement(current, movingPlacement, point))
+      const moved = movingPlacement.kind === 'wall' ? movingPlacement : {
+        ...movingPlacement,
+        rotation: lineEnd ? aimRotation(point, lineEnd, movingPlacement.rotation) : movingPlacement.rotation ?? defaultTowerRotation(map, point),
+      }
+      setPlacements((current) => placeMovedPlacement(current, moved, point))
       setSelectedPlacementId(movingPlacement.id)
       setMovingPlacement(null)
       playSound('place', settings)
@@ -404,7 +486,8 @@ export default function App() {
     setPlacements((current) => [...current, {
       ...point, id: Date.now() + current.length, kind: selectedTool,
       targetingRule: selectedTool === 'wall' ? undefined : 'closest',
-      rotation: selectedTool === 'wall' ? deriveWallRotation(map, point) : undefined,
+      rotation: selectedTool === 'wall' ? deriveWallRotation(map, point) : lineEnd ? aimRotation(point, lineEnd) : defaultTowerRotation(map, point),
+      variantId: isTowerKind(selectedTool) ? variantSelections[selectedTool] : undefined,
     }])
     playSound('place', settings)
   }
@@ -431,7 +514,7 @@ export default function App() {
   }, [rankedRun, run, save, settings])
 
   const returnToSetup = () => {
-    setPlacements(keepPermanentPlacements)
+    setPlacements(savedDeployment())
     setSnapshot(createInitialSnapshot(run, gameRules.setup.fortressShield))
     setPaused(false)
     setDevInvulnerable(false)
@@ -490,6 +573,8 @@ export default function App() {
           settings={settings}
           phase={phase === 'briefing' ? 'setup' : phase}
           selectedTool={selectedTool}
+          setupCancelRevision={setupCancelRevision}
+          selectedVariantId={isTowerKind(selectedTool) ? variantSelections[selectedTool] : undefined}
           selectedPower={selectedPower}
           powerCommand={powerCommand}
           stressCommand={stressCommand}
@@ -552,12 +637,27 @@ export default function App() {
           powerOptions={briefingPowers}
           towerSlotLimit={towerSlotLimit}
           powerSlotLimit={powerSlotLimit}
+          variantSelections={variantSelections}
+          upgradeRanks={variantRanks}
           onSelectMode={selectMode}
           onSelectDifficulty={selectDifficulty}
           onSelectChallenge={selectChallenge}
           onSelectMap={(choice) => selectMap(choice, mode)}
-          onToggleTower={(tower) => setLoadout((current) => toggleLoadoutTower(current, tower, availableTowers, availablePowers, loadoutLimits))}
-          onTogglePower={(power) => setLoadout((current) => toggleLoadoutPower(current, power, availableTowers, availablePowers, loadoutLimits))}
+          onToggleTower={(tower) => updateLevelLoadout(toggleLoadoutTower(loadout, tower, availableTowers, availablePowers, loadoutLimits))}
+          onTogglePower={(power) => updateLevelLoadout(toggleLoadoutPower(loadout, power, availableTowers, availablePowers, loadoutLimits))}
+          onSelectTowerVariant={(tower: TowerKind, variantId: TowerVariantId | undefined) => {
+            const nextVariants = selectTowerVariant(variantSelections, tower, variantId, variantRanks)
+            const nextPlacements = placements.map((placement) => placement.kind === tower
+              ? { ...placement, variantId: nextVariants[tower] }
+              : placement)
+            setVariantSelections(nextVariants)
+            setPlacements(nextPlacements)
+            storeDefenseLayout(layoutId, {
+              placements: nextPlacements,
+              variants: nextVariants,
+              loadout: { towers: [...normalizedLoadout.towers], powers: [...normalizedLoadout.powers] },
+            })
+          }}
           onToggleDoctrine={() => {
             const selectedDoctrine = normalizeCommanderDoctrine(loadout.doctrine) === COMMANDER_DOCTRINE ? null : COMMANDER_DOCTRINE
             setLoadout((current) => ({ ...current, doctrine: selectedDoctrine }))
@@ -638,7 +738,10 @@ export default function App() {
           difficultyBonus={lastDifficultyBonus}
           newlyAffordableResearch={rankedRun ? getNewlyAffordableUpgradeNames(save.upgrades, Math.max(0, save.medals - lastMedalsEarned), save.medals) : []}
           primaryLabel={run.mode === 'campaign' && phase === 'victory' ? 'CONTINUE CAMPAIGN' : run.mode === 'challenge' ? 'RETURN TO CHALLENGES' : 'RETURN TO DEPLOYMENT'}
-          onPrimary={run.mode === 'campaign' && phase === 'victory' ? continueCampaign : run.mode === 'challenge' ? () => setPhase('briefing') : returnToSetup}
+          onPrimary={run.mode === 'campaign' && phase === 'victory' ? continueCampaign : run.mode === 'challenge' ? () => {
+            setPlacements(savedDeployment())
+            setPhase('briefing')
+          } : returnToSetup}
           onArmory={() => setUpgradeOpen(true)}
           onSettings={() => setSettingsOpen(true)}
         />}
@@ -693,7 +796,7 @@ export default function App() {
             onChange={setTuning}
             onClose={() => setTuningOpen(false)}
             onQuickRestart={() => {
-              setPlacements((items) => items.filter((item) => !item.temporary))
+              setPlacements(savedDeployment())
               setSnapshot(createInitialSnapshot(run))
               setPaused(false)
               setSelectedPower(null)

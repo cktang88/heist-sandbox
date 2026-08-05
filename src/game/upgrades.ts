@@ -12,6 +12,7 @@ export type UpgradeNode = {
   effect: string
   rankCosts: readonly number[]
   prerequisite?: UpgradeId
+  unlocks?: readonly { id: string; kind: 'tower' | 'power' | 'wall' | 'variant'; name: string }[]
   implemented: boolean
   apply: (rules: GameRules, rank: number) => GameRules
 }
@@ -27,7 +28,6 @@ const n = (id: UpgradeId, name: string, effect: string, rankCosts: readonly numb
   name,
   effect,
   rankCosts,
-  prerequisite: id.endsWith('-01') ? undefined : `${id.slice(0, -2)}${String(Number(id.slice(-2)) - 1).padStart(2, '0')}` as UpgradeId,
   implemented,
   apply: (rules, rank) => ({ ...rules, tuning: applyTuning(rules.tuning, rank) }),
 })
@@ -36,7 +36,6 @@ const rn = (id: UpgradeId, name: string, effect: string, rankCosts: readonly num
   name,
   effect,
   rankCosts,
-  prerequisite: id.endsWith('-01') ? undefined : `${id.slice(0, -2)}${String(Number(id.slice(-2)) - 1).padStart(2, '0')}` as UpgradeId,
   implemented: true,
   apply,
 })
@@ -46,9 +45,12 @@ export const UPGRADE_BRANCHES: readonly UpgradeBranch[] = [
     n('gunner-01', 'Rivet Gun', 'Unlock the standard automatic turret.', [0]),
     n('gunner-02', 'Heavy Rivets', '+10% damage per rank.', [8, 14, 22], (t, r) => tower(t, 'gunner', { damage: t.towers.gunner.damage * power(1.1, r) })),
     n('gunner-03', 'Polished Action', '+8% fire rate per rank.', [12, 20, 30], (t, r) => tower(t, 'gunner', { shotsPerSecond: t.towers.gunner.shotsPerSecond * power(1.08, r) })),
-    n('gunner-04', 'Rangefinder', '+7% range per rank.', [12, 20, 30], (t, r) => tower(t, 'gunner', { range: t.towers.gunner.range * power(1.07, r) })),
+    n('gunner-04', 'Rangefinder', '+7% range and +5° firing arc per rank.', [12, 20, 30], (t, r) => tower(t, 'gunner', {
+      range: t.towers.gunner.range * power(1.07, r),
+      firingArcDegrees: Math.min(360, (t.towers.gunner.firingArcDegrees ?? 360) + 5 * r),
+    })),
     rn('gunner-05', 'Piercing Rivets', 'Rivet Guns bypass ballistic armor.', [24], (rules) => behaviorRules(rules, 'armorPiercingRivets')),
-    n('gunner-06', 'Twin Feed', 'Twin feed adds +35% fire rate.', [40], (t) => tower(t, 'gunner', { shotsPerSecond: t.towers.gunner.shotsPerSecond * 1.35 })),
+    n('gunner-06', 'Heavy Gun', 'Unlock the heavy dual-feed turret variant.', [40]),
   ]},
   { id: 'explosives', name: 'Explosives', nodes: [
     n('explosives-01', 'Blast Cannon', 'Unlock the explosive cannon.', [25]),
@@ -62,7 +64,10 @@ export const UPGRADE_BRANCHES: readonly UpgradeBranch[] = [
     n('fire-01', 'Flame Thrower', 'Unlock the short-range flame tower.', [25]),
     n('fire-02', 'Long Burn', '+12% burn duration per rank.', [10, 18, 28], (t, r) => attack(t, 'flamethrower', 'flame', { burnSeconds: flame(t).burnSeconds * power(1.12, r) })),
     n('fire-03', 'Hotter Fuel', '+10% fire and burn damage per rank.', [12, 20, 32], (t, r) => attack(tower(t, 'flamethrower', { damage: t.towers.flamethrower.damage * power(1.1, r) }), 'flamethrower', 'flame', { burnDamagePerSecond: flame(t).burnDamagePerSecond * power(1.1, r) })),
-    n('fire-04', 'Wide Nozzle', '+10% flame radius per rank.', [10, 18, 28], (t, r) => attack(t, 'flamethrower', 'flame', { radius: flame(t).radius * power(1.1, r) })),
+    n('fire-04', 'Wide Nozzle', '+10% flame width and +5° firing arc per rank.', [10, 18, 28], (t, r) => attack(
+      tower(t, 'flamethrower', { firingArcDegrees: Math.min(360, (t.towers.flamethrower.firingArcDegrees ?? 360) + 5 * r) }),
+      'flamethrower', 'flame', { radius: flame(t).radius * power(1.1, r) },
+    )),
     n('fire-05', 'Sticky Fuel', '+35% burn duration.', [35], (t) => attack(t, 'flamethrower', 'flame', { burnSeconds: flame(t).burnSeconds * 1.35 })),
     rn('fire-06', 'Funeral Pyre', 'Burning enemies spread fire once on death.', [50], (rules) => behaviorRules(rules, 'burningDeathSpread')),
   ]},
@@ -114,6 +119,79 @@ export const UPGRADE_BRANCHES: readonly UpgradeBranch[] = [
     rn('fortification-06', 'Last Surprise', 'Destroyed walls explode for 70 damage.', [50], (rules) => ({ ...behaviorRules(rules, 'wallBreakExplosion'), wall: { ...rules.wall, breakExplosionDamage: 70 } })),
   ]},
 ]
+
+/**
+ * Research is a graph, not a six-step checklist. Most weapon improvements fan out
+ * from the weapon unlock so players can choose damage, range, or a variant first.
+ */
+const PREREQUISITES: Partial<Record<UpgradeId, UpgradeId>> = {
+  'gunner-02': 'gunner-01', 'gunner-03': 'gunner-01', 'gunner-04': 'gunner-01', 'gunner-05': 'gunner-01', 'gunner-06': 'gunner-01',
+  'explosives-02': 'explosives-01', 'explosives-03': 'explosives-01', 'explosives-04': 'explosives-01', 'explosives-05': 'explosives-01', 'explosives-06': 'explosives-01',
+  'fire-02': 'fire-01', 'fire-03': 'fire-01', 'fire-04': 'fire-01', 'fire-05': 'fire-01', 'fire-06': 'fire-01',
+  'cryo-02': 'cryo-01', 'cryo-03': 'cryo-01', 'cryo-04': 'cryo-01', 'cryo-05': 'cryo-01', 'cryo-06': 'cryo-01',
+  'energy-02': 'energy-01', 'energy-03': 'energy-01', 'energy-04': 'energy-01', 'energy-05': 'energy-01', 'energy-06': 'energy-05',
+  'artillery-02': 'artillery-01', 'artillery-03': 'artillery-01', 'artillery-04': 'artillery-01', 'artillery-05': 'artillery-01', 'artillery-06': 'artillery-01',
+  'command-02': 'command-01', 'command-03': 'command-01', 'command-05': 'command-04', 'command-06': 'command-04',
+  'air-02': 'air-01', 'air-03': 'air-01', 'air-04': 'air-01', 'air-05': 'air-01', 'air-06': 'air-01',
+  'strategic-02': 'strategic-01', 'strategic-04': 'strategic-03', 'strategic-06': 'strategic-05',
+  'fortification-02': 'fortification-01', 'fortification-03': 'fortification-01', 'fortification-04': 'fortification-01', 'fortification-05': 'fortification-01', 'fortification-06': 'fortification-01',
+}
+
+const UNLOCKS: Partial<Record<UpgradeId, UpgradeNode['unlocks']>> = {
+  'gunner-01': [{ id: 'gunner', kind: 'tower', name: 'Rivet Gun' }],
+  'gunner-03': [{ id: 'gunner-rapid-feed', kind: 'variant', name: 'Rapid-Feed Rivet Gun' }],
+  'gunner-05': [
+    { id: 'gunner-armor-piercer', kind: 'variant', name: 'Armor-Piercer Rivet Gun' },
+    { id: 'heavy-anti-armor', kind: 'variant', name: 'Anti-Armor Heavy Gun' },
+  ],
+  'gunner-06': [
+    { id: 'heavyGun', kind: 'tower', name: 'Heavy Gun' },
+    { id: 'heavy-siege', kind: 'variant', name: 'Siege Heavy Gun' },
+  ],
+  'explosives-01': [{ id: 'cannon', kind: 'tower', name: 'Blast Cannon' }],
+  'explosives-04': [
+    { id: 'cannon-hypervelocity', kind: 'variant', name: 'Hypervelocity Blast Cannon' },
+    { id: 'rocket-guided', kind: 'variant', name: 'Guided Rocket Battery' },
+  ],
+  'explosives-05': [
+    { id: 'cannon-cluster', kind: 'variant', name: 'Cluster Blast Cannon' },
+    { id: 'rocket-salvo', kind: 'variant', name: 'Salvo Rocket Battery' },
+  ],
+  'explosives-06': [{ id: 'rocket', kind: 'tower', name: 'Rocket Battery' }],
+  'fire-01': [{ id: 'flamethrower', kind: 'tower', name: 'Flame Thrower' }],
+  'fire-05': [{ id: 'flame-napalm', kind: 'variant', name: 'Napalm Flame Thrower' }],
+  'fire-06': [{ id: 'flame-funeral-pyre', kind: 'variant', name: 'Funeral Pyre Flame Thrower' }],
+  'cryo-01': [{ id: 'cryo', kind: 'tower', name: 'Cryo Projector' }],
+  'cryo-05': [{ id: 'cryo-brittle', kind: 'variant', name: 'Brittle Cryo Projector' }],
+  'cryo-06': [{ id: 'cryo-chain-freeze', kind: 'variant', name: 'Chain-Freeze Cryo Projector' }],
+  'energy-01': [{ id: 'tesla', kind: 'tower', name: 'Tesla Coil' }],
+  'energy-03': [{ id: 'tesla-overcharge', kind: 'variant', name: 'Overcharge Tesla Coil' }],
+  'energy-04': [{ id: 'tesla-stun', kind: 'variant', name: 'Stun Tesla Coil' }],
+  'energy-05': [
+    { id: 'laser', kind: 'tower', name: 'Laser' },
+    { id: 'orbitalLaser', kind: 'power', name: 'Orbital Laser' },
+    { id: 'laser-prism', kind: 'variant', name: 'Prism Laser' },
+  ],
+  'energy-06': [{ id: 'laser-piercing', kind: 'variant', name: 'Piercing Laser' }],
+  'artillery-01': [{ id: 'mortar', kind: 'tower', name: 'Mortar' }],
+  'artillery-05': [{ id: 'mortar-concussion', kind: 'variant', name: 'Concussion Mortar' }],
+  'artillery-06': [{ id: 'mortar-cluster', kind: 'variant', name: 'Cluster Mortar' }],
+  'command-04': [{ id: 'support', kind: 'tower', name: 'Support Beacon' }, { id: 'repair', kind: 'power', name: 'Emergency Repair' }],
+  'command-05': [{ id: 'support-overclock', kind: 'variant', name: 'Overclock Support Beacon' }],
+  'command-06': [{ id: 'support-fortress', kind: 'variant', name: 'Fortress Support Beacon' }],
+  'air-01': [{ id: 'strafe', kind: 'power', name: 'Aircraft Strafe' }],
+  'strategic-01': [{ id: 'barrage', kind: 'power', name: 'Artillery Barrage' }],
+  'strategic-03': [{ id: 'cryoBeam', kind: 'power', name: 'Cryo Beam' }],
+  'strategic-05': [{ id: 'nuke', kind: 'power', name: 'Tactical Nuke' }],
+  'fortification-01': [{ id: 'wall', kind: 'wall', name: 'Temporary Walls' }],
+}
+
+for (const branch of UPGRADE_BRANCHES) {
+  for (const node of branch.nodes) {
+    node.prerequisite = PREREQUISITES[node.id]
+    node.unlocks = UNLOCKS[node.id]
+  }
+}
 
 export const ALL_UPGRADES = UPGRADE_BRANCHES.flatMap((branch) => branch.nodes)
 export const STARTER_UPGRADES: UpgradeRanks = { 'gunner-01': 1 }

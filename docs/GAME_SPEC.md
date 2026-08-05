@@ -35,11 +35,19 @@ The design pillars are:
 
 ### 2.1 Loadout
 
-Before a run, choose up to four tower types and three active powers. A later commander-doctrine slot supplies one passive rule change.
+Before a run, choose up to four tower types and three active powers. Each equipped tower family also chooses one firing profile for that level: Standard or one of its two permanently researched special variants. Standard is always available, so researching a special variant never forces the player to use it. A later commander-doctrine slot supplies one passive rule change.
 
 ### 2.2 Preparation
 
-The player receives a fixed supply budget. They can place, move, aim, or refund towers and starting field walls. The interface shows range, valid ground, cost, and incoming enemies. Starting combat locks all conventional construction.
+The player receives a visible starting supply budget. Every tower and starting wall has a visible supply price. The player can place, move, aim, or refund defenses before the horn; moving is free, while sell, undo, and clear return 100% of the setup price. Starting combat locks all conventional construction.
+
+Tower placement uses two clicks:
+
+1. Click valid ground to anchor the tower base.
+2. Move the pointer to aim the weapon. Its full distance sector, inner dead zone when relevant, and facing follow the pointer.
+3. Click again to lock the facing. A weapon can acquire targets only within half of its firing angle to either side of that direction.
+
+All placed towers keep a faint range sector visible during preparation, with the selected tower and current preview emphasized. Weapon arcs are normally 30–60 degrees; Support Beacon remains a 360-degree aura. Legacy layouts without a facing receive a deterministic direction toward the nearest fortress endpoint.
 
 Rules:
 
@@ -48,10 +56,13 @@ Rules:
 - The player cannot spend more than the current supply budget.
 - Selling during preparation refunds the full cost.
 - At least one damaging tower is required to begin.
+- Each map keeps one persistent preparation layout. Challenges use separate layouts even when they share the same underlying map.
+- A layout includes its tower/power loadout, permanent tower and starting-wall positions, facing, targeting, and per-tower-family variant choices. Temporary combat walls and destroyed battle state are never saved.
+- Restarting, changing maps and returning, or reloading restores the saved layout. Invalid, locked, or overlapping placements are safely skipped. Over-budget defenses remain visible so the player can choose what to sell before starting.
 
 ### 2.3 Combat
 
-Orcs enter continuously in waves. Towers acquire targets and fire automatically. The player may pause, select 1× or 2× speed, inspect statistics, and cast equipped powers. Normal towers cannot be placed, moved, sold, or upgraded.
+Orcs enter continuously in waves. Weapon towers acquire targets only when an enemy is both within distance and inside the tower's locked firing sector. Support auras remain omnidirectional. The player may pause, select 1× or 2× speed, inspect statistics, and cast equipped powers. Normal towers cannot be placed, moved, sold, or upgraded.
 
 Temporary walls are the one construction exception: they are an equipped combat power with charges, cooldown, health, and a lifetime. If a wall creates a reasonable detour, orcs flow around it; otherwise nearby orcs attack it.
 
@@ -79,20 +90,22 @@ Wave data controls enemy composition, count, entry lane, spawn interval, health 
 
 ## 4. Tower roster
 
-All tower definitions share: cost, range, damage, shots per second, projectile speed, targets, targeting rule, damage type, splash radius, and modifiers.
+All tower definitions share: cost, outer range, firing angle, damage, shots per second, projectile speed, targets, targeting rule, damage type, splash radius, and modifiers. Rocket Battery and Mortar also have a minimum range. Live tuning can adjust every firing angle, and selected research nodes widen the angle.
 
-| Tower | Main role | Example variants |
-|---|---|---|
-| Rivet Gun | Cheap rapid single-target damage | Twin barrel, armor piercing, suppressive |
-| Heavy Gun | Sustained cone with spin-up | Incendiary, shredder, stabilized |
-| Cannon | Slow penetrating or explosive shells | Cluster, siege, shrapnel |
-| Rocket Battery | Long-range area damage with minimum range | Swarm, bunker buster, napalm |
-| Flamethrower | Short cone and burn | Wide cone, sticky fuel, blue flame |
-| Cryo Projector | Slow and freeze buildup | Chain freeze, brittle, blizzard pulse |
-| Tesla Coil | Chain damage through dense groups | More chains, stun, overload |
-| Laser | Continuous ramping elite damage | Piercing, split beam, heat burst |
-| Mortar | Large arcing splash | Cluster, stun, corrosive |
-| Support Beacon | Nearby tower buffs | Fire rate, range, damage, cooldown |
+| Tower | Main role | Firing angle | Selectable profiles |
+|---|---|---|---|
+| Rivet Gun | Cheap rapid single-target damage | 45° | Standard, Armor Piercer, Rapid Feed |
+| Heavy Gun | Sustained automatic fire | 40° | Standard, Anti-Armor, Siege Feed |
+| Blast Cannon | Slow explosive shells | 45° | Standard, Hypervelocity, Cluster |
+| Rocket Battery | Long-range splash with a close dead zone | 35° | Standard, Guided, Salvo |
+| Flame Thrower | Short cone and burn | 55° | Standard, Napalm, Funeral Pyre |
+| Cryo Projector | Slow and freeze buildup | 50° | Standard, Brittle, Chain Freeze |
+| Tesla Coil | Chain damage through dense groups | 60° | Standard, Stun Coil, Overcharge |
+| Laser Lance | Continuous elite damage | 30° | Standard, Piercing, Prism |
+| Field Mortar | Large arcing splash with a close dead zone | 45° | Standard, Concussion, Cluster |
+| Support Beacon | Nearby tower buffs | 360° | Standard, Overclock, Fortress |
+
+Special variants are sidegrades, not simple power levels. Each substantially changes range, rate of fire, damage, area, status, chaining, piercing, or support behavior while retaining the tower family's main identity. Research makes a profile available permanently; selecting it for a level costs no medals and only one profile per tower family can be active. Unknown, locked, or wrong-family variant IDs safely fall back to Standard. The stable catalog and exact research mapping are recorded in [TOWER_VARIANTS.md](TOWER_VARIANTS.md).
 
 Targeting choices eventually include first, closest, strongest, weakest, and densest cluster.
 
@@ -153,13 +166,13 @@ Campaign missions own distinct five-wave sets; they do not all reuse the standar
 
 The built-in Map Forge edits the same `MapDefinition` used by battle code. It switches between corridor and open-field navigation; creates ordered spawn/fortress anchor routes; draws, moves, edits, and deletes platform or blocker polygons; and adds terrain stamps, build zones, a defendable supply-cache objective, decorations, wave sets, validation, JSON import/export, and a saved map library.
 
-## 9. Meta progression: 60 nodes
+## 9. Meta progression: 60-node branching graph
 
-Ten branches contain six nodes each. Stat nodes can have multiple ranks. Save data stores node IDs and ranks, never derived totals.
+Ten branches contain six nodes each. Save data stores stable node IDs and ranks, never derived totals. Research is a graph: after a tower or power unlock, its directly related stat and variant nodes fan out. A player can choose a desired variant before buying unrelated damage, rate, or range improvements. The Strategic branch has separate roots for Barrage, Cryo Beam, and Nuke, each with its own follow-up node. The interface draws the graph and marks permanent `TOWER`, `POWER`, `WALL`, and `VARIANT` unlocks directly on their cards.
 
 | IDs | Branch | Nodes in order |
 |---|---|---|
-| 1–6 | Gunner | Unlock; damage; fire rate; range; armor piercing; twin barrel |
+| 1–6 | Gunner | Rivet Gun root; damage; fire rate/Rapid Feed; range/arc; armor piercing variants; Heavy Gun/Siege Feed |
 | 7–12 | Explosives | Cannon; explosive damage; splash; projectile speed; cluster shell; Rocket Battery |
 | 13–18 | Fire | Flamethrower; burn duration; fire damage; cone width; sticky fuel; spread on death |
 | 19–24 | Cryo | Cryo Projector; slow; freeze buildup; freeze duration; brittle; chain freeze |
@@ -170,7 +183,7 @@ Ten branches contain six nodes each. Stat nodes can have multiple ranks. Save da
 | 49–54 | Strategic | Barrage; extra salvo; Cryo Beam; frozen ground; Nuke; fallout |
 | 55–60 | Fortification | Temporary walls; health; charge; length; spikes; break explosion |
 
-Major unlocks cost more than small stat nodes. Prerequisites remain visible. Early development allows a free full respec. A versioned save migration protects progress when balance changes.
+Major unlocks cost more than small stat nodes. Prerequisites and permanent unlock badges remain visible. Both special profiles for every tower are attached to existing nodes without changing the 60 stable IDs. Early development allows a free full respec. A versioned save migration protects progress when balance changes.
 
 ## 10. Game modes
 
@@ -180,7 +193,7 @@ Major unlocks cost more than small stat nodes. Prerequisites remain visible. Ear
 
 ## 11. Input and accessibility
 
-Preparation: left click place/select, right click or Escape cancel, drag move, `R` rotate, Delete refund, Space start.
+Preparation: choose a weapon, left click to anchor, move the pointer to aim, and left click again to lock facing. Right click or Escape cancels either placement step. Select and move an existing tower through the same place-then-aim flow; `R` rotates walls, Delete refunds, and Space starts.
 
 Combat: `1–3` select power, click/drag target, Space pause, Tab statistics, `+/-` speed. Backtick opens developer tuning.
 
@@ -239,7 +252,7 @@ At several thousand enemies, replace one-render-object-per-orc with `InstancedMe
 
 ### Live Combat Tuning
 
-- Searches and edits supply, tower cost/damage/range/fire rate, orc health/speed/fortress damage/wall damage, and wall cost/health/collision size.
+- Searches and edits starting supply, tower cost/damage/range/fire rate/firing angle, orc health/speed/fortress damage/wall damage, and wall cost/health/collision size.
 - Saves immediately and offers Apply & Restart.
 - Provides a session-only Unlock All Content switch for fast prototyping without corrupting ranked progression.
 - During combat, injects unranked 2,000- or 5,000-Grunt diagnostic hordes, or streams 50,000 total through a bounded 5,000-live envelope, without changing authored wave totals.
@@ -250,6 +263,7 @@ At several thousand enemies, replace one-render-object-per-orc with `InstancedMe
 - Stages 1–7 are complete and playable.
 - Stage 8 includes the full tower/enemy roster, six maps, six active powers plus walls, 60 implemented research nodes, sequential campaign unlocks, endless scaling, and six challenges.
 - Stage 9 includes flow-field wall detours, spatially indexed combat queries, interpolated instanced crowds, adaptive crowd detail, pooled tracers/effects/corpses, independently scheduled overlapping wave groups, 2,000/5,000-live and 50,000-total stream stress controls, generated combat audio, saved accessibility settings, UI scaling, reduced-flash visuals, contextual onboarding, and campaign pacing estimated at 8–10 minutes. Balance remains easy to iterate through tuning and Map Forge.
+- The current preparation/progression layer adds branching research, permanent unlock badges, per-level profile selection, persistent map/challenge layouts, two-click tower facing, visible range sectors, full setup refunds, and firing-angle tuning.
 
 ## 15. Playable implementation stages
 
@@ -295,11 +309,20 @@ Instanced crowds, flow fields, thousands of enemies, effects, audio, accessibili
 
 Add arbitrary polygon platforms/blockers, full-field flow navigation, a sixth 2,244-orc campaign mission, 5,000-live rendering, and a 50,000-total bounded stream harness.
 
+### Stage 11 — Directional arsenal and saved deployments
+
+Turn the 60-node research checklist into a branching graph, expose all tower/power/profile unlocks, add Standard plus two distinct profiles for each tower, persist one deployment per map or challenge, clarify supply/refunds, and use two-click placement to lock a visible firing sector.
+
 ## 16. Acceptance criteria
 
 The first vertical slice is accepted when:
 
 - Valid/invalid placement and range are readable.
+- First click anchors a tower, second click locks its facing, and combat respects the shown sector.
+- All setup towers show range sectors; Rocket and Mortar also show their minimum-range dead zones.
+- Setup prices and remaining/starting supply are visible, and sell/undo/clear refund the full price.
+- Map and challenge layouts survive restart, switching away and back, and browser reload without saving temporary walls.
+- Standard is always selectable; each tower exposes two researched special profiles but equips at most one profile for a level.
 - Towers cannot be edited after combat starts.
 - Five waves can end in victory; leaks can cause defeat.
 - Towers automatically damage and kill Grunts.
@@ -319,6 +342,11 @@ Performance targets are 60 FPS with 5,000 live Grunts and stable 50,000-total co
 
 - [ ] Place and reject towers in the correct terrain.
 - [ ] Undo and clear before battle.
+- [ ] Place each weapon with two clicks, aim across the arc boundary, and confirm only enemies inside the visible sector are targeted.
+- [ ] Confirm all tower sectors remain visible during setup and Rocket/Mortar dead zones are marked.
+- [ ] Tune a firing angle and buy an arc research rank; confirm the preview and combat sector widen.
+- [ ] Buy, move, sell, undo, and clear defenses; confirm every setup refund returns the full displayed cost.
+- [ ] Save different layouts and variants on two maps and one challenge; switch, restart, and reload to confirm each restores independently.
 - [ ] Confirm all tower editing locks during battle.
 - [ ] Complete five waves and reach victory.
 - [ ] Allow leaks and reach defeat.

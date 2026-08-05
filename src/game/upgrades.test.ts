@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_TUNING, POWERS } from './config'
 import type { ActivePowerKind, BuildTool } from './types'
+import { TOWER_VARIANTS } from './towerVariants'
 import { ALL_UPGRADES, applyUpgrades, deriveGameRules, getNewlyAffordableUpgradeNames, getPurchasableUpgradeNames, getPurchasePrerequisite, isBuildToolUnlocked, isPowerUnlocked, purchaseUpgrade, respecUpgrades, sanitizeUpgradeRanks, STARTER_UPGRADES, UPGRADE_BRANCHES, type UpgradeId } from './upgrades'
 
 describe('gunner upgrades', () => {
   it('enforces cost and prerequisites', () => {
     expect(purchaseUpgrade(STARTER_UPGRADES, 7, 'gunner-02')).toBeNull()
-    expect(purchaseUpgrade(STARTER_UPGRADES, 100, 'gunner-03')).toBeNull()
+    expect(purchaseUpgrade({}, 100, 'gunner-03')).toBeNull()
+    expect(purchaseUpgrade(STARTER_UPGRADES, 100, 'gunner-03')).not.toBeNull()
     expect(purchaseUpgrade(STARTER_UPGRADES, 8, 'gunner-02')).toEqual({
       ranks: { 'gunner-01': 1, 'gunner-02': 1 }, medals: 0,
     })
@@ -17,7 +19,7 @@ describe('gunner upgrades', () => {
       'gunner-01': 1, 'gunner-02': 1, 'gunner-03': 1, 'gunner-04': 1, 'gunner-05': 1, 'gunner-06': 1,
     })
     expect(tuning.towers.gunner.damage).toBeCloseTo(DEFAULT_TUNING.towers.gunner.damage * 1.1)
-    expect(tuning.towers.gunner.shotsPerSecond).toBeCloseTo(DEFAULT_TUNING.towers.gunner.shotsPerSecond * 1.458)
+    expect(tuning.towers.gunner.shotsPerSecond).toBeCloseTo(DEFAULT_TUNING.towers.gunner.shotsPerSecond * 1.08)
     expect(tuning.towers.gunner.range).toBeCloseTo(DEFAULT_TUNING.towers.gunner.range * 1.07)
   })
 
@@ -52,12 +54,47 @@ describe('gunner upgrades', () => {
     expect(isPowerUnlocked({ 'command-04': 1 }, 'repair')).toBe(true)
   })
 
-  it('uses the previous implemented node as each purchase prerequisite', () => {
+  it('fans stat and variant choices out from their relevant unlock', () => {
     const prerequisite = (id: (typeof ALL_UPGRADES)[number]['id']) => getPurchasePrerequisite(ALL_UPGRADES.find((node) => node.id === id)!)
-    expect(prerequisite('artillery-06')).toBe('artillery-05')
-    expect(prerequisite('command-04')).toBe('command-03')
-    expect(prerequisite('strategic-03')).toBe('strategic-02')
-    expect(prerequisite('strategic-05')).toBe('strategic-04')
+    expect(prerequisite('artillery-06')).toBe('artillery-01')
+    expect(prerequisite('command-04')).toBeUndefined()
+    expect(prerequisite('strategic-03')).toBeUndefined()
+    expect(prerequisite('strategic-05')).toBeUndefined()
+    expect(prerequisite('strategic-02')).toBe('strategic-01')
+    expect(prerequisite('strategic-04')).toBe('strategic-03')
+    expect(prerequisite('strategic-06')).toBe('strategic-05')
+  })
+
+  it('lets players buy one branch choice without unrelated stat research', () => {
+    expect(purchaseUpgrade({ 'explosives-01': 1 }, 100, 'explosives-06')).not.toBeNull()
+    expect(purchaseUpgrade({ 'explosives-01': 1 }, 100, 'explosives-05')).not.toBeNull()
+    expect(purchaseUpgrade({ 'energy-01': 1 }, 100, 'energy-05')).not.toBeNull()
+    expect(purchaseUpgrade({ 'energy-01': 1 }, 100, 'energy-06')).toBeNull()
+    expect(purchaseUpgrade({ 'energy-01': 1, 'energy-05': 1 }, 100, 'energy-06')).not.toBeNull()
+  })
+
+  it('marks permanent unlock nodes for every tower variant and battlefield power', () => {
+    const variantNames = ALL_UPGRADES.flatMap((node) => node.unlocks ?? [])
+      .filter((unlock) => unlock.kind === 'variant')
+      .map((unlock) => unlock.name)
+    expect(variantNames).toEqual([
+      'Rapid-Feed Rivet Gun', 'Armor-Piercer Rivet Gun', 'Anti-Armor Heavy Gun', 'Siege Heavy Gun',
+      'Hypervelocity Blast Cannon', 'Guided Rocket Battery', 'Cluster Blast Cannon', 'Salvo Rocket Battery',
+      'Napalm Flame Thrower', 'Funeral Pyre Flame Thrower', 'Brittle Cryo Projector', 'Chain-Freeze Cryo Projector',
+      'Overcharge Tesla Coil', 'Stun Tesla Coil', 'Prism Laser', 'Piercing Laser',
+      'Concussion Mortar', 'Cluster Mortar', 'Overclock Support Beacon', 'Fortress Support Beacon',
+    ])
+    expect(new Set(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).map((unlock) => unlock.id)).size)
+      .toBe(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).length)
+    expect(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).filter((unlock) => unlock.kind === 'power')).toHaveLength(6)
+    expect(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).filter((unlock) => unlock.kind === 'wall')).toHaveLength(1)
+  })
+
+  it('shows every runtime variant on the same research node that unlocks it', () => {
+    for (const variant of TOWER_VARIANTS) {
+      const node = ALL_UPGRADES.find((upgrade) => upgrade.id === variant.researchNode)
+      expect(node?.unlocks?.some((unlock) => unlock.kind === 'variant' && unlock.id === variant.id), variant.id).toBe(true)
+    }
   })
 
   it('keeps every implemented node reachable through purchases', () => {
@@ -92,6 +129,13 @@ describe('gunner upgrades', () => {
     expect(deriveGameRules(DEFAULT_TUNING, { 'command-03': 1 }).setup.towerSlots).toBe(4)
     expect(deriveGameRules(DEFAULT_TUNING, { 'command-06': 1 }).setup.fortressShield).toBe(25)
     expect(deriveGameRules(DEFAULT_TUNING, { 'command-06': 2 }).setup.fortressShield).toBe(50)
+  })
+
+  it('can widen firing arcs through weapon research', () => {
+    const gunner = deriveGameRules(DEFAULT_TUNING, { 'gunner-04': 2 }).tuning.towers.gunner
+    const flame = deriveGameRules(DEFAULT_TUNING, { 'fire-04': 3 }).tuning.towers.flamethrower
+    expect(gunner.firingArcDegrees).toBe((DEFAULT_TUNING.towers.gunner.firingArcDegrees ?? 360) + 10)
+    expect(flame.firingArcDegrees).toBe((DEFAULT_TUNING.towers.flamethrower.firingArcDegrees ?? 360) + 15)
   })
 
   it('reports currently purchasable and newly affordable research names', () => {
@@ -139,7 +183,7 @@ describe('gunner upgrades', () => {
 
   it('preserves a derived rule effect for every implemented non-unlock node', () => {
     const unlockOnly = new Set<UpgradeId>([
-      'gunner-01', 'explosives-01', 'explosives-06', 'fire-01', 'cryo-01', 'energy-01',
+      'gunner-01', 'gunner-06', 'explosives-01', 'explosives-06', 'fire-01', 'cryo-01', 'energy-01',
       'energy-05', 'artillery-01', 'command-04', 'air-01', 'strategic-01', 'strategic-03',
       'strategic-05', 'fortification-01',
     ])

@@ -19,8 +19,9 @@ export function getGuidance(phase: GamePhase, loadout: Loadout): Guidance {
       eyebrow: 'DEPLOYMENT HELP',
       title: 'PREPARE THE LINE',
       steps: towerNames.length ? [
-        `Choose one of your equipped towers (${towerNames.join(', ')}), then click open ground to place it.`,
-        'Select a placed tower to move, sell, or change its targeting. Your layout locks when battle starts.',
+        `Your starting supply is shown above the tower list. Choose an equipped tower (${towerNames.join(', ')}), pay its listed supply cost, then click open ground to place it.`,
+        'Select a placed tower to move it for free, sell it for a 100% refund, or change its targeting. Undo and Clear also restore all setup costs.',
+        'Tower buying and selling ends when the battle starts; your layout is locked for the horde.',
         'Press Space or use Start Battle when the defense is ready.',
       ] : [
         'This operation starts with an empty field. Review the route, then begin the battle.',
@@ -48,7 +49,7 @@ export function getGuidance(phase: GamePhase, loadout: Loadout): Guidance {
     }
   }
 
-  const steps = ['Choose a mode, battlefield, and difficulty. Campaign missions unlock in order.']
+  const steps = ['Choose a mode, battlefield, and difficulty. Campaign missions unlock in order.', 'On the battle map, spend starting supply to buy towers. During preparation, moving is free and selling refunds the full tower price.']
   if (towerNames.length) steps.push(`Your equipped towers are ${towerNames.join(', ')}. Change the selection here before opening the map.`)
   else steps.push('This operation deploys without towers; the briefing will tell you what is loaned for the run.')
   if (powerNames.length) steps.push(`Your equipped battlefield commands are ${powerNames.join(', ')}. They are used after the battle begins.`)

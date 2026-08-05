@@ -10,15 +10,18 @@ The implementation was built in playable layers. Each layer was reviewed, tested
 
 - Six sequential campaign missions with authored maps, waves, lane/open-field layouts, objectives, and late-game flood pressure.
 - Deterministic endless mode and six challenge modes.
-- Ten tower types with distinct costs, ranges, targeting roles, and combat behavior.
+- Ten tower types with distinct costs, ranges, firing sectors, targeting roles, and combat behavior. Every tower offers Standard plus two materially different research-unlocked profiles.
 - Ten orc types, including directional shields, wall-seeking Sappers, aura carriers, Berserkers, and knockback-resistant Ogres.
-- Pre-battle deployment with supply limits, starting walls, selection, targeting rules, move, sell, undo, clear, and wall rotation.
+- Pre-battle deployment with visible starting/remaining supply and tower prices; move is free and sell, undo, and clear refund 100% of setup cost.
+- Two-click tower deployment: anchor the base, aim the visible sector, then lock facing. All setup towers show their sectors; Rocket and Mortar also show minimum-range dead zones.
+- Weapon towers use 30–60° combat sectors, Support Beacon uses a 360° aura, and firing angle is adjustable through tuning and selected research.
+- One persistent defense layout per map, with challenges stored separately. Tower/power loadout, positions, facing, targeting, starting walls, and selected variants survive restart, map switching, and reload. Over-budget layouts remain editable but cannot start until supply is brought back under the limit.
 - No normal tower placement after the battle starts.
 - Seven battlefield tools: Strafe, Barrage, Cryo Beam, Nuke, Orbital Laser, Repair, and temporary walls.
 - Drag-oriented Strafe and Cryo lines, guided Orbital Laser, Nuke falloff, knockback, finite power charges, and wall recharge.
-- A 60-node persistent research tree with unlocks and real stat/behavior changes.
+- A branching 60-node persistent research graph with visible tower, power, wall, and variant unlock badges. Related stat and profile choices fan out from their root unlock.
 - A Commander Doctrine passive slot.
-- Persistent medals, best runs, campaign progress, selected difficulty/loadout/doctrine, maps, tuning, and settings.
+- Persistent medals, best runs, campaign progress, selected difficulty/loadout/doctrine, per-level layouts and variants, maps, tuning, and settings.
 - Fortress shields, leak tracking, supply-cache objectives, boss/reward wave metadata, and results with damage by source.
 - Pause/resume, 1×/2× speed, keyboard controls, settings, contextual help, reduced flashes, screen shake, corpse density, volume controls, and narrow-screen layouts.
 - Generated combat/UI audio plus pooled impact, corpse, tracer, and wall-break effects.
@@ -36,17 +39,17 @@ Map Forge can create and persist multiple custom battlefields using the same `Ma
 - Wave groups, lane assignment, delays, intervals, health/speed/damage multipliers, reward multipliers, and boss markers.
 - JSON import/export and direct Sandbox play.
 
-The live tuning overlay supports tower, enemy, wall, and power metrics, quick restart, per-enemy spawning, 2,000/5,000-enemy stress hordes, a 50,000-total continuous stream held inside a 5,000-live envelope, live frame/simulation telemetry, unlock-all, and fortress invulnerability. Cheat-assisted runs are clearly unranked and runtime cheats are not saved.
+The live tuning overlay supports tower cost, damage, range, rate, and firing angle plus enemy, wall, and power metrics; quick restart; per-enemy spawning; 2,000/5,000-enemy stress hordes; a 50,000-total continuous stream held inside a 5,000-live envelope; live frame/simulation telemetry; unlock-all; and fortress invulnerability. Cheat-assisted runs are clearly unranked and runtime cheats are not saved.
 
 ## Validation at this commit
 
-- `npm test`: 245 passing tests; three optional benchmark tests skipped during the normal suite.
-- `npm run build`: passing production build.
+- `npm test`: 283 deterministic rules tests pass; three optional performance cases are skipped in the normal suite. Coverage includes combat, facing sectors, variant selection and behavior, setup economy, layout isolation/sanitizing, saves, maps, and progression.
+- `npm run build` is the required production-build gate.
 - `npm run benchmark:combat`:
-  - 2,000 live enemies: approximately 1.39 ms average fixed simulation step.
-  - 5,000 live enemies: approximately 2.40 ms average fixed simulation step.
-  - 50,000 enemies streamed through ten bounded 5,000-enemy cohorts: approximately 1.70 ms per measured step.
-- Desktop and 720×900 browser acceptance QA completed with zero application console errors.
+  - 2,000 live enemies: approximately 1.49 ms average fixed simulation step.
+  - 5,000 live enemies: approximately 2.64 ms average fixed simulation step.
+  - 50,000 enemies streamed through ten bounded 5,000-enemy cohorts: approximately 1.99 ms per measured step.
+- Browser acceptance verified the briefing profile picker, starting/remaining supply, two-click placement, visible directional sectors, reload persistence, and switching to another map and back. The broader release checklist remains in `PR_DESCRIPTION.md`.
 - Campaign pacing is estimated at roughly 8–10 minutes per successful run, with 636–2,244 authored enemies depending on the mission.
 
 ### Why the crowd index stays dependency-free
@@ -57,7 +60,7 @@ We evaluated general spatial-tree libraries but did not add one. Flatbush is exp
 
 ## Known limitations
 
-- Progress and custom maps use browser `localStorage`; there is no account system, cloud synchronization, or server backend.
+- Progress, custom maps, tuning, settings, and defense layouts use browser `localStorage`; there is no account system, cloud synchronization, or server backend.
 - Visuals are deliberately code-native low-poly prototypes. There is no production animation, rigging, cinematic, localization, or external art pipeline yet.
 - Audio is procedurally generated rather than a final mastered soundtrack/effects package.
 - The main Three.js bundle is large and Vite reports a chunk-size warning. Runtime performance is good in current stress tests, but route-level code splitting is still worthwhile.
@@ -68,7 +71,7 @@ We evaluated general spatial-tree libraries but did not add one. Flatbush is exp
 
 ### High priority
 
-1. Add CI for tests, production builds, and a small deterministic browser smoke test.
+1. Extend the existing main-branch test workflow with the production build and a small deterministic browser smoke test.
 2. Run full campaign balance sessions on Cadet, Standard, and Veteran; record win rates and common failure points.
 3. Add cloud/exportable save profiles and a visible reset/import/export flow.
 4. Split editor/research routes from the initial Three.js bundle.
@@ -80,7 +83,7 @@ We evaluated general spatial-tree libraries but did not add one. Flatbush is exp
 2. Improve tower firing animation, projectile arcs, orc locomotion, fortress damage states, and boss presentation.
 3. Add touch controls, remappable keys, and controller support.
 4. Add production sound design, music, mixing, and more complete accessibility options.
-5. Continue tuning upgrade costs, tower variants, wave pacing, and endless scaling.
+5. Continue tuning upgrade costs, firing sectors, tower profile tradeoffs, wave pacing, and endless scaling.
 
 ### Production readiness
 
@@ -94,4 +97,6 @@ We evaluated general spatial-tree libraries but did not add one. Flatbush is exp
 - [`README.md`](../README.md): setup, controls, and feature overview.
 - [`GAME_SPEC.md`](GAME_SPEC.md): complete gameplay and technical specification.
 - [`PR_DESCRIPTION.md`](PR_DESCRIPTION.md): reviewer-facing impact and manual QA checklist.
+- [`TOWER_VARIANTS.md`](TOWER_VARIANTS.md): exact tower profiles and their research ownership.
+- [`COMBAT_TEST_MATRIX.md`](COMBAT_TEST_MATRIX.md): deterministic combat and lifecycle coverage.
 - [`CONVERSATION.md`](CONVERSATION.md): user-visible conversation that produced this repository.

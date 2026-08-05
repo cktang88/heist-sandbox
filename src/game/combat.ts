@@ -7,6 +7,8 @@ import { getRunTotals, getWave } from './runs'
 import { EnemySpatialIndex, type SpatialIndexTelemetry } from './spatialIndex'
 import { deriveWallRotation, distanceToWall } from './wall'
 import { calculateDamage, createEmptyDamageBySource, isAttackInFront, recordDamageCredit, type DamageCredit } from './damageSources'
+import { applyTowerVariant, getTowerVariant } from './towerVariants'
+import { getTowerArcDegrees, isPointWithinTowerArc } from './towerFacing'
 import type { ActivePowerKind, BattleSnapshot, DamageSource, DamageType, EnemyKind, EnemyMultipliers, GameRules, GameTuning, MapDefinition, Placement, Point, RunRules, TowerKind, TowerStats, WaveDefinition } from './types'
 import type { CombatEventTotals } from './audio'
 
@@ -23,6 +25,8 @@ export type EnemyStatus = {
   brittleRemaining: number
   armorBreakRemaining: number
   armorBreakAmount: number
+  /** Set only by the Funeral Pyre variant; optional keeps old saves/test fixtures compatible. */
+  spreadsBurnOnDeath?: boolean
 }
 
 export type Enemy = Point & { id: number; kind: EnemyKind; pathIndex: number; progress: number; previousX?: number; previousZ?: number; facingX?: number; facingZ?: number; health: number; healthMultiplier: number; speedMultiplier: number; damageMultiplier: number; status: EnemyStatus }
@@ -218,9 +222,9 @@ export function stepSimulation(state: SimulationState, context: SimulationContex
   }
 }
 
-export function findTowerTarget(tower: Placement, enemies: Enemy[], range: number, minRange = 0, index?: EnemySpatialIndex<Enemy>): Enemy | undefined {
+export function findTowerTarget(tower: Placement, enemies: Enemy[], range: number, minRange = 0, index?: EnemySpatialIndex<Enemy>, firingArcDegrees = 360): Enemy | undefined {
   const spatial = index ?? new EnemySpatialIndex(enemies)
-  const eligible = (enemy: Enemy) => enemy.health > 0 && distance(tower, enemy) >= minRange
+  const eligible = (enemy: Enemy) => enemy.health > 0 && distance(tower, enemy) >= minRange && isPointWithinTowerArc(tower, enemy, firingArcDegrees)
   if ((tower.targetingRule ?? 'closest') === 'closest') return spatial.nearest(tower, range, eligible)
   const candidates = spatial.withinRadius(tower, range, eligible)
   switch (tower.targetingRule) {
@@ -626,11 +630,11 @@ export function findSapperWallTarget(enemy: Point, walls: readonly RuntimeWall[]
 function fireTowers(state: SimulationState, towers: Placement[], rules: GameRules, delta: number, index: EnemySpatialIndex<Enemy>): void {
   for (const tower of towers) {
     if (!isTowerKind(tower.kind)) continue
-    const stats = supportedTowerStats(tower, towers, rules.tuning)
+    const stats = getTowerStatsForPlacement(tower, towers, rules.tuning)
     if (stats.attack.kind === 'support') continue
     const cooldown = (state.towerCooldowns.get(tower.id) ?? 0) - delta
     if (cooldown > 0) { state.towerCooldowns.set(tower.id, cooldown); continue }
-    const target = findTowerTarget(tower, state.enemies, stats.range, stats.minRange ?? 0, index)
+    const target = findTowerTarget(tower, state.enemies, stats.range, stats.minRange ?? 0, index, getTowerArcDegrees(stats))
     if (!target) {
       state.towerEngagements.delete(tower.id)
       continue
@@ -658,17 +662,19 @@ export function towerEngagementBonuses(kind: TowerKind, seconds: number): { dama
   return { damage: 1, fireRate: 1 }
 }
 
-function resolveAttack(state: SimulationState, towerKind: TowerKind, tower: Point, target: Enemy, stats: TowerStats, rules: GameRules, index: EnemySpatialIndex<Enemy>, damageMultiplier = 1): void {
+function resolveAttack(state: SimulationState, towerKind: TowerKind, tower: Placement, target: Enemy, stats: TowerStats, rules: GameRules, index: EnemySpatialIndex<Enemy>, damageMultiplier = 1): void {
   switch (stats.attack.kind) {
     case 'direct': {
+      const variant = getTowerVariant(towerKind, tower.variantId)
       const targets = towerKind === 'heavyGun'
-        ? enemiesInCone(index, tower, target, stats.range, 0.5)
-        : towerKind === 'laser' && rules.behaviors.piercingLaser
+        ? enemiesInCone(index, tower, target, stats.range, variant?.id === 'heavy-siege' ? 0.95 : variant?.id === 'heavy-anti-armor' ? 0.28 : 0.5)
+        : towerKind === 'laser' && (rules.behaviors.piercingLaser || variant?.id === 'laser-piercing')
           ? enemiesBehindTarget(index, tower, target, stats.range, 4)
           : [target]
       targets.forEach((enemy) => damageEnemy(state, enemy, stats.damage * damageMultiplier, stats.damageType, rules, {
         tower: towerKind,
-        armorPiercing: towerKind === 'gunner' && rules.behaviors.armorPiercingRivets,
+        armorPiercing: (towerKind === 'gunner' && (rules.behaviors.armorPiercingRivets || variant?.id === 'gunner-armor-piercer'))
+          || (towerKind === 'heavyGun' && variant?.id === 'heavy-anti-armor'),
         attackOrigin: tower,
       }))
       break
@@ -682,9 +688,9 @@ function resolveAttack(state: SimulationState, towerKind: TowerKind, tower: Poin
           damage: stats.damage,
           damageType: stats.damageType,
           tower: towerKind,
-          stunSeconds: towerKind === 'mortar' && rules.behaviors.mortarStun ? 0.65 : undefined,
-          cluster: towerKind === 'cannon' ? rules.behaviors.cannonClusterShells
-            : towerKind === 'mortar' ? rules.behaviors.mortarClusterShells : false,
+          stunSeconds: towerKind === 'mortar' && (rules.behaviors.mortarStun || tower.variantId === 'mortar-concussion') ? 0.65 : undefined,
+          cluster: towerKind === 'cannon' ? rules.behaviors.cannonClusterShells || tower.variantId === 'cannon-cluster'
+            : towerKind === 'mortar' ? rules.behaviors.mortarClusterShells || tower.variantId === 'mortar-cluster' : false,
         })
         break
       }
@@ -699,9 +705,10 @@ function resolveAttack(state: SimulationState, towerKind: TowerKind, tower: Poin
     }
     case 'flame':
       for (const enemy of enemiesInCone(index, tower, target, stats.range, stats.attack.radius)) {
-        damageEnemy(state, enemy, stats.damage, stats.damageType, rules, { tower: towerKind })
         enemy.status.burnRemaining = Math.max(enemy.status.burnRemaining, stats.attack.burnSeconds)
         enemy.status.burnDamagePerSecond = Math.max(enemy.status.burnDamagePerSecond, stats.attack.burnDamagePerSecond)
+        if (tower.variantId === 'flame-funeral-pyre') enemy.status.spreadsBurnOnDeath = true
+        damageEnemy(state, enemy, stats.damage, stats.damageType, rules, { tower: towerKind })
       }
       break
     case 'cryo':
@@ -712,10 +719,9 @@ function resolveAttack(state: SimulationState, towerKind: TowerKind, tower: Poin
       if (target.status.freezeCharge >= stats.attack.freezeThreshold) {
         target.status.freezeCharge = 0
         applyFreeze(target, stats.attack.freezeSeconds, rules)
-        if (rules.behaviors.chainFreeze) {
-          const chained = state.enemies
-            .filter((enemy) => enemy !== target && enemy.health > 0 && distance(enemy, target) <= 1.8)
-            .sort((left, right) => distance(left, target) - distance(right, target))[0]
+        if (tower.variantId === 'cryo-brittle') target.status.brittleRemaining = Math.max(target.status.brittleRemaining, stats.attack.freezeSeconds)
+        if (rules.behaviors.chainFreeze || tower.variantId === 'cryo-chain-freeze') {
+          const chained = index.nearest(target, 1.8, (enemy) => enemy !== target && enemy.health > 0)
           if (chained) applyFreeze(chained, stats.attack.freezeSeconds, rules)
         }
       }
@@ -731,7 +737,9 @@ function resolveAttack(state: SimulationState, towerKind: TowerKind, tower: Poin
       }
       chained.forEach((enemy) => {
         damageEnemy(state, enemy, stats.damage, stats.damageType, rules, { tower: towerKind })
-        if (rules.behaviors.teslaStun && enemy.health > 0) enemy.status.stunRemaining = Math.max(enemy.status.stunRemaining, 0.35)
+        if ((rules.behaviors.teslaStun || tower.variantId === 'tesla-stun') && enemy.health > 0) {
+          enemy.status.stunRemaining = Math.max(enemy.status.stunRemaining, tower.variantId === 'tesla-stun' ? 0.55 : 0.35)
+        }
       })
       break
     }
@@ -752,7 +760,7 @@ function damageEnemy(state: SimulationState, enemy: Enemy, damage: number, damag
   if (enemy.health <= 0) {
     state.defeated += 1
     addCombatVisual(state, 'death', enemy, 5)
-    if (wasBurning && rules.behaviors.burningDeathSpread) {
+    if (wasBurning && (rules.behaviors.burningDeathSpread || enemy.status.spreadsBurnOnDeath)) {
       queueImpact(state, {
         point: { x: enemy.x, z: enemy.z }, radius: 1.4, damage: 0, damageType: 'fire',
         burnSeconds: 2, burnDamagePerSecond: Math.max(4, enemy.status.burnDamagePerSecond * 0.6),
@@ -805,14 +813,14 @@ function enemiesInCone(index: EnemySpatialIndex<Enemy>, origin: Point, target: P
   })
 }
 
-function supportedTowerStats(towerPlacement: Placement, towers: Placement[], tuning: GameTuning): TowerStats {
+export function getTowerStatsForPlacement(towerPlacement: Placement, towers: Placement[], tuning: GameTuning): TowerStats {
   if (!isTowerKind(towerPlacement.kind)) return tuning.towers.gunner
-  const base = tuning.towers[towerPlacement.kind]
+  const base = applyTowerVariant(towerPlacement.kind, towerPlacement.variantId, tuning.towers[towerPlacement.kind])
   let damageMultiplier = 1
   let fireRateMultiplier = 1
   for (const placement of towers) {
     if (placement.kind !== 'support') continue
-    const support = tuning.towers.support.attack
+    const support = applyTowerVariant('support', placement.variantId, tuning.towers.support).attack
     if (support.kind !== 'support' || distance(placement, towerPlacement) > support.radius) continue
     damageMultiplier *= support.damageMultiplier
     fireRateMultiplier *= support.fireRateMultiplier

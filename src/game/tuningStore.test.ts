@@ -19,11 +19,13 @@ describe('tuning persistence', () => {
     delete tuning.towers.cannon.projectileSpeed
     delete tuning.towers.mortar.projectileSpeed
     delete tuning.towers.mortar.minRange
+    delete tuning.towers.gunner.firingArcDegrees
     stored(tuning)
     const loaded = loadTuning()
     expect(loaded.towers.cannon.projectileSpeed).toBe(DEFAULT_TUNING.towers.cannon.projectileSpeed)
     expect(loaded.towers.mortar.projectileSpeed).toBe(DEFAULT_TUNING.towers.mortar.projectileSpeed)
     expect(loaded.towers.mortar.minRange).toBe(DEFAULT_TUNING.towers.mortar.minRange)
+    expect(loaded.towers.gunner.firingArcDegrees).toBe(DEFAULT_TUNING.towers.gunner.firingArcDegrees)
   })
 
   it('migrates older tuning saves to the default power metrics', () => {

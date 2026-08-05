@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_TUNING, getBuildCost } from './config'
 import { beginPlacementMove, cancelPlacementMove, getPlacementTargeting, placeMovedPlacement, removeSetupPlacement, rotateWallPlacement, setPlacementTargeting } from './setupEditing'
 import type { Placement } from './types'
 
@@ -7,7 +8,14 @@ const wall: Placement = { id: 2, kind: 'wall', x: 4, z: 5, rotation: 0.25 }
 
 describe('setup editing', () => {
   it('removes one selected placement for a full-refund sell', () => {
-    expect(removeSetupPlacement([gunner, wall], gunner.id)).toEqual([wall])
+    const placements = [gunner, wall]
+    const startingSupply = DEFAULT_TUNING.budget
+    const supplyLeft = (items: readonly Placement[]) => startingSupply
+      - items.reduce((sum, placement) => sum + getBuildCost(placement.kind, DEFAULT_TUNING), 0)
+    const sold = removeSetupPlacement(placements, gunner.id)
+
+    expect(sold).toEqual([wall])
+    expect(supplyLeft(sold) - supplyLeft(placements)).toBe(getBuildCost('gunner', DEFAULT_TUNING))
   })
 
   it('moves a placement without losing its identity or settings', () => {

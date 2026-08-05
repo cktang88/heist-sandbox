@@ -32,8 +32,9 @@ export function DeploymentPanel(props: DeploymentPanelProps) {
     <aside className="build-panel">
       <div className="panel-heading">
         <div><p className="eyebrow">PREPARATION</p><h2>DEPLOYMENT</h2></div>
-        <div className="budget"><small>SUPPLY</small><strong>{props.remaining}</strong><span>/{props.tuning.budget}</span></div>
+        <div className="budget"><small>SUPPLY LEFT / START</small><strong>{props.remaining}</strong><span>/{props.tuning.budget}</span></div>
       </div>
+      <p className="deployment-economy-note">Buy towers from your starting supply. During preparation, moving is free and every sale refunds the full price.</p>
       {(props.selectedPlacement || props.movingPlacement) && <section className="placement-editor">
         <div>
           <small>{props.movingPlacement ? 'MOVING' : 'SELECTED'}</small>
@@ -45,8 +46,8 @@ export function DeploymentPanel(props: DeploymentPanelProps) {
             {TARGETING_RULES.map((rule) => <option key={rule.value} value={rule.value}>{rule.label}</option>)}
           </select>
         </label>}
-        {props.selectedPlacement && <button className="secondary-button" onClick={props.onMoveSelected}>MOVE</button>}
-        {props.selectedPlacement && <button className="secondary-button danger-button" onClick={props.onSellSelected}>SELL</button>}
+        {props.selectedPlacement && <button className="secondary-button" onClick={props.onMoveSelected}>MOVE · FREE</button>}
+        {props.selectedPlacement && <button className="secondary-button danger-button" onClick={props.onSellSelected}>SELL · +{getBuildCost(props.selectedPlacement.kind, props.tuning)}</button>}
         {props.movingPlacement?.kind === 'wall' && <small>R · ROTATE 90°</small>}
       </section>}
       <div className="tool-list">
@@ -54,7 +55,7 @@ export function DeploymentPanel(props: DeploymentPanelProps) {
           <button key={tool} className={`tool-card ${props.selectedTool === tool ? 'selected' : ''}`} onClick={() => props.onSelectTool(tool)} disabled={getBuildCost(tool, props.tuning) > props.remaining}>
             <span className="tool-number">0{index + 1}</span>
             <span><strong>{BUILD.items[tool].label}</strong><small>{BUILD.items[tool].hint}</small></span>
-            <b>{getBuildCost(tool, props.tuning)}</b>
+            <span className="tool-cost"><small>SUPPLY</small><b>{getBuildCost(tool, props.tuning)}</b></span>
           </button>
         ))}
       </div>
@@ -64,6 +65,7 @@ export function DeploymentPanel(props: DeploymentPanelProps) {
         <button className="primary-button" onClick={props.onStart} disabled={!props.canStart}>START HORDE <kbd>SPACE</kbd></button>
       </div>
       {!props.canStart && <p className="panel-note">Place at least one weapon tower within the supply limit.</p>}
+      {props.placementCount > 0 && <p className="panel-note">UNDO, CLEAR, and SELL restore 100% of setup costs.</p>}
       {!props.ranked && <p className="panel-note unranked-note">DEV/SANDBOX RUN · PROGRESSION DISABLED</p>}
     </aside>
   )

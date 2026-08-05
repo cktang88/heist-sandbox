@@ -4,8 +4,12 @@ import type { Loadout } from '../game/loadout'
 import { COMMANDER_DOCTRINE } from '../game/loadout'
 import { CHALLENGES, findChallenge, isMissionUnlocked, missionForMap } from '../game/runs'
 import type { CombatPower, DifficultyTier, GameMode, MapDefinition, TowerKind } from '../game/types'
+import type { TowerVariantId } from '../game/types'
+import type { TowerVariantSelections } from '../game/variantSelection'
+import type { UpgradeRanks } from '../game/upgrades'
 import { MapLibraryPanel } from './MapLibraryPanel'
 import { ModalFrame } from './ModalFrame'
+import { TowerVariantPicker } from './TowerVariantPicker'
 
 type BriefingPanelProps = {
   mode: GameMode
@@ -24,12 +28,15 @@ type BriefingPanelProps = {
   powerOptions: readonly CombatPower[]
   towerSlotLimit: number
   powerSlotLimit: number
+  variantSelections: TowerVariantSelections
+  upgradeRanks: UpgradeRanks
   onSelectMode: (mode: GameMode) => void
   onSelectDifficulty: (difficulty: DifficultyTier) => void
   onSelectChallenge: (id: string) => void
   onSelectMap: (map: MapDefinition) => void
   onToggleTower: (tower: TowerKind) => void
   onTogglePower: (power: CombatPower) => void
+  onSelectTowerVariant: (tower: TowerKind, variantId: TowerVariantId | undefined) => void
   onToggleDoctrine: () => void
   onNewMap: () => void
   onDuplicateMap: () => void
@@ -50,9 +57,9 @@ export function BriefingPanel(props: BriefingPanelProps) {
         <h1>{title?.toUpperCase()}</h1>
         <p>{props.emptyDeploymentAllowed
           ? 'A horde is crossing the valley. This operation begins with an empty field; use the loaned battlefield powers to hold it.'
-          : 'A horde is crossing the valley. Spend your supply before they arrive. Once the horn sounds, every emplacement is locked.'}</p>
+          : 'A horde is crossing the valley. Buy towers with your starting supply before they arrive. Once the horn sounds, every emplacement is locked.'}</p>
         <div className="briefing-rules">
-          <span><b>01</b> {props.emptyDeploymentAllowed ? 'Deploy without towers' : 'Place weapon towers off the road'}</span>
+          <span><b>01</b> {props.emptyDeploymentAllowed ? 'Deploy without towers' : 'Tower prices and starting supply are shown on the battle map'}</span>
           <span><b>02</b> {props.resolvedLoadout.powers.includes('wall')
             ? 'Use temporary walls during the battle'
             : props.resolvedLoadout.powers.length ? 'Use equipped commands during the battle' : 'Rely on the deployed defense line'}</span>
@@ -127,10 +134,20 @@ function LoadoutChoices(props: BriefingPanelProps) {
       <div className="loadout-options">
         {props.towerOptions.map((tower) => {
           const selected = props.resolvedLoadout.towers.includes(tower)
-          return <button key={tower} className={selected ? 'selected' : ''} aria-pressed={selected} disabled={props.fixedArsenal || (!selected && props.selectedLoadout.towers.length >= props.towerSlotLimit)} onClick={() => props.onToggleTower(tower)}>{BUILD.items[tower].label}</button>
+          return <button key={tower} className={selected ? 'selected' : ''} aria-pressed={selected} disabled={props.fixedArsenal || (!selected && props.selectedLoadout.towers.length >= props.towerSlotLimit)} onClick={() => props.onToggleTower(tower)}>{BUILD.items[tower].label}<small>{selected ? 'EQUIPPED · BUY IN SETUP' : 'AVAILABLE'}</small></button>
         })}
         {!props.towerOptions.length && <p className="loadout-empty">This operation deploys without towers.</p>}
       </div>
+      {!!props.resolvedLoadout.towers.length && <div className="loadout-variants">
+        <p>FIRING PROFILES <small>Saved separately for this operation</small></p>
+        {props.resolvedLoadout.towers.map((tower) => <TowerVariantPicker
+          key={tower}
+          tower={tower}
+          ranks={props.upgradeRanks}
+          selectedVariantId={props.variantSelections[tower]}
+          onChange={props.onSelectTowerVariant}
+        />)}
+      </div>}
     </section>
     <section>
       <header><b>COMBAT POWERS</b><small>{props.powersDisabled ? 'DISABLED' : props.fixedArsenal ? 'FIXED' : `${props.selectedLoadout.powers.length}/${props.powerSlotLimit}`}</small></header>

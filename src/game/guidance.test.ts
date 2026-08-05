@@ -21,4 +21,11 @@ describe('contextual guidance', () => {
     expect(text).toContain('empty field')
     expect(text).not.toContain('Select a placed tower')
   })
+
+  it('explains setup supply and full refunds', () => {
+    const text = getGuidance('setup', { towers: ['gunner'], powers: [] }).steps.join(' ')
+    expect(text).toContain('starting supply')
+    expect(text).toContain('100% refund')
+    expect(text).toContain('locked')
+  })
 })

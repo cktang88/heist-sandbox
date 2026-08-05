@@ -3,15 +3,17 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Color, DynamicDrawUsage, Object3D, Shape, type InstancedMesh } from 'three'
 import { BUILD, isTowerKind } from '../game/config'
 import { isValidPlacement } from '../game/placement'
-import { addPower, barrageImpactPoint, createSimulation, findTowerTarget, getSimulationTelemetry, guideActivePower, isRunWon, SIMULATION_STEP, spawnStressEnemies, stepSimulation, syncWalls, toSnapshot, type Enemy, type PowerRun, type SimulationState } from '../game/combat'
+import { addPower, barrageImpactPoint, createSimulation, findTowerTarget, getSimulationTelemetry, getTowerStatsForPlacement, guideActivePower, isRunWon, SIMULATION_STEP, spawnStressEnemies, stepSimulation, syncWalls, toSnapshot, type Enemy, type PowerRun, type SimulationState } from '../game/combat'
 import { buildPathInfo, distance, distanceToPath, pointAlongPath } from '../game/path'
 import { pointInPolygon } from '../game/polygon'
 import { resolvePowerLine } from '../game/powerTargeting'
-import type { ActivePowerKind, BattleSnapshot, BuildTool, CombatPower, EnemyKind, GameRules, MapDecoration, MapDefinition, MapSecondaryObjective, Placement, Point, PowerCommand, PowerDefinition, RunRules } from '../game/types'
+import type { ActivePowerKind, BattleSnapshot, BuildTool, CombatPower, EnemyKind, GameRules, GameTuning, MapDecoration, MapDefinition, MapSecondaryObjective, Placement, Point, PowerCommand, PowerDefinition, RunRules, TowerVariantId } from '../game/types'
 import { deriveWallRotation, wallVisualLength } from '../game/wall'
 import { consumeCombatAudioEvents, createCombatAudioState, playSound } from '../game/audio'
 import type { GameSettings } from '../game/settings'
 import { createStressStream, scheduleStressSpawns, type StressStream } from '../game/stressStream'
+import { advanceTowerAim, aimRotation, defaultTowerRotation, getTowerArcDegrees, getTowerDisplayedRange } from '../game/towerFacing'
+import { getTowerVariant } from '../game/towerVariants'
 
 export type StressCommand = {
   id: number
@@ -34,6 +36,8 @@ type GameSceneProps = {
   movingPlacement: Placement | null
   phase: 'setup' | 'battle' | 'victory' | 'defeat'
   selectedTool: BuildTool
+  setupCancelRevision: number
+  selectedVariantId?: TowerVariantId
   selectedPower: CombatPower | null
   powerCommand: PowerCommand | null
   stressCommand: StressCommand | null
@@ -75,11 +79,18 @@ export function GameScene(props: GameSceneProps) {
 
 function World(props: GameSceneProps) {
   const [pointer, setPointer] = useState<Point | null>(null)
+  const [towerAimOrigin, setTowerAimOrigin] = useState<Point | null>(null)
   const [lineStart, setLineStart] = useState<Point | null>(null)
   const [lineEnd, setLineEnd] = useState<Point | null>(null)
   const suppressClick = useRef(false)
   const buildKind = props.movingPlacement?.kind ?? props.selectedTool
-  const valid = pointer ? isValidPlacement(pointer, buildKind, props.placements, props.map) : false
+  const previewPoint = towerAimOrigin ?? pointer
+  const previewVariantId = props.movingPlacement?.variantId ?? (isTowerKind(buildKind) ? props.selectedVariantId : undefined)
+  const valid = previewPoint ? isValidPlacement(previewPoint, buildKind, props.placements, props.map) : false
+  const previewStats = previewPoint && isTowerKind(buildKind)
+    ? getTowerStatsForPlacement({ ...previewPoint, id: -1, kind: buildKind, variantId: previewVariantId }, props.placements, props.rules.tuning)
+    : undefined
+  const previewRange = previewStats ? getTowerDisplayedRange(previewStats) : 0
   const isLanePower = props.phase === 'battle' && (props.selectedPower === 'strafe' || props.selectedPower === 'cryoBeam')
 
   useEffect(() => {
@@ -88,6 +99,8 @@ function World(props: GameSceneProps) {
       setLineEnd(null)
     }
   }, [isLanePower])
+
+  useEffect(() => setTowerAimOrigin(null), [buildKind, props.phase, props.movingPlacement?.id, props.map.id, props.setupCancelRevision])
 
   return (
     <>
@@ -98,7 +111,18 @@ function World(props: GameSceneProps) {
             suppressClick.current = false
             return
           }
-          props.onPlace({ x: event.point.x, z: event.point.z })
+          const point = { x: event.point.x, z: event.point.z }
+          if (props.phase === 'setup' && buildKind !== 'wall') {
+            const next = advanceTowerAim(towerAimOrigin, point, props.movingPlacement?.rotation)
+            if (next.status === 'aiming') {
+              if (isValidPlacement(point, buildKind, props.placements, props.map)) setTowerAimOrigin(next.origin)
+              return
+            }
+            props.onPlace(next.origin, point)
+            setTowerAimOrigin(null)
+            return
+          }
+          props.onPlace(point)
         }}
         onMove={(event) => {
           const point = { x: event.point.x, z: event.point.z }
@@ -122,17 +146,24 @@ function World(props: GameSceneProps) {
           setLineEnd(null)
           props.onPlace(line.start, line.end)
         }}
+        onContextMenu={(event) => {
+          event.stopPropagation()
+          if (towerAimOrigin) setTowerAimOrigin(null)
+          props.onCancelSetupEdit()
+        }}
       />
       <Path map={props.map} />
       <Fortress map={props.map} health={props.phase === 'battle' ? undefined : 100} />
-      {props.phase === 'setup' && pointer && (
+      {props.phase === 'setup' && previewPoint && (
         <BuildPreview
-          point={pointer}
+          point={previewPoint}
           kind={buildKind}
           valid={valid}
-          range={buildKind === 'wall' ? 0 : props.rules.tuning.towers[buildKind].range}
-          minRange={buildKind === 'wall' ? 0 : props.rules.tuning.towers[buildKind].minRange}
-          wallRotation={props.movingPlacement?.rotation ?? deriveWallRotation(props.map, pointer)}
+          range={previewRange}
+          minRange={previewStats?.minRange}
+          firingArcDegrees={previewStats ? getTowerArcDegrees(previewStats) : 360}
+          towerRotation={buildKind === 'wall' ? 0 : towerAimOrigin && pointer ? aimRotation(towerAimOrigin, pointer, props.movingPlacement?.rotation) : props.movingPlacement?.rotation ?? defaultTowerRotation(props.map, previewPoint)}
+          wallRotation={props.movingPlacement?.rotation ?? deriveWallRotation(props.map, previewPoint)}
           wallLength={props.rules.wall.length}
         />
       )}
@@ -156,7 +187,10 @@ function World(props: GameSceneProps) {
           wallMaxHealth={props.rules.tuning.wall.health}
           wallLength={props.rules.wall.length}
           selected={props.phase === 'setup' && props.selectedPlacementId === placement.id}
-          onSelect={props.phase === 'setup' ? props.onSelectPlacement : undefined}
+          showRange={props.phase === 'setup'}
+          towers={props.placements}
+          tuning={props.rules.tuning}
+          onSelect={props.phase === 'setup' && !towerAimOrigin ? props.onSelectPlacement : undefined}
         />
       ))}
       {props.phase === 'battle' && (
@@ -183,16 +217,17 @@ function World(props: GameSceneProps) {
   )
 }
 
-function Terrain({ map, onClick, onMove, onPointerDown, onPointerUp }: {
+function Terrain({ map, onClick, onMove, onPointerDown, onPointerUp, onContextMenu }: {
   map: MapDefinition
   onClick: (event: ThreeEvent<MouseEvent>) => void
   onMove: (event: ThreeEvent<PointerEvent>) => void
   onPointerDown: (event: ThreeEvent<PointerEvent>) => void
   onPointerUp: (event: ThreeEvent<PointerEvent>) => void
+  onContextMenu: (event: ThreeEvent<MouseEvent>) => void
 }) {
   return (
     <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.12, 0]} receiveShadow onClick={onClick} onPointerMove={onMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.12, 0]} receiveShadow onClick={onClick} onPointerMove={onMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onContextMenu={onContextMenu}>
         <planeGeometry args={[map.width, map.depth]} />
         <meshStandardMaterial color={map.palette?.ground ?? '#33472e'} roughness={1} />
       </mesh>
@@ -317,20 +352,48 @@ function Fortress({ map, health: _health }: { map: MapDefinition; health?: numbe
   )
 }
 
-function BuildPreview({ point, kind, valid, range, minRange = 0, wallRotation = 0, wallLength = 1 }: { point: Point; kind: BuildTool; valid: boolean; range: number; minRange?: number; wallRotation?: number; wallLength?: number }) {
+function RangeSector({ range, minRange = 0, arcDegrees, rotation, color, opacity }: {
+  range: number
+  minRange?: number
+  arcDegrees: number
+  rotation: number
+  color: string
+  opacity: number
+}) {
+  const shape = useMemo(() => {
+    const result = new Shape()
+    const halfArc = Math.min(360, arcDegrees) * Math.PI / 360
+    const segments = Math.max(8, Math.ceil(arcDegrees / 4))
+    const inner = Math.max(0, Math.min(minRange, range - 0.02))
+    for (let index = 0; index <= segments; index++) {
+      const angle = rotation - halfArc + (halfArc * 2 * index) / segments
+      const x = Math.cos(angle) * range
+      const y = -Math.sin(angle) * range
+      if (index === 0) result.moveTo(x, y)
+      else result.lineTo(x, y)
+    }
+    if (inner > 0) {
+      for (let index = segments; index >= 0; index--) {
+        const angle = rotation - halfArc + (halfArc * 2 * index) / segments
+        result.lineTo(Math.cos(angle) * inner, -Math.sin(angle) * inner)
+      }
+    } else {
+      result.lineTo(0, 0)
+    }
+    result.closePath()
+    return result
+  }, [arcDegrees, minRange, range, rotation])
+  return <mesh position={[0, 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => undefined}>
+    <shapeGeometry args={[shape]} />
+    <meshBasicMaterial color={color} transparent opacity={opacity} depthWrite={false} />
+  </mesh>
+}
+
+function BuildPreview({ point, kind, valid, range, minRange = 0, firingArcDegrees = 360, towerRotation = 0, wallRotation = 0, wallLength = 1 }: { point: Point; kind: BuildTool; valid: boolean; range: number; minRange?: number; firingArcDegrees?: number; towerRotation?: number; wallRotation?: number; wallLength?: number }) {
   return (
     <group position={[point.x, 0.05, point.z]}>
       {kind !== 'wall' && range > 0 && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[range - 0.04, range, 64]} />
-          <meshBasicMaterial color={valid ? '#f2d06b' : '#d65042'} transparent opacity={0.36} />
-        </mesh>
-      )}
-      {kind !== 'wall' && minRange > 0 && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[Math.max(0, minRange - 0.05), minRange, 48]} />
-          <meshBasicMaterial color="#e26b4d" transparent opacity={0.5} />
-        </mesh>
+        <RangeSector range={range} minRange={minRange} arcDegrees={firingArcDegrees} rotation={towerRotation} color={valid ? '#f2d06b' : '#d65042'} opacity={0.28} />
       )}
       {kind === 'wall' ? <mesh position={[0, 0.15, 0]} rotation={[0, wallRotation, 0]}>
         <boxGeometry args={[0.45, 0.3, wallVisualLength(wallLength)]} />
@@ -371,15 +434,25 @@ function PowerPreview({ kind, point, lineEnd, mapWidth, definition }: { kind: Ac
   )
 }
 
-function PlacementModel({ placement, map, wallMaxHealth, wallLength, selected, onSelect }: {
+function PlacementModel({ placement, map, wallMaxHealth, wallLength, selected, showRange, towers, tuning, onSelect }: {
   placement: Placement
   map: MapDefinition
   wallMaxHealth: number
   wallLength: number
   selected: boolean
+  showRange: boolean
+  towers: Placement[]
+  tuning: GameTuning
   onSelect?: (id: number) => void
 }) {
-  return <group onClick={(event) => { event.stopPropagation(); onSelect?.(placement.id) }}>
+  return <group onClick={onSelect ? (event) => { event.stopPropagation(); onSelect(placement.id) } : undefined}>
+    {showRange && placement.kind !== 'wall' && (() => {
+      const stats = getTowerStatsForPlacement(placement, towers, tuning)
+      const range = getTowerDisplayedRange(stats)
+      return <group position={[placement.x, 0, placement.z]}>
+        <RangeSector range={range} minRange={stats.minRange} arcDegrees={getTowerArcDegrees(stats)} rotation={placement.rotation ?? defaultTowerRotation(map, placement)} color={selected ? '#f8de76' : '#b7c986'} opacity={selected ? 0.22 : 0.1} />
+      </group>
+    })()}
     {selected && <mesh position={[placement.x, 0.07, placement.z]} rotation={[-Math.PI / 2, 0, 0]}>
       <ringGeometry args={[0.62, 0.72, 40]} />
       <meshBasicMaterial color="#f5d66d" transparent opacity={0.85} />
@@ -391,7 +464,7 @@ function PlacementModel({ placement, map, wallMaxHealth, wallLength, selected, o
 }
 
 function TowerModel({ tower, target }: { tower: Placement; target?: Point }) {
-  const angle = target ? -Math.atan2(target.z - tower.z, target.x - tower.x) : 0
+  const angle = target ? -Math.atan2(target.z - tower.z, target.x - tower.x) : -(tower.rotation ?? 0)
   const colors = tower.kind === 'cannon' || tower.kind === 'mortar' || tower.kind === 'rocket' ? ['#383d3c', '#bd6d42']
     : tower.kind === 'flamethrower' ? ['#4b3d31', '#d65735']
       : tower.kind === 'cryo' ? ['#3b5960', '#84d8df']
@@ -400,8 +473,13 @@ function TowerModel({ tower, target }: { tower: Placement; target?: Point }) {
             : tower.kind === 'support' ? ['#3a5144', '#74d69b']
               : ['#4f5650', '#b7a45c']
   const barrelRadius = tower.kind === 'cannon' || tower.kind === 'mortar' || tower.kind === 'rocket' ? 0.14 : tower.kind === 'flamethrower' ? 0.1 : 0.07
+  const variant = isTowerKind(tower.kind) ? getTowerVariant(tower.kind, tower.variantId) : undefined
   return (
     <group position={[tower.x, 0, tower.z]}>
+      {variant && <mesh position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.48, 0.57, 18]} />
+        <meshStandardMaterial color={variant.accent} emissive={variant.accent} emissiveIntensity={0.35} />
+      </mesh>}
       <mesh position={[0, 0.22, 0]}>
         <cylinderGeometry args={[0.48, 0.58, 0.44, 10]} />
         <meshStandardMaterial color={colors[0]} metalness={0.45} roughness={0.7} />
@@ -411,6 +489,10 @@ function TowerModel({ tower, target }: { tower: Placement; target?: Point }) {
           <sphereGeometry args={[0.31, 10, 8]} />
           <meshStandardMaterial color={colors[1]} metalness={0.35} />
         </mesh>
+        {variant && <mesh position={[0, 0.34, 0]}>
+          <boxGeometry args={[0.17, 0.09, 0.17]} />
+          <meshStandardMaterial color={variant.accent} emissive={variant.accent} emissiveIntensity={0.55} />
+        </mesh>}
         <TowerWeapon kind={tower.kind} barrelRadius={barrelRadius} />
       </group>
     </group>
@@ -705,8 +787,8 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, settings, placem
     <>
       {towers.map((tower) => {
         if (!isTowerKind(tower.kind)) return null
-        const stats = rules.tuning.towers[tower.kind]
-        const target = findTowerTarget(tower, state.enemies, stats.range, stats.minRange, state.enemyIndex)
+        const stats = getTowerStatsForPlacement(tower, towers, rules.tuning)
+        const target = findTowerTarget(tower, state.enemies, stats.range, stats.minRange, state.enemyIndex, stats.firingArcDegrees)
         return <TowerModel key={tower.id} tower={tower} target={target} />
       })}
       {[...state.wallById.values()].filter((wall) => wall.health > 0).map((wall) => (

@@ -6,8 +6,8 @@ This matrix records the deterministic unit coverage for the combat rules. It tes
 
 | Tower | Covered contract |
 |---|---|
-| Rivet Gun | Single-target damage and damage credit |
-| Heavy Gun | Narrow cone, on-axis hits, off-axis rejection |
+| Rivet Gun | Single-target damage, damage credit, firing-sector acceptance/rejection, armor-piercing behavior |
+| Heavy Gun | Sustained damage and firing-sector acceptance/rejection |
 | Blast Cannon | Delayed projectile and clustered splash damage |
 | Rocket Battery | Minimum-range dead zone and splash damage |
 | Flame Thrower | Direct fire damage and continuing burn damage |
@@ -15,7 +15,23 @@ This matrix records the deterministic unit coverage for the combat rules. It tes
 | Tesla Coil | Chained targets and chain-gap termination |
 | Laser Lance | Same-target focus damage ramp |
 | Field Mortar | Minimum-range dead zone, delay, and wide splash |
-| Support Beacon | No direct attack, nearby buff, and out-of-range rejection |
+| Support Beacon | No direct attack, nearby buff, out-of-range rejection, and 360° aura |
+
+## Facing, variants, and setup
+
+| System | Covered contract |
+|---|---|
+| Two-click aim | First click records the base; second click records pointer-facing rotation |
+| Angle math | Normalization across 0°/360° and acceptance within ± half the configured arc |
+| Legacy layout facing | Missing rotation receives a deterministic direction toward the nearest fortress |
+| Default sectors | All nine weapon towers are below 360°; Support Beacon remains 360° |
+| Research arc | Relevant ranks widen the configured firing sector |
+| Variant catalog | Stable 20 IDs, exactly two special profiles per tower, and no mutation of Standard stats |
+| Variant safety | Unknown, locked, or wrong-family IDs resolve to Standard |
+| Variant behavior | Armor piercing, piercing beam, stun, burn spread, support-profile effects, and distinct stat transforms |
+| Variant selection | Standard is always present; at most one unlocked profile is selected per tower family |
+| Saved deployments | Per-map and per-challenge isolation, reload round-trip, facing/targeting/profile preservation, malformed-data repair |
+| Setup economy | Placement costs, budget enforcement, move, sell, undo, clear, and full-price refunds |
 
 The prototype does not currently give ordinary towers health; they are locked and invulnerable after deployment. Temporary and starting walls do have health, and existing navigation/combat tests cover wall contact damage, destruction, removal, rerouting, and break effects.
 
@@ -39,5 +55,11 @@ The prototype does not currently give ordinary towers health; they are locked an
 - `src/game/combat.test.ts`
 - `src/game/navigation-combat.test.ts`
 - `src/game/spatialIndex.test.ts`
+- `src/game/towerFacing.test.ts`
+- `src/game/towerVariants.test.ts`
+- `src/game/variantSelection.test.ts`
+- `src/game/layoutStore.test.ts`
+- `src/game/setupEditing.test.ts`
+- `src/game/upgrades.test.ts`
 
-The React phase callbacks remain browser/integration behavior. Browser QA covers starting a battle immediately, multiple enemy deaths and compactions, continued tower targeting, wave advancement, and absence of application console errors.
+The React pointer flow, drawn sector, reload behavior, and phase callbacks remain browser/integration behavior. Manual browser QA covers two-click anchor/aim, cancel and move flows, range/dead-zone readability, per-level restoration, starting a battle immediately, multiple enemy deaths and compactions, continued tower targeting, wave advancement, and absence of application console errors.

@@ -341,6 +341,14 @@ describe('combat simulation', () => {
     expect(findTowerTarget({ ...tower, targetingRule: 'densest' }, enemies, 10)).toBe(first)
   })
 
+  it('only acquires targets inside the tower firing sector', () => {
+    const tower: Placement = { id: 55, kind: 'gunner', x: 0, z: 0, rotation: 0 }
+    const ahead = makeEnemy('grunt', 56, 4, 0.2)
+    const behind = makeEnemy('grunt', 57, -1, 0)
+    expect(findTowerTarget(tower, [behind, ahead], 10, 0, undefined, 30)).toBe(ahead)
+    expect(findTowerTarget({ ...tower, rotation: Math.PI }, [behind, ahead], 10, 0, undefined, 30)).toBe(behind)
+  })
+
   it('reduces ballistic damage against shieldbearers', () => {
     const gunner: Placement = { id: 40, kind: 'gunner', x: 2, z: 0 }
     const gruntState = createSimulation([], rules)

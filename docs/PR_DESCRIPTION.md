@@ -1,12 +1,12 @@
-# Orcfall Command playable vertical slice
+# Directional defenses, tower profiles, and saved layouts
 
 ## Player impact
 
-This turns the empty prototype workspace into a playable top-down horde defense game with a complete preparation/combat/progression loop. Players can research tools, fight six campaign missions with distinct maps and wave compositions, choose endless/challenge runs, place defenses before the horn, cast battlefield powers during combat, earn persistent medals, and create custom corridor or open-field polygon maps.
+Preparation now communicates the real economy: players see starting and remaining supply, every defense price, free movement, and full-price setup refunds. Tower placement is a deliberate two-click action—anchor, aim, then lock—and every placed tower displays its real combat sector during setup. Rocket and Mortar show their inner dead zones. Combat uses the same distance and angle shown in the preview.
 
-The game uses original low-poly visuals and a handwritten field-command interface. Developer-facing Map Forge and tuning tools make maps and balance values quick to change without editing simulation code. Map Forge keeps multiple custom battlefields, migrates older saves, authors dimensions, lanes, build zones, decorations, and wave groups, swaps terrain palettes, and launches any selected map directly in Sandbox. Live devtools also tune powers, inject chosen enemies, protect the fortress, and label cheat-assisted runs unranked.
+The Armory is now a branching 60-node graph instead of a forced six-step line. Cards clearly label permanent tower, power, wall, and variant unlocks. Stat and profile choices fan out from their relevant tool, so a player can pursue the behavior they want without first buying unrelated stats.
 
-Shattered Expanse replaces fixed corridors with a broad walkable field and raised polygon platforms. Orcs route around those solids while towers deploy on top. The renderer and simulation support a 5,000-live diagnostic crowd and a 50,000-total continuous stream held below that live cap, with live frame and simulation telemetry.
+All ten towers now have Standard plus two special profiles that change their role while preserving the weapon family's identity. Standard is always available. Research permanently makes special profiles available, and the player chooses at most one per equipped tower family for each level. Each map remembers its own tower/power loadout, positions, facing, targeting, starting walls, and profile choices across restart, map switching, and reload; challenge layouts remain separate from the normal map layout. If later tuning lowers the supply budget, the saved defense remains visible and editable while Start stays blocked until enough towers are sold.
 
 ## Manual QA
 
@@ -16,12 +16,23 @@ Shattered Expanse replaces fixed corridors with a broad walkable field and raise
 - [ ] Start endless mode; confirm the HUD shows ∞ and waves continue beyond five.
 - [ ] Open all six challenges and confirm their roster, power, speed, or fortress modifier.
 - [ ] Buy research, reload, and confirm unlocked cards and stat changes persist.
+- [ ] Confirm Armory branches fan out from their tool root and tower, power, wall, and variant unlock badges are readable.
+- [ ] Unlock both profiles for one tower, select each and Standard in turn, and confirm only one profile is active for that tower family.
+- [ ] Confirm a locked, unknown, or wrong-family saved profile safely loads as Standard.
 - [ ] Enable Unlock All Content and confirm the run is marked unranked.
 - [ ] Create two lanes and boulders in Map Forge, export/import JSON, save, refresh, and replay the map.
 - [ ] Create an open-field map, draw/edit both polygon types, and confirm towers fit on platforms but not blockers.
 - [ ] Pause/resume, switch speed, cast every power, and place/destroy temporary walls.
 - [ ] Place two temporary walls and confirm the six-second recharge and remaining charges are visible.
-- [ ] In setup, select a placed defense, change targeting, move/sell it, rotate a wall with `R`, and cancel a move with Escape/right-click.
+- [ ] In setup, confirm starting/remaining supply and each price are visible. Buy, move, sell, undo, and clear; confirm movement is free and every refund is 100%.
+- [ ] Place each weapon by clicking once to anchor and once to lock its aim. Confirm right-click/Escape cancels either step.
+- [ ] Confirm all setup towers show a range sector, Rocket/Mortar mark their dead zones, and Support Beacon shows a full 360° aura.
+- [ ] Put an enemy inside range but behind a tower, start combat, and confirm the tower waits for a target inside its shown angle.
+- [ ] Tune one firing angle and buy a relevant arc upgrade; confirm both preview and combat behavior widen.
+- [ ] Select a placed defense, change targeting, move and re-aim it, sell it, rotate a wall with `R`, and cancel a move with Escape/right-click.
+- [ ] Build different layouts on two maps, switch between them, restart, and reload; confirm each map restores its own layout and profile choices.
+- [ ] Build a challenge layout on a campaign map and confirm it does not replace that map's campaign/endless layout.
+- [ ] Place a temporary wall during combat, restart, and confirm that combat-only wall was not added to the saved setup.
 - [ ] Use a Strafe and Nuke; confirm repeated Strafe impacts, center-weighted Nuke damage, knockback, and Ogre resistance.
 - [ ] Drag Strafe/Cryo horizontally and diagonally, guide Orbital while active, and confirm spent Repair charges disable its control.
 - [ ] Let enemies leak; confirm leak totals and visible fortress health/shield hit feedback.

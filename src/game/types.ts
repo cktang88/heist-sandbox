@@ -1,5 +1,16 @@
 export type GamePhase = 'briefing' | 'setup' | 'battle' | 'victory' | 'defeat'
 export type TowerKind = 'gunner' | 'heavyGun' | 'cannon' | 'rocket' | 'flamethrower' | 'cryo' | 'tesla' | 'laser' | 'mortar' | 'support'
+export type TowerVariantId =
+  | 'gunner-armor-piercer' | 'gunner-rapid-feed'
+  | 'heavy-anti-armor' | 'heavy-siege'
+  | 'cannon-hypervelocity' | 'cannon-cluster'
+  | 'rocket-guided' | 'rocket-salvo'
+  | 'flame-napalm' | 'flame-funeral-pyre'
+  | 'cryo-brittle' | 'cryo-chain-freeze'
+  | 'tesla-stun' | 'tesla-overcharge'
+  | 'laser-piercing' | 'laser-prism'
+  | 'mortar-concussion' | 'mortar-cluster'
+  | 'support-overclock' | 'support-fortress'
 export type EnemyKind = 'grunt' | 'runner' | 'brute' | 'shieldbearer' | 'armored' | 'shaman' | 'banner' | 'sapper' | 'berserker' | 'ogre'
 export type BuildTool = TowerKind | 'wall'
 export type TargetingRule = 'first' | 'closest' | 'strongest' | 'weakest' | 'densest'
@@ -29,6 +40,8 @@ export type TowerAttack =
 export type TowerStats = {
   cost: number
   range: number
+  /** Horizontal targeting sector. 360 keeps non-weapon support effects omnidirectional. */
+  firingArcDegrees?: number
   damage: number
   shotsPerSecond: number
   damageType: DamageType
@@ -178,6 +191,8 @@ export type Placement = Point & {
   temporary?: boolean
   rotation?: number
   targetingRule?: TargetingRule
+  /** Omit for the standard model. Unknown or wrong-family ids safely play as standard. */
+  variantId?: TowerVariantId | string
 }
 
 export type BattleSnapshot = {

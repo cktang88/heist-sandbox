@@ -21,6 +21,18 @@ const towerField = (kind: TowerKind, stat: 'cost' | 'damage' | 'range' | 'shotsP
   write: (tuning, value) => ({ ...tuning, towers: { ...tuning.towers, [kind]: { ...tuning.towers[kind], [stat]: value } } }),
 })
 
+const towerArcField = (kind: TowerKind): TuningField => ({
+  id: `${kind}-firingArcDegrees`,
+  label: `${BUILD.items[kind].label} firing arc (degrees)`,
+  step: 5,
+  min: 1,
+  read: (tuning) => tuning.towers[kind].firingArcDegrees ?? 360,
+  write: (tuning, value) => ({
+    ...tuning,
+    towers: { ...tuning.towers, [kind]: { ...tuning.towers[kind], firingArcDegrees: Math.min(360, value) } },
+  }),
+})
+
 const enemyField = (kind: EnemyKind, stat: 'health' | 'speed' | 'baseDamage' | 'wallDamagePerSecond', label: string, step: number): TuningField => ({
   id: `${kind}-${stat}`,
   label,
@@ -46,6 +58,7 @@ const FIELDS: readonly TuningField[] = [
     towerField(kind, 'cost', `${BUILD.items[kind].label} cost`, 5),
     towerField(kind, 'damage', `${BUILD.items[kind].label} damage`, 1),
     towerField(kind, 'range', `${BUILD.items[kind].label} range`, 0.1),
+    towerArcField(kind),
     towerField(kind, 'shotsPerSecond', `${BUILD.items[kind].label} fire rate`, 0.1),
   ]),
   ...ENEMY_KINDS.flatMap((kind) => [

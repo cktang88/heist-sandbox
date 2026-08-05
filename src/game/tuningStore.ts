@@ -99,6 +99,7 @@ function cloneDefaults(): GameTuning {
 function withOptionalDefaults(tuning: GameTuning): GameTuning {
   const next = structuredClone(tuning)
   next.powers ??= structuredClone(DEFAULT_TUNING.powers)
+  for (const kind of TOWER_KINDS) next.towers[kind].firingArcDegrees ??= DEFAULT_TUNING.towers[kind].firingArcDegrees
   next.towers.cannon.projectileSpeed ??= DEFAULT_TUNING.towers.cannon.projectileSpeed
   next.towers.mortar.projectileSpeed ??= DEFAULT_TUNING.towers.mortar.projectileSpeed
   next.towers.mortar.minRange ??= DEFAULT_TUNING.towers.mortar.minRange

@@ -462,3 +462,17 @@ Asked to ensure combat towers, health points, deaths, and related lifecycle beha
 ## 86. Codex
 
 The crash came from the spatial index aliasing the mutable enemy array. Death cleanup compacted that array after the grid was built, leaving bucket indices beyond the shortened array. The index now keeps a reusable fixed snapshot of enemy references. Added deterministic coverage for all ten towers, enemy health and exact-once death/removal, statuses, leaks, fortress shields/health, wall health, wave completion, and the precise compaction regression. The complete suite passes 245 tests, and browser QA advanced through multiple kills and the next wave with zero application errors.
+
+## 87. User request summary
+
+Asked for the Armory to make weapon and power unlocks clearer. The player should begin with only the basic Rivet Gun, then spend medals to unlock other towers, powers, and special tower profiles. Starting supply and individual tower prices must be visible, and setup purchases must support free movement plus full-cost sell, undo, and clear refunds.
+
+Asked for one persistent defense layout per level so tower positions survive a restart, visiting another level and returning, and browser reload. Challenge deployments should remain separate. The chosen tower profile belongs to the level layout as well.
+
+Clarified that upgrade routes should branch, especially around profiles: players should be able to unlock a desired profile without buying unrelated stat ranks first. Each of the ten towers should keep its core identity but offer two special profiles with substantially different behavior. Standard remains a valid choice, research only makes special profiles available, and at most one profile is equipped per tower family for a level.
+
+Asked for directional weapon coverage. During setup every tower's reach should remain visible as a sector rather than only a 360-degree circle. Placement should use one click to anchor the tower, pointer movement to aim it, and a second click to lock direction; combat targeting is limited to half the configured angle on each side. Firing angle should be tunable and widen through suitable research. Also requested updated specifications and repository documents, focused tests for the new systems, and a final architecture/maintainability review by a subagent with concrete fixes where needed.
+
+## 88. Codex
+
+Implemented the combined preparation/progression layer. The architecture review found and corrected destructive cross-level layout filtering, stale aim cancellation, the Support preview radius, and a full-horde Chain Freeze scan. Each level now preserves its tower/power loadout, positions, facing, targeting, starting walls, and profile choices; over-budget layouts stay visible and editable instead of being deleted. Browser QA verified the variant picker, supply display, two-click sector placement, reload restoration, and switching maps away and back.
