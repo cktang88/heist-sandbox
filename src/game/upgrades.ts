@@ -12,7 +12,7 @@ export type UpgradeNode = {
   effect: string
   rankCosts: readonly number[]
   prerequisite?: UpgradeId
-  unlocks?: readonly { id: string; kind: 'tower' | 'power' | 'wall' | 'variant'; name: string }[]
+  unlocks?: readonly { id: string; kind: 'tower' | 'power' | 'wall' | 'variant' | 'doctrine'; name: string }[]
   implemented: boolean
   apply: (rules: GameRules, rank: number) => GameRules
 }
@@ -179,9 +179,12 @@ const UNLOCKS: Partial<Record<UpgradeId, UpgradeNode['unlocks']>> = {
   'artillery-01': [{ id: 'mortar', kind: 'tower', name: 'Mortar' }],
   'artillery-05': [{ id: 'mortar-concussion', kind: 'variant', name: 'Concussion Mortar' }],
   'artillery-06': [{ id: 'mortar-cluster', kind: 'variant', name: 'Cluster Mortar' }],
+  'command-01': [{ id: 'forwardSupply', kind: 'doctrine', name: 'Forward Supply' }],
+  'command-02': [{ id: 'leanLogistics', kind: 'doctrine', name: 'Lean Logistics' }],
+  'command-03': [{ id: 'rapidResponse', kind: 'doctrine', name: 'Rapid Response' }],
   'command-04': [{ id: 'support', kind: 'tower', name: 'Support Beacon' }, { id: 'repair', kind: 'power', name: 'Emergency Repair' }],
   'command-05': [{ id: 'support-overclock', kind: 'variant', name: 'Overclock Support Beacon' }],
-  'command-06': [{ id: 'support-fortress', kind: 'variant', name: 'Fortress Support Beacon' }],
+  'command-06': [{ id: 'support-fortress', kind: 'variant', name: 'Fortress Support Beacon' }, { id: 'bastionReserve', kind: 'doctrine', name: 'Bastion Reserve' }],
   'air-01': [{ id: 'strafe', kind: 'power', name: 'Aircraft Strafe' }],
   'strategic-01': [{ id: 'barrage', kind: 'power', name: 'Artillery Barrage' }],
   'strategic-03': [{ id: 'cryoBeam', kind: 'power', name: 'Cryo Beam' }],

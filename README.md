@@ -25,7 +25,7 @@ npm run build
 5. A persistent branching 60-node armory with clear tower, power, wall, and variant unlock badges. Weapon stat and variant choices fan out from their relevant unlock instead of forming one long checklist.
 6. Map Forge with a reload-safe custom library, corridor/open-field navigation, editable polygon platforms and blockers, multiple lanes, build zones, supply-cache objectives, terrain palettes, decoration stamps, authored Sandbox waves, validation, and JSON import/export.
 7. Live tuning for every tower, enemy, and battlefield power, plus unranked per-type spawning, fortress invulnerability, stress hordes, and quick restart.
-8. Versioned saves, a separate persistent defense layout for every map and challenge, campaign/challenge progress, medals, a Commander Doctrine passive slot, pause, 1×/2× speed, and persistent accessibility settings including screen shake.
+8. Versioned saves, a separate persistent defense layout for every map and challenge, campaign/challenge progress, medals, four research-unlocked Commander Doctrines, pause, surrender, 1×/2× speed, and persistent accessibility settings including screen shake.
 9. Flow-field wall detours, overlapping horde streams, and unranked 2,000/5,000-enemy plus 50,000-total stream stress controls.
 10. Spatially indexed combat queries, interpolated instanced crowds, collision-safe force, and bounded projectile/particle/corpse pools.
 11. A forged field-command interface, wheel/button camera zoom, tower recoil and muzzle flashes, ballistic shell arcs, marching orcs, persistent fortress damage, and marked Ogre bosses.
@@ -38,8 +38,8 @@ npm run build
 - The briefing lets each equipped tower choose Standard or one unlocked special variant. Only one profile is active per tower family on a level, and each map or challenge remembers its tower/power loadout, layout, and profile choices across restarts, map switches, and reloads.
 - Click a placed defense to move, sell, or change targeting; `R` rotates walls, and Space starts.
 - On corridor maps, towers belong off the road and walls belong on it. On open-field maps, towers sit on raised platforms while orcs flood around them.
-- Battle: Space pauses, 1×/2× changes speed, drag Strafe/Cryo lanes, point other ready powers, and guide an active Orbital with the pointer. `REPAIR` fires immediately and has finite charges.
-- Camera: use the mouse wheel or the lower-right `− / FIT / +` controls. Zoom changes rendering only; the full battlefield continues simulating off-screen.
+- Battle: Space pauses, 1×/2× changes speed, drag Strafe/Cryo lanes, point other ready powers, and guide an active Orbital with the pointer. `REPAIR` fires immediately and has finite charges. `SURRENDER` asks for confirmation and ends the run as an ordered retreat.
+- Camera: use the mouse wheel or the lower-right `− / FIT / +` controls. Hold the right or middle mouse button and drag to move the field; `FIT` also recenters it. Camera changes never stop off-screen simulation.
 - Backtick opens live tuning.
 - `MAP FORGE` opens the lane, polygon, terrain, wave, and JSON editor during setup.
 - `SETTINGS` controls UI scale, screen shake, reduced flashes, focus-loss pause, and saved volume levels.

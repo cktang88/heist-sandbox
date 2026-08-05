@@ -14,6 +14,7 @@ type ResultsReportProps = {
   medalsEarned: number
   difficultyBonus: number
   newlyAffordableResearch: string[]
+  surrendered: boolean
   primaryLabel: string
   onPrimary: () => void
   onArmory: () => void
@@ -24,8 +25,8 @@ export function ResultsReport(props: ResultsReportProps) {
   return (
     <ModalFrame label="After action report" backdropClass="modal-backdrop" panelClass={`result-card ${props.phase}`}>
         <p className="eyebrow">AFTER ACTION REPORT{!props.ranked ? ' // UNRANKED' : ''}</p>
-        <h1>{props.run.mode === 'endless' ? 'HORDE ENDURED' : props.phase === 'victory' ? 'VALLEY HELD' : 'FORTRESS OVERRUN'}</h1>
-        <p>{props.phase === 'victory' ? 'The last warhorn has gone quiet.' : 'The line broke—but the next defense will be stronger.'}</p>
+        <h1>{props.surrendered ? 'ORDERED RETREAT' : props.run.mode === 'endless' ? 'HORDE ENDURED' : props.phase === 'victory' ? 'VALLEY HELD' : 'FORTRESS OVERRUN'}</h1>
+        <p>{props.surrendered ? 'The garrison withdrew on command. Eliminations earned before the retreat still count.' : props.phase === 'victory' ? 'The last warhorn has gone quiet.' : 'The line broke—but the next defense will be stronger.'}</p>
         <div className="result-grid">
           <Status label="Eliminated" value={String(props.snapshot.enemiesDefeated)} />
           <Status label={props.run.mode === 'endless' ? 'Best Score' : 'Best Run'} value={String(props.run.mode === 'endless' ? props.save.bestEndlessScore : props.save.bestKills)} />

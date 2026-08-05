@@ -1,7 +1,6 @@
 import { BUILD, getCombatPowerLabel } from '../game/config'
 import { DIFFICULTIES } from '../game/difficulty'
-import type { Loadout } from '../game/loadout'
-import { COMMANDER_DOCTRINE } from '../game/loadout'
+import { COMMANDER_DOCTRINES, isCommanderDoctrineUnlocked, type CommanderDoctrine, type Loadout } from '../game/loadout'
 import { CHALLENGES, findChallenge, isMissionUnlocked, missionForMap } from '../game/runs'
 import type { CombatPower, DifficultyTier, GameMode, MapDefinition, TowerKind } from '../game/types'
 import type { TowerVariantId } from '../game/types'
@@ -37,7 +36,7 @@ type BriefingPanelProps = {
   onToggleTower: (tower: TowerKind) => void
   onTogglePower: (power: CombatPower) => void
   onSelectTowerVariant: (tower: TowerKind, variantId: TowerVariantId | undefined) => void
-  onToggleDoctrine: () => void
+  onSelectDoctrine: (doctrine: CommanderDoctrine | null) => void
   onNewMap: () => void
   onDuplicateMap: () => void
   onRenameMap: (name: string) => void
@@ -162,11 +161,17 @@ function LoadoutChoices(props: BriefingPanelProps) {
     <section className="doctrine-slot">
       <header><b>COMMANDER DOCTRINE</b><small>1 PASSIVE SLOT</small></header>
       <div className="loadout-options">
-        <button
-          className={props.selectedLoadout.doctrine === COMMANDER_DOCTRINE ? 'selected' : ''}
-          aria-pressed={props.selectedLoadout.doctrine === COMMANDER_DOCTRINE}
-          onClick={props.onToggleDoctrine}
-        >FORWARD SUPPLY <small>+30 preparation supply</small></button>
+        {COMMANDER_DOCTRINES.map((doctrine) => {
+          const selected = props.selectedLoadout.doctrine === doctrine.id
+          const unlocked = isCommanderDoctrineUnlocked(props.upgradeRanks, doctrine.id)
+          return <button
+            key={doctrine.id}
+            className={selected ? 'selected' : ''}
+            aria-pressed={selected}
+            disabled={!unlocked}
+            onClick={() => props.onSelectDoctrine(selected ? null : doctrine.id)}
+          >{unlocked ? doctrine.name.toUpperCase() : `LOCKED · ${doctrine.name.toUpperCase()}`}<small>{unlocked ? doctrine.effect : `Research ${doctrine.researchName}`}</small></button>
+        })}
       </div>
     </section>
   </div>

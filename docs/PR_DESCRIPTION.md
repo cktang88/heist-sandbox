@@ -10,11 +10,14 @@ The battlefield now responds at every important event without turning slapstick:
 
 The camera fits each map and offers bounded wheel/button zoom without changing the simulation. The UI now uses an original forged field-command style—iron frames, parchment/brass type, red orders, stronger selections, and code-native ornament—instead of generic flat panels.
 
+Command research now unlocks four exclusive doctrine choices with different run effects. Right- and middle-button dragging pans the battlefield, and FIT recenters it. A confirmed surrender produces an ordered retreat and preserves only progress genuinely earned before withdrawal. Campaign enemies arrive in road-width ranks instead of single file; Shattered Expanse spreads its front across nearly the full left entrance.
+
 ## Manual QA
 
 - [ ] Complete and lose a campaign run; confirm medals save and only victories unlock the next map.
 - [ ] Preview each campaign map; confirm Twin Fork has two lanes, Frozen/Ash have obstacles, and Broken Citadel has three approaches and limited build zones.
 - [ ] Play Shattered Expanse; confirm all three spawn regions flow around polygon platforms toward the shared fortress.
+- [ ] Start Green March and confirm three-orc ranks arrive rapidly instead of one orc per long interval. On Shattered Expanse, confirm the opening front spans nearly the full left edge.
 - [ ] Start endless mode; confirm the HUD shows ∞ and waves continue beyond five.
 - [ ] Open all six challenges and confirm their roster, power, speed, or fortress modifier.
 - [ ] Buy research, reload, and confirm unlocked cards and stat changes persist.
@@ -25,6 +28,9 @@ The camera fits each map and offers bounded wheel/button zoom without changing t
 - [ ] Create two lanes and boulders in Map Forge, export/import JSON, save, refresh, and replay the map.
 - [ ] Create an open-field map, draw/edit both polygon types, and confirm towers fit on platforms but not blockers.
 - [ ] Pause/resume, switch speed, cast every power, and place/destroy temporary walls.
+- [ ] Unlock each Command doctrine, confirm locked doctrines cannot be equipped, and verify selecting one clears the previous doctrine.
+- [ ] Drag the battlefield with right and middle mouse buttons at several zoom levels; confirm stationary right-click still cancels and FIT recenters.
+- [ ] Surrender, cancel once, then confirm; verify the ordered-retreat report appears and a zero-progress retreat earns no medals.
 - [ ] Place two temporary walls and confirm the six-second recharge and remaining charges are visible.
 - [ ] In setup, confirm starting/remaining supply and each price are visible. Buy, move, sell, undo, and clear; confirm movement is free and every refund is 100%.
 - [ ] Place each weapon by clicking once to anchor and once to lock its aim. Confirm right-click/Escape cancels either step.

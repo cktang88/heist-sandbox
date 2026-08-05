@@ -19,8 +19,9 @@ describe('run session lifecycle', () => {
   it('builds the save result and removes only temporary placements', () => {
     const snapshot = { ...createInitialSnapshot(DEFAULT_RUN), enemiesDefeated: 12, wavesCleared: 2, elapsedSeconds: 30, baseHealth: 80 }
     expect(createRunResult(DEFAULT_RUN, snapshot, true)).toMatchObject({
-      mode: 'campaign', missionId: 'mission-1', won: true, kills: 12, wavesCleared: 2, elapsedSeconds: 30, baseHealth: 80,
+      mode: 'campaign', missionId: 'mission-1', won: true, surrendered: false, kills: 12, wavesCleared: 2, elapsedSeconds: 30, baseHealth: 80,
     })
+    expect(createRunResult(DEFAULT_RUN, snapshot, false, true).surrendered).toBe(true)
     expect(keepPermanentPlacements([
       { id: 1, kind: 'gunner', x: 0, z: 0 },
       { id: 2, kind: 'wall', x: 1, z: 0, temporary: true },

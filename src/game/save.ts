@@ -20,6 +20,7 @@ export type RunResult = {
   rewardMultiplier?: number
   objectiveSurvived?: boolean
   objectiveBonusMedals?: number
+  surrendered?: boolean
 }
 
 export type SaveData = {
@@ -118,10 +119,10 @@ export type RunReward = {
 export function calculateRunReward(save: SaveData, result: RunResult): RunReward {
   const repeatedCampaignWin = result.mode === 'campaign' && result.won && result.missionId !== undefined && save.completedMissionIds.includes(result.missionId)
   const victoryBonus = result.won ? repeatedCampaignWin ? 6 : 20 : 0
-  const baseProgress = Math.max(1, Math.floor(result.kills / 4)) + result.wavesCleared * 4
+  const baseProgress = Math.max(result.surrendered ? 0 : 1, Math.floor(result.kills / 4)) + result.wavesCleared * 4
   const rewardMultiplier = Math.min(5, Math.max(0.25, result.rewardMultiplier ?? 1))
-  const progressMedals = Math.max(1, Math.floor(baseProgress * rewardMultiplier))
-  const objectiveBonus = result.objectiveSurvived ? Math.max(0, Math.floor(result.objectiveBonusMedals ?? 0)) : 0
+  const progressMedals = baseProgress > 0 ? Math.max(1, Math.floor(baseProgress * rewardMultiplier)) : 0
+  const objectiveBonus = !result.surrendered && result.objectiveSurvived ? Math.max(0, Math.floor(result.objectiveBonusMedals ?? 0)) : 0
   const earnsDifficultyBonus = result.mode === 'campaign' || result.mode === 'endless'
   const rate = earnsDifficultyBonus ? getDifficulty(result.difficulty ?? 'standard').medalBonusRate : 0
   const difficultyBonus = Math.floor((progressMedals + victoryBonus + objectiveBonus) * rate)

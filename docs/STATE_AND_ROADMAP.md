@@ -20,15 +20,16 @@ The implementation was built in playable layers. Each layer was reviewed, tested
 - Seven battlefield tools: Strafe, Barrage, Cryo Beam, Nuke, Orbital Laser, Repair, and temporary walls.
 - Drag-oriented Strafe and Cryo lines, guided Orbital Laser, Nuke falloff, knockback, finite power charges, and wall recharge.
 - A branching 60-node persistent research graph with visible tower, power, wall, and variant unlock badges. Related stat and profile choices fan out from their root unlock.
-- A Commander Doctrine passive slot.
+- Four distinct Commander Doctrines, each unlocked by Command research, with one passive slot per run.
 - Persistent medals, best runs, campaign progress, selected difficulty/loadout/doctrine, per-level layouts and variants, maps, tuning, and settings.
 - Fortress shields, leak tracking, supply-cache objectives, boss/reward wave metadata, and results with damage by source.
-- Pause/resume, 1×/2× speed, keyboard controls, settings, contextual help, reduced flashes, screen shake, corpse density, volume controls, and narrow-screen layouts.
+- Pause/resume, confirmed surrender, 1×/2× speed, keyboard controls, settings, contextual help, reduced flashes, screen shake, corpse density, volume controls, and narrow-screen layouts.
 - Generated combat/UI audio plus bounded instanced projectiles, impact particles, wall debris, and separate persistent corpse history.
 - Tower recoil and muzzle flashes, weapon-specific projectile arcs, stride/bob locomotion, staged fortress cracks/rubble/smoke, and boss rings with world-space health bars.
-- Camera fit plus bounded wheel/button zoom. Camera shake is layered onto the rig without resetting zoom, while simulation and crowd updates remain independent of the viewport.
+- Camera fit plus bounded wheel/button zoom and right/middle-button field dragging. FIT recenters the view; camera shake remains layered onto the rig while simulation stays independent of the viewport.
 - Data-driven weapon force with Ogre/heavy-unit resistance. High Explosive and Concussion profiles increase force; small collision-tested substeps stop even extreme impulses at terrain and temporary walls.
 - A forged field-command UI language with iron frames, parchment/brass typography, red order ribbons, stronger selected states, and original code-native CSS ornament.
+- Road-width horde ranks instead of single-file spawning: two to four abreast on corridor roads and a 24-position entrance front across Shattered Expanse.
 - Shattered Expanse, a three-spawn open-field campaign map with nine buildable polygon platforms, one solid blocker, and 2,244 streamed enemies.
 
 ## Creator and prototyping tools
@@ -47,7 +48,7 @@ The live tuning overlay supports tower cost, damage, range, rate, firing angle, 
 
 ## Validation at this commit
 
-- `npm test`: 295 deterministic rules tests pass; three optional performance cases are skipped in the normal suite. Coverage includes combat, force/wall collision, projectile arcs, corpse budgets, camera bounds, fortress states, facing sectors, variant selection and behavior, setup economy, layout isolation/sanitizing, saves, maps, and progression.
+- `npm test`: 301 deterministic rules tests pass; three optional performance cases are skipped in the normal suite. Coverage includes combat, rank spawning, force/wall collision, projectile arcs, corpse budgets, camera zoom/pan bounds, fortress states, facing sectors, doctrines, surrender rewards, variant selection and behavior, setup economy, layout isolation/sanitizing, saves, maps, and progression.
 - `npm run build` is the required production-build gate.
 - `npm run benchmark:combat`:
   - 2,000 live enemies: approximately 1.08 ms average fixed simulation step.
@@ -83,7 +84,7 @@ We evaluated general spatial-tree libraries but did not add one. Flatbush is exp
 
 ### Content and feel
 
-1. Add more Commander Doctrines, secondary-objective types, challenge modifiers, and map decorations.
+1. Add secondary-objective types, challenge modifiers, and map decorations; tune doctrine balance after broader playtesting.
 2. Refine the implemented firing/locomotion/effect timing with wider human playtesting and final art/audio assets.
 3. Add touch controls, remappable keys, and controller support.
 4. Add production sound design, music, mixing, and more complete accessibility options.

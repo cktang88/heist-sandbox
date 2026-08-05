@@ -6,6 +6,11 @@ describe('run rewards', () => {
     expect(recordRun(EMPTY_SAVE, result({ kills: 12 })).medals).toBe(3)
   })
 
+  it('keeps earned retreat progress without granting free medals or objective rewards', () => {
+    expect(calculateRunReward(EMPTY_SAVE, result({ surrendered: true }))).toMatchObject({ progressMedals: 0, objectiveBonus: 0, total: 0 })
+    expect(calculateRunReward(EMPTY_SAVE, result({ surrendered: true, kills: 12, objectiveSurvived: true, objectiveBonusMedals: 20 }))).toMatchObject({ progressMedals: 3, objectiveBonus: 0, total: 3 })
+  })
+
   it('adds a victory bonus and records the best run', () => {
     const save = recordRun(EMPTY_SAVE, result({ kills: 40, won: true }))
     expect(save.medals).toBe(30)
@@ -62,9 +67,9 @@ describe('run rewards', () => {
     expect(loadSave().selectedDifficulty).toBe('standard')
   })
 
-  it('preserves the known Commander Doctrine and removes unknown values', () => {
-    vi.stubGlobal('window', { localStorage: { getItem: () => JSON.stringify({ ...EMPTY_SAVE, selectedDoctrine: 'forwardSupply' }) } })
-    expect(loadSave().selectedDoctrine).toBe('forwardSupply')
+  it('preserves known Commander Doctrines and removes unknown values', () => {
+    vi.stubGlobal('window', { localStorage: { getItem: () => JSON.stringify({ ...EMPTY_SAVE, selectedDoctrine: 'rapidResponse' }) } })
+    expect(loadSave().selectedDoctrine).toBe('rapidResponse')
     vi.stubGlobal('window', { localStorage: { getItem: () => JSON.stringify({ ...EMPTY_SAVE, selectedDoctrine: 'overpowered' }) } })
     expect(loadSave().selectedDoctrine).toBeNull()
   })

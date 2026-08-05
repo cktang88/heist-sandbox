@@ -46,16 +46,19 @@ The prototype does not currently give ordinary towers health; they are locked an
 | Fortress | Shield absorbs damage first, overflow reaches health, health clamps at zero |
 | Leaks | Orc removed and leak/event counters increment exactly once |
 | Waves | Spawn count, survivor wait, wave advance, victory predicate, and result snapshot |
+| Horde fronts | Corridor rank size from road width, lateral offsets, multi-lane distribution, and full-width open-map entrances |
+| Surrender | Earned kill/wave progress remains, while zero-progress and objective bonuses cannot be farmed |
 | Walls | Health, damage, break/removal, rerouting, Sapper targeting, spikes, and break explosion |
 | Knockback | Caliber/profile force, shared heavy-unit resistance, decay, map bounds, wall tunnelling rejection, and blocked-corner sliding |
 | Visual budgets | Independent corpse/transient caps, newest-projectile retention, corpse density, and weapon-specific arc ordering |
-| Camera and fortress | Bounded zoom math, larger-map fit, and intact/worn/critical/ruined presentation thresholds |
+| Camera and fortress | Bounded zoom/pan math, drag direction, larger-map fit, and intact/worn/critical/ruined presentation thresholds |
 
 ## Main test files
 
 - `src/game/towerCombat.test.ts`
 - `src/game/combatLifecycle.test.ts`
 - `src/game/combat.test.ts`
+- `src/game/hordeSpawning.test.ts`
 - `src/game/navigation-combat.test.ts`
 - `src/game/spatialIndex.test.ts`
 - `src/game/towerFacing.test.ts`

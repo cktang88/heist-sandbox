@@ -925,9 +925,12 @@ function spawnEnemies(state: SimulationState, context: SimulationContext, delta:
   const group = wave.groups[state.groupIndex]
   state.spawnTimer -= delta
   if (state.spawnedInGroup < group.count && state.spawnTimer <= 0) {
-    spawnEnemy(state, context.map, context.rules, group.enemy, group.lane, wave.multipliers)
-    state.spawned += 1
-    state.spawnedInGroup += 1
+    const rankSize = Math.min(spawnRankSize(context.map), group.count - state.spawnedInGroup)
+    for (let index = 0; index < rankSize; index += 1) {
+      spawnEnemy(state, context.map, context.rules, group.enemy, group.lane, wave.multipliers)
+    }
+    state.spawned += rankSize
+    state.spawnedInGroup += rankSize
     state.spawnTimer += group.interval
   }
   if (state.spawnedInGroup >= group.count && state.enemies.length === 0) {
@@ -952,9 +955,12 @@ function spawnScheduledWave(state: SimulationState, context: SimulationContext, 
   wave.groups.forEach((group, index) => {
     const runtime = state.scheduledGroups[index]
     while (runtime.spawned < group.count && runtime.nextSpawnAt <= state.scheduledWaveElapsed) {
-      spawnEnemy(state, context.map, context.rules, group.enemy, group.lane, wave.multipliers)
-      runtime.spawned += 1
-      state.spawned += 1
+      const rankSize = Math.min(spawnRankSize(context.map), group.count - runtime.spawned)
+      for (let member = 0; member < rankSize; member += 1) {
+        spawnEnemy(state, context.map, context.rules, group.enemy, group.lane, wave.multipliers)
+      }
+      runtime.spawned += rankSize
+      state.spawned += rankSize
       runtime.nextSpawnAt += group.interval
     }
   })
@@ -992,13 +998,43 @@ function spawnEnemy(
   const speedMultiplier = multipliers?.speed ?? 1
   const damageMultiplier = multipliers?.damage ?? 1
   const maxHealth = rules.tuning.enemies[kind].health * healthMultiplier
+  const spawn = spawnPointForEnemy(map, pathIndex, state.nextEnemyId - 1)
   state.enemies.push({
     id: state.nextEnemyId++, kind, pathIndex, progress: 0,
     health: maxHealth, maxHealth,
     healthMultiplier, speedMultiplier, damageMultiplier,
-    x: start.x, z: start.z, previousX: start.x, previousZ: start.z,
+    x: spawn.x, z: spawn.z, previousX: spawn.x, previousZ: spawn.z,
     facingX: facing.x, facingZ: facing.z, status: emptyStatus(),
   })
+}
+
+const ORC_FRONT_SPACING = 0.52
+
+/** Number of orcs emitted together: road width for corridors, entrance width for open fields. */
+export function spawnRankSize(map: Pick<MapDefinition, 'depth' | 'pathWidth' | 'paths' | 'navigationMode'>): number {
+  if (map.navigationMode === 'open') {
+    const frontSlots = Math.max(1, Math.floor((map.depth - 1) / ORC_FRONT_SPACING))
+    return Math.max(1, Math.floor(frontSlots / Math.max(1, map.paths.length)))
+  }
+  return Math.max(1, Math.floor((map.pathWidth - 0.1) / ORC_FRONT_SPACING))
+}
+
+/** Gives every rank visible width instead of stacking every orc on the route's first point. */
+export function spawnPointForEnemy(map: Pick<MapDefinition, 'depth' | 'pathWidth' | 'paths' | 'navigationMode'>, pathIndex: number, ordinal: number): Point {
+  const path = map.paths[pathIndex]
+  const start = path[0]
+  if (map.navigationMode === 'open') {
+    const slots = spawnRankSize(map) * Math.max(1, map.paths.length)
+    const usableDepth = Math.max(ORC_FRONT_SPACING, map.depth - 1)
+    const slot = ((ordinal % slots) + slots) % slots
+    return { x: start.x, z: -usableDepth / 2 + (slot + 0.5) * usableDepth / slots }
+  }
+  const next = path[1] ?? start
+  const forward = normalizedDirection(next.x - start.x, next.z - start.z)
+  const width = spawnRankSize(map)
+  const slot = ((ordinal % width) + width) % width
+  const offset = (slot - (width - 1) / 2) * ORC_FRONT_SPACING
+  return { x: start.x - forward.z * offset, z: start.z + forward.x * offset }
 }
 
 /** Adds diagnostic enemies without altering authored wave totals. The caller marks the run unranked. */

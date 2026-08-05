@@ -17,6 +17,7 @@ button { font: inherit; }
 .reduced-flashes * { animation-duration: 0s !important; transition-duration: 0s !important; }
 .game-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 90px #050806cc; }
 .game-scene-shell { position: absolute; inset: 0; }
+.game-scene-shell.is-panning canvas { cursor: grabbing !important; }
 .camera-controls { position: absolute; right: 0.7rem; bottom: 0.7rem; z-index: 4; display: flex; gap: 0.22rem; padding: 0.25rem; border: 1px solid #68715c; background: #101711d9; box-shadow: 0 4px 18px #0008; }
 .camera-controls button { min-width: 2rem; height: 1.8rem; border: 1px solid #778068; background: #293227; color: #eee5bd; font: 700 0.68rem/1 Georgia, serif; cursor: pointer; }
 .camera-controls button:hover { background: #3a4635; color: #fff4ba; }
@@ -79,6 +80,9 @@ kbd { font-family: inherit; font-size: 10px; padding: 2px 5px; margin-left: 5px;
 .battle-controls { position: absolute; z-index: 12; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; max-width: calc(100% - 32px); padding: 8px; background: #111711ee; border: 1px solid #5f6552; }
 .battle-controls button.active { color: #161a12; background: #d5c264; }
 .battle-controls span { margin: 0 14px; letter-spacing: .1em; color: #bebba9; }
+.battle-controls .surrender-button { border-color: #8d493f; color: #e89583; background: linear-gradient(#442521, #211514); }
+.battle-controls .surrender-button.confirm { color: #fff0df; background: linear-gradient(#9b4035, #4f211d); }
+.battle-controls .surrender-confirmation { display: flex; gap: 5px; margin: 0; }
 .battle-stats { position: absolute; z-index: 18; top: 94px; right: 18px; width: min(310px, calc(100% - 36px)); padding: 16px; color: #dce9df; background: #101817ed; border: 1px solid #6f8b83; box-shadow: 8px 10px 26px #0009; }
 .battle-stats header { display: flex; align-items: flex-start; justify-content: space-between; }
 .battle-stats header h2, .battle-stats header p { margin: 0; }

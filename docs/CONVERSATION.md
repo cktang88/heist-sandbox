@@ -486,3 +486,11 @@ Also asked for a UI with personality rather than generic web styling, providing 
 ## 90. Codex
 
 Implemented separate camera, combat-effect, fortress-damage, and knockback modules. Effects use fixed instanced pools rather than an ECS; corpses keep an independent budget. Towers recoil and flash, Cannon/Rocket/Mortar rounds arc, orcs use procedural stride and bob, fortress damage persists in stages, and Ogres have a boss ring and health bar. Collision-tested force stops at navigation blockers and is driven by tower/upgrades/profile data. The interface now uses an original forged command-board visual language. Browser QA covered briefing, deployment, battle, zoom controls, corpses, and a 2,000-orc stress spawn.
+
+## 91. User request summary
+
+Asked for more Commander Doctrines, with every doctrine requiring a permanent research unlock; right- or middle-mouse field dragging; and a way to surrender a battle. Also reported that Green March's 636 enemies arrived one at a time and made the level feel endless. Requested an audit of how many orcs fit side by side on each road, broad horde fronts on every map, and almost the entire left edge as the entrance on Shattered Expanse.
+
+## 92. Codex
+
+Added four mutually exclusive, data-driven doctrines tied to existing Command research nodes: Forward Supply, Lean Logistics, Rapid Response, and Bastion Reserve. Added bounded right/middle field dragging, FIT recentering, and two-step surrender with an ordered-retreat result that cannot be used for free medals. Reworked campaign spawning so intervals emit road-width ranks: Green March sends three abreast, Ash Fields four, and Shattered Expanse uses a 24-position front across nearly the full entrance edge. The full deterministic suite now passes 301 tests and the production build succeeds.

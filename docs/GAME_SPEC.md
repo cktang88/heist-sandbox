@@ -35,7 +35,7 @@ The design pillars are:
 
 ### 2.1 Loadout
 
-Before a run, choose up to four tower types and three active powers. Each equipped tower family also chooses one firing profile for that level: Standard or one of its two permanently researched special variants. Standard is always available, so researching a special variant never forces the player to use it. A later commander-doctrine slot supplies one passive rule change.
+Before a run, choose up to four tower types and three active powers. Each equipped tower family also chooses one firing profile for that level: Standard or one of its two permanently researched special variants. Standard is always available, so researching a special variant never forces the player to use it. One Commander Doctrine passive may also be equipped. Forward Supply, Lean Logistics, Rapid Response, and Bastion Reserve unlock from their matching Command research nodes and respectively change starting supply, setup prices, power cooldowns, or fortress/wall durability.
 
 ### 2.2 Preparation
 
@@ -62,7 +62,7 @@ Rules:
 
 ### 2.3 Combat
 
-Orcs enter continuously in waves. Weapon towers acquire targets only when an enemy is both within distance and inside the tower's locked firing sector. Support auras remain omnidirectional. The player may pause, select 1× or 2× speed, inspect statistics, and cast equipped powers. Normal towers cannot be placed, moved, sold, or upgraded.
+Orcs enter continuously in waves. Each spawn tick emits a road-width rank rather than one overlapping orc: narrow routes fit two abreast, Green March fits three, Ash Fields fits four, and open fields distribute ranks across the usable entrance edge. Weapon towers acquire targets only when an enemy is both within distance and inside the tower's locked firing sector. Support auras remain omnidirectional. The player may pause, select 1× or 2× speed, inspect statistics, cast equipped powers, or confirm surrender. Normal towers cannot be placed, moved, sold, or upgraded.
 
 Temporary walls are the one construction exception: they are an equipped combat power with charges, cooldown, health, and a lifetime. If a wall creates a reasonable detour, orcs flow around it; otherwise nearby orcs attack it.
 
@@ -72,7 +72,7 @@ Knockback is an impulse that decays over several fixed steps. Its strength comes
 
 ### 2.4 Results
 
-Show victory/defeat, survival time, waves, kills, leaks, fortress health, damage by source, medals earned, best run, and newly available upgrades. Both victory and defeat award medals.
+Show victory/defeat/ordered retreat, survival time, waves, kills, leaks, fortress health, damage by source, medals earned, best run, and newly available upgrades. Victory and defeat award medals. Surrender preserves medals earned from kills and cleared waves, but grants no free minimum medal, victory bonus, or intact-objective bonus.
 
 Example medal formula:
 
@@ -90,11 +90,11 @@ For the first few hundred enemies, a polyline route is sufficient. At larger sca
 
 The fortress has visible health, a damage flash, and optional shield. Damage persists through worn and critical stages with cracks, rubble, smoke, and a restrained critical glow. Orcs reaching it attack or deal leak damage. A run ends at zero health.
 
-Wave data controls enemy composition, count, entry lane, spawn interval, health multiplier, speed multiplier, reward multiplier, and boss presence. Maps should run 8–15 minutes in the finished game.
+Wave data controls enemy composition, count, entry lane, rank interval, health multiplier, speed multiplier, reward multiplier, and boss presence. Rank width is derived from the authored road width; an open map uses nearly its full entrance depth. Maps should run 8–15 minutes in the finished game.
 
 Orcs use phase-offset procedural stride, bob, lean, and head sway on the existing instanced meshes; freeze and stun stop the stride. Ogres add a pulsing ground marker and world-space health bar without leaving the instanced crowd pipeline.
 
-The orthographic camera automatically fits each map and supports bounded wheel or button zoom. Fortress shake offsets the camera rig instead of owning it, so shake never resets zoom. Pointer targeting is raycast in world space, and all gameplay continues simulating outside the visible camera bounds.
+The orthographic camera automatically fits each map and supports bounded wheel/button zoom plus right- or middle-button field dragging. FIT resets zoom and pan. Fortress shake offsets the camera rig instead of owning it, so shake never resets the player's view. A dragged right click is consumed as camera input while a stationary right click still cancels targeting. Pointer targeting is raycast in world space, and all gameplay continues simulating outside the visible camera bounds.
 
 ## 4. Tower roster
 
@@ -186,7 +186,7 @@ Ten branches contain six nodes each. Save data stores stable node IDs and ranks,
 | 19–24 | Cryo | Cryo Projector; slow; freeze buildup; freeze duration; brittle; chain freeze |
 | 25–30 | Energy | Tesla; chain target; electric damage; stun; Laser; piercing beam |
 | 31–36 | Artillery | Mortar; splash; fire rate; lower minimum range; stun shell; cluster mortar |
-| 37–42 | Command | supply; refund; fourth tower slot; Support Beacon; aura; fortress shield |
+| 37–42 | Command | supply/Forward Supply; refund/Lean Logistics; fourth tower slot/Rapid Response; Support Beacon; aura; fortress shield/Bastion Reserve |
 | 43–48 | Air Support | Strafe; extra charge; lane width; damage; cooldown; armor break |
 | 49–54 | Strategic | Barrage; extra salvo; Cryo Beam; frozen ground; Nuke; fallout |
 | 55–60 | Fortification | Temporary walls; health; charge; length; spikes; break explosion |

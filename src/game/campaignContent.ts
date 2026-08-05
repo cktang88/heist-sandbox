@@ -4,9 +4,9 @@ function group(enemy: EnemyKind, count: number, interval: number, startDelay?: n
   return { enemy, count, interval, ...(startDelay === undefined ? {} : { startDelay }), ...(lane === undefined ? {} : { lane }) }
 }
 
-// Longer streams preserve each authored composition and intensity while bringing successful runs near the 8–10 minute target.
+// Larger counts arrive in road-width ranks. The interval controls distance between ranks, not individual orcs.
 const CAMPAIGN_COUNT_SCALE = 6
-const CAMPAIGN_INTERVAL_SCALE = 2.5
+const CAMPAIGN_INTERVAL_SCALE = 0.72
 
 function wave(groups: readonly SpawnGroup[], intermission = 1.4, intervalScale = 1): WaveDefinition {
   return {

@@ -1,5 +1,5 @@
 import { Canvas, type ThreeEvent, useFrame } from '@react-three/fiber'
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react'
 import { Color, DynamicDrawUsage, Object3D, Shape, type Group, type InstancedMesh, type Mesh } from 'three'
 import { BUILD, isTowerKind } from '../game/config'
 import { isValidPlacement } from '../game/placement'
@@ -14,7 +14,7 @@ import type { GameSettings } from '../game/settings'
 import { createStressStream, scheduleStressSpawns, type StressStream } from '../game/stressStream'
 import { advanceTowerAim, aimRotation, defaultTowerRotation, getTowerArcDegrees, getTowerDisplayedRange } from '../game/towerFacing'
 import { getTowerVariant } from '../game/towerVariants'
-import { CameraRig, clampZoomFactor, zoomFactorAfterWheel } from './CameraRig'
+import { CameraRig, cameraPanAfterDrag, clampZoomFactor, fitMapZoom, zoomFactorAfterWheel } from './CameraRig'
 import { CombatEffectPool, ProjectilePool } from './CombatEffects'
 import { FortressDamageEffects } from './FortressDamageEffects'
 
@@ -47,20 +47,66 @@ type GameSceneProps = {
   invulnerable: boolean
   paused: boolean
   speed: 1 | 2
+  surrenderRevision: number
   onPlace: (point: Point, lineEnd?: Point) => void
   onSelectPlacement: (id: number) => void
   onCancelSetupEdit: () => void
   onCancelPowerTarget: () => void
   onSnapshot: (snapshot: BattleSnapshot) => void
-  onBattleEnd: (won: boolean, snapshot: BattleSnapshot) => void
+  onBattleEnd: (won: boolean, snapshot: BattleSnapshot, reason?: BattleEndReason) => void
   onWallRemoved: (id: number) => void
 }
 
+export type BattleEndReason = 'resolved' | 'surrendered'
+
+type PanDrag = { pointerId: number; startX: number; startY: number; startPan: Point }
+
 export function GameScene(props: GameSceneProps) {
   const [zoomFactor, setZoomFactor] = useState(1)
-  useEffect(() => setZoomFactor(1), [props.map.id])
+  const [panning, setPanning] = useState(false)
+  const cameraPan = useRef<Point>({ x: 0, z: 0 })
+  const panDrag = useRef<PanDrag | null>(null)
+  const panDidMove = useRef(false)
+  useEffect(() => {
+    setZoomFactor(1)
+    cameraPan.current = { x: 0, z: 0 }
+  }, [props.map.id])
+
+  const endPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (panDrag.current?.pointerId !== event.pointerId) return
+    panDrag.current = null
+    setPanning(false)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
   return (
-    <div className="game-scene-shell">
+    <div
+      className={`game-scene-shell ${panning ? 'is-panning' : ''}`}
+      onPointerDown={(event) => {
+        if (event.button !== 1 && event.button !== 2) return
+        panDrag.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, startPan: { ...cameraPan.current } }
+        panDidMove.current = false
+        event.currentTarget.setPointerCapture(event.pointerId)
+        event.preventDefault()
+        setPanning(true)
+      }}
+      onPointerMove={(event) => {
+        const drag = panDrag.current
+        if (!drag || drag.pointerId !== event.pointerId) return
+        const deltaX = event.clientX - drag.startX
+        const deltaY = event.clientY - drag.startY
+        if (Math.hypot(deltaX, deltaY) > 3) panDidMove.current = true
+        const zoom = fitMapZoom(event.currentTarget.clientWidth, event.currentTarget.clientHeight, props.map.width, props.map.depth) * zoomFactor
+        cameraPan.current = cameraPanAfterDrag(drag.startPan, deltaX, deltaY, zoom, props.map)
+      }}
+      onPointerUp={endPan}
+      onPointerCancel={endPan}
+      onContextMenuCapture={(event) => {
+        if (!panDidMove.current) return
+        event.preventDefault()
+        event.stopPropagation()
+        panDidMove.current = false
+      }}
+    >
     <Canvas
       orthographic
       dpr={[1, 1.6]}
@@ -82,18 +128,18 @@ export function GameScene(props: GameSceneProps) {
       <color attach="background" args={[props.map.palette?.background ?? '#101811']} />
       <ambientLight intensity={1.5} />
       <directionalLight position={[-5, 12, 6]} intensity={2.1} color="#fff2c2" />
-      <World {...props} zoomFactor={zoomFactor} />
+      <World {...props} zoomFactor={zoomFactor} cameraPan={cameraPan} />
     </Canvas>
     <div className="camera-controls" aria-label="Camera zoom controls">
       <button type="button" aria-label="Zoom out" onClick={() => setZoomFactor((value) => clampZoomFactor(value / 1.18))}>−</button>
-      <button type="button" className="camera-fit" onClick={() => setZoomFactor(1)}>FIT {Math.round(zoomFactor * 100)}%</button>
+      <button type="button" className="camera-fit" onClick={() => { setZoomFactor(1); cameraPan.current = { x: 0, z: 0 } }}>FIT {Math.round(zoomFactor * 100)}%</button>
       <button type="button" aria-label="Zoom in" onClick={() => setZoomFactor((value) => clampZoomFactor(value * 1.18))}>+</button>
     </div>
     </div>
   )
 }
 
-function World(props: GameSceneProps & { zoomFactor: number }) {
+function World(props: GameSceneProps & { zoomFactor: number; cameraPan: MutableRefObject<Point> }) {
   const [pointer, setPointer] = useState<Point | null>(null)
   const [towerAimOrigin, setTowerAimOrigin] = useState<Point | null>(null)
   const [lineStart, setLineStart] = useState<Point | null>(null)
@@ -121,7 +167,7 @@ function World(props: GameSceneProps & { zoomFactor: number }) {
 
   return (
     <>
-      <CameraRig map={props.map} zoomFactor={props.zoomFactor} shake={cameraShake} />
+      <CameraRig map={props.map} zoomFactor={props.zoomFactor} shake={cameraShake} pan={props.cameraPan} />
       <Terrain map={props.map}
         onClick={(event) => {
           event.stopPropagation()
@@ -148,14 +194,14 @@ function World(props: GameSceneProps & { zoomFactor: number }) {
           if (lineStart) setLineEnd(point)
         }}
         onPointerDown={(event) => {
-          if (!isLanePower) return
+          if (!isLanePower || event.button !== 0) return
           event.stopPropagation()
           const point = { x: event.point.x, z: event.point.z }
           setLineStart(point)
           setLineEnd(point)
         }}
         onPointerUp={(event) => {
-          if (!isLanePower || !lineStart) return
+          if (!isLanePower || !lineStart || event.button !== 0) return
           event.stopPropagation()
           const released = { x: event.point.x, z: event.point.z }
           const line = resolvePowerLine(lineStart, released, props.map.width)
@@ -227,6 +273,7 @@ function World(props: GameSceneProps & { zoomFactor: number }) {
           invulnerable={props.invulnerable}
           paused={props.paused}
           speed={props.speed}
+          surrenderRevision={props.surrenderRevision}
           onSnapshot={props.onSnapshot}
           onEnd={props.onBattleEnd}
           onWallRemoved={props.onWallRemoved}
@@ -744,7 +791,7 @@ function enemyScale(enemy: Enemy): number {
   return enemy.kind === 'ogre' ? 1.35 : enemy.kind === 'brute' ? 0.92 : enemy.kind === 'runner' ? 0.48 : enemy.kind === 'sapper' ? 0.55 : 0.62
 }
 
-function Battle({ map, run, rules, reducedFlashes, screenShake, cameraShake, settings, placements, powerCommand, guidePoint, stressCommand, invulnerable, paused, speed, onSnapshot, onEnd, onWallRemoved }: {
+function Battle({ map, run, rules, reducedFlashes, screenShake, cameraShake, settings, placements, powerCommand, guidePoint, stressCommand, invulnerable, paused, speed, surrenderRevision, onSnapshot, onEnd, onWallRemoved }: {
   map: MapDefinition
   run: RunRules
   rules: GameRules
@@ -759,8 +806,9 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, cameraShake, set
   invulnerable: boolean
   paused: boolean
   speed: 1 | 2
+  surrenderRevision: number
   onSnapshot: (snapshot: BattleSnapshot) => void
-  onEnd: (won: boolean, snapshot: BattleSnapshot) => void
+  onEnd: (won: boolean, snapshot: BattleSnapshot, reason?: BattleEndReason) => void
   onWallRemoved: (id: number) => void
 }) {
   const [, render] = useState(0)
@@ -774,6 +822,15 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, cameraShake, set
   const renderedFrameMs = useRef(16.7)
   const combatAudio = useRef(createCombatAudioState())
   const audioElapsed = useRef(0)
+  const lastSurrenderRevision = useRef(surrenderRevision)
+
+  useEffect(() => {
+    if (lastSurrenderRevision.current === surrenderRevision) return
+    lastSurrenderRevision.current = surrenderRevision
+    if (ended.current) return
+    ended.current = true
+    onEnd(false, toSnapshot(sim.current, run), 'surrendered')
+  }, [onEnd, run, surrenderRevision])
 
   useEffect(() => {
     syncWalls(sim.current, placements, rules, map)

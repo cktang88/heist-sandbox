@@ -1,9 +1,24 @@
 import type { BuildTool, ChallengeModifiers, CombatPower, GameRules, TowerKind } from './types'
+import { ownsUpgrade, type UpgradeId, type UpgradeRanks } from './upgrades'
 
 export const MAX_LOADOUT_TOWERS = 4
 export const MAX_LOADOUT_POWERS = 3
-export type CommanderDoctrine = 'forwardSupply'
-export const COMMANDER_DOCTRINE: CommanderDoctrine = 'forwardSupply'
+export type CommanderDoctrine = 'forwardSupply' | 'leanLogistics' | 'rapidResponse' | 'bastionReserve'
+
+export type CommanderDoctrineDefinition = {
+  id: CommanderDoctrine
+  name: string
+  effect: string
+  researchId: UpgradeId
+  researchName: string
+}
+
+export const COMMANDER_DOCTRINES: readonly CommanderDoctrineDefinition[] = [
+  { id: 'forwardSupply', name: 'Forward Supply', effect: '+30 preparation supply', researchId: 'command-01', researchName: 'Supply Requisition' },
+  { id: 'leanLogistics', name: 'Lean Logistics', effect: 'Towers and walls cost 10% less', researchId: 'command-02', researchName: 'Efficient Logistics' },
+  { id: 'rapidResponse', name: 'Rapid Response', effect: 'All command cooldowns recover 15% faster', researchId: 'command-03', researchName: 'Expanded Loadout' },
+  { id: 'bastionReserve', name: 'Bastion Reserve', effect: '+50 fortress shield and +20% wall health', researchId: 'command-06', researchName: 'Fortress Shield' },
+]
 
 export type Loadout = {
   towers: readonly TowerKind[]
@@ -109,13 +124,46 @@ export function loadoutsEqual(left: Loadout, right: Loadout): boolean {
 }
 
 export function normalizeCommanderDoctrine(value: unknown): CommanderDoctrine | null {
-  return value === COMMANDER_DOCTRINE ? value : null
+  return COMMANDER_DOCTRINES.some((doctrine) => doctrine.id === value) ? value as CommanderDoctrine : null
 }
 
-/** The single doctrine stays intentionally direct rather than introducing a perk framework. */
+export function isCommanderDoctrineUnlocked(ranks: UpgradeRanks, doctrine: CommanderDoctrine): boolean {
+  const definition = COMMANDER_DOCTRINES.find((candidate) => candidate.id === doctrine)
+  return Boolean(definition && ownsUpgrade(ranks, definition.researchId))
+}
+
+export function normalizeUnlockedCommanderDoctrine(value: unknown, ranks: UpgradeRanks): CommanderDoctrine | null {
+  const doctrine = normalizeCommanderDoctrine(value)
+  return doctrine && isCommanderDoctrineUnlocked(ranks, doctrine) ? doctrine : null
+}
+
 export function applyCommanderDoctrine(rules: GameRules, doctrine: CommanderDoctrine | null): GameRules {
-  if (doctrine !== 'forwardSupply') return rules
-  return { ...rules, tuning: { ...rules.tuning, budget: rules.tuning.budget + 30 } }
+  switch (doctrine) {
+    case 'forwardSupply':
+      return { ...rules, tuning: { ...rules.tuning, budget: rules.tuning.budget + 30 } }
+    case 'leanLogistics':
+      return {
+        ...rules,
+        tuning: {
+          ...rules.tuning,
+          towers: Object.fromEntries(Object.entries(rules.tuning.towers).map(([kind, stats]) => [kind, { ...stats, cost: Math.max(1, Math.round(stats.cost * 0.9)) }])) as GameRules['tuning']['towers'],
+          wall: { ...rules.tuning.wall, cost: Math.max(1, Math.round(rules.tuning.wall.cost * 0.9)) },
+        },
+      }
+    case 'rapidResponse':
+      return {
+        ...rules,
+        powers: Object.fromEntries(Object.entries(rules.powers).map(([kind, power]) => [kind, { ...power, cooldown: power.cooldown * 0.85 }])) as GameRules['powers'],
+      }
+    case 'bastionReserve':
+      return {
+        ...rules,
+        tuning: { ...rules.tuning, wall: { ...rules.tuning.wall, health: rules.tuning.wall.health * 1.2 } },
+        setup: { ...rules.setup, fortressShield: rules.setup.fortressShield + 50 },
+      }
+    default:
+      return rules
+  }
 }
 
 /** Starting walls are a preparation tool, separate from the temporary-wall combat power slot. */

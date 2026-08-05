@@ -3,7 +3,7 @@ import { BattleControls } from './components/BattleControls'
 import { BattleStatsPanel } from './components/BattleStatsPanel'
 import { BriefingPanel } from './components/BriefingPanel'
 import { DeploymentPanel } from './components/DeploymentPanel'
-import { GameScene, type StressCommand } from './components/GameScene'
+import { GameScene, type BattleEndReason, type StressCommand } from './components/GameScene'
 import { HelpPanel } from './components/HelpPanel'
 import { MapEditor } from './components/MapEditor'
 import { ResultsReport } from './components/ResultsReport'
@@ -13,7 +13,7 @@ import { TuningPanel } from './components/TuningPanel'
 import { UpgradePanel } from './components/UpgradePanel'
 import { hasNewReadyCooldown, playSound, setBattleMusic } from './game/audio'
 import { ACTIVE_POWER_OPTIONS, DEFAULT_TUNING, getBuildCost, isOffensiveTowerKind, isTowerKind, TOWER_KINDS } from './game/config'
-import { applyCommanderDoctrine, canStartWithDeployment, COMMANDER_DOCTRINE, DEFAULT_LOADOUT, getRunLoadoutLimits, getSetupBuildTools, loadoutsEqual, MAX_LOADOUT_POWERS, MAX_LOADOUT_TOWERS, normalizeCommanderDoctrine, normalizeLoadout, resolveRunLoadout, toggleLoadoutPower, toggleLoadoutTower, type Loadout } from './game/loadout'
+import { applyCommanderDoctrine, canStartWithDeployment, DEFAULT_LOADOUT, getRunLoadoutLimits, getSetupBuildTools, isCommanderDoctrineUnlocked, loadoutsEqual, MAX_LOADOUT_POWERS, MAX_LOADOUT_TOWERS, normalizeLoadout, normalizeUnlockedCommanderDoctrine, resolveRunLoadout, toggleLoadoutPower, toggleLoadoutTower, type Loadout } from './game/loadout'
 import { keyboardAction } from './game/input'
 import { layoutIdForLevel, loadDefenseLayout, restoreLayout, storeDefenseLayout } from './game/layoutStore'
 import { createCustomMap, deleteCustomMap, loadAvailableMaps, loadMap, storeMap } from './game/mapStore'
@@ -77,14 +77,24 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(() => save.totalRuns === 0)
   const [variantSelections, setVariantSelections] = useState<TowerVariantSelections>({})
   const [setupCancelRevision, setSetupCancelRevision] = useState(0)
+  const [surrenderRevision, setSurrenderRevision] = useState(0)
+  const [lastBattleSurrendered, setLastBattleSurrendered] = useState(false)
   const layoutReadyId = useRef<string | null>(null)
   const run = useMemo(() => mode === 'challenge' ? runForChallenge(challengeId) : runForMap(mode, map, difficulty), [mode, map, challengeId, difficulty])
 
-  const gameRules = useMemo(() => applyCommanderDoctrine(deriveGameRules(tuning, save.upgrades), normalizeCommanderDoctrine(loadout.doctrine)), [tuning, save.upgrades, loadout.doctrine])
-  const effectiveTuning = gameRules.tuning
   const variantRanks = useMemo<UpgradeRanks>(() => devUnlockAll
     ? Object.fromEntries(ALL_UPGRADES.map((upgrade) => [upgrade.id, Math.max(1, upgrade.rankCosts.length)])) as UpgradeRanks
     : save.upgrades, [devUnlockAll, save.upgrades])
+  const selectedDoctrine = normalizeUnlockedCommanderDoctrine(loadout.doctrine, variantRanks)
+  const gameRules = useMemo(() => applyCommanderDoctrine(deriveGameRules(tuning, save.upgrades), selectedDoctrine), [tuning, save.upgrades, selectedDoctrine])
+  const effectiveTuning = gameRules.tuning
+
+  useEffect(() => {
+    if (devUnlockAll || save.selectedDoctrine === selectedDoctrine) return
+    const next = { ...save, selectedDoctrine }
+    storeSave(next)
+    setSave(next)
+  }, [devUnlockAll, save, selectedDoctrine])
   const spent = useMemo(
     () => placements.reduce((sum, item) => sum + getBuildCost(item.kind, effectiveTuning), 0),
     [placements, effectiveTuning],
@@ -103,8 +113,8 @@ export default function App() {
   const loadoutLimits = getRunLoadoutLimits(baseLoadoutLimits, run.mode === 'challenge' ? run.modifiers : undefined)
   const { towerSlots: towerSlotLimit, powerSlots: powerSlotLimit } = loadoutLimits
   const normalizedLoadout = useMemo(
-    () => normalizeLoadout(loadout, availableTowers, availablePowers, loadoutLimits),
-    [loadout, availableTowers.join('|'), availablePowers.join('|'), towerSlotLimit, powerSlotLimit],
+    () => ({ ...normalizeLoadout(loadout, availableTowers, availablePowers, loadoutLimits), doctrine: selectedDoctrine }),
+    [loadout, availableTowers.join('|'), availablePowers.join('|'), towerSlotLimit, powerSlotLimit, selectedDoctrine],
   )
   const runLoadout = resolveRunLoadout(normalizedLoadout, run.mode === 'challenge' ? run.modifiers : undefined)
   const buildTools = runLoadout.towers
@@ -190,14 +200,16 @@ export default function App() {
   }, [activeSpeed, paused, phase, wallCooldown <= 0])
 
   const updateSave = useCallback((next: typeof save) => {
-    storeSave(next)
-    setSave(next)
+    const persisted = devUnlockAll ? next : { ...next, selectedDoctrine: normalizeUnlockedCommanderDoctrine(next.selectedDoctrine, next.upgrades) }
+    storeSave(persisted)
+    setSave(persisted)
     if (!devUnlockAll) {
-      setSelectedTool((tool) => isBuildToolUnlocked(next.upgrades, tool) ? tool : 'gunner')
+      setLoadout((current) => ({ ...current, doctrine: normalizeUnlockedCommanderDoctrine(current.doctrine, persisted.upgrades) }))
+      setSelectedTool((tool) => isBuildToolUnlocked(persisted.upgrades, tool) ? tool : 'gunner')
       setSelectedPower((power) => power && power !== 'wall'
-        ? isPowerUnlocked(next.upgrades, power) ? power : null
-        : power === 'wall' && !isBuildToolUnlocked(next.upgrades, 'wall') ? null : power)
-      const wallUnlocked = isBuildToolUnlocked(next.upgrades, 'wall')
+        ? isPowerUnlocked(persisted.upgrades, power) ? power : null
+        : power === 'wall' && !isBuildToolUnlocked(persisted.upgrades, 'wall') ? null : power)
+      const wallUnlocked = isBuildToolUnlocked(persisted.upgrades, 'wall')
       setPlacements((items) => items.filter((item) => item.temporary || (item.kind === 'wall' ? wallUnlocked : buildTools.includes(item.kind))))
     }
   }, [buildTools, devUnlockAll])
@@ -318,6 +330,7 @@ export default function App() {
     setPowerCharges(start.powerCharges)
     setLastMedalsEarned(0)
     setLastDifficultyBonus(0)
+    setLastBattleSurrendered(false)
     setPhase('battle')
   }, [canStart, gameRules, run, settings, setupIsRanked])
 
@@ -492,11 +505,12 @@ export default function App() {
     playSound('place', settings)
   }
 
-  const finishBattle = useCallback((won: boolean, finalSnapshot: BattleSnapshot) => {
+  const finishBattle = useCallback((won: boolean, finalSnapshot: BattleSnapshot, reason: BattleEndReason = 'resolved') => {
     setPlacements(keepPermanentPlacements)
     setSelectedPower(null)
     setSnapshot(finalSnapshot)
     setPhase(won ? 'victory' : 'defeat')
+    setLastBattleSurrendered(reason === 'surrendered')
     playSound(won ? 'victory' : 'defeat', settings)
     setPaused(false)
     if (!rankedRun) {
@@ -504,7 +518,7 @@ export default function App() {
       setLastDifficultyBonus(0)
       return
     }
-    const result = createRunResult(run, finalSnapshot, won)
+    const result = createRunResult(run, finalSnapshot, won, reason === 'surrendered')
     const reward = calculateRunReward(save, result)
     const next = recordRun(save, result)
     setLastMedalsEarned(next.medals - save.medals)
@@ -581,6 +595,7 @@ export default function App() {
           invulnerable={devInvulnerable}
           paused={paused}
           speed={activeSpeed}
+          surrenderRevision={surrenderRevision}
           onPlace={place}
           onSelectPlacement={(id) => {
             if (phase !== 'setup' || movingPlacement) return
@@ -658,10 +673,11 @@ export default function App() {
               loadout: { towers: [...normalizedLoadout.towers], powers: [...normalizedLoadout.powers] },
             })
           }}
-          onToggleDoctrine={() => {
-            const selectedDoctrine = normalizeCommanderDoctrine(loadout.doctrine) === COMMANDER_DOCTRINE ? null : COMMANDER_DOCTRINE
-            setLoadout((current) => ({ ...current, doctrine: selectedDoctrine }))
-            const nextSave = { ...save, selectedDoctrine }
+          onSelectDoctrine={(doctrine) => {
+            const nextDoctrine = doctrine && isCommanderDoctrineUnlocked(variantRanks, doctrine) ? doctrine : null
+            setLoadout((current) => ({ ...current, doctrine: nextDoctrine }))
+            const persistedDoctrine = nextDoctrine && isCommanderDoctrineUnlocked(save.upgrades, nextDoctrine) ? nextDoctrine : null
+            const nextSave = { ...save, selectedDoctrine: persistedDoctrine }
             storeSave(nextSave)
             setSave(nextSave)
           }}
@@ -725,6 +741,7 @@ export default function App() {
           }}
           onWall={() => setSelectedPower((value) => value === 'wall' ? null : 'wall')}
           onPause={togglePause}
+          onSurrender={() => setSurrenderRevision((revision) => revision + 1)}
         />}
         {phase === 'battle' && battleStatsOpen && <BattleStatsPanel snapshot={snapshot} onClose={() => setBattleStatsOpen(false)} />}
 
@@ -737,6 +754,7 @@ export default function App() {
           medalsEarned={lastMedalsEarned}
           difficultyBonus={lastDifficultyBonus}
           newlyAffordableResearch={rankedRun ? getNewlyAffordableUpgradeNames(save.upgrades, Math.max(0, save.medals - lastMedalsEarned), save.medals) : []}
+          surrendered={lastBattleSurrendered}
           primaryLabel={run.mode === 'campaign' && phase === 'victory' ? 'CONTINUE CAMPAIGN' : run.mode === 'challenge' ? 'RETURN TO CHALLENGES' : 'RETURN TO DEPLOYMENT'}
           onPrimary={run.mode === 'campaign' && phase === 'victory' ? continueCampaign : run.mode === 'challenge' ? () => {
             setPlacements(savedDeployment())

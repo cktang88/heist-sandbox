@@ -93,6 +93,7 @@ describe('gunner upgrades', () => {
       .toBe(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).length)
     expect(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).filter((unlock) => unlock.kind === 'power')).toHaveLength(6)
     expect(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).filter((unlock) => unlock.kind === 'wall')).toHaveLength(1)
+    expect(ALL_UPGRADES.flatMap((node) => node.unlocks ?? []).filter((unlock) => unlock.kind === 'doctrine')).toHaveLength(4)
   })
 
   it('shows every runtime variant on the same research node that unlocks it', () => {

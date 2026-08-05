@@ -146,14 +146,14 @@ describe('combat simulation', () => {
     expect(state.enemies[0].damageMultiplier).toBeGreaterThan(1)
   })
 
-  it('alternates spawned enemies across a multi-lane map', () => {
+  it('alternates road-width spawn ranks across a multi-lane map', () => {
     const state = createSimulation([], rules)
     const forkContext = { ...context, map: TWIN_FORK, pathInfos: TWIN_FORK.paths.map(buildPathInfo) }
     state.spawnTimer = 0
     stepSimulation(state, forkContext, 0.01)
     state.spawnTimer = 0
     stepSimulation(state, forkContext, 0.01)
-    expect(state.enemies.map((enemy) => enemy.pathIndex)).toEqual([0, 1])
+    expect(state.enemies.map((enemy) => enemy.pathIndex)).toEqual([0, 1, 0, 1])
   })
 
   it('spawns delayed groups independently on their authored lanes', () => {
@@ -169,9 +169,11 @@ describe('combat simulation', () => {
     state.spawnTimer = 0
 
     stepSimulation(state, forkContext, 0.25)
-    expect(state.enemies.map(({ kind, pathIndex }) => [kind, pathIndex])).toEqual([['grunt', 0], ['runner', 1]])
+    expect(state.enemies.map(({ kind, pathIndex }) => [kind, pathIndex])).toEqual([
+      ['grunt', 0], ['grunt', 0], ['runner', 1], ['runner', 1],
+    ])
     stepSimulation(state, forkContext, 0.5)
-    expect(state.enemies.filter((enemy) => enemy.kind === 'grunt')).toHaveLength(2)
+    expect(state.enemies.filter((enemy) => enemy.kind === 'grunt')).toHaveLength(3)
     expect(state.enemies.filter((enemy) => enemy.kind === 'runner')).toHaveLength(2)
   })
 

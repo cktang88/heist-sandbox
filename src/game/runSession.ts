@@ -21,13 +21,14 @@ export function createBattleSessionStart(run: RunRules, rules: GameRules): Battl
 }
 
 /** Converts the simulation's final snapshot into the stable save-layer result shape. */
-export function createRunResult(run: RunRules, snapshot: BattleSnapshot, won: boolean): RunResult {
+export function createRunResult(run: RunRules, snapshot: BattleSnapshot, won: boolean, surrendered = false): RunResult {
   return {
     mode: run.mode,
     missionId: run.mode === 'campaign' ? run.missionId : undefined,
     challengeId: run.mode === 'challenge' ? run.challengeId : undefined,
     difficulty: run.mode === 'campaign' || run.mode === 'endless' ? run.difficulty : undefined,
     won,
+    surrendered,
     kills: snapshot.enemiesDefeated,
     wavesCleared: snapshot.wavesCleared,
     elapsedSeconds: snapshot.elapsedSeconds,

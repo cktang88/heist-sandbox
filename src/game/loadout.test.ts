@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_TUNING } from './config'
-import { applyCommanderDoctrine, canStartWithDeployment, DEFAULT_LOADOUT, getRunLoadoutLimits, getSetupBuildTools, loadoutsEqual, normalizeCommanderDoctrine, normalizeLoadout, resolveRunLoadout, toggleLoadoutPower, toggleLoadoutTower, validateLoadout } from './loadout'
+import { applyCommanderDoctrine, canStartWithDeployment, COMMANDER_DOCTRINES, DEFAULT_LOADOUT, getRunLoadoutLimits, getSetupBuildTools, isCommanderDoctrineUnlocked, loadoutsEqual, normalizeCommanderDoctrine, normalizeLoadout, normalizeUnlockedCommanderDoctrine, resolveRunLoadout, toggleLoadoutPower, toggleLoadoutTower, validateLoadout } from './loadout'
 import { deriveGameRules } from './upgrades'
 import type { CombatPower, TowerKind } from './types'
 
@@ -74,11 +74,26 @@ describe('pre-run loadouts', () => {
     expect(loadoutsEqual(DEFAULT_LOADOUT, { towers: ['gunner'], powers: ['wall'] })).toBe(false)
   })
 
-  it('normalizes and applies the one Commander Doctrine directly', () => {
+  it('requires research for every Commander Doctrine', () => {
+    expect(COMMANDER_DOCTRINES).toHaveLength(4)
+    for (const doctrine of COMMANDER_DOCTRINES) {
+      expect(isCommanderDoctrineUnlocked({}, doctrine.id)).toBe(false)
+      expect(isCommanderDoctrineUnlocked({ [doctrine.researchId]: 1 }, doctrine.id)).toBe(true)
+    }
+    expect(normalizeUnlockedCommanderDoctrine('forwardSupply', {})).toBeNull()
+    expect(normalizeUnlockedCommanderDoctrine('forwardSupply', { 'command-01': 1 })).toBe('forwardSupply')
+  })
+
+  it('normalizes and applies distinct Commander Doctrine effects', () => {
     expect(normalizeCommanderDoctrine('unknown')).toBeNull()
     expect(normalizeCommanderDoctrine('forwardSupply')).toBe('forwardSupply')
+    expect(normalizeCommanderDoctrine('rapidResponse')).toBe('rapidResponse')
     const base = deriveGameRules(DEFAULT_TUNING, {})
     expect(applyCommanderDoctrine(base, 'forwardSupply').tuning.budget).toBe(base.tuning.budget + 30)
+    expect(applyCommanderDoctrine(base, 'leanLogistics').tuning.towers.gunner.cost).toBeLessThan(base.tuning.towers.gunner.cost)
+    expect(applyCommanderDoctrine(base, 'rapidResponse').powers.strafe.cooldown).toBeCloseTo(base.powers.strafe.cooldown * 0.85)
+    expect(applyCommanderDoctrine(base, 'bastionReserve').setup.fortressShield).toBe(base.setup.fortressShield + 50)
+    expect(applyCommanderDoctrine(base, 'bastionReserve').tuning.wall.health).toBeCloseTo(base.tuning.wall.health * 1.2)
     expect(applyCommanderDoctrine(base, null)).toBe(base)
   })
 

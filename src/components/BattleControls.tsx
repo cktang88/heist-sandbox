@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { ActivePowerKind, BattleSnapshot, CombatPower } from '../game/types'
 
 type PowerOption = { kind: ActivePowerKind; label: string }
@@ -18,9 +19,14 @@ type BattleControlsProps = {
   onPower: (power: ActivePowerKind) => void
   onWall: () => void
   onPause: () => void
+  onSurrender: () => void
 }
 
 export function BattleControls(props: BattleControlsProps) {
+  const [confirmingSurrender, setConfirmingSurrender] = useState(false)
+  useEffect(() => {
+    if (props.paused) setConfirmingSurrender(false)
+  }, [props.paused])
   return (
     <div className="battle-controls">
       <button className={props.speed === 1 ? 'active' : ''} onClick={() => props.onSpeed(1)} disabled={props.speedLocked}>1×</button>
@@ -44,6 +50,10 @@ export function BattleControls(props: BattleControlsProps) {
         title="Arm a 15-second destructible wall, then click directly on the road"
       >{props.wallCooldown > 0 ? `WALL ${Math.ceil(props.wallCooldown)}s · ×${props.wallCharges}` : `WALL ×${props.wallCharges}`}</button>}
       <button onClick={props.onPause} disabled={props.pauseDisabled}>{props.paused ? '▶ RESUME' : 'Ⅱ PAUSE'} <kbd>SPACE</kbd></button>
+      {confirmingSurrender ? <span className="surrender-confirmation">
+        <button className="surrender-button confirm" onClick={props.onSurrender}>CONFIRM RETREAT</button>
+        <button onClick={() => setConfirmingSurrender(false)}>KEEP FIGHTING</button>
+      </span> : <button className="surrender-button" onClick={() => setConfirmingSurrender(true)}>SURRENDER</button>}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, type MutableRefObject } from 'react'
 import type { OrthographicCamera } from 'three'
-import type { MapDefinition } from '../game/types'
+import type { MapDefinition, Point } from '../game/types'
 
 export const MIN_ZOOM_FACTOR = 0.65
 export const MAX_ZOOM_FACTOR = 2.2
@@ -20,10 +20,27 @@ export function fitMapZoom(viewportWidth: number, viewportHeight: number, mapWid
   return Math.max(24, Math.min(62, usableWidth / (mapWidth + 3.5), usableHeight / (mapDepth + 3)))
 }
 
-export function CameraRig({ map, zoomFactor, shake }: {
+export function clampCameraPan(point: Point, map: Pick<MapDefinition, 'width' | 'depth'>): Point {
+  return {
+    x: Math.max(-map.width * 0.38, Math.min(map.width * 0.38, point.x)),
+    z: Math.max(-map.depth * 0.38, Math.min(map.depth * 0.38, point.z)),
+  }
+}
+
+/** Dragging the field right moves the camera left, so the field follows the pointer. */
+export function cameraPanAfterDrag(start: Point, deltaX: number, deltaY: number, zoom: number, map: Pick<MapDefinition, 'width' | 'depth'>): Point {
+  const worldPerPixel = 1 / Math.max(1, zoom)
+  return clampCameraPan({
+    x: start.x - deltaX * worldPerPixel,
+    z: start.z - deltaY * worldPerPixel * 1.35,
+  }, map)
+}
+
+export function CameraRig({ map, zoomFactor, shake, pan }: {
   map: MapDefinition
   zoomFactor: number
   shake: MutableRefObject<number>
+  pan: MutableRefObject<Point>
 }) {
   const { camera, size } = useThree()
   const orthographic = camera as OrthographicCamera
@@ -33,7 +50,11 @@ export function CameraRig({ map, zoomFactor, shake }: {
   useFrame(({ clock }) => {
     const amount = shake.current
     orthographic.zoom = fitMapZoom(size.width, size.height, map.width, map.depth) * zoomFactor
-    orthographic.position.set(Math.sin(clock.elapsedTime * 94) * amount, 15, 13 + Math.cos(clock.elapsedTime * 79) * amount)
+    orthographic.position.set(
+      pan.current.x + Math.sin(clock.elapsedTime * 94) * amount,
+      15,
+      13 + pan.current.z + Math.cos(clock.elapsedTime * 79) * amount,
+    )
     orthographic.updateProjectionMatrix()
   })
   return null
