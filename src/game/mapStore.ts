@@ -1,5 +1,6 @@
 import { BUILT_IN_MAPS, DEFAULT_MAP, findBuiltInMap } from './maps'
 import { buildPathInfo, distance, distanceToPath } from './path'
+import { pointInPolygon, polygonArea } from './polygon'
 import type { EnemyKind, MapDecorationKind, MapDefinition, WaveDefinition } from './types'
 
 const LEGACY_MAP_KEY = 'orcfall-command-dev-map'
@@ -69,6 +70,7 @@ export function createCustomMap(
     id,
     name: name.trim() || 'Untitled Front',
     paths: source.paths.map((path) => path.map((point) => ({ ...point }))),
+    solidPolygons: source.solidPolygons?.map((polygon) => ({ ...polygon, points: polygon.points.map((point) => ({ ...point })) })),
     obstacles: source.obstacles?.map((obstacle) => ({ ...obstacle })),
     decorations: source.decorations?.map((decoration) => ({ ...decoration })),
     buildZones: source.buildZones?.map((zone) => ({ ...zone })),
@@ -92,12 +94,19 @@ export function isMap(value: unknown): value is MapDefinition {
         && typeof point?.z === 'number' && Number.isFinite(point.z) && Math.abs(point.z) <= map.depth! / 2)
       && buildPathInfo(path).totalLength >= 1)
     && pathsShareFortress(map.paths)
+    && (map.navigationMode === undefined || map.navigationMode === 'corridor' || map.navigationMode === 'open')
+    && (map.solidPolygons === undefined || Array.isArray(map.solidPolygons) && map.solidPolygons.length <= 40
+      && map.solidPolygons.every((polygon) => Boolean(polygon) && (polygon.kind === undefined || polygon.kind === 'blocker' || polygon.kind === 'platform')
+        && Array.isArray(polygon.points) && polygon.points.length >= 3 && polygon.points.length <= 24
+        && polygon.points.every((point) => isPointInMap(point, map))
+        && polygonArea(polygon.points) >= 0.25
+        && map.paths!.every((path) => !pointInPolygon(path[0], polygon.points) && !pointInPolygon(path[path.length - 1], polygon.points))))
     && (map.palette === undefined || isPalette(map.palette))
     && (map.obstacles === undefined || Array.isArray(map.obstacles) && map.obstacles.every((obstacle) =>
       typeof obstacle?.radius === 'number' && Number.isFinite(obstacle.radius) && obstacle.radius >= 0.2 && obstacle.radius <= 2
       && typeof obstacle?.x === 'number' && Number.isFinite(obstacle.x) && Math.abs(obstacle.x) + obstacle.radius <= map.width! / 2
       && typeof obstacle?.z === 'number' && Number.isFinite(obstacle.z) && Math.abs(obstacle.z) + obstacle.radius <= map.depth! / 2
-      && map.paths!.every((path) => distanceToPath(obstacle, path) > map.pathWidth! / 2 + obstacle.radius)))
+      && (map.navigationMode === 'open' || map.paths!.every((path) => distanceToPath(obstacle, path) > map.pathWidth! / 2 + obstacle.radius))))
     && (map.obstacles === undefined || map.obstacles.every((obstacle, index, all) =>
       all.every((other, otherIndex) => index === otherIndex || distance(obstacle, other) >= obstacle.radius + other.radius)))
     && (map.decorations === undefined || Array.isArray(map.decorations) && map.decorations.length <= 120
@@ -147,9 +156,16 @@ function isSecondaryObjective(value: unknown, map: Partial<MapDefinition>): bool
     || typeof objective.z !== 'number' || !Number.isFinite(objective.z)) return false
   const point = { x: objective.x, z: objective.z }
   return Math.abs(point.x) + 0.7 <= map.width / 2 && Math.abs(point.z) + 0.7 <= map.depth / 2
-    && map.paths.some((path) => distanceToPath(point, path) <= map.pathWidth! / 2 + 0.25)
+    && (map.navigationMode === 'open' || map.paths.some((path) => distanceToPath(point, path) <= map.pathWidth! / 2 + 0.25))
     && typeof objective.health === 'number' && Number.isFinite(objective.health) && objective.health >= 25 && objective.health <= 5_000
     && typeof objective.bonusMedals === 'number' && Number.isInteger(objective.bonusMedals) && objective.bonusMedals >= 1 && objective.bonusMedals <= 100
+}
+
+function isPointInMap(value: unknown, map: Partial<MapDefinition>): value is { x: number; z: number } {
+  if (!value || typeof value !== 'object') return false
+  const point = value as Record<string, unknown>
+  return typeof point.x === 'number' && Number.isFinite(point.x) && Math.abs(point.x) <= map.width! / 2
+    && typeof point.z === 'number' && Number.isFinite(point.z) && Math.abs(point.z) <= map.depth! / 2
 }
 
 function migrateLegacyMap(storage: MapStorage): MapDefinition[] {

@@ -4,6 +4,18 @@ import { EnemySpatialIndex } from './spatialIndex'
 type Entity = { id: number; x: number; z: number; alive: boolean }
 
 describe('EnemySpatialIndex', () => {
+  it('rebuilds in place for a moving population', () => {
+    const first = [{ x: 0, z: 0 }, { x: 6, z: 6 }]
+    const index = new EnemySpatialIndex(first, 1)
+    expect(index.withinRadius({ x: 0, z: 0 }, 1)).toEqual([first[0]])
+
+    const second = [{ x: 4, z: 4 }, { x: 4.2, z: 4 }]
+    index.rebuild(second)
+
+    expect(index.withinRadius({ x: 4, z: 4 }, 1)).toEqual(second)
+    expect(index.telemetry()).toMatchObject({ entities: 2, queries: 1 })
+  })
+
   const entities = seededEntities(240)
   const index = new EnemySpatialIndex(entities, 1.25)
 

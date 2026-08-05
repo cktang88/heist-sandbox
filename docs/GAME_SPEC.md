@@ -69,7 +69,7 @@ Repeatedly farming an early map receives diminishing bonus rewards but never zer
 
 ## 3. Battlefield rules
 
-Each map contains one or more spawn areas, a fortress, a walkable route network, free-build terrain or pads, impassable terrain, and optional secondary objectives.
+Each map contains one or more spawn areas, a fortress, walkable terrain, buildable terrain or pads, impassable terrain, and optional secondary objectives. Corridor maps constrain movement around authored route lines. Open-field maps make the whole field walkable except for arbitrary solid polygons: platform polygons accept towers while still blocking orcs, and blocker polygons reject both.
 
 For the first few hundred enemies, a polyline route is sufficient. At larger scale, maps use a navigation grid and a flow field pointing toward the fortress. Nearby enemies apply small separation forces so the horde spreads naturally. Temporary walls trigger a rate-limited flow-field rebuild. An invalid full blockade causes orcs to attack the blocking wall.
 
@@ -147,10 +147,11 @@ Power targeting always shows its area and whether the target is valid. Cooldown-
 3. **Frozen Pass:** one narrow switchback through icefall boulders with four marked firing pockets. Dense Shieldbearer, Armored, Brute, and Shaman waves test focused choke defense.
 4. **Ash Fields:** one unusually wide route crosses scattered volcanic rubble. Armored Orcs screen overlapping Sapper, Berserker, Banner, and Brute pressure.
 5. **Broken Citadel:** three separate approaches converge on one fortress, while only five small build zones remain usable. The final mixed assault ends with one Ogre on the center lane.
+6. **Shattered Expanse:** three spawn regions feed a shared fortress across a broad open field. Nine irregular raised platforms accept towers and force the 2,244-orc campaign flood to split and rejoin; a separate blocker creates a late detour.
 
 Campaign missions own distinct five-wave sets; they do not all reuse the standard Sandbox/challenge waves. Counts, timing, composition, and lane assignment escalate within each operation while remaining ordinary `WaveDefinition` data.
 
-The built-in Map Forge edits the same `MapDefinition` used by battle code. Initial controls create an ordered route whose first point is spawn and last point is fortress. Expansion controls add lanes, terrain stamps, build zones, a defendable supply-cache objective, decorations, wave sets with boss and reward metadata, validation, JSON import/export, and a saved map library.
+The built-in Map Forge edits the same `MapDefinition` used by battle code. It switches between corridor and open-field navigation; creates ordered spawn/fortress anchor routes; draws, moves, edits, and deletes platform or blocker polygons; and adds terrain stamps, build zones, a defendable supply-cache objective, decorations, wave sets, validation, JSON import/export, and a saved map library.
 
 ## 9. Meta progression: 60 nodes
 
@@ -228,6 +229,8 @@ At several thousand enemies, replace one-render-object-per-orc with `InstancedMe
 ### Map Forge
 
 - Edits and saves one or more battle-ready routes.
+- Switches between corridor routes and open-field flow navigation.
+- Draws, moves, edits, and deletes arbitrary tower-platform or solid-blocker polygons.
 - Shows spawn, bend, and shared fortress points, with fortress snapping between lanes.
 - Places validated blocking boulders and prevents tower overlap.
 - Supports undo, clear, reset, naming, immediate play, and JSON import/export.
@@ -239,14 +242,14 @@ At several thousand enemies, replace one-render-object-per-orc with `InstancedMe
 - Searches and edits supply, tower cost/damage/range/fire rate, orc health/speed/fortress damage/wall damage, and wall cost/health/collision size.
 - Saves immediately and offers Apply & Restart.
 - Provides a session-only Unlock All Content switch for fast prototyping without corrupting ranked progression.
-- During combat, injects an unranked 500- or 1,500-Grunt diagnostic horde without changing authored wave totals.
+- During combat, injects unranked 2,000- or 5,000-Grunt diagnostic hordes, or streams 50,000 total through a bounded 5,000-live envelope, without changing authored wave totals.
 - Power cooldown/damage/area values, fortress invulnerability, and per-type spawn controls are live now. Authored wave counts/rates belong to Map Forge; effect-scale tuning and entity inspection remain optional future tools. Live fixed-tick telemetry is exposed to browser devtools.
 
 ### Current implementation status
 
 - Stages 1–7 are complete and playable.
-- Stage 8 includes the full tower/enemy roster, five maps, six active powers plus walls, 60 implemented research nodes, sequential campaign unlocks, endless scaling, and six challenges.
-- Stage 9 includes flow-field wall detours, spatially indexed combat queries, interpolated instanced crowds, pooled tracers/effects/corpses, independently scheduled overlapping wave groups, 500/1,500-enemy stress controls, generated combat audio, saved accessibility settings, UI scaling, reduced-flash visuals, contextual onboarding, and campaign pacing estimated at 8–10 minutes. Balance remains easy to iterate through tuning and Map Forge.
+- Stage 8 includes the full tower/enemy roster, six maps, six active powers plus walls, 60 implemented research nodes, sequential campaign unlocks, endless scaling, and six challenges.
+- Stage 9 includes flow-field wall detours, spatially indexed combat queries, interpolated instanced crowds, adaptive crowd detail, pooled tracers/effects/corpses, independently scheduled overlapping wave groups, 2,000/5,000-live and 50,000-total stream stress controls, generated combat audio, saved accessibility settings, UI scaling, reduced-flash visuals, contextual onboarding, and campaign pacing estimated at 8–10 minutes. Balance remains easy to iterate through tuning and Map Forge.
 
 ## 15. Playable implementation stages
 
@@ -288,6 +291,10 @@ All towers, orcs, powers, maps, variants, full 60-node tree, difficulty tiers, e
 
 Instanced crowds, flow fields, thousands of enemies, effects, audio, accessibility, onboarding, balance.
 
+### Stage 10 — Open-field flood maps
+
+Add arbitrary polygon platforms/blockers, full-field flow navigation, a sixth 2,244-orc campaign mission, 5,000-live rendering, and a 50,000-total bounded stream harness.
+
 ## 16. Acceptance criteria
 
 The first vertical slice is accepted when:
@@ -306,7 +313,7 @@ The first vertical slice is accepted when:
 
 Full MVP adds aircraft strafe, combat wall charges, six upgrade nodes, a title/map flow, damage statistics, and basic generated sound effects.
 
-Performance targets are 60 FPS with 500 Grunts and at least 30 FPS with 1,500 on a typical recent laptop after instancing is introduced.
+Performance targets are 60 FPS with 5,000 live Grunts and stable 50,000-total continuous rounds that keep the live crowd bounded near 5,000 on a typical recent laptop.
 
 ## 17. Manual QA checklist
 
@@ -320,6 +327,8 @@ Performance targets are 60 FPS with 500 Grunts and at least 30 FPS with 1,500 on
 - [ ] Place a wall and observe blocking, damage, and destruction.
 - [ ] Reload and confirm medals, best run, map, and tuning persist.
 - [ ] Build and save a new route in Map Forge, then play it.
+- [ ] Draw, edit, save, reload, and play an open-field polygon map.
+- [ ] Confirm towers fit on platforms while orcs route around every solid polygon.
 - [ ] Change every tuning field and apply it with a quick restart.
 - [ ] Restart repeatedly without duplicated entities or listeners.
 - [ ] Resize the browser and confirm controls remain usable.

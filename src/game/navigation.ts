@@ -1,4 +1,5 @@
 import { distance, distanceToPath } from './path'
+import { distanceToPolygon } from './polygon'
 import type { MapDefinition, Point } from './types'
 import { distanceToWall } from './wall'
 
@@ -67,8 +68,9 @@ export function buildNavigationField(
 
   for (let index = 0; index < cellCount; index += 1) {
     const point = cellCenter(index, columns, cellSize, originX, originZ)
-    if (!map.paths.some((path) => distanceToPath(point, path) <= corridorRadius)) continue
+    if (map.navigationMode !== 'open' && !map.paths.some((path) => distanceToPath(point, path) <= corridorRadius)) continue
     if (map.obstacles?.some((obstacle) => distance(point, obstacle) <= obstacle.radius + options.obstaclePadding)) continue
+    if (map.solidPolygons?.some((polygon) => distanceToPolygon(point, polygon.points) <= options.obstaclePadding)) continue
     const wallIndex = walls.findIndex((wall) => distanceToWall(point, wall, wall.length) <= wall.radius)
     if (wallIndex >= 0) blockedOwner[index] = wallIndex + 1
     else walkable[index] = 1
@@ -152,8 +154,10 @@ export function sampleNavigation(field: NavigationField, point: Point): Navigati
 
 export function navigationTopologyKey(map: MapDefinition, walls: readonly NavigationWall[], options: NavigationOptions = DEFAULT_NAVIGATION_OPTIONS): string {
   const mapShape = [map.id, map.width, map.depth, map.pathWidth,
+    map.navigationMode ?? 'corridor',
     ...map.paths.flatMap((path) => path.flatMap((point) => [point.x, point.z])),
-    ...(map.obstacles ?? []).flatMap((obstacle) => [obstacle.x, obstacle.z, obstacle.radius])]
+    ...(map.obstacles ?? []).flatMap((obstacle) => [obstacle.x, obstacle.z, obstacle.radius]),
+    ...(map.solidPolygons ?? []).flatMap((polygon) => polygon.points.flatMap((point) => [point.x, point.z]))]
   const wallShape = [...walls].sort((left, right) => left.id - right.id)
     .flatMap((wall) => [wall.id, wall.x, wall.z, wall.rotation ?? 0, wall.length, wall.radius])
   return [...mapShape, options.cellSize, options.corridorPadding, options.obstaclePadding, ...wallShape].join('|')

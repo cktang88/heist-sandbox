@@ -8,35 +8,100 @@ type Predicate<T> = (entity: T) => boolean
 
 /** A fixed-snapshot uniform grid. Buckets and links stay in compact typed arrays. */
 export class EnemySpatialIndex<T extends SpatialEntity> {
-  readonly items: readonly T[]
+  items: readonly T[]
   readonly cellSize: number
-  private readonly bounds: SpatialBounds
-  private readonly columns: number
-  private readonly rows: number
-  private readonly heads: Int32Array
-  private readonly next: Int32Array
-  private readonly xs: Float32Array
-  private readonly zs: Float32Array
+  private bounds: SpatialBounds
+  private columns: number
+  private rows: number
+  private heads: Int32Array
+  private next: Int32Array
+  private xs: Float32Array
+  private zs: Float32Array
   private queries = 0
   private candidatesChecked = 0
 
   constructor(items: readonly T[], cellSize = 1.5, bounds?: SpatialBounds) {
-    this.items = items
+    this.items = []
     this.cellSize = Math.max(0.1, cellSize)
+    this.bounds = normalizeBounds([], bounds, this.cellSize)
+    this.columns = 0
+    this.rows = 0
+    this.heads = new Int32Array(0)
+    this.next = new Int32Array(0)
+    this.xs = new Float32Array(0)
+    this.zs = new Float32Array(0)
+    this.rebuild(items, bounds)
+  }
+
+  /** Rebuilds buckets in-place, retaining buffers while entity count and map bounds stay stable. */
+  rebuild(items: readonly T[], bounds?: SpatialBounds): void {
+    this.items = items
     this.bounds = normalizeBounds(items, bounds, this.cellSize)
     this.columns = Math.max(1, Math.ceil((this.bounds.maxX - this.bounds.minX) / this.cellSize))
     this.rows = Math.max(1, Math.ceil((this.bounds.maxZ - this.bounds.minZ) / this.cellSize))
-    this.heads = new Int32Array(this.columns * this.rows).fill(-1)
-    this.next = new Int32Array(items.length).fill(-1)
-    this.xs = new Float32Array(items.length)
-    this.zs = new Float32Array(items.length)
-    items.forEach((item, index) => {
+    const cellCount = this.columns * this.rows
+    if (this.heads.length !== cellCount) this.heads = new Int32Array(cellCount)
+    this.heads.fill(-1)
+    if (this.next.length < items.length) {
+      const capacity = Math.max(items.length, Math.ceil(this.next.length * 1.5), 64)
+      this.next = new Int32Array(capacity)
+      this.xs = new Float32Array(capacity)
+      this.zs = new Float32Array(capacity)
+    }
+    this.next.fill(-1, 0, items.length)
+    this.queries = 0
+    this.candidatesChecked = 0
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index]
       this.xs[index] = item.x
       this.zs[index] = item.z
       const cell = this.cellIndex(item.x, item.z)
       this.next[index] = this.heads[cell]
       this.heads[cell] = index
-    })
+    }
+  }
+
+  /** Computes local crowd separation without allocating and sorting a neighbor array. */
+  separationVector(point: T, radius: number, predicate: Predicate<T> = always, maxNeighbors = Number.POSITIVE_INFINITY, jitterSeed = 0, out: Point = { x: 0, z: 0 }): Point {
+    this.queries += 1
+    const safeRadius = Math.max(0, radius)
+    const radiusSquared = safeRadius * safeRadius
+    let x = 0
+    let z = 0
+    let matched = 0
+    const minColumn = this.column(point.x - safeRadius)
+    const maxColumn = this.column(point.x + safeRadius)
+    const minRow = this.row(point.z - safeRadius)
+    const maxRow = this.row(point.z + safeRadius)
+    outer: for (let row = minRow; row <= maxRow; row += 1) {
+      for (let column = minColumn; column <= maxColumn; column += 1) {
+        for (let index = this.heads[row * this.columns + column]; index >= 0; index = this.next[index]) {
+          this.candidatesChecked += 1
+          const candidate = this.items[index]
+          if (candidate === point || !predicate(candidate)) continue
+          const dx = point.x - this.xs[index]
+          const dz = point.z - this.zs[index]
+          const distanceSquared = dx * dx + dz * dz
+          if (distanceSquared > radiusSquared) continue
+          if (distanceSquared < 0.000001) {
+            const angle = jitterSeed * 2.399963229728653
+            x += Math.cos(angle)
+            z += Math.sin(angle)
+          } else {
+            const spacing = Math.sqrt(distanceSquared)
+            const strength = (safeRadius - spacing) / safeRadius
+            x += dx / spacing * strength
+            z += dz / spacing * strength
+          }
+          matched += 1
+          if (matched >= maxNeighbors) break outer
+        }
+      }
+    }
+    const length = Math.hypot(x, z)
+    out.x = length > 0.0001 ? x / length : 0
+    out.z = length > 0.0001 ? z / length : 0
+    return out
   }
 
   nearest(point: Point, radius: number, predicate: Predicate<T> = always): T | undefined {

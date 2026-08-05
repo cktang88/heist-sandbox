@@ -435,3 +435,18 @@ I’m using the GitHub publishing workflow for this handoff. I’ll verify the a
 
 Authentication is confirmed for `cktang88`. I found the workspace is not yet a Git repository, so I’m preparing a clean first commit: generated build artifacts, dependencies, and Playwright internals will be ignored; the source, specifications, curated QA images, state/roadmap, and user-visible conversation transcript will be included.
 
+## 80. User
+
+The current maps need to be more flexible. Some of the hardest reference maps are mostly open space, with arbitrary polygon walls or platforms rather than polygon-shaped paths. The game also needs to support 2,000–5,000 or more live orcs and 50,000 or more total orcs continuously streaming through a round at 60 FPS. Investigate whether a fast collision library is necessary. Two reference screenshots were supplied showing dense open-field hordes moving around raised polygon islands.
+
+## 81. Codex
+
+I’m treating this as a new playable architecture stage: preserve legacy corridor maps, add true open-field flow navigation and editable polygon platforms/blockers, then validate a bounded 50,000-total stream with 5,000 live orcs. The work is split across polygon maps, simulation performance, and crowd rendering, followed by one combined review.
+
+## 82. Codex
+
+The performance profile shows a reusable typed-array uniform grid is a better fit than a general physics or spatial-tree dependency for thousands of similarly sized moving agents. The integrated implementation simulates 5,000 live orcs in roughly 2–2.3 ms per fixed step and a 50,000-total bounded stream in roughly 1.5–1.7 ms per measured step on this machine.
+
+## 83. Codex
+
+The new map model is playable. Legacy maps still use route corridors. Shattered Expanse uses the entire field as walkable space, three spawn anchors, nine buildable polygon platforms, one non-buildable blocker, and a 2,244-orc campaign. Map Forge can draw, edit, delete, validate, save, import, and replay those polygons. Browser QA confirmed tower placement on a raised platform, three-lane spawning, 5,000 live/drawn instances, telemetry, and zero application console errors.

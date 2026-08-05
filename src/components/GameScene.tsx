@@ -1,17 +1,26 @@
 import { Canvas, type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Color, Object3D, type InstancedMesh } from 'three'
+import { Color, DynamicDrawUsage, Object3D, Shape, type InstancedMesh } from 'three'
 import { BUILD, isTowerKind } from '../game/config'
 import { isValidPlacement } from '../game/placement'
-import { addPower, barrageImpactPoint, createSimulation, findTowerTarget, getSimulationTelemetry, guideActivePower, interpolatedEnemyPosition, isRunWon, SIMULATION_STEP, spawnStressEnemies, stepSimulation, syncWalls, toSnapshot, type Enemy, type PowerRun, type SimulationState } from '../game/combat'
+import { addPower, barrageImpactPoint, createSimulation, findTowerTarget, getSimulationTelemetry, guideActivePower, isRunWon, SIMULATION_STEP, spawnStressEnemies, stepSimulation, syncWalls, toSnapshot, type Enemy, type PowerRun, type SimulationState } from '../game/combat'
 import { buildPathInfo, distance, distanceToPath, pointAlongPath } from '../game/path'
+import { pointInPolygon } from '../game/polygon'
 import { resolvePowerLine } from '../game/powerTargeting'
 import type { ActivePowerKind, BattleSnapshot, BuildTool, CombatPower, EnemyKind, GameRules, MapDecoration, MapDefinition, MapSecondaryObjective, Placement, Point, PowerCommand, PowerDefinition, RunRules } from '../game/types'
 import { deriveWallRotation, wallVisualLength } from '../game/wall'
 import { consumeCombatAudioEvents, createCombatAudioState, playSound } from '../game/audio'
 import type { GameSettings } from '../game/settings'
+import { createStressStream, scheduleStressSpawns, type StressStream } from '../game/stressStream'
 
-export type StressCommand = { id: number; count: number; kind?: EnemyKind }
+export type StressCommand = {
+  id: number
+  count: number
+  kind?: EnemyKind
+  /** When set, feed a large diagnostic total while keeping the live crowd bounded. */
+  streamRate?: number
+  liveCap?: number
+}
 
 type GameSceneProps = {
   map: MapDefinition
@@ -191,11 +200,18 @@ function Terrain({ map, onClick, onMove, onPointerDown, onPointerUp }: {
         const x = ((index * 73) % 210) / 10 - 10.5
         const z = ((index * 47) % 128) / 10 - 6.4
         if (Math.abs(x) >= map.width / 2 || Math.abs(z) >= map.depth / 2
-          || Math.min(...map.paths.map((path) => distanceToPath({ x, z }, path))) < 1.5
+          || map.navigationMode !== 'open' && Math.min(...map.paths.map((path) => distanceToPath({ x, z }, path))) < 1.5
+          || map.solidPolygons?.some((polygon) => pointInPolygon({ x, z }, polygon.points))
           || map.obstacles?.some((obstacle) => distance({ x, z }, obstacle) < obstacle.radius + 0.5)) return null
         return <Rock key={index} x={x} z={z} scale={0.2 + (index % 4) * 0.07} color={map.palette?.rock ?? '#6d7257'} />
       })}
       {map.obstacles?.map((obstacle, index) => <Rock key={`obstacle-${index}`} x={obstacle.x} z={obstacle.z} scale={obstacle.radius} color={map.palette?.rock ?? '#6d7257'} />)}
+      {map.solidPolygons?.map((polygon, index) => <SolidPolygon
+        key={`solid-polygon-${index}`}
+        polygon={polygon.points}
+        color={polygon.kind === 'platform' ? map.palette?.path ?? '#4c817b' : map.palette?.rock ?? '#6d7257'}
+        onClick={onClick} onMove={onMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp}
+      />)}
       {map.decorations?.map((decoration, index) => <TerrainDecoration key={`decoration-${index}`} decoration={decoration} />)}
       {map.secondaryObjective && <SupplyCache objective={map.secondaryObjective} />}
       {map.buildZones?.map((zone, index) => (
@@ -206,6 +222,26 @@ function Terrain({ map, onClick, onMove, onPointerDown, onPointerUp }: {
       ))}
     </>
   )
+}
+
+function SolidPolygon({ polygon, color, onClick, onMove, onPointerDown, onPointerUp }: {
+  polygon: readonly Point[]
+  color: string
+  onClick: (event: ThreeEvent<MouseEvent>) => void
+  onMove: (event: ThreeEvent<PointerEvent>) => void
+  onPointerDown: (event: ThreeEvent<PointerEvent>) => void
+  onPointerUp: (event: ThreeEvent<PointerEvent>) => void
+}) {
+  const shape = useMemo(() => {
+    const result = new Shape()
+    polygon.forEach((point, index) => index === 0 ? result.moveTo(point.x, -point.z) : result.lineTo(point.x, -point.z))
+    result.closePath()
+    return result
+  }, [polygon])
+  return <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={onClick} onPointerMove={onMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
+    <extrudeGeometry args={[shape, { depth: 0.22, bevelEnabled: false }]} />
+    <meshStandardMaterial color={color} roughness={0.9} />
+  </mesh>
 }
 
 function SupplyCache({ objective }: { objective: MapSecondaryObjective }) {
@@ -238,6 +274,7 @@ function Rock({ x, z, scale, color }: { x: number; z: number; scale: number; col
 }
 
 function Path({ map }: { map: MapDefinition }) {
+  if (map.navigationMode === 'open') return null
   return (
     <group>
       {map.paths.flatMap((path, pathIndex) => path.slice(1).map((end, index) => {
@@ -428,7 +465,11 @@ function Wall({ point, health, maxHealth, length }: { point: Point & { rotation?
   )
 }
 
-const MAX_RENDERED_ORCS = 2500
+/** One body remains visible per live orc through the supported 5k stress envelope. */
+export const MAX_RENDERED_ORCS = 8192
+const FULL_DETAIL_ORCS = 3000
+const MAX_RENDERED_ARMOR = 1600
+const MAX_RENDERED_MARKERS = 900
 const SPECIAL_ORC_COLORS: Partial<Record<EnemyKind, Color>> = {
   shaman: new Color('#62d9dd'),
   banner: new Color('#d84a3f'),
@@ -444,52 +485,66 @@ function OrcHorde({ simulation }: { simulation: SimulationState }) {
   const specialMarkers = useRef<InstancedMesh>(null)
   const dummy = useMemo(() => new Object3D(), [])
 
+  useEffect(() => {
+    for (const mesh of [bodies.current, heads.current, armor.current, specialMarkers.current]) {
+      mesh?.instanceMatrix.setUsage(DynamicDrawUsage)
+    }
+  }, [])
+
   useFrame(() => {
     if (!bodies.current || !heads.current || !armor.current || !specialMarkers.current) return
-    const visible = simulation.enemies.slice(0, MAX_RENDERED_ORCS)
+    const enemies = simulation.enemies
+    const visibleCount = Math.min(enemies.length, MAX_RENDERED_ORCS)
+    const detailedCount = Math.min(visibleCount, FULL_DETAIL_ORCS)
     const interpolation = Math.min(1, simulation.accumulator / SIMULATION_STEP)
     let armorIndex = 0
     let markerIndex = 0
-    visible.forEach((enemy, index) => {
+    for (let index = 0; index < visibleCount; index += 1) {
+      const enemy = enemies[index]
       const scale = enemyScale(enemy)
       const wobble = (enemy.id % 5 - 2) * 0.06
-      const { x, z } = interpolatedEnemyPosition(enemy, interpolation)
+      const previousX = enemy.previousX ?? enemy.x
+      const previousZ = enemy.previousZ ?? enemy.z
+      const x = previousX + (enemy.x - previousX) * interpolation
+      const z = previousZ + (enemy.z - previousZ) * interpolation
       dummy.position.set(x, 0.56 + wobble, z)
       dummy.scale.setScalar(scale)
       dummy.rotation.set(0, 0, 0.08)
       dummy.updateMatrix()
       bodies.current!.setMatrixAt(index, dummy.matrix)
 
-      dummy.position.set(x, 1.04 + wobble, z)
-      dummy.rotation.set(0, 0, 0)
-      dummy.updateMatrix()
-      heads.current!.setMatrixAt(index, dummy.matrix)
+      if (index < detailedCount) {
+        dummy.position.set(x, 1.04 + wobble, z)
+        dummy.rotation.set(0, 0, 0)
+        dummy.updateMatrix()
+        heads.current.setMatrixAt(index, dummy.matrix)
+      }
 
-      if (enemy.kind === 'shieldbearer' || enemy.kind === 'armored') {
+      if (armorIndex < MAX_RENDERED_ARMOR && (enemy.kind === 'shieldbearer' || enemy.kind === 'armored')) {
         const facingX = enemy.facingX ?? 1
         const facingZ = enemy.facingZ ?? 0
         dummy.position.set(x + facingX * 0.28 * scale, 0.66 + wobble, z + facingZ * 0.28 * scale)
         dummy.scale.setScalar(scale)
         dummy.rotation.set(0, Math.atan2(-facingZ, facingX), -0.15)
         dummy.updateMatrix()
-        armor.current!.setMatrixAt(armorIndex, dummy.matrix)
+        armor.current.setMatrixAt(armorIndex, dummy.matrix)
         armorIndex += 1
       }
 
       const markerColor = SPECIAL_ORC_COLORS[enemy.kind]
-      if (markerColor) {
+      if (markerColor && markerIndex < MAX_RENDERED_MARKERS) {
         const markerScale = enemy.kind === 'ogre' ? 0.28 : enemy.kind === 'banner' ? 0.2 : 0.15
         dummy.position.set(x, 1.38 * scale + wobble, z)
         dummy.scale.setScalar(markerScale)
         dummy.rotation.set(0, enemy.id * 0.35, 0)
         dummy.updateMatrix()
-        specialMarkers.current!.setMatrixAt(markerIndex, dummy.matrix)
-        specialMarkers.current!.setColorAt(markerIndex, markerColor)
+        specialMarkers.current.setMatrixAt(markerIndex, dummy.matrix)
+        specialMarkers.current.setColorAt(markerIndex, markerColor)
         markerIndex += 1
       }
-    })
-    bodies.current.count = visible.length
-    heads.current.count = visible.length
+    }
+    bodies.current.count = visibleCount
+    heads.current.count = detailedCount
     armor.current.count = armorIndex
     specialMarkers.current.count = markerIndex
     bodies.current.instanceMatrix.needsUpdate = true
@@ -509,11 +564,11 @@ function OrcHorde({ simulation }: { simulation: SimulationState }) {
         <sphereGeometry args={[0.25, 7, 5]} />
         <meshStandardMaterial color="#78944f" roughness={1} />
       </instancedMesh>
-      <instancedMesh ref={armor} args={[undefined, undefined, MAX_RENDERED_ORCS]} frustumCulled={false}>
+      <instancedMesh ref={armor} args={[undefined, undefined, MAX_RENDERED_ARMOR]} frustumCulled={false}>
         <boxGeometry args={[0.12, 0.72, 0.62]} />
         <meshStandardMaterial color="#606867" metalness={0.65} />
       </instancedMesh>
-      <instancedMesh ref={specialMarkers} args={[undefined, undefined, MAX_RENDERED_ORCS]} frustumCulled={false}>
+      <instancedMesh ref={specialMarkers} args={[undefined, undefined, MAX_RENDERED_MARKERS]} frustumCulled={false}>
         <octahedronGeometry args={[1, 0]} />
         <meshStandardMaterial vertexColors emissive="#31140d" emissiveIntensity={0.35} />
       </instancedMesh>
@@ -550,6 +605,8 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, settings, placem
   const pathInfos = useMemo(() => map.paths.map(buildPathInfo), [map.paths])
   const lastPowerId = useRef<number | null>(null)
   const lastStressId = useRef<number | null>(null)
+  const stressStream = useRef<(StressStream & { kind?: EnemyKind }) | null>(null)
+  const renderedFrameMs = useRef(16.7)
   const { camera } = useThree()
   const combatAudio = useRef(createCombatAudioState())
   const audioElapsed = useRef(0)
@@ -575,7 +632,12 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, settings, placem
   useEffect(() => {
     if (!stressCommand || stressCommand.id === lastStressId.current) return
     lastStressId.current = stressCommand.id
-    spawnStressEnemies(sim.current, map, rules, stressCommand.count, stressCommand.kind)
+    if (stressCommand.streamRate && stressCommand.liveCap) {
+      stressStream.current = { ...createStressStream(stressCommand.count, stressCommand.streamRate, stressCommand.liveCap), kind: stressCommand.kind }
+    } else {
+      stressStream.current = null
+      spawnStressEnemies(sim.current, map, rules, stressCommand.count, stressCommand.kind)
+    }
     onSnapshot(toSnapshot(sim.current, run))
   }, [map, onSnapshot, rules, run, stressCommand])
 
@@ -585,6 +647,14 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, settings, placem
       return
     }
     const state = sim.current
+    renderedFrameMs.current += (frameDelta * 1000 - renderedFrameMs.current) * 0.08
+    const stream = stressStream.current
+    if (stream && stream.remaining > 0) {
+      const amount = scheduleStressSpawns(stream, frameDelta, state.enemies.length)
+      if (amount > 0) {
+        spawnStressEnemies(state, map, rules, amount, stream.kind)
+      }
+    }
     audioElapsed.current += frameDelta
     state.accumulator += Math.min(frameDelta, 0.1) * speed
     while (state.accumulator >= SIMULATION_STEP) {
@@ -603,11 +673,19 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, settings, placem
       state.removedWallIds.clear()
     }
     state.reportTimer += frameDelta
-    if (state.reportTimer >= 1 / 15) {
+    const reportRate = state.enemies.length >= 4000 ? 4 : state.enemies.length >= 2000 ? 8 : 15
+    if (state.reportTimer >= 1 / reportRate) {
       state.reportTimer = 0
       render((value) => value + 1)
       onSnapshot(toSnapshot(state, run))
-      ;(globalThis as typeof globalThis & { __ORCFALL_TELEMETRY__?: ReturnType<typeof getSimulationTelemetry> }).__ORCFALL_TELEMETRY__ = getSimulationTelemetry(state)
+      ;(globalThis as typeof globalThis & { __ORCFALL_TELEMETRY__?: RuntimeTelemetry }).__ORCFALL_TELEMETRY__ = {
+        ...getSimulationTelemetry(state),
+        fps: 1000 / Math.max(0.01, renderedFrameMs.current),
+        frameMs: renderedFrameMs.current,
+        renderedOrcs: Math.min(state.enemies.length, MAX_RENDERED_ORCS),
+        detailedOrcs: Math.min(state.enemies.length, FULL_DETAIL_ORCS),
+        stressRemaining: stressStream.current?.remaining ?? 0,
+      }
     }
 
     if (state.baseHealth <= 0) {
@@ -644,6 +722,14 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, settings, placem
   )
 }
 
+export type RuntimeTelemetry = ReturnType<typeof getSimulationTelemetry> & {
+  fps: number
+  frameMs: number
+  renderedOrcs: number
+  detailedOrcs: number
+  stressRemaining: number
+}
+
 const CORPSE_LIMIT = { off: 0, low: 24, high: 72 } as const
 export function corpseVisualLimit(density: GameSettings['corpseDensity']): number { return CORPSE_LIMIT[density] }
 
@@ -659,35 +745,38 @@ function CombatVisualPool({ simulation, corpseDensity, reducedFlashes }: {
   useFrame(() => {
     if (!corpses.current || !bursts.current || !debris.current) return
     const corpseLimit = corpseVisualLimit(corpseDensity)
-    const allDeaths = simulation.visuals.filter((visual) => visual.kind === 'death')
-    const deaths = corpseLimit === 0 ? [] : allDeaths.slice(-corpseLimit)
-    const impacts = simulation.visuals.filter((visual) => visual.kind === 'impact')
-    const breaks = simulation.visuals.filter((visual) => visual.kind === 'wallBreak')
-    deaths.forEach((visual, index) => {
-      dummy.position.set(visual.x, 0.08, visual.z)
-      dummy.rotation.set(Math.PI / 2, visual.id * 1.7, 0)
-      dummy.scale.set(0.42, 0.18, 0.55)
-      dummy.updateMatrix()
-      corpses.current!.setMatrixAt(index, dummy.matrix)
-    })
-    impacts.forEach((visual, index) => {
-      const amount = reducedFlashes ? 0.22 : Math.min(1, visual.life * 5)
-      dummy.position.set(visual.x, 0.15, visual.z)
-      dummy.rotation.set(0, 0, 0)
-      dummy.scale.setScalar(0.18 + amount * 0.35)
-      dummy.updateMatrix()
-      bursts.current!.setMatrixAt(index, dummy.matrix)
-    })
-    breaks.forEach((visual, index) => {
-      dummy.position.set(visual.x, 0.16, visual.z)
-      dummy.rotation.set(visual.id, visual.id * 0.7, visual.id * 0.4)
-      dummy.scale.setScalar(0.28 + visual.life * 0.3)
-      dummy.updateMatrix()
-      debris.current!.setMatrixAt(index, dummy.matrix)
-    })
-    corpses.current.count = deaths.length
-    bursts.current.count = impacts.length
-    debris.current.count = breaks.length
+    let deathCount = 0
+    let impactCount = 0
+    let breakCount = 0
+    for (let index = simulation.visuals.length - 1; index >= 0; index -= 1) {
+      const visual = simulation.visuals[index]
+      if (visual.kind === 'death' && deathCount < corpseLimit) {
+        dummy.position.set(visual.x, 0.08, visual.z)
+        dummy.rotation.set(Math.PI / 2, visual.id * 1.7, 0)
+        dummy.scale.set(0.42, 0.18, 0.55)
+        dummy.updateMatrix()
+        corpses.current.setMatrixAt(deathCount, dummy.matrix)
+        deathCount += 1
+      } else if (visual.kind === 'impact' && impactCount < MAX_COMBAT_POOL_INSTANCES) {
+        const amount = reducedFlashes ? 0.22 : Math.min(1, visual.life * 5)
+        dummy.position.set(visual.x, 0.15, visual.z)
+        dummy.rotation.set(0, 0, 0)
+        dummy.scale.setScalar(0.18 + amount * 0.35)
+        dummy.updateMatrix()
+        bursts.current.setMatrixAt(impactCount, dummy.matrix)
+        impactCount += 1
+      } else if (visual.kind === 'wallBreak' && breakCount < MAX_COMBAT_POOL_INSTANCES) {
+        dummy.position.set(visual.x, 0.16, visual.z)
+        dummy.rotation.set(visual.id, visual.id * 0.7, visual.id * 0.4)
+        dummy.scale.setScalar(0.28 + visual.life * 0.3)
+        dummy.updateMatrix()
+        debris.current.setMatrixAt(breakCount, dummy.matrix)
+        breakCount += 1
+      }
+    }
+    corpses.current.count = deathCount
+    bursts.current.count = impactCount
+    debris.current.count = breakCount
     corpses.current.instanceMatrix.needsUpdate = true
     bursts.current.instanceMatrix.needsUpdate = true
     debris.current.instanceMatrix.needsUpdate = true
@@ -696,10 +785,10 @@ function CombatVisualPool({ simulation, corpseDensity, reducedFlashes }: {
     <instancedMesh ref={corpses} args={[undefined, undefined, 72]} frustumCulled={false}>
       <capsuleGeometry args={[0.22, 0.35, 2, 5]} /><meshStandardMaterial color="#304027" roughness={1} transparent opacity={0.68} />
     </instancedMesh>
-    <instancedMesh ref={bursts} args={[undefined, undefined, 96]} frustumCulled={false}>
+    <instancedMesh ref={bursts} args={[undefined, undefined, MAX_COMBAT_POOL_INSTANCES]} frustumCulled={false}>
       <sphereGeometry args={[1, 6, 4]} /><meshBasicMaterial color="#ffc268" transparent opacity={reducedFlashes ? 0.16 : 0.46} depthWrite={false} />
     </instancedMesh>
-    <instancedMesh ref={debris} args={[undefined, undefined, 96]} frustumCulled={false}>
+    <instancedMesh ref={debris} args={[undefined, undefined, MAX_COMBAT_POOL_INSTANCES]} frustumCulled={false}>
       <boxGeometry args={[0.55, 0.18, 0.2]} /><meshStandardMaterial color="#8c7149" roughness={1} />
     </instancedMesh>
   </>
@@ -805,6 +894,7 @@ function Aircraft({ x }: { x: number }) {
 }
 
 const MAX_RENDERED_TRACERS = 2048
+const MAX_COMBAT_POOL_INSTANCES = 96
 const TRACER_COLORS = {
   cryo: new Color('#8ee8f2'), flamethrower: new Color('#ff6637'), cannon: new Color('#ffb14f'), default: new Color('#ffe585'),
 }
@@ -814,8 +904,9 @@ function TracerPool({ simulation }: { simulation: SimulationState }) {
   const dummy = useMemo(() => new Object3D(), [])
   useFrame(() => {
     if (!mesh.current) return
-    const visible = simulation.tracers.slice(0, MAX_RENDERED_TRACERS)
-    visible.forEach((tracer, index) => {
+    const visibleCount = Math.min(simulation.tracers.length, MAX_RENDERED_TRACERS)
+    for (let index = 0; index < visibleCount; index += 1) {
+      const tracer = simulation.tracers[index]
       const dx = tracer.to.x - tracer.from.x
       const dz = tracer.to.z - tracer.from.z
       const length = Math.hypot(dx, dz)
@@ -824,12 +915,12 @@ function TracerPool({ simulation }: { simulation: SimulationState }) {
       dummy.rotation.set(0, -Math.atan2(dz, dx), 0)
       dummy.scale.set(length, fade, fade)
       dummy.updateMatrix()
-      mesh.current!.setMatrixAt(index, dummy.matrix)
+      mesh.current.setMatrixAt(index, dummy.matrix)
       const color = tracer.tower === 'cryo' ? TRACER_COLORS.cryo : tracer.tower === 'flamethrower'
         ? TRACER_COLORS.flamethrower : tracer.tower === 'cannon' ? TRACER_COLORS.cannon : TRACER_COLORS.default
-      mesh.current!.setColorAt(index, color)
-    })
-    mesh.current.count = visible.length
+      mesh.current.setColorAt(index, color)
+    }
+    mesh.current.count = visibleCount
     mesh.current.instanceMatrix.needsUpdate = true
     if (mesh.current.instanceColor) mesh.current.instanceColor.needsUpdate = true
   })

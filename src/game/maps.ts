@@ -104,7 +104,31 @@ export const BROKEN_CITADEL: MapDefinition = {
   palette: { ground: '#34363a', path: '#6e6259', background: '#111216', rock: '#77777b' },
 }
 
-export const BUILT_IN_MAPS: readonly MapDefinition[] = [GREEN_MARCH, TWIN_FORK, FROZEN_PASS, ASH_FIELDS, BROKEN_CITADEL]
+/** A late-game arena: the dashed anchor lines only identify three spawn regions and the shared fortress. */
+export const SHATTERED_EXPANSE: MapDefinition = {
+  id: 'shattered-expanse', name: 'Shattered Expanse', width: 22, depth: 14, pathWidth: 1.5,
+  navigationMode: 'open',
+  paths: [
+    [{ x: -10.8, z: -4.7 }, { x: 10.4, z: 0 }],
+    [{ x: -10.8, z: 0 }, { x: 10.4, z: 0 }],
+    [{ x: -10.8, z: 4.7 }, { x: 10.4, z: 0 }],
+  ],
+  solidPolygons: [
+    { kind: 'platform', points: [{ x: -7.8, z: -5.4 }, { x: -5.2, z: -5.4 }, { x: -4.8, z: -3.4 }, { x: -7.5, z: -3.1 }] },
+    { kind: 'platform', points: [{ x: -7.1, z: -1.7 }, { x: -4.8, z: -1.7 }, { x: -4.5, z: 0.6 }, { x: -7.3, z: 0.8 }] },
+    { kind: 'platform', points: [{ x: -7.6, z: 2.5 }, { x: -5.1, z: 2.2 }, { x: -4.8, z: 4.5 }, { x: -7.2, z: 5.2 }] },
+    { kind: 'platform', points: [{ x: -2.8, z: -4.9 }, { x: -0.4, z: -5.1 }, { x: 0, z: -2.8 }, { x: -2.6, z: -2.6 }] },
+    { kind: 'platform', points: [{ x: -2.2, z: -0.9 }, { x: 0.3, z: -1.1 }, { x: 0.8, z: 1 }, { x: -2.4, z: 1.3 }] },
+    { kind: 'platform', points: [{ x: -2.5, z: 3 }, { x: 0.2, z: 2.6 }, { x: 0.5, z: 5.1 }, { x: -2.1, z: 5.3 }] },
+    { kind: 'platform', points: [{ x: 2.5, z: -3.8 }, { x: 4.5, z: -4.4 }, { x: 5.2, z: -2.1 }, { x: 2.8, z: -1.8 }] },
+    { kind: 'platform', points: [{ x: 2.8, z: 1.7 }, { x: 5, z: 1.5 }, { x: 5.3, z: 4.1 }, { x: 2.5, z: 4.5 }] },
+    { kind: 'platform', points: [{ x: 6.7, z: -5.3 }, { x: 8.8, z: -5 }, { x: 9, z: -3.2 }, { x: 6.5, z: -3.1 }] },
+    { kind: 'blocker', points: [{ x: 6.2, z: 0.5 }, { x: 7.2, z: -0.3 }, { x: 8, z: 0.5 }, { x: 7.1, z: 1.3 }] },
+  ],
+  palette: { ground: '#21363b', path: '#468e91', background: '#0b151c', rock: '#627078' },
+}
+
+export const BUILT_IN_MAPS: readonly MapDefinition[] = [GREEN_MARCH, TWIN_FORK, FROZEN_PASS, ASH_FIELDS, BROKEN_CITADEL, SHATTERED_EXPANSE]
 export const DEFAULT_MAP = GREEN_MARCH
 
 export function findBuiltInMap(id: string): MapDefinition | undefined {

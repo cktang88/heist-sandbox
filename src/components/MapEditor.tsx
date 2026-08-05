@@ -2,7 +2,7 @@ import { useState, type MouseEvent } from 'react'
 import { isMap, normalizeMap } from '../game/mapStore'
 import { MAP_PALETTE_PRESETS, type MapPalettePreset } from '../game/maps'
 import { buildPathInfo, distance, distanceToPath } from '../game/path'
-import type { MapBuildZone, MapDecoration, MapDecorationKind, MapDefinition, MapObstacle, MapSecondaryObjective, Point, WaveDefinition } from '../game/types'
+import type { MapBuildZone, MapDecoration, MapDecorationKind, MapDefinition, MapObstacle, MapSecondaryObjective, MapSolidPolygon, Point, WaveDefinition } from '../game/types'
 import { WaveSetEditor } from './WaveSetEditor'
 
 type MapEditorProps = {
@@ -16,12 +16,17 @@ export function MapEditor({ initialMap, onCancel, onSave }: MapEditorProps) {
   const [name, setName] = useState(initialMap.name)
   const [paths, setPaths] = useState<Point[][]>(initialMap.paths)
   const [obstacles, setObstacles] = useState<MapObstacle[]>(initialMap.obstacles ?? [])
+  const [solidPolygons, setSolidPolygons] = useState<MapSolidPolygon[]>(initialMap.solidPolygons ?? [])
   const [decorations, setDecorations] = useState<MapDecoration[]>(initialMap.decorations ?? [])
   const [buildZones, setBuildZones] = useState<MapBuildZone[]>(initialMap.buildZones ?? [])
   const [secondaryObjective, setSecondaryObjective] = useState<MapSecondaryObjective | undefined>(initialMap.secondaryObjective)
   const [buildZoneRadius, setBuildZoneRadius] = useState(2)
   const [waves, setWaves] = useState<WaveDefinition[]>(cloneWaves(initialMap.waves ?? []))
-  const [tool, setTool] = useState<'route' | 'boulder' | 'buildZone' | 'supplyCache' | MapDecorationKind>('route')
+  const [tool, setTool] = useState<'route' | 'polygon' | 'boulder' | 'buildZone' | 'supplyCache' | MapDecorationKind>('route')
+  const [polygonDraft, setPolygonDraft] = useState<Point[]>([])
+  const [polygonKind, setPolygonKind] = useState<'platform' | 'blocker'>('platform')
+  const [selectedPolygonIndex, setSelectedPolygonIndex] = useState<number | null>(null)
+  const [selectedPolygonVertex, setSelectedPolygonVertex] = useState<number | null>(null)
   const [activePathIndex, setActivePathIndex] = useState(0)
   const [jsonDraft, setJsonDraft] = useState('')
   const [jsonError, setJsonError] = useState<string | null>(null)
@@ -34,6 +39,21 @@ export function MapEditor({ initialMap, onCancel, onSave }: MapEditorProps) {
     const z = ((event.clientY - box.top) / box.height - 0.5) * mapBase.depth
     const fortress = paths[0]?.at(-1)
     const clicked = { x: round(x), z: round(z) }
+    if (tool === 'polygon') {
+      if (selectedPolygonIndex !== null) {
+        if (selectedPolygonVertex !== null) {
+          setPolygonDraft((current) => current.map((point, index) => index === selectedPolygonVertex ? clicked : point))
+          setSelectedPolygonVertex(null)
+          setToolError(null)
+          return
+        }
+        const vertex = polygonDraft.findIndex((point) => distance(point, clicked) <= 0.55)
+        if (vertex >= 0) { setSelectedPolygonVertex(vertex); setToolError(null); return }
+      }
+      if (polygonDraft.length >= 24) setToolError('A polygon can contain up to 24 corners.')
+      else { setPolygonDraft((current) => [...current, clicked]); setToolError(null) }
+      return
+    }
     if (tool === 'supplyCache') {
       if (secondaryObjective && distance(clicked, secondaryObjective) <= 0.8) setSecondaryObjective(undefined)
       else setSecondaryObjective({ kind: 'supplyCache', ...clicked, health: secondaryObjective?.health ?? 280, bonusMedals: secondaryObjective?.bonusMedals ?? 10 })
@@ -63,7 +83,7 @@ export function MapEditor({ initialMap, onCancel, onSave }: MapEditorProps) {
       return
     }
     if (tool === 'boulder') {
-      const tooCloseToRoute = paths.some((path) => distanceToPath(clicked, path) <= mapBase.pathWidth / 2 + 0.8)
+      const tooCloseToRoute = mapBase.navigationMode !== 'open' && paths.some((path) => distanceToPath(clicked, path) <= mapBase.pathWidth / 2 + 0.8)
       const outsideMap = Math.abs(clicked.x) + 0.65 > mapBase.width / 2 || Math.abs(clicked.z) + 0.65 > mapBase.depth / 2
       const overlaps = obstacles.some((obstacle) => distance(clicked, obstacle) < obstacle.radius + 0.65)
       if (tooCloseToRoute) setToolError('Boulders need clear ground away from every route.')
@@ -91,6 +111,8 @@ export function MapEditor({ initialMap, onCancel, onSave }: MapEditorProps) {
     ...mapBase,
     name: name.trim() || 'Untitled Front',
     paths,
+    navigationMode: mapBase.navigationMode,
+    solidPolygons: solidPolygons.length ? solidPolygons : undefined,
     obstacles: obstacles.length ? obstacles : undefined,
     decorations: decorations.length ? decorations : undefined,
     buildZones: buildZones.length ? buildZones : undefined,
@@ -105,12 +127,16 @@ export function MapEditor({ initialMap, onCancel, onSave }: MapEditorProps) {
       setMapBase(parsed)
       setName(parsed.name)
       setPaths(parsed.paths)
+      setSolidPolygons(parsed.solidPolygons ?? [])
       setObstacles(parsed.obstacles ?? [])
       setDecorations(parsed.decorations ?? [])
       setBuildZones(parsed.buildZones ?? [])
       setSecondaryObjective(parsed.secondaryObjective)
       setWaves(cloneWaves(parsed.waves ?? []))
       setActivePathIndex(0)
+      setPolygonDraft([])
+      setSelectedPolygonIndex(null)
+      setSelectedPolygonVertex(null)
       setJsonError(null)
     } catch {
       setJsonError('Fix the JSON syntax before loading it.')
@@ -151,13 +177,19 @@ export function MapEditor({ initialMap, onCancel, onSave }: MapEditorProps) {
       <aside className="editor-sidebar">
         <p className="eyebrow">DEVELOPER TOOL // MAP FORGE</p>
         <h1>MAP CREATOR</h1>
-        <p>Choose a lane, then click the field to lay its route. Every lane must finish at the same fortress.</p>
+        <p>Corridor maps follow painted routes. Open-field maps let orcs cross all ground and route around polygon platforms.</p>
         <label>MAP NAME<input value={name} onChange={(event) => setName(event.target.value)} /></label>
         <div className="editor-dimensions">
           <label>WIDTH<input aria-label="Map width" type="number" min="10" max="60" step="1" value={mapBase.width} onChange={(event) => setMapBase((current) => ({ ...current, width: clampNumber(event.target.value, 10, 60, current.width) }))} /></label>
           <label>DEPTH<input aria-label="Map depth" type="number" min="8" max="40" step="1" value={mapBase.depth} onChange={(event) => setMapBase((current) => ({ ...current, depth: clampNumber(event.target.value, 8, 40, current.depth) }))} /></label>
           <label>PATH WIDTH<input aria-label="Path width" type="number" min="0.5" max="8" step="0.1" value={mapBase.pathWidth} onChange={(event) => setMapBase((current) => ({ ...current, pathWidth: clampNumber(event.target.value, 0.5, 8, current.pathWidth) }))} /></label>
         </div>
+        <label>NAVIGATION
+          <select aria-label="Navigation mode" value={mapBase.navigationMode ?? 'corridor'} onChange={(event) => setMapBase((current) => ({ ...current, navigationMode: event.target.value as 'corridor' | 'open' }))}>
+            <option value="corridor">Route corridors</option>
+            <option value="open">Open field</option>
+          </select>
+        </label>
         <label>TERRAIN PALETTE
           <select
             aria-label="Terrain palette"
@@ -172,6 +204,7 @@ export function MapEditor({ initialMap, onCancel, onSave }: MapEditorProps) {
         </label>
         <div className="editor-tools" aria-label="Map drawing tool">
           <button className={tool === 'route' ? 'selected' : ''} onClick={() => setTool('route')}>DRAW ROUTE</button>
+          <button className={tool === 'polygon' ? 'selected' : ''} onClick={() => setTool('polygon')}>DRAW POLYGON</button>
           <button className={tool === 'boulder' ? 'selected' : ''} onClick={() => setTool('boulder')}>PLACE BOULDER</button>
           <button className={tool === 'buildZone' ? 'selected' : ''} onClick={() => setTool('buildZone')}>BUILD ZONE</button>
           <button className={tool === 'tree' ? 'selected' : ''} onClick={() => setTool('tree')}>STAMP TREE</button>
@@ -179,9 +212,26 @@ export function MapEditor({ initialMap, onCancel, onSave }: MapEditorProps) {
           <button className={tool === 'crater' ? 'selected' : ''} onClick={() => setTool('crater')}>STAMP CRATER</button>
           <button className={tool === 'supplyCache' ? 'selected' : ''} onClick={() => setTool('supplyCache')}>SUPPLY CACHE</button>
         </div>
+        {tool === 'polygon' && <div className="polygon-tools">
+          <label>POLYGON TYPE<select aria-label="Polygon type" value={polygonKind} onChange={(event) => setPolygonKind(event.target.value as 'platform' | 'blocker')}><option value="platform">Tower platform</option><option value="blocker">Solid blocker</option></select></label>
+          <p>{selectedPolygonIndex === null ? 'Click corners around the shape, then save it.' : selectedPolygonVertex === null ? 'Click a corner to select it, then click its new position.' : `Corner ${selectedPolygonVertex + 1} selected — click its new position.`} Platforms stop orcs and accept towers.</p>
+          <div className="editor-actions">
+            <button className="secondary-button" onClick={() => { setPolygonDraft([]); setSelectedPolygonIndex(null); setSelectedPolygonVertex(null) }}>NEW POLYGON</button>
+            <button className="secondary-button" disabled={!polygonDraft.length} onClick={() => setPolygonDraft((current) => current.slice(0, -1))}>UNDO CORNER</button>
+            <button className="secondary-button" disabled={polygonDraft.length < 3} onClick={() => {
+              const polygon = { kind: polygonKind, points: polygonDraft }
+              setSolidPolygons((current) => selectedPolygonIndex === null ? [...current, polygon] : current.map((item, index) => index === selectedPolygonIndex ? polygon : item))
+              setPolygonDraft([]); setSelectedPolygonIndex(null); setSelectedPolygonVertex(null); setToolError(null)
+            }}>SAVE POLYGON</button>
+          </div>
+          {solidPolygons.map((polygon, index) => <div className="polygon-row" key={`polygon-row-${index}`}>
+            <button className={selectedPolygonIndex === index ? 'selected' : 'secondary-button'} onClick={() => { setSelectedPolygonIndex(index); setSelectedPolygonVertex(null); setPolygonDraft(polygon.points.map((point) => ({ ...point }))); setPolygonKind(polygon.kind ?? 'blocker') }}>EDIT {polygon.kind === 'platform' ? 'PLATFORM' : 'BLOCKER'} {index + 1}</button>
+            <button className="secondary-button" onClick={() => { setSolidPolygons((current) => current.filter((_, itemIndex) => itemIndex !== index)); setPolygonDraft([]); setSelectedPolygonIndex(null); setSelectedPolygonVertex(null) }}>DELETE</button>
+          </div>)}
+        </div>}
         <div className="editor-readout">
-          <span>{tool === 'route' ? `Lane ${activePathIndex + 1} points` : tool === 'boulder' ? 'Boulders' : tool === 'buildZone' ? 'Build zones' : tool === 'supplyCache' ? 'Supply cache' : 'Decoration stamps'}</span>
-          <strong>{tool === 'route' ? activePath.length : tool === 'boulder' ? obstacles.length : tool === 'buildZone' ? buildZones.length : tool === 'supplyCache' ? Number(Boolean(secondaryObjective)) : decorations.length}</strong>
+          <span>{tool === 'route' ? `Lane ${activePathIndex + 1} points` : tool === 'polygon' ? 'Polygon corners' : tool === 'boulder' ? 'Boulders' : tool === 'buildZone' ? 'Build zones' : tool === 'supplyCache' ? 'Supply cache' : 'Decoration stamps'}</span>
+          <strong>{tool === 'route' ? activePath.length : tool === 'polygon' ? polygonDraft.length : tool === 'boulder' ? obstacles.length : tool === 'buildZone' ? buildZones.length : tool === 'supplyCache' ? Number(Boolean(secondaryObjective)) : decorations.length}</strong>
         </div>
         {tool === 'buildZone' && <label className="zone-radius">ZONE RADIUS
           <input aria-label="Build zone radius" type="number" min="0.5" max="10" step="0.5" value={buildZoneRadius} onChange={(event) => setBuildZoneRadius(Math.min(10, Math.max(0.5, Number(event.target.value) || 0.5)))} />
@@ -205,9 +255,9 @@ export function MapEditor({ initialMap, onCancel, onSave }: MapEditorProps) {
           <button className="secondary-button" onClick={() => setBuildZones((current) => current.slice(0, -1))} disabled={!buildZones.length}>UNDO ZONE</button>
           <button className="secondary-button" onClick={() => setDecorations((current) => current.slice(0, -1))} disabled={!decorations.length}>UNDO STAMP</button>
           <button className="secondary-button" onClick={() => {
-            setMapBase(initialMap); setPaths(initialMap.paths); setObstacles(initialMap.obstacles ?? [])
+            setMapBase(initialMap); setPaths(initialMap.paths); setObstacles(initialMap.obstacles ?? []); setSolidPolygons(initialMap.solidPolygons ?? [])
             setBuildZones(initialMap.buildZones ?? []); setDecorations(initialMap.decorations ?? []); setSecondaryObjective(initialMap.secondaryObjective); setWaves(cloneWaves(initialMap.waves ?? []))
-            setActivePathIndex(0); setName(initialMap.name)
+            setActivePathIndex(0); setName(initialMap.name); setPolygonDraft([]); setSelectedPolygonIndex(null); setSelectedPolygonVertex(null)
           }}>RESET MAP</button>
         </div>
         {mapError && <p className="editor-error">{mapError}</p>}
@@ -255,13 +305,15 @@ export function MapEditor({ initialMap, onCancel, onSave }: MapEditorProps) {
               <path d={`M ${obstacle.x - 0.3} ${obstacle.z + 0.15} l 0.22 -0.42 l 0.46 0.08 l 0.18 0.4 l -0.35 0.27 z`} fill="#a29c79" opacity="0.55" />
             </g>
           ))}
+          {solidPolygons.map((polygon, index) => <polygon key={`polygon-${index}`} points={polygon.points.map((point) => `${point.x},${point.z}`).join(' ')} fill={polygon.kind === 'platform' ? '#3d7d77' : mapBase.palette?.rock ?? '#77765e'} stroke="#18211d" strokeWidth="0.16" />)}
+          {polygonDraft.length > 0 && <g><polygon points={polygonDraft.map((point) => `${point.x},${point.z}`).join(' ')} fill={polygonKind === 'platform' ? '#67aaa2' : '#9b9677'} fillOpacity="0.55" stroke="#fff0a0" strokeWidth="0.14" strokeDasharray="0.3 0.18" />{polygonDraft.map((point, index) => <circle key={`draft-point-${index}`} cx={point.x} cy={point.z} r="0.22" fill={selectedPolygonVertex === index ? '#ff6b54' : '#fff0a0'} />)}</g>}
           {decorations.map((decoration, index) => <DecorationStamp key={`decoration-${index}`} decoration={decoration} />)}
           {secondaryObjective && <SupplyCacheStamp objective={secondaryObjective} />}
           {paths.map((path, pathIndex) => {
             const polyline = path.map((point) => `${point.x},${point.z}`).join(' ')
             return (
               <g key={pathIndex} opacity={pathIndex === activePathIndex ? 1 : 0.58}>
-                {path.length > 1 && <polyline points={polyline} fill="none" stroke={mapBase.palette?.path ?? '#91764a'} strokeWidth={mapBase.pathWidth} strokeLinecap="round" strokeLinejoin="round" />}
+                {path.length > 1 && <polyline points={polyline} fill="none" stroke={mapBase.palette?.path ?? '#91764a'} strokeWidth={mapBase.navigationMode === 'open' ? 0.12 : mapBase.pathWidth} strokeDasharray={mapBase.navigationMode === 'open' ? '0.3 0.2' : undefined} strokeLinecap="round" strokeLinejoin="round" />}
                 {path.map((point, index) => (
                   <g key={`${point.x}-${point.z}-${index}`}>
                     <circle cx={point.x} cy={point.z} r="0.34" fill={index === 0 ? '#d8664f' : index === path.length - 1 ? '#e7cf68' : '#d9dec1'} stroke="#111711" strokeWidth="0.08" />

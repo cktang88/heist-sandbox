@@ -648,10 +648,15 @@ export default function App() {
             devUnlockAll={devUnlockAll}
             stressAvailable={phase === 'battle'}
             invulnerable={devInvulnerable}
-            onSpawnStress={(count) => {
+            onSpawnStress={(count, streamed = false) => {
               if (phase !== 'battle') return
               setRankedRun(false)
-              setStressCommand((current) => ({ id: (current?.id ?? 0) + 1, count }))
+              setStressCommand((current) => ({
+                id: (current?.id ?? 0) + 1,
+                count,
+                streamRate: streamed ? 900 : undefined,
+                liveCap: streamed ? 5000 : undefined,
+              }))
               setTuningOpen(false)
               setPaused(false)
             }}
@@ -667,7 +672,10 @@ export default function App() {
               setRankedRun(false)
               setDevInvulnerable((current) => !current)
             }}
-            onResetRuntimeCheats={() => setDevInvulnerable(false)}
+            onResetRuntimeCheats={() => {
+              setDevInvulnerable(false)
+              setStressCommand((current) => ({ id: (current?.id ?? 0) + 1, count: 0 }))
+            }}
             onToggleDevUnlockAll={() => {
               setDevUnlockAll((current) => {
                 if (!current && phase === 'battle') setRankedRun(false)

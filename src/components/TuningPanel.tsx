@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ACTIVE_POWER_OPTIONS, BUILD, DEFAULT_TUNING, TOWER_KINDS } from '../game/config'
 import { storeTuning } from '../game/tuningStore'
 import type { ActivePowerKind, EnemyKind, GameTuning, TowerKind } from '../game/types'
+import type { RuntimeTelemetry } from './GameScene'
 
 type TuningField = {
   id: string
@@ -69,7 +70,7 @@ export function TuningPanel({ tuning, devUnlockAll, stressAvailable, invulnerabl
   stressAvailable: boolean
   invulnerable: boolean
   onToggleDevUnlockAll: () => void
-  onSpawnStress: (count: 500 | 1500) => void
+  onSpawnStress: (count: number, streamed?: boolean) => void
   onSpawnEnemy: (kind: EnemyKind) => void
   onToggleInvulnerable: () => void
   onResetRuntimeCheats: () => void
@@ -79,11 +80,19 @@ export function TuningPanel({ tuning, devUnlockAll, stressAvailable, invulnerabl
 }) {
   const [draft, setDraft] = useState(tuning)
   const [query, setQuery] = useState('')
+  const [telemetry, setTelemetry] = useState<RuntimeTelemetry | null>(null)
   const visibleFields = FIELDS.filter((field) => field.label.toLowerCase().includes(query.trim().toLowerCase()))
   const update = (field: TuningField, value: number) => {
     if (!Number.isFinite(value)) return
     setDraft((current) => field.write(current, Math.max(field.min ?? 0.1, value)))
   }
+
+  useEffect(() => {
+    const read = () => setTelemetry((globalThis as typeof globalThis & { __ORCFALL_TELEMETRY__?: RuntimeTelemetry }).__ORCFALL_TELEMETRY__ ?? null)
+    read()
+    const timer = window.setInterval(read, 500)
+    return () => window.clearInterval(timer)
+  }, [])
 
   return (
     <aside className="tuning-panel">
@@ -103,10 +112,18 @@ export function TuningPanel({ tuning, devUnlockAll, stressAvailable, invulnerabl
         <div className="enemy-spawn-grid">
           {ENEMY_KINDS.map((kind) => <button key={kind} onClick={() => onSpawnEnemy(kind)} disabled={!stressAvailable}>+ {kind}</button>)}
         </div>
-        <div>
-          <button onClick={() => onSpawnStress(500)} disabled={!stressAvailable}>SPAWN 500</button>
-          <button onClick={() => onSpawnStress(1500)} disabled={!stressAvailable}>SPAWN 1,500</button>
+        <div className="stress-presets">
+          <button onClick={() => onSpawnStress(2000)} disabled={!stressAvailable}>SPAWN 2,000</button>
+          <button onClick={() => onSpawnStress(5000)} disabled={!stressAvailable}>SPAWN 5,000</button>
+          <button onClick={() => onSpawnStress(50000, true)} disabled={!stressAvailable}>STREAM 50,000</button>
         </div>
+        {telemetry && <dl className="runtime-telemetry" aria-label="Runtime telemetry">
+          <div><dt>LIVE / DRAWN</dt><dd>{telemetry.entities.toLocaleString()} / {telemetry.renderedOrcs.toLocaleString()}</dd></div>
+          <div><dt>FPS / FRAME</dt><dd>{telemetry.fps.toFixed(0)} / {telemetry.frameMs.toFixed(1)}ms</dd></div>
+          <div><dt>SIM STEP</dt><dd>{telemetry.lastStepMs.toFixed(2)}ms</dd></div>
+          <div><dt>SPATIAL CHECKS</dt><dd>{telemetry.candidatesChecked.toLocaleString()}</dd></div>
+          {telemetry.stressRemaining > 0 && <div><dt>STREAM LEFT</dt><dd>{telemetry.stressRemaining.toLocaleString()}</dd></div>}
+        </dl>}
         <button className="runtime-reset" onClick={onResetRuntimeCheats}>RESET RUNTIME CHEATS</button>
         {!stressAvailable && <small>Start a battle to inject a diagnostic horde.</small>}
       </section>

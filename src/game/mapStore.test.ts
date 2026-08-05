@@ -121,6 +121,21 @@ describe('map format', () => {
     expect(loadMap(storage)).toEqual(custom)
   })
 
+  it('validates, clones, and round-trips open-field polygons', () => {
+    const source = {
+      ...DEFAULT_MAP,
+      navigationMode: 'open' as const,
+      solidPolygons: [{ kind: 'platform' as const, points: [{ x: -2, z: -5 }, { x: 0, z: -5 }, { x: 0, z: -3 }, { x: -2, z: -3 }] }],
+    }
+    const custom = createCustomMap(source, 'Polygon Front', [])
+    expect(isMap(custom)).toBe(true)
+    expect(custom.solidPolygons).not.toBe(source.solidPolygons)
+    expect(custom.solidPolygons![0].points).not.toBe(source.solidPolygons[0].points)
+    storeMap(custom, storage)
+    expect(loadMap(storage)).toEqual(custom)
+    expect(isMap({ ...source, solidPolygons: [{ points: [{ x: 0, z: 0 }, { x: 1, z: 0 }, { x: 2, z: 0 }] }] })).toBe(false)
+  })
+
   it('rejects unknown or out-of-bounds decoration stamps', () => {
     expect(isMap({ ...DEFAULT_MAP, decorations: [{ x: 0, z: 0, kind: 'tower' }] })).toBe(false)
     expect(isMap({ ...DEFAULT_MAP, decorations: [{ x: DEFAULT_MAP.width, z: 0, kind: 'tree' }] })).toBe(false)

@@ -56,6 +56,32 @@ describe('route-corridor navigation', () => {
   })
 })
 
+describe('open-field navigation', () => {
+  const openMap: MapDefinition = {
+    ...map,
+    id: 'open-navigation-test',
+    navigationMode: 'open',
+    solidPolygons: [{ kind: 'platform', points: [
+      { x: -0.8, z: -2.2 }, { x: 0.8, z: -2.2 }, { x: 0.8, z: 2.2 }, { x: -0.8, z: 2.2 },
+    ] }],
+  }
+
+  it('uses the whole field and routes around solid polygons', () => {
+    const field = buildNavigationField(openMap)
+    const offAnchor = sampleNavigation(field, { x: -5, z: 3 })
+    const result = walk(field, openMap.paths[0][0])
+    expect(offAnchor.reachable).toBe(true)
+    expect(result.reached).toBe(true)
+    expect(result.maxOffset).toBeGreaterThan(2.2)
+  })
+
+  it('includes polygon vertices in the topology cache key', () => {
+    const first = updateNavigationCache(null, openMap, [])
+    const moved = { ...openMap, solidPolygons: [{ ...openMap.solidPolygons![0], points: openMap.solidPolygons![0].points.map((point, index) => index === 0 ? { ...point, x: point.x - 0.2 } : point) }] }
+    expect(updateNavigationCache(first, moved, [])).not.toBe(first)
+  })
+})
+
 function walk(field: ReturnType<typeof buildNavigationField>, start: Point) {
   let point = { ...start }
   let maxOffset = 0

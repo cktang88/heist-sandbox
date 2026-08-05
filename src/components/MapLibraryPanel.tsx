@@ -31,7 +31,9 @@ export function MapLibraryPanel({
           return (
             <button key={map.id} className={map.id === selectedMap.id ? 'selected' : ''} onClick={() => onSelect(map)}>
               <span>{map.name}</span>
-              <small>{custom ? 'CUSTOM' : 'BUILT-IN'} · {map.paths.length} {map.paths.length === 1 ? 'LANE' : 'LANES'}</small>
+              <small>{custom ? 'CUSTOM' : 'BUILT-IN'} · {map.navigationMode === 'open'
+                ? `${map.paths.length} SPAWNS · OPEN FIELD`
+                : `${map.paths.length} ${map.paths.length === 1 ? 'LANE' : 'LANES'}`}</small>
             </button>
           )
         })}

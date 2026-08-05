@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isValidPlacement } from './placement'
-import { BROKEN_CITADEL, FROZEN_PASS, GREEN_MARCH } from './maps'
+import { BROKEN_CITADEL, FROZEN_PASS, GREEN_MARCH, SHATTERED_EXPANSE } from './maps'
 
 describe('build placement', () => {
   it('places every tower off the route and walls on it', () => {
@@ -37,5 +37,13 @@ describe('build placement', () => {
         .filter((point) => Math.hypot(point.x - zone.x, point.z - zone.z) <= zone.radius))
       expect(candidates.some((point) => isValidPlacement(point, 'gunner', [], map))).toBe(true)
     }
+  })
+
+  it('accepts towers on open-field platforms but not on the surrounding horde field', () => {
+    const platform = SHATTERED_EXPANSE.solidPolygons![0]
+    const center = { x: platform.points.reduce((sum, point) => sum + point.x, 0) / platform.points.length, z: platform.points.reduce((sum, point) => sum + point.z, 0) / platform.points.length }
+    expect(isValidPlacement(center, 'gunner', [], SHATTERED_EXPANSE)).toBe(true)
+    expect(isValidPlacement({ x: 1.5, z: 0 }, 'gunner', [], SHATTERED_EXPANSE)).toBe(false)
+    expect(isValidPlacement({ x: 1.5, z: 0 }, 'wall', [], SHATTERED_EXPANSE)).toBe(true)
   })
 })

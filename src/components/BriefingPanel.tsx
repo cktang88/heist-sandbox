@@ -112,7 +112,9 @@ function BattlefieldChoices(props: BriefingPanelProps) {
       const segments = choice.paths.reduce((sum, lane) => sum + lane.length - 1, 0)
       return <button key={choice.id} className={choice.id === props.map.id ? 'selected' : ''} onClick={() => props.onSelectMap(choice)} disabled={locked}>
         <span>{locked ? '🔒 ' : ''}{choice.name}</span>
-        <small>{locked ? 'Complete the prior mission' : `${choice.paths.length} ${choice.paths.length === 1 ? 'lane' : 'lanes'} · ${segments} segments`}</small>
+        <small>{locked ? 'Complete the prior mission' : choice.navigationMode === 'open'
+          ? `${choice.paths.length} spawn regions · open field`
+          : `${choice.paths.length} ${choice.paths.length === 1 ? 'lane' : 'lanes'} · ${segments} segments`}</small>
       </button>
     })}
   </div>

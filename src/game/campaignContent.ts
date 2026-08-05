@@ -99,10 +99,20 @@ export const BROKEN_CITADEL_WAVES: readonly WaveDefinition[] = [
   ], 1.8), boss: true, rewardMultiplier: 1.5 },
 ]
 
+// Broad overlapping streams make the open arena feel like a flood instead of three discrete lanes.
+export const SHATTERED_EXPANSE_WAVES: readonly WaveDefinition[] = [
+  wave([group('grunt', 20, 0.12, 0, 0), group('grunt', 20, 0.12, 0, 1), group('grunt', 20, 0.12, 0, 2)], 8, 0.55),
+  wave([group('grunt', 24, 0.1, 0, 0), group('runner', 16, 0.09, 0.5, 1), group('shieldbearer', 12, 0.16, 1, 2)], 8, 0.5),
+  wave([group('armored', 18, 0.14, 0, 0), group('grunt', 24, 0.08, 0, 1), group('sapper', 14, 0.12, 0.8, 2), group('runner', 18, 0.08, 1.2)], 8, 0.45),
+  wave([group('berserker', 20, 0.1, 0, 0), group('shieldbearer', 20, 0.11, 0, 1), group('banner', 12, 0.18, 0.6, 2), group('grunt', 30, 0.07, 1)], 8, 0.42),
+  { ...wave([group('armored', 24, 0.1, 0, 0), group('berserker', 24, 0.09, 0, 1), group('shaman', 16, 0.16, 0, 2), group('runner', 30, 0.06, 0.7), group('brute', 12, 0.18, 1.2)], 8, 0.4), boss: true, rewardMultiplier: 1.6 },
+]
+
 export const CAMPAIGN_WAVES_BY_MAP: Readonly<Record<string, readonly WaveDefinition[]>> = {
   'green-march': GREEN_MARCH_WAVES,
   'twin-fork': TWIN_FORK_WAVES,
   'frozen-pass': FROZEN_PASS_WAVES,
   'ash-fields': ASH_FIELDS_WAVES,
   'broken-citadel': BROKEN_CITADEL_WAVES,
+  'shattered-expanse': SHATTERED_EXPANSE_WAVES,
 }

@@ -196,7 +196,7 @@ export function stepSimulation(state: SimulationState, context: SimulationContex
   }
   state.elapsedSeconds += delta
   spawnEnemies(state, context, delta)
-  state.enemyIndex = new EnemySpatialIndex(state.enemies, 1.5, {
+  state.enemyIndex.rebuild(state.enemies, {
     minX: -context.map.width / 2 - 1, maxX: context.map.width / 2 + 1,
     minZ: -context.map.depth / 2 - 1, maxZ: context.map.depth / 2 + 1,
   })
@@ -503,6 +503,7 @@ function moveEnemies(state: SimulationState, context: SimulationContext, delta: 
     state.navigationDirty = false
   }
   const navigation = state.navigationCache.field
+  const separationScratch = { x: 0, z: 0 }
   for (const enemy of state.enemies) {
     if (enemy.health <= 0 || enemy.status.freezeRemaining > 0 || enemy.status.stunRemaining > 0) continue
     const stats = context.rules.tuning.enemies[enemy.kind]
@@ -533,7 +534,7 @@ function moveEnemies(state: SimulationState, context: SimulationContext, delta: 
     const rage = enemy.kind === 'berserker' && enemy.health < stats.health * enemy.healthMultiplier / 2 ? 1.5 : 1
     const path = context.map.paths[enemy.pathIndex]
     const pathInfo = context.pathInfos[enemy.pathIndex]
-    const separation = separationDirection(index, enemy)
+    const separation = separationDirection(index, enemy, separationScratch)
     const desiredDirection = sapperTarget
       ? normalizedDirection(sapperTarget.x - enemy.x, sapperTarget.z - enemy.z)
       : route.direction
@@ -569,24 +570,8 @@ export function applyFortressDamage(state: Pick<SimulationState, 'baseHealth' | 
 
 const CROWD_RADIUS = 0.58
 
-function separationDirection(index: EnemySpatialIndex<Enemy>, enemy: Enemy): Point {
-  let x = 0
-  let z = 0
-  for (const neighbor of index.neighbors(enemy, CROWD_RADIUS, isAlive, 12)) {
-    const dx = enemy.x - neighbor.x
-    const dz = enemy.z - neighbor.z
-    const spacing = Math.hypot(dx, dz)
-    if (spacing < 0.001) {
-      const angle = enemy.id * 2.399963229728653
-      x += Math.cos(angle)
-      z += Math.sin(angle)
-    } else {
-      const strength = (CROWD_RADIUS - spacing) / CROWD_RADIUS
-      x += dx / spacing * strength
-      z += dz / spacing * strength
-    }
-  }
-  return normalizedDirection(x, z)
+function separationDirection(index: EnemySpatialIndex<Enemy>, enemy: Enemy, out: Point): Point {
+  return index.separationVector(enemy, CROWD_RADIUS, isAlive, 12, enemy.id, out)
 }
 
 function normalizedDirection(x: number, z: number): Point {
@@ -838,7 +823,7 @@ function supportedTowerStats(towerPlacement: Placement, towers: Placement[], tun
 function removeExpiredEntities(state: SimulationState, delta: number, rules: GameRules): void {
   state.tracers.forEach((tracer) => { tracer.life -= delta })
   state.tracers = state.tracers.filter((tracer) => tracer.life > 0)
-  state.enemies = state.enemies.filter((enemy) => enemy.health > 0)
+  compactAliveEnemies(state.enemies)
   state.visuals.forEach((visual) => { visual.life -= delta })
   state.visuals = state.visuals.filter((visual) => visual.life > 0)
   for (const [id, wall] of state.wallById) {
@@ -859,6 +844,17 @@ function removeExpiredEntities(state: SimulationState, delta: number, rules: Gam
       state.navigationDirty = true
     }
   }
+}
+
+function compactAliveEnemies(enemies: Enemy[]): void {
+  let write = 0
+  for (let read = 0; read < enemies.length; read += 1) {
+    const enemy = enemies[read]
+    if (enemy.health <= 0) continue
+    enemies[write] = enemy
+    write += 1
+  }
+  enemies.length = write
 }
 
 export function addCombatVisual(state: Pick<SimulationState, 'visuals' | 'nextVisualId'>, kind: CombatVisual['kind'], point: Point, life: number): void {

@@ -88,6 +88,8 @@ export type Point = {
 }
 
 export type MapObstacle = Point & { radius: number }
+/** Orcs cannot cross either kind. Towers may be placed on platforms, while blockers reject all placement. */
+export type MapSolidPolygon = { points: Point[]; kind?: 'blocker' | 'platform' }
 export type MapBuildZone = Point & { radius: number }
 export type MapDecorationKind = 'tree' | 'shrub' | 'crater'
 export type MapDecoration = Point & { kind: MapDecorationKind }
@@ -100,6 +102,9 @@ export type MapDefinition = {
   depth: number
   pathWidth: number
   paths: Point[][]
+  /** Corridor maps use authored paths. Open maps use the full field and treat paths as spawn-to-fortress anchors. */
+  navigationMode?: 'corridor' | 'open'
+  solidPolygons?: MapSolidPolygon[]
   obstacles?: MapObstacle[]
   /** Visual-only terrain stamps authored in Map Forge. */
   decorations?: MapDecoration[]

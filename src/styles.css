@@ -172,6 +172,10 @@ kbd { font-family: inherit; font-size: 10px; padding: 2px 5px; margin-left: 5px;
 .editor-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 12px; }
 .editor-tools button { padding: 9px 6px; color: #90998a; background: #141b15; border: 1px solid #484e40; cursor: pointer; font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: .07em; }
 .editor-tools button.selected { color: #f4eabf; border-color: #d2bd61; background: #292919; }
+.polygon-tools { margin: 10px 0 14px; padding: 10px; border: 1px solid #3f615d; background: #14211f; }
+.polygon-tools p { margin: 7px 0; color: #a8b8ae; font-size: 12px; }
+.polygon-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; margin-top: 6px; }
+.polygon-row button { padding: 7px; }
 .editor-lanes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .editor-lanes button { padding: 7px 10px; color: #9da18f; background: #151c16; border: 1px solid #484e40; cursor: pointer; font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: .08em; }
 .editor-lanes button.selected { color: #f4eabf; border-color: #d2bd61; background: #292919; }
@@ -220,11 +224,16 @@ kbd { font-family: inherit; font-size: 10px; padding: 2px 5px; margin-left: 5px;
 .stress-tools > span { display: block; margin-bottom: 7px; color: #91bcba; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
 .stress-tools > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .stress-tools > .enemy-spawn-grid { grid-template-columns: repeat(2, 1fr); margin: 6px 0; }
+.stress-tools > .stress-presets { grid-template-columns: repeat(3, 1fr); }
 .stress-tools button { padding: 8px 5px; color: #b9dedb; background: #142727; border: 1px solid #4b7c79; cursor: pointer; font: 700 11px 'Barlow Condensed', sans-serif; letter-spacing: .06em; }
 .stress-tools button.active { color: #17180f; background: #dfc75f; border-color: #ffe57a; }
 .stress-tools .runtime-reset { width: 100%; margin-top: 6px; color: #d99d8c; border-color: #74483f; }
 .stress-tools button:disabled { opacity: .35; cursor: default; }
 .stress-tools small { display: block; margin-top: 6px; color: #587371; }
+.stress-tools > .runtime-telemetry { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 8px 0 0; background: #294342; }
+.runtime-telemetry div { min-width: 0; padding: 6px 7px; background: #0d1b1a; }
+.runtime-telemetry dt { color: #6e9895; font-size: 9px; letter-spacing: .08em; }
+.runtime-telemetry dd { margin: 2px 0 0; color: #c0e1dd; font: 700 13px 'Barlow Condensed', sans-serif; }
 .tuning-title button { color: #9dcaca; background: transparent; border: 0; font: 28px sans-serif; cursor: pointer; }
 .tuning-panel > p { margin: 12px 0; color: #94a8a2; line-height: 1.35; font-size: 13px; }
 .tuning-search { display: grid; gap: 5px; margin: 10px 0; color: #a7b8b2; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
