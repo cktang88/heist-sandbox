@@ -17,7 +17,6 @@ export function TowerVariantPicker({ tower, ranks, selectedVariantId, onChange }
     <section className="tower-variant-picker" aria-label={`${BUILD.items[tower].label} firing profile`}>
       <header className="tower-variant-picker__header">
         <b>{BUILD.items[tower].label}</b>
-        <small>CHOOSE 1 · FREE TO EQUIP</small>
       </header>
       <div className="tower-variant-picker__choices">
         {choices.map((choice) => {

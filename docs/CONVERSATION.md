@@ -542,3 +542,43 @@ Asked whether all tower types and variants were visually distinct, then whether 
 ## 104. Codex
 
 Audited the live renderer and found that variants previously differed only by an accent ring/badge while most statuses were mechanically active but invisible. Split tower, enemy-role, and status rendering into focused components. All ten tower families now have family-specific silhouettes and all 20 special profiles add distinct top-down-visible hardware. Enemy elites use shape-coded shields, plate shells, spirit orbs, banners, bomb packs, and rage horns. Burn, slow, freeze, stun, brittle, and armor break use six fixed instanced overlays that can coexist across the 8,192-orc draw ceiling; bleeding remains absent because it is not a combat mechanic. Power previews now combine unique colors with aircraft, snowflake, shell, radiation, beam, or repair-cross marks. Devtools gained PREVIEW ALL STATUS FX, and placement previews render the actual selected family/profile model.
+
+## 105. User request summary
+
+Clarified that research-tree cards which cannot yet be unlocked should obviously appear grayed out.
+
+## 106. Codex
+
+Separated Armory cards into four visible purchase states. Prerequisite-blocked cards are heavily grayscale, low-opacity, disabled, and carry a lock seal; prerequisite-ready but unaffordable cards are only softly muted; purchasable cards retain their bright medal outline; and completed or partially ranked cards keep clear progress treatments. Browser QA confirmed the contrast on a mostly locked Explosives branch.
+
+## 107. User request summary
+
+Asked to remove developer IDs, repeated rank labels, and completion copy from research cards, then broadened the rule: stat, variant, and tower categories should be communicated by appearance rather than text, with redundant text removed throughout the UI.
+
+## 108. Codex
+
+Rebuilt the research-card language around shape, symbol, brightness, and small state seals. Every category now has a distinct silhouette and corner mark; ranks use a segmented meter; completed unlocks use a check; blocked nodes use a lock; medal prices use the wallet diamond. Removed repeated `RANK`, `MAXIMUM`, category, `LOCKED`, `UNLOCKED`, and currency words from cards. The same audit removed redundant availability/equipped copy from tower loadout choices, the written lock prefix from doctrines, and the firing-profile instruction that repeated single-selection behavior.
+
+## 109. User request summary
+
+Asked for the typewriter-style face used by `ARMORY // 83-NODE RESEARCH TREE` to become the main node typeface.
+
+## 110. Codex
+
+Applied the Special Elite dossier face to upgrade names, rank counts, and medal costs. Kept longer mechanical descriptions in the compact body face so effects remain readable inside the small cards.
+
+## 111. User request summary
+
+Said the nodes remained too sparse and asked for a more cohesive, intentional graph whose tower, stat, and variant categories differ through their borders and overall construction rather than only an icon.
+
+## 112. Codex
+
+Compressed node width, height, padding, row spacing, and connector gaps. Reworked every category as a different hardware frame: reinforced tower chassis, calibrated stat rail, hazard-cut variant plate, energized power rail, pointed doctrine frame, and crenellated fortification border. The corner marks remain only as secondary confirmation. Browser QA covered completed and purchasable Gunner nodes plus blocked stat and doctrine chains.
+
+## 113. User request summary
+
+Asked to apply the same intentional visual-design principles to the mission briefing, which lacked hierarchy, cohesion, consistent typography, and clear reasons for its affordances. Requested a push when complete.
+
+## 114. Codex
+
+Reorganized the briefing around the player’s decision path: mission and primary order, operation rules, battlefield, arsenal, then deployment. Removed the oversized repeated rule box, limited typography to one display face and one operational face, numbered the three decision sections, and separated the deploy action from support navigation. Modes use a segmented command control; difficulty choices form a threat bank; maps use mission numbers, selected command rails, and locked hatch plates; towers, profiles, powers, and doctrines share one Arsenal section. Browser QA covered the briefing header, operation controls, battlefield states, arsenal, and accessible deployment actions.

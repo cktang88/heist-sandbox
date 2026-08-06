@@ -183,7 +183,13 @@ The built-in Map Forge edits the same `MapDefinition` used by battle code. It sw
 
 ## 9. Meta progression: 83-node branching graph
 
-Ten branches contain 83 stable cards. Save data stores node IDs and ranks, never derived totals. Each card has one clear role: `STAT`, `TOWER`, `VARIANT`, `POWER`, `WALL`, or `DOCTRINE`. A stat card never also unlocks a profile. Every special profile has its own visually distinct card, and all incoming arrow requirements must be complete; profile and doctrine parents normally require maximum rank. Heavy Gun, Rocket, and Laser each have their own damage/rate or guidance/focus stat paths instead of borrowing another weapon's upgrades.
+Ten branches contain 83 stable cards. Save data stores node IDs and ranks, never derived totals. Each card has one clear role: stat, tower, variant, power, wall, or doctrine. Shape and a unique corner symbol communicate that role without printing category labels on every card. A stat card never also unlocks a profile. Every special profile has its own visually distinct card, and all incoming arrow requirements must be complete; profile and doctrine parents normally require maximum rank. Heavy Gun, Rocket, and Laser each have their own damage/rate or guidance/focus stat paths instead of borrowing another weapon's upgrades.
+
+Card brightness communicates purchase state. Prerequisite-blocked cards are heavily grayed and carry a lock seal; prerequisite-ready cards that only lack medals are softly muted; currently purchasable cards receive a bright medal outline; partially ranked cards show a segmented meter; and completed single-rank unlocks carry a check seal. Prices use the same medal diamond as the wallet. Developer IDs, repeated category labels, `RANK`, `MAXIMUM`, `LOCKED`, and `UNLOCKED` are not printed on cards.
+
+Research nodes use a compact hardware-module layout rather than large content panels. Category is visible from the whole frame: tower unlocks have reinforced double brass frames, stats have calibration rails, variants have hazard-cut side plates, powers have energized top rails, doctrines use pointed command frames, and walls use crenellated double borders. Icons remain as a secondary confirmation. Tight card and connector spacing keeps each dependency chain visually cohesive.
+
+The mission briefing follows the player’s actual decision order: mission identity and primary order, operation mode and threat, battlefield, arsenal, then deployment. Numbered section markers create the reading path. Cinzel is reserved for the mission name; Barlow Condensed handles all operational labels, descriptions, buttons, and values. Selected choices use the command-red rail plus brass border, locked battlefields use a subdued hatch pattern, slot counts sit in section headers, and the deployment action is visually isolated from support navigation.
 
 | Branch | Cards | Major paths |
 |---|---:|---|

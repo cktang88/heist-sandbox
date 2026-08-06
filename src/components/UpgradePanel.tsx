@@ -1,19 +1,31 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { ALL_UPGRADES, applyUpgrades, canPurchaseUpgrade, getNextRankCost, getPurchaseRequirements, getRank, isMaxRank, isUpgradeRequirementMet, ownsUpgrade, purchaseUpgrade, respecUpgrades, UPGRADE_BRANCHES, type UpgradeBranchId, type UpgradeId, type UpgradeNode, type UpgradeNodeKind, type UpgradeRequirement } from '../game/upgrades'
+import { ALL_UPGRADES, applyUpgrades, areUpgradeRequirementsMet, canPurchaseUpgrade, getNextRankCost, getPurchaseRequirements, getRank, isMaxRank, isUpgradeRequirementMet, ownsUpgrade, purchaseUpgrade, respecUpgrades, UPGRADE_BRANCHES, type UpgradeBranchId, type UpgradeId, type UpgradeNode, type UpgradeNodeKind, type UpgradeRanks, type UpgradeRequirement } from '../game/upgrades'
 import type { SaveData } from '../game/save'
 import type { GameTuning } from '../game/types'
 import { ModalFrame } from './ModalFrame'
 
 type UpgradeConnector = { childId: UpgradeId; requirement: UpgradeRequirement; path: string; tipX: number; tipY: number }
+export type UpgradeNodeVisualState = 'maxed' | 'available' | 'blocked' | 'unaffordable'
+const UPGRADE_NODE_WIDTH = 172
+const UPGRADE_COLUMN_GAP = 46
 
 const NODE_KIND_LABELS: Record<UpgradeNodeKind, string> = {
-  stat: '↑ STAT RANKS', tower: '▣ TOWER UNLOCK', variant: '◇ VARIANT UNLOCK',
-  power: '⚡ POWER UNLOCK', wall: '▦ FORTIFICATION', doctrine: '◆ DOCTRINE UNLOCK',
+  stat: 'Stat upgrade', tower: 'Tower unlock', variant: 'Weapon variant',
+  power: 'Battlefield power', wall: 'Fortification', doctrine: 'Commander doctrine',
+}
+export const UPGRADE_KIND_SYMBOLS: Record<UpgradeNodeKind, string> = {
+  stat: '↟', tower: '♜', variant: '◇', power: 'ϟ', wall: '▦', doctrine: '◆',
 }
 
 export function orthogonalConnectorPath(fromX: number, fromY: number, toX: number, toY: number): string {
   const bendX = Math.min(toX - 16, fromX + Math.max(24, (toX - fromX) * 0.45))
   return `M ${fromX} ${fromY} H ${bendX} V ${toY} H ${toX - 8}`
+}
+
+export function getUpgradeNodeVisualState(ranks: UpgradeRanks, medals: number, node: UpgradeNode): UpgradeNodeVisualState {
+  if (isMaxRank(ranks, node)) return 'maxed'
+  if (!node.implemented || !areUpgradeRequirementsMet(ranks, node)) return 'blocked'
+  return canPurchaseUpgrade(ranks, medals, node) ? 'available' : 'unaffordable'
 }
 
 export function UpgradePanel({ save, tuning, onSave, onClose }: {
@@ -81,7 +93,7 @@ export function UpgradePanel({ save, tuning, onSave, onClose }: {
     <ModalFrame label="Field research" backdropClass="upgrade-backdrop" panelClass="upgrade-panel" onClose={onClose}>
         <header className="upgrade-header">
           <div><p className="eyebrow">ARMORY // {ALL_UPGRADES.length}-NODE RESEARCH TREE</p><h1>FIELD RESEARCH</h1></div>
-          <div className="upgrade-wallet"><small>COMMAND MEDALS</small><strong>{save.medals}</strong></div>
+          <div className="upgrade-wallet" aria-label={`${save.medals} command medals`} title="Command medals"><span aria-hidden="true">◆</span><strong>{save.medals}</strong></div>
           <button data-autofocus onClick={onClose} aria-label="Close field research">×</button>
         </header>
         <nav className="branch-tabs" aria-label="Upgrade branches">
@@ -98,7 +110,7 @@ export function UpgradePanel({ save, tuning, onSave, onClose }: {
             <span>RANGE <b>{tuning.towers.gunner.range.toFixed(1)} → {effective.towers.gunner.range.toFixed(1)}</b></span>
           </div>
         )}
-        <div ref={treeRef} className="upgrade-tree" aria-label={`${branch.name} research graph`} style={{ gridTemplateColumns: `repeat(${maxDepth}, 190px)`, minWidth: maxDepth * 190 + (maxDepth - 1) * 70 + 36 }}>
+        <div ref={treeRef} className="upgrade-tree" aria-label={`${branch.name} research graph`} style={{ gridTemplateColumns: `repeat(${maxDepth}, ${UPGRADE_NODE_WIDTH}px)`, minWidth: maxDepth * UPGRADE_NODE_WIDTH + (maxDepth - 1) * UPGRADE_COLUMN_GAP + 28 }}>
           <svg className="upgrade-connectors" aria-hidden="true">
             {connectors.map((connector) => {
               const connected = isUpgradeRequirementMet(save.upgrades, connector.requirement)
@@ -111,8 +123,9 @@ export function UpgradePanel({ save, tuning, onSave, onClose }: {
           </svg>
           {orderedNodes.map((node, index) => {
             const rank = getRank(save.upgrades, node.id)
-            const maxed = isMaxRank(save.upgrades, node)
-            const available = canPurchaseUpgrade(save.upgrades, save.medals, node)
+            const state = getUpgradeNodeVisualState(save.upgrades, save.medals, node)
+            const maxed = state === 'maxed'
+            const available = state === 'available'
             const cost = getNextRankCost(save.upgrades, node)
             const requirements = getPurchaseRequirements(node)
             const requirementsMet = requirements.every((requirement) => isUpgradeRequirementMet(save.upgrades, requirement))
@@ -124,22 +137,28 @@ export function UpgradePanel({ save, tuning, onSave, onClose }: {
               >
                 <button
                   data-upgrade-id={node.id}
-                  className={`upgrade-node node-${node.kind} ${maxed ? 'owned' : available ? 'available' : 'locked'}`}
+                  className={`upgrade-node node-${node.kind} ${state} ${maxed ? 'owned' : ''} ${rank > 0 ? 'ranked' : ''}`}
                   onClick={() => commitPurchase(node.id)}
                   disabled={!available}
                 >
-                  <span>{node.id.toUpperCase()} · RANK {rank}/{node.rankCosts.length}</span>
-                  <em className="upgrade-kind">{NODE_KIND_LABELS[node.kind]}</em>
+                  <em className="upgrade-kind" aria-label={NODE_KIND_LABELS[node.kind]} title={NODE_KIND_LABELS[node.kind]}><span aria-hidden="true">{UPGRADE_KIND_SYMBOLS[node.kind]}</span></em>
                   <strong>{node.name}</strong>
                   <small>{node.effect}</small>
-                  <b>{maxed ? 'MAXIMUM' : `${cost ?? 0} MEDALS`}</b>
+                  <footer className="upgrade-node-status">
+                    {node.rankCosts.length > 1 && <span className="upgrade-rank-meter" aria-label={`${rank} of ${node.rankCosts.length} levels complete`}>
+                      <i>{Array.from({ length: node.rankCosts.length }, (_, level) => <span key={level} className={level < rank ? 'filled' : ''} />)}</i>
+                      <b>{rank}/{node.rankCosts.length}</b>
+                    </span>}
+                    {!maxed && state === 'blocked' && <b className="upgrade-state-seal" aria-label="Locked"><span aria-hidden="true">▧</span></b>}
+                    {!maxed && state !== 'blocked' && <b className="upgrade-price" aria-label={`${cost ?? 0} command medals`}><span aria-hidden="true">◆</span>{cost ?? 0}</b>}
+                    {maxed && node.rankCosts.length === 1 && <b className="upgrade-state-seal complete" aria-label="Unlocked"><span aria-hidden="true">✓</span></b>}
+                  </footer>
                 </button>
               </div>
             )
           })}
         </div>
         <footer className="upgrade-footer">
-          <p>{branch.name} research. Arrow lines show dependencies; variant and doctrine cards open after every incoming requirement is complete.</p>
           <button className="secondary-button" onClick={respec}>FREE RESPEC</button>
           <button className="primary-button" onClick={onClose}>RETURN TO COMMAND</button>
         </footer>
