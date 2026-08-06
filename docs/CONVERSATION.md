@@ -582,3 +582,11 @@ Asked to apply the same intentional visual-design principles to the mission brie
 ## 114. Codex
 
 Reorganized the briefing around the player’s decision path: mission and primary order, operation rules, battlefield, arsenal, then deployment. Removed the oversized repeated rule box, limited typography to one display face and one operational face, numbered the three decision sections, and separated the deploy action from support navigation. Modes use a segmented command control; difficulty choices form a threat bank; maps use mission numbers, selected command rails, and locked hatch plates; towers, profiles, powers, and doctrines share one Arsenal section. Browser QA covered the briefing header, operation controls, battlefield states, arsenal, and accessible deployment actions.
+
+## 115. User request summary
+
+Rejected the numbered briefing hierarchy because it read like a to-do list. Asked for more decorative UI construction, fewer generic colored-border boxes, and progressive disclosure such as tabs that hide unnecessary information.
+
+## 116. Codex
+
+Converted the briefing into a three-tab command console. Operation, Battlefield, and Arsenal now occupy one shared inset workspace and each dossier tab retains a live summary of its hidden settings. Removed the numbered checklist markers. Added folder silhouettes, hardware rivets, an inset top rail, stitched command strip, clipped workspace corners, map-grid texture, hatch-locked missions, and equipment-bay construction. Reflowed Arsenal into a tower/profile bay beside stacked power and doctrine bays so the deployment control stays visible without scrolling. Browser QA covered all three tabs and their selected, locked, and disabled states.

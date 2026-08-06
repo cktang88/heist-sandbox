@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BUILD, getCombatPowerLabel } from '../game/config'
 import { DIFFICULTIES } from '../game/difficulty'
 import { COMMANDER_DOCTRINES, isCommanderDoctrineUnlocked, type CommanderDoctrine, type Loadout } from '../game/loadout'
@@ -48,11 +49,17 @@ type BriefingPanelProps = {
   onOpenHelp: () => void
 }
 
+type BriefingTab = 'operation' | 'battlefield' | 'arsenal'
+
 export function BriefingPanel(props: BriefingPanelProps) {
+  const [activeTab, setActiveTab] = useState<BriefingTab>('operation')
   const title = props.mode === 'challenge' ? findChallenge(props.challengeId)?.title : props.map.name
   const mission = missionForMap(props.map.id)
   const reportNumber = Math.max(1, CAMPAIGN_MISSIONS.findIndex((candidate) => candidate.mapId === props.map.id) + 1)
   const primaryOrder = props.mode === 'endless' ? 'HOLD UNTIL OVERRUN' : `HOLD ${mission?.waves.length ?? 5} WAVES`
+  const difficultyLabel = DIFFICULTIES.find((candidate) => candidate.id === props.difficulty)?.label ?? props.difficulty
+  const operationSummary = props.mode === 'campaign' || props.mode === 'endless' ? `${props.mode} · ${difficultyLabel}` : props.mode
+  const arsenalSummary = `${props.resolvedLoadout.towers.length}/${props.towerSlotLimit} towers · ${props.resolvedLoadout.powers.length}/${props.powerSlotLimit} commands`
   return (
     <ModalFrame label="Mission briefing" backdropClass="modal-backdrop" panelClass="briefing-card">
         <header className="briefing-identity">
@@ -62,8 +69,22 @@ export function BriefingPanel(props: BriefingPanelProps) {
         <p className="briefing-summary">{props.emptyDeploymentAllowed
           ? 'A horde is crossing the valley. This operation begins with an empty field; use the loaned battlefield powers to hold it.'
           : 'A horde is crossing the valley. Buy towers with your starting supply before they arrive. Once the horn sounds, every emplacement is locked.'}</p>
-        <section className="briefing-section operation-section">
-          <header className="briefing-section-title"><span>01</span><div><b>OPERATION</b><small>Choose the rules of engagement</small></div></header>
+        <nav className="briefing-tabs" role="tablist" aria-label="Mission briefing sections">
+          {([
+            ['operation', 'OPERATION', operationSummary],
+            ['battlefield', 'BATTLEFIELD', props.map.name],
+            ['arsenal', 'ARSENAL', arsenalSummary],
+          ] as const).map(([id, label, summary]) => <button
+            key={id}
+            id={`briefing-tab-${id}`}
+            role="tab"
+            aria-selected={activeTab === id}
+            aria-controls={`briefing-panel-${id}`}
+            className={activeTab === id ? 'selected' : ''}
+            onClick={() => setActiveTab(id)}
+          ><b>{label}</b><small>{summary}</small></button>)}
+        </nav>
+        {activeTab === 'operation' && <section id="briefing-panel-operation" role="tabpanel" aria-labelledby="briefing-tab-operation" className="briefing-tab-panel operation-section">
           <div className="operation-grid">
             <div className="operation-choice-group"><small>MODE</small><div className="mode-choices" aria-label="Choose game mode">
               {(['campaign', 'endless', 'challenge', 'sandbox'] as const).map((mode) => <button key={mode} className={props.mode === mode ? 'selected' : ''} aria-pressed={props.mode === mode} onClick={() => props.onSelectMode(mode)}>{mode === 'challenge' ? 'CHALLENGES' : mode.toUpperCase()}</button>)}
@@ -78,9 +99,8 @@ export function BriefingPanel(props: BriefingPanelProps) {
               </div></div>
             )}
           </div>
-        </section>
-        <section className="briefing-section battlefield-section">
-          <header className="briefing-section-title"><span>02</span><div><b>BATTLEFIELD</b><small>Select the ground to defend</small></div></header>
+        </section>}
+        {activeTab === 'battlefield' && <section id="briefing-panel-battlefield" role="tabpanel" aria-labelledby="briefing-tab-battlefield" className="briefing-tab-panel battlefield-section">
           {props.mode === 'sandbox' ? (
             <MapLibraryPanel
               maps={props.availableMaps}
@@ -94,8 +114,8 @@ export function BriefingPanel(props: BriefingPanelProps) {
               onPlay={props.onOpenMap}
             />
           ) : <BattlefieldChoices {...props} />}
-        </section>
-        <LoadoutChoices {...props} />
+        </section>}
+        {activeTab === 'arsenal' && <section id="briefing-panel-arsenal" role="tabpanel" aria-labelledby="briefing-tab-arsenal" className="briefing-tab-panel arsenal-section"><LoadoutChoices {...props} /></section>}
         <footer className="briefing-actions">
           <button className="primary-button" onClick={props.onOpenMap}>DEPLOY TO BATTLE MAP <span aria-hidden="true">→</span></button>
           <nav aria-label="Command support"><button className="secondary-button" onClick={props.onOpenArmory}>FIELD RESEARCH</button><button className="secondary-button" onClick={props.onOpenSettings}>SETTINGS</button><button className="secondary-button" onClick={props.onOpenHelp}>HELP</button></nav>
@@ -127,9 +147,7 @@ function BattlefieldChoices(props: BriefingPanelProps) {
 }
 
 function LoadoutChoices(props: BriefingPanelProps) {
-  return <section className="briefing-section arsenal-section" aria-label="Choose run loadout">
-    <header className="briefing-section-title"><span>03</span><div><b>ARSENAL</b><small>Choose what enters this operation</small></div></header>
-    <div className="loadout-picker">
+  return <div className="loadout-picker" aria-label="Choose run loadout">
     <section>
       <header><b>TOWERS</b><small>{props.fixedArsenal ? 'FIXED' : `${props.selectedLoadout.towers.length}/${props.towerSlotLimit}`}</small></header>
       <div className="loadout-options">
@@ -177,6 +195,5 @@ function LoadoutChoices(props: BriefingPanelProps) {
         })}
       </div>
     </section>
-    </div>
-  </section>
+  </div>
 }
