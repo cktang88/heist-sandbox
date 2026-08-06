@@ -12,7 +12,7 @@ The camera fits each map and offers bounded wheel/button zoom without changing t
 
 Command research now unlocks four exclusive doctrine choices with different run effects. Right- and middle-button dragging pans the battlefield, and FIT recenters it. A confirmed surrender produces an ordered retreat and preserves only progress genuinely earned before withdrawal. Campaign enemies arrive in road-width ranks instead of single file; Shattered Expanse spreads its front across nearly the full left entrance.
 
-Corridor hordes now remain on the painted road instead of using an invisible full-length shoulder; temporary walls still open a small local detour. Campaign Command Medals are readable and predictable: the eliminated percentage is the base reward, the first clear adds 50, and completed-map replays pay half. A full first clear pays 150 base medals and a full replay pays 50, enough for at least two common research purchases.
+Corridor hordes remain on the painted road even when temporary walls are present. A wall forms a hard blockade: ordinary orcs queue and attack it instead of receiving an invisible grass detour. Campaign Command Medals are readable and predictable: the eliminated percentage is the base reward, the first clear adds 50, and completed-map replays pay half. A full first clear pays 150 base medals and a full replay pays 50, enough for at least two common research purchases.
 
 The after-action report now leads with Command Medals instead of an undifferentiated number grid. Ranked losses visibly award elimination medals. Unranked reports name the exact progression lock—Sandbox, custom tuning, Unlock All, or a runtime diagnostic—and offer a one-click return to default ranked settings. Battle details sit below the reward, while damage by source is collapsed until requested.
 
@@ -24,7 +24,7 @@ Green March is now a short 107-enemy teaching battle instead of a 636-enemy endu
 - [ ] Preview each campaign map; confirm Twin Fork has two lanes, Frozen/Ash have obstacles, and Broken Citadel has three approaches and limited build zones.
 - [ ] Play Shattered Expanse; confirm all three spawn regions flow around polygon platforms toward the shared fortress.
 - [ ] Start Green March and confirm three-orc ranks arrive rapidly instead of one orc per long interval. On Shattered Expanse, confirm the opening front spans nearly the full left edge.
-- [ ] Follow Green March through its lower bend; confirm the horde stays inside the painted road except for a local detour around a temporary wall.
+- [ ] Block both Twin Fork lanes with baseline walls; confirm dense hordes stay on the painted roads, queue at each wall, attack, and advance only after it breaks.
 - [ ] Eliminate 54 of Green March's 107 enemies and confirm the report shows 50% eliminated and 50 base Command Medals. Complete it once for the +50 first-clear bonus, then replay it and confirm the same elimination reward is halved.
 - [ ] Deploy four well-aimed Rivet Guns on Green March and confirm the 107-enemy teaching operation is winnable without powers or research.
 - [ ] Pack towers closely beside a road and near platform/map edges; confirm visibly separated half-size bases are accepted while true intersections remain rejected.

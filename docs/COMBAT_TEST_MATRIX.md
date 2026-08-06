@@ -53,8 +53,8 @@ The prototype does not currently give ordinary towers health; they are locked an
 | Horde fronts | Corridor rank size from road width, lateral offsets, multi-lane distribution, and full-width open-map entrances |
 | Surrender | Earned kill/wave progress remains, while zero-progress and objective bonuses cannot be farmed |
 | Campaign rewards | Exact eliminated percentage, one-time 50-medal first clear, 50% completed-map replay rate, objective scaling, and post-scaling difficulty bonus |
-| Corridor bounds | Navigation cells and dense-pack separation remain inside the painted road while local wall detours remain possible |
-| Walls | Health, damage, break/removal, rerouting, Sapper targeting, spikes, and break explosion |
+| Corridor bounds | Navigation cells and dense-pack separation remain inside the painted road while baseline walls stop and absorb a queued horde |
+| Walls | Health, damage, break/removal, lane-blocking queues, on-lane Sapper targeting, spikes, and break explosion |
 | Knockback | Caliber/profile force, shared heavy-unit resistance, decay, map bounds, wall tunnelling rejection, and blocked-corner sliding |
 | Visual budgets | Independent corpse/transient caps, newest-projectile retention, corpse density, and weapon-specific arc ordering |
 | Visual identity | All ten enemy roles have unique silhouette signatures, all six powers have unique target marks, every special tower profile has its own geometry attachment, and every active status maps to a visible shape |

@@ -12,7 +12,6 @@ export type NavigationWall = Point & {
 
 export type NavigationOptions = {
   cellSize: number
-  corridorPadding: number
   obstaclePadding: number
 }
 
@@ -46,7 +45,6 @@ export type NavigationCache = {
 
 export const DEFAULT_NAVIGATION_OPTIONS: NavigationOptions = {
   cellSize: 0.4,
-  corridorPadding: 0.9,
   obstaclePadding: 0.3,
 }
 
@@ -69,7 +67,7 @@ export function buildNavigationField(
 
   for (let index = 0; index < cellCount; index += 1) {
     const point = cellCenter(index, columns, cellSize, originX, originZ)
-    if (map.navigationMode !== 'open' && !isCorridorCellWalkable(point, map, walls, options)) continue
+    if (map.navigationMode !== 'open' && !isCorridorCellWalkable(point, map, options)) continue
     if (map.obstacles?.some((obstacle) => distance(point, obstacle) <= obstacle.radius + options.obstaclePadding)) continue
     if (map.solidPolygons?.some((polygon) => distanceToPolygon(point, polygon.points) <= options.obstaclePadding)) continue
     const wallIndex = walls.findIndex((wall) => distanceToWall(point, wall, wall.length) <= wall.radius)
@@ -122,14 +120,11 @@ export function buildNavigationField(
   return { columns, rows, cellSize, originX, originZ, distances, nextCell, walkable, blockingOwner, wallIds, goals }
 }
 
-/** Keeps ordinary movement on the painted road while opening a local shoulder around authored walls. */
-function isCorridorCellWalkable(point: Point, map: MapDefinition, walls: readonly NavigationWall[], options: NavigationOptions): boolean {
+/** Corridor hordes stay on the painted road; walls stop them instead of creating grass detours. */
+function isCorridorCellWalkable(point: Point, map: MapDefinition, options: NavigationOptions): boolean {
   const distanceFromRoad = Math.min(...map.paths.map((path) => distanceToPath(point, path)))
   const roadRadius = Math.max(options.cellSize * 0.55, map.pathWidth / 2 - ORC_ROUTE_MARGIN)
-  if (distanceFromRoad <= roadRadius) return true
-  const detourPadding = Math.max(0, options.corridorPadding)
-  if (detourPadding === 0 || distanceFromRoad > map.pathWidth / 2 + detourPadding) return false
-  return walls.some((wall) => distanceToWall(point, wall, wall.length) <= wall.radius + detourPadding + options.cellSize)
+  return distanceFromRoad <= roadRadius
 }
 
 export function updateNavigationCache(
@@ -184,7 +179,7 @@ export function navigationTopologyKey(map: MapDefinition, walls: readonly Naviga
     ...(map.solidPolygons ?? []).flatMap((polygon) => polygon.points.flatMap((point) => [point.x, point.z]))]
   const wallShape = [...walls].sort((left, right) => left.id - right.id)
     .flatMap((wall) => [wall.id, wall.x, wall.z, wall.rotation ?? 0, wall.length, wall.radius])
-  return [...mapShape, options.cellSize, options.corridorPadding, options.obstaclePadding, ...wallShape].join('|')
+  return [...mapShape, options.cellSize, options.obstaclePadding, ...wallShape].join('|')
 }
 
 function cellCenter(index: number, columns: number, cellSize: number, originX: number, originZ: number): Point {

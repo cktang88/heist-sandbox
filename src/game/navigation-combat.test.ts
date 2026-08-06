@@ -14,20 +14,21 @@ const contextFor = (rules: ReturnType<typeof createBaseGameRules>) => ({
 })
 
 describe('combat flow navigation', () => {
-  it('detours around a partial wall without damaging it', () => {
+  it('queues a dense horde at a baseline wall without leaving the road', () => {
     const rules = createBaseGameRules(DEFAULT_TUNING)
+    rules.tuning.wall.health = 100_000
     const wall: Placement = { id: 201, kind: 'wall', temporary: true, x: 0, z: 0 }
     const state = createSimulation([wall], rules, 100, map)
     state.spawnTimer = 999
-    state.enemies.push(enemyAt(-3, 0))
+    for (let index = 0; index < 18; index += 1) state.enemies.push(enemyAt(-3, 0, 200 + index))
     let maxOffset = 0
     for (let tick = 0; tick < 150; tick += 1) {
       stepSimulation(state, contextFor(rules), 1 / 30)
-      maxOffset = Math.max(maxOffset, Math.abs(state.enemies[0]?.z ?? 0))
+      for (const enemy of state.enemies) maxOffset = Math.max(maxOffset, distanceToPath(enemy, map.paths[0]))
     }
-    expect(state.enemies[0]?.x).toBeGreaterThan(1)
-    expect(maxOffset).toBeGreaterThan(0.5)
-    expect(state.wallById.get(wall.id)?.health).toBe(DEFAULT_TUNING.wall.health)
+    expect(Math.max(...state.enemies.map((enemy) => enemy.x))).toBeLessThan(0)
+    expect(maxOffset).toBeLessThanOrEqual(map.pathWidth / 2)
+    expect(state.wallById.get(wall.id)?.health).toBeLessThan(100_000)
   })
 
   it('approaches and attacks the responsible wall when the corridor is sealed', () => {

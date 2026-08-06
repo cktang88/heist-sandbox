@@ -590,3 +590,11 @@ Rejected the numbered briefing hierarchy because it read like a to-do list. Aske
 ## 116. Codex
 
 Converted the briefing into a three-tab command console. Operation, Battlefield, and Arsenal now occupy one shared inset workspace and each dossier tab retains a live summary of its hidden settings. Removed the numbered checklist markers. Added folder silhouettes, hardware rivets, an inset top rail, stitched command strip, clipped workspace corners, map-grid texture, hatch-locked missions, and equipment-bay construction. Reflowed Arsenal into a tower/profile bay beside stacked power and doctrine bays so the deployment control stays visible without scrolling. Browser QA covered all three tabs and their selected, locked, and disabled states.
+
+## 117. User request summary
+
+Reported that orcs were still walking around walls onto the grass and required the completed fix to be pushed.
+
+## 118. Codex
+
+Removed the navigation rule that deliberately opened a hidden shoulder beside corridor walls. Baseline walls now make their road unreachable until destroyed, causing ordinary orcs to queue and attack instead of flank. Sappers retain their wall specialty by prioritizing walls that intersect their assigned lane, without chasing unrelated walls into the grass. Added navigation and live-combat regressions, including an 18-orc dense queue held against an effectively indestructible baseline wall. Live Twin Fork QA confirmed both lanes queued on-road, broke their walls, and resumed without grass detours.

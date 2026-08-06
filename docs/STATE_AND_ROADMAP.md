@@ -33,7 +33,7 @@ The implementation was built in playable layers. Each layer was reviewed, tested
 - A forged field-command UI language with iron frames, parchment/brass typography, red order ribbons, stronger selected states, and original code-native CSS ornament.
 - Road-width horde ranks instead of single-file spawning: two to four abreast on corridor roads and a 24-position entrance front across Shattered Expanse.
 - Green March is a 107-enemy teaching operation rather than a 636-enemy endurance map. Four legal, well-aimed starter Rivet Guns pass its deterministic balance scenario.
-- Corridor navigation stays inside the visible road during normal travel, while temporary-wall detours open only a local shoulder; crowd separation cannot push orcs through that boundary.
+- Corridor navigation stays inside the visible road at all times; temporary walls form hard blockades that the horde must attack, and crowd separation cannot push orcs around them into the grass.
 - Shattered Expanse, a three-spawn open-field campaign map with nine buildable polygon platforms, one solid blocker, and 2,244 streamed enemies.
 
 ## Creator and prototyping tools

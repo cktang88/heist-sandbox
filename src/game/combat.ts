@@ -1,6 +1,6 @@
 import { INITIAL_SNAPSHOT, isTowerKind } from './config'
 import { isNavigationPositionWalkable, sampleNavigation, updateNavigationCache, type NavigationCache, type NavigationField, type NavigationWall } from './navigation'
-import { distance, type PathInfo } from './path'
+import { distance, distanceToPath, type PathInfo } from './path'
 import { duePowerImpacts, powerDamageAt, powerKnockback } from './powerEffects'
 import { isPointInPowerLane } from './powerTargeting'
 import { getRunTotals, getWave } from './runs'
@@ -521,7 +521,9 @@ function moveEnemies(state: SimulationState, context: SimulationContext, delta: 
     if (enemy.status.freezeRemaining > 0 || enemy.status.stunRemaining > 0) continue
     const stats = context.rules.tuning.enemies[enemy.kind]
     const route = sampleNavigation(navigation, enemy)
-    const sapperTarget = enemy.kind === 'sapper' ? findSapperWallTarget(enemy, liveWalls) : undefined
+    const sapperTarget = enemy.kind === 'sapper'
+      ? findSapperWallTarget(enemy, liveWalls.filter((wall) => distanceToPath(wall, context.map.paths[enemy.pathIndex]) <= context.map.pathWidth / 2))
+      : undefined
     const blockingWall = route.blockingWallId === undefined ? undefined : state.wallById.get(route.blockingWallId)
     const contactWall = blockingWall && distanceToWall(enemy, blockingWall, blockingWall.length) <= blockingWall.radius + 0.2
       ? blockingWall
@@ -637,7 +639,7 @@ function hasNearbyAura(index: EnemySpatialIndex<Enemy>, enemy: Enemy, kind: Aura
   return index.someWithinRadius(enemy, AURA_RADIUS, (source) => source.health > 0 && source.kind === kind)
 }
 
-/** Sappers leave the marching line to attack a nearby live wall. */
+/** Sappers prioritize nearby live walls that intersect their assigned lane. */
 export function findSapperWallTarget(enemy: Point, walls: readonly RuntimeWall[]): RuntimeWall | undefined {
   let closest: RuntimeWall | undefined
   let closestDistance = SAPPER_SEEK_RADIUS

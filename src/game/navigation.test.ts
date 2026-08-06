@@ -33,11 +33,13 @@ describe('route-corridor navigation', () => {
     }
   })
 
-  it('detours around a partial temporary wall', () => {
+  it('treats a baseline temporary wall as a blockade instead of opening a grass detour', () => {
     const field = buildNavigationField(map, [partialWall])
     const result = walk(field, map.paths[0][0])
-    expect(result.reached).toBe(true)
-    expect(result.maxOffset).toBeGreaterThan(0.55)
+    const sample = sampleNavigation(field, map.paths[0][0])
+    expect(result.reached).toBe(false)
+    expect(result.maxOffset).toBeLessThanOrEqual(map.pathWidth / 2)
+    expect(sample.blockingWallId).toBe(partialWall.id)
   })
 
   it('identifies the responsible wall when it completely blocks the corridor', () => {

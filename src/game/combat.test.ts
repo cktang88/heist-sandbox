@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createBaseGameRules, DEFAULT_TUNING } from './config'
 import { addPower, addStrafe, applyFortressDamage, barrageImpactPoint, calculateDamage, createSimulation, findTowerTarget, guideActivePower, isAttackInFront, isRunWon, nextTowerEngagement, spawnStressEnemies, stepSimulation, toSnapshot, towerEngagementBonuses, type Enemy } from './combat'
 import { GREEN_MARCH, TWIN_FORK } from './maps'
-import { buildPathInfo } from './path'
+import { buildPathInfo, distanceToPath } from './path'
 import { DEFAULT_RUN, runForMap } from './runs'
 import { deriveGameRules } from './upgrades'
 import type { Placement, RunRules, TowerKind } from './types'
@@ -893,8 +893,8 @@ describe('combat simulation', () => {
     expect(strong.baseHealth).toBeLessThan(normal.baseHealth)
   })
 
-  it('lets Sappers leave the lane to seek a nearby wall', () => {
-    const wall: Placement = { id: 150, kind: 'wall', x: -8, z: 0 }
+  it('makes Sappers destroy an on-lane blockade faster without leaving the road', () => {
+    const wall: Placement = { id: 150, kind: 'wall', x: -7.5, z: -2.8 }
     const sapperState = createSimulation([wall], rules, 100, GREEN_MARCH)
     const gruntState = createSimulation([wall], rules, 100, GREEN_MARCH)
     sapperState.spawnTimer = gruntState.spawnTimer = 999
@@ -904,7 +904,8 @@ describe('combat simulation', () => {
     stepSimulation(sapperState, context, 0.5)
     stepSimulation(gruntState, context, 0.5)
 
-    expect(sapperState.enemies[0].z).toBeGreaterThan(gruntState.enemies[0].z)
+    expect(sapperState.wallById.get(wall.id)!.health).toBeLessThan(gruntState.wallById.get(wall.id)!.health)
+    expect(distanceToPath(sapperState.enemies[0], GREEN_MARCH.paths[0])).toBeLessThanOrEqual(GREEN_MARCH.pathWidth / 2)
   })
 })
 

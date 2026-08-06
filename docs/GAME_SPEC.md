@@ -64,7 +64,7 @@ Rules:
 
 Orcs enter continuously in waves. Each spawn tick emits a road-width rank rather than one overlapping orc: narrow routes fit two abreast, Green March fits three, Ash Fields fits four, and open fields distribute ranks across the usable entrance edge. Weapon towers acquire targets only when an enemy is both within distance and inside the tower's locked firing sector. Support auras remain omnidirectional. The player may pause, select 1× or 2× speed, inspect statistics, cast equipped powers, or confirm surrender. Normal towers cannot be placed, moved, sold, or upgraded.
 
-Temporary walls are the one construction exception: they are an equipped combat power with charges, cooldown, health, and a lifetime. If a wall creates a reasonable detour, orcs flow around it; otherwise nearby orcs attack it.
+Temporary walls are the one construction exception: they are an equipped combat power with charges, cooldown, health, and a lifetime. On corridor maps they are hard lane blockades: ordinary orcs stay on the painted road, queue at the wall, and attack until it breaks. They never gain a hidden grass shoulder around a wall.
 
 Combat feedback is layered but restrained. A tower recoils and flashes at the muzzle, and its pooled tracer begins at the same measured barrel-tip position. Ballistic shots use bright yellow/orange lines; energy and status weapons retain readable family colors. A heavy projectile follows a weapon-specific arc, the impact emits a bounded spark burst and force, and a killed orc leaves a readable corpse. These are instanced pools with fixed budgets rather than independent React or ECS entities. Corpses have a separate history budget so rapid gunfire cannot erase them prematurely.
 
@@ -91,7 +91,7 @@ A full first clear pays 150 base medals before objectives or difficulty, while a
 
 ## 3. Battlefield rules
 
-Each map contains one or more spawn areas, a fortress, walkable terrain, buildable terrain or pads, impassable terrain, and optional secondary objectives. Corridor maps constrain ordinary movement to the painted road; a narrow local shoulder opens only beside a temporary wall so orcs can detour around it. Crowd separation is checked against that same navigation field, so a dense horde cannot be pushed into the grass. Open-field maps make the whole field walkable except for arbitrary solid polygons: platform polygons accept towers while still blocking orcs, and blocker polygons reject both.
+Each map contains one or more spawn areas, a fortress, walkable terrain, buildable terrain or pads, impassable terrain, and optional secondary objectives. Corridor maps constrain ordinary movement to the painted road even when temporary walls are present. Crowd separation is checked against that same navigation field, so a dense horde cannot flank a wall or be pushed into the grass. Open-field maps make the whole field walkable except for arbitrary solid polygons: platform polygons accept towers while still blocking orcs, and blocker polygons reject both.
 
 For the first few hundred enemies, a polyline route is sufficient. At larger scale, maps use a navigation grid and a flow field pointing toward the fortress. Nearby enemies apply small separation forces so the horde spreads naturally. Temporary walls trigger a rate-limited flow-field rebuild. An invalid full blockade causes orcs to attack the blocking wall.
 
@@ -135,7 +135,7 @@ Targeting choices eventually include first, closest, strongest, weakest, and den
 | Armored Orc | Resists bullets; weak to explosive or piercing damage |
 | Shaman | Buffs nearby speed or resistance |
 | Banner Carrier | Buffs nearby attack damage and morale |
-| Sapper | Prioritizes walls and deals bonus wall damage |
+| Sapper | Prioritizes walls intersecting its lane and deals bonus wall damage |
 | Berserker | Accelerates as health falls |
 | Ogre | Boss health, knockback resistance, heavy base damage |
 
@@ -283,7 +283,7 @@ At several thousand enemies, replace one-render-object-per-orc with `InstancedMe
 
 - Stages 1–7 are complete and playable.
 - Stage 8 includes the full tower/enemy roster, six maps, six active powers plus walls, the original 60 implemented research nodes, sequential campaign unlocks, endless scaling, and six challenges.
-- Stage 9 includes flow-field wall detours, spatially indexed combat queries, interpolated instanced crowds, adaptive crowd detail, pooled tracers/effects/corpses, independently scheduled overlapping wave groups, 2,000/5,000-live and 50,000-total stream stress controls, generated combat audio, saved accessibility settings, UI scaling, reduced-flash visuals, contextual onboarding, and campaign pacing estimated at 8–10 minutes. Balance remains easy to iterate through tuning and Map Forge.
+- Stage 9 includes flow-field wall blockades, spatially indexed combat queries, interpolated instanced crowds, adaptive crowd detail, pooled tracers/effects/corpses, independently scheduled overlapping wave groups, 2,000/5,000-live and 50,000-total stream stress controls, generated combat audio, saved accessibility settings, UI scaling, reduced-flash visuals, contextual onboarding, and campaign pacing estimated at 8–10 minutes. Balance remains easy to iterate through tuning and Map Forge.
 - The current preparation/progression layer adds branching research, permanent unlock badges, per-level profile selection, persistent map/challenge layouts, two-click tower facing, visible range sectors, full setup refunds, and firing-angle tuning.
 
 ## 15. Playable implementation stages
