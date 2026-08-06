@@ -534,3 +534,11 @@ Reported ambiguous crosses in the upgrade dependency graph, preferred right-angl
 ## 102. Codex
 
 Replaced generic CSS spines with measured SVG parent-to-child elbow arrows supporting multiple parents and depth-four paths. Expanded progression from 60 mixed cards to 83 single-purpose cards. All 20 special profiles now have dedicated variant cards; Heavy Gun, Rocket, and Laser gained relevant stat paths; mixed Laser/Orbital, Support/Repair, and doctrine unlocks were separated. Cards identify stat, tower, variant, power, wall, or doctrine through both text and shape/color. Variant dependencies require maximum parent ranks, Standard no longer receives variant behavior globally, and save version 8 preserves previously bundled unlocks.
+
+## 103. User request summary
+
+Asked whether all tower types and variants were visually distinct, then whether slow, burning, bleeding, and other orc statuses were visible. Requested that every necessary status become readable, followed by a broader visual-identification audit, validation, and a push.
+
+## 104. Codex
+
+Audited the live renderer and found that variants previously differed only by an accent ring/badge while most statuses were mechanically active but invisible. Split tower, enemy-role, and status rendering into focused components. All ten tower families now have family-specific silhouettes and all 20 special profiles add distinct top-down-visible hardware. Enemy elites use shape-coded shields, plate shells, spirit orbs, banners, bomb packs, and rage horns. Burn, slow, freeze, stun, brittle, and armor break use six fixed instanced overlays that can coexist across the 8,192-orc draw ceiling; bleeding remains absent because it is not a combat mechanic. Power previews now combine unique colors with aircraft, snowflake, shell, radiation, beam, or repair-cross marks. Devtools gained PREVIEW ALL STATUS FX, and placement previews render the actual selected family/profile model.

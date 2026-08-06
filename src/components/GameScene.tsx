@@ -1,23 +1,27 @@
 import { Canvas, type ThreeEvent, useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react'
-import { Color, DynamicDrawUsage, Object3D, Shape, type Group, type InstancedMesh, type Mesh } from 'three'
+import { DynamicDrawUsage, Object3D, Shape, type InstancedMesh } from 'three'
 import { BUILD, isTowerKind } from '../game/config'
 import { isValidPlacement } from '../game/placement'
 import { addPower, barrageImpactPoint, createSimulation, findTowerTarget, getSimulationTelemetry, getTowerStatsForPlacement, guideActivePower, isRunWon, SIMULATION_STEP, spawnStressEnemies, stepSimulation, syncWalls, toSnapshot, type Enemy, type PowerRun, type SimulationState } from '../game/combat'
 import { buildPathInfo, distance, distanceToPath, pointAlongPath } from '../game/path'
 import { pointInPolygon } from '../game/polygon'
 import { resolvePowerLine } from '../game/powerTargeting'
-import type { ActivePowerKind, BattleSnapshot, BuildTool, CombatPower, EnemyKind, GameRules, GameTuning, MapDecoration, MapDefinition, MapSecondaryObjective, Placement, Point, PowerCommand, PowerDefinition, RunRules, TowerVariantId } from '../game/types'
+import { getPowerVisual, type PowerTargetMark } from '../game/powerVisuals'
+import { getEnemyVisualScale } from '../game/enemyVisuals'
+import { applyStatusVisualPreview, type EnemyStatusVisual } from '../game/statusVisuals'
+import type { ActivePowerKind, BattleSnapshot, BuildTool, CombatPower, EnemyKind, GameRules, GameTuning, MapDecoration, MapDefinition, MapSecondaryObjective, Placement, Point, PowerCommand, PowerDefinition, RunRules, TowerKind, TowerVariantId } from '../game/types'
 import { deriveWallRotation, wallVisualLength } from '../game/wall'
 import { consumeCombatAudioEvents, createCombatAudioState, playSound } from '../game/audio'
 import type { GameSettings } from '../game/settings'
 import { createStressStream, scheduleStressSpawns, type StressStream } from '../game/stressStream'
 import { advanceTowerAim, aimRotation, defaultTowerRotation, getTowerArcDegrees, getTowerDisplayedRange } from '../game/towerFacing'
-import { getTowerVariant } from '../game/towerVariants'
-import { getTowerMuzzle, TOWER_VISUAL_SCALE } from '../game/towerMuzzle'
 import { CameraRig, cameraPanAfterDrag, clampZoomFactor, fitMapZoom, zoomFactorAfterWheel } from './CameraRig'
 import { CombatEffectPool, ProjectilePool } from './CombatEffects'
 import { FortressDamageEffects } from './FortressDamageEffects'
+import { OrcStatusEffects } from './OrcStatusEffects'
+import { OrcRoleAccessories } from './OrcRoleAccessories'
+import { TowerModel } from './TowerModel'
 
 export type StressCommand = {
   id: number
@@ -26,6 +30,8 @@ export type StressCommand = {
   /** When set, feed a large diagnostic total while keeping the live crowd bounded. */
   streamRate?: number
   liveCap?: number
+  /** Spawns one labeled example of every active status visual. */
+  statusAudit?: boolean
 }
 
 type GameSceneProps = {
@@ -228,6 +234,7 @@ function World(props: GameSceneProps & { zoomFactor: number; cameraPan: MutableR
           minRange={previewStats?.minRange}
           firingArcDegrees={previewStats ? getTowerArcDegrees(previewStats) : 360}
           towerRotation={buildKind === 'wall' ? 0 : towerAimOrigin && pointer ? aimRotation(towerAimOrigin, pointer, props.movingPlacement?.rotation) : props.movingPlacement?.rotation ?? defaultTowerRotation(props.map, previewPoint)}
+          variantId={previewVariantId}
           wallRotation={props.movingPlacement?.rotation ?? deriveWallRotation(props.map, previewPoint)}
           wallLength={props.rules.wall.length}
         />
@@ -456,7 +463,7 @@ function RangeSector({ range, minRange = 0, arcDegrees, rotation, color, opacity
   </mesh>
 }
 
-function BuildPreview({ point, kind, valid, range, minRange = 0, firingArcDegrees = 360, towerRotation = 0, wallRotation = 0, wallLength = 1 }: { point: Point; kind: BuildTool; valid: boolean; range: number; minRange?: number; firingArcDegrees?: number; towerRotation?: number; wallRotation?: number; wallLength?: number }) {
+function BuildPreview({ point, kind, valid, range, minRange = 0, firingArcDegrees = 360, towerRotation = 0, wallRotation = 0, wallLength = 1, variantId }: { point: Point; kind: BuildTool; valid: boolean; range: number; minRange?: number; firingArcDegrees?: number; towerRotation?: number; wallRotation?: number; wallLength?: number; variantId?: TowerVariantId | string }) {
   return (
     <group position={[point.x, 0.05, point.z]}>
       {kind !== 'wall' && range > 0 && (
@@ -465,10 +472,7 @@ function BuildPreview({ point, kind, valid, range, minRange = 0, firingArcDegree
       {kind === 'wall' ? <mesh position={[0, 0.15, 0]} rotation={[0, wallRotation, 0]}>
         <boxGeometry args={[0.45, 0.3, wallVisualLength(wallLength)]} />
         <meshBasicMaterial color={valid ? '#d9e28e' : '#ff594d'} transparent opacity={0.55} />
-      </mesh> : <mesh position={[0, 0.075, 0]}>
-        <cylinderGeometry args={[0.22, 0.22, 0.15, 16]} />
-        <meshBasicMaterial color={valid ? '#d9e28e' : '#ff594d'} transparent opacity={0.55} />
-      </mesh>}
+      </mesh> : isTowerKind(kind) ? <TowerModel tower={{ id: -1, kind, x: 0, z: 0, rotation: towerRotation, variantId }} /> : null}
       {valid ? (
         <mesh position={[0, 0.3, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[0.13, 0.035, 6, 18]} />
@@ -485,20 +489,31 @@ function BuildPreview({ point, kind, valid, range, minRange = 0, firingArcDegree
 }
 
 function PowerPreview({ kind, point, lineEnd, mapWidth, definition }: { kind: ActivePowerKind; point: Point; lineEnd?: Point; mapWidth: number; definition: PowerDefinition }) {
+  const visual = getPowerVisual(kind)
   const line = resolvePowerLine(point, lineEnd ?? point, mapWidth)
   const dx = line.end.x - line.start.x
   const dz = line.end.z - line.start.z
   return definition.shape === 'lane' ? (
-    <mesh position={[(line.start.x + line.end.x) / 2, 0.08, (line.start.z + line.end.z) / 2]} rotation={[0, -Math.atan2(dz, dx), 0]}>
-      <boxGeometry args={[Math.hypot(dx, dz), 0.025, definition.size]} />
-      <meshBasicMaterial color={kind === 'cryoBeam' ? '#78dbe8' : '#f0c85b'} transparent opacity={0.22} />
-    </mesh>
+    <group position={[(line.start.x + line.end.x) / 2, 0.08, (line.start.z + line.end.z) / 2]} rotation={[0, -Math.atan2(dz, dx), 0]}>
+      <mesh><boxGeometry args={[Math.hypot(dx, dz), 0.025, definition.size]} /><meshBasicMaterial color={visual.color} transparent opacity={0.3} /></mesh>
+      <PowerTargetMark mark={visual.mark} color={visual.color} size={definition.size} />
+    </group>
   ) : (
-    <mesh position={[point.x, 0.08, point.z]} rotation={[-Math.PI / 2, 0, 0]}>
-      <circleGeometry args={[definition.size, 48]} />
-      <meshBasicMaterial color={kind === 'nuke' ? '#ff553b' : '#f0a65b'} transparent opacity={0.2} />
-    </mesh>
+    <group position={[point.x, 0.08, point.z]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[definition.size, 48]} /><meshBasicMaterial color={visual.color} transparent opacity={0.24} /></mesh>
+      <PowerTargetMark mark={visual.mark} color={visual.color} size={definition.size} />
+    </group>
   )
+}
+
+function PowerTargetMark({ mark, color, size }: { mark: PowerTargetMark; color: string; size: number }) {
+  if (mark === 'aircraft') return <group position={[0, 0.12, 0]}><mesh><boxGeometry args={[size * 0.7, 0.07, size * 0.18]} /><meshBasicMaterial color={color} /></mesh><mesh><boxGeometry args={[size * 0.2, 0.08, size * 0.62]} /><meshBasicMaterial color={color} /></mesh></group>
+  if (mark === 'snowflake') return <group position={[0, 0.1, 0]}>{[0, Math.PI / 3, -Math.PI / 3].map((rotation) => <mesh key={rotation} rotation={[0, rotation, 0]}><boxGeometry args={[size * 0.68, 0.05, size * 0.08]} /><meshBasicMaterial color={color} /></mesh>)}</group>
+  if (mark === 'cross') return <group position={[0, 0.06, 0]}>{[0, Math.PI / 2].map((rotation) => <mesh key={rotation} rotation={[0, rotation, 0]}><boxGeometry args={[size * 0.85, 0.05, size * 0.22]} /><meshBasicMaterial color={color} /></mesh>)}</group>
+  if (mark === 'shells') return <group>{[-0.38, 0, 0.38].map((offset) => <mesh key={offset} position={[offset * size, 0.08, (offset === 0 ? 0.28 : -0.2) * size]}><sphereGeometry args={[size * 0.1, 7, 5]} /><meshBasicMaterial color={color} /></mesh>)}</group>
+  if (mark === 'radiation') return <group>{[0.35, 0.65].map((scale) => <mesh key={scale} position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[size * scale - 0.04, size * scale, 24]} /><meshBasicMaterial color={color} /></mesh>)}</group>
+  if (mark === 'beam') return <mesh position={[0, 0.55, 0]}><cylinderGeometry args={[size * 0.08, size * 0.15, 1.1, 10]} /><meshBasicMaterial color={color} transparent opacity={0.75} /></mesh>
+  return null
 }
 
 function PlacementModel({ placement, map, wallMaxHealth, wallLength, selected, showRange, towers, tuning, onSelect }: {
@@ -524,93 +539,10 @@ function PlacementModel({ placement, map, wallMaxHealth, wallLength, selected, s
       <ringGeometry args={[0.31, 0.38, 40]} />
       <meshBasicMaterial color="#f5d66d" transparent opacity={0.85} />
     </mesh>}
-    {placement.kind === 'wall'
-      ? <Wall point={{ ...placement, rotation: placement.rotation ?? deriveWallRotation(map, placement) }} health={wallMaxHealth} maxHealth={wallMaxHealth} length={wallLength} />
-      : <TowerModel tower={placement} />}
+    {isTowerKind(placement.kind)
+      ? <TowerModel tower={{ ...placement, kind: placement.kind }} />
+      : <Wall point={{ ...placement, rotation: placement.rotation ?? deriveWallRotation(map, placement) }} health={wallMaxHealth} maxHealth={wallMaxHealth} length={wallLength} />}
   </group>
-}
-
-function TowerModel({ tower, target, simulation }: { tower: Placement; target?: Point; simulation?: SimulationState }) {
-  const weaponMount = useRef<Group>(null)
-  const muzzleFlash = useRef<Mesh>(null)
-  const angle = target ? -Math.atan2(target.z - tower.z, target.x - tower.x) : -(tower.rotation ?? 0)
-  const colors = tower.kind === 'cannon' || tower.kind === 'mortar' || tower.kind === 'rocket' ? ['#383d3c', '#bd6d42']
-    : tower.kind === 'flamethrower' ? ['#4b3d31', '#d65735']
-      : tower.kind === 'cryo' ? ['#3b5960', '#84d8df']
-        : tower.kind === 'tesla' ? ['#3f4057', '#a685ee']
-          : tower.kind === 'laser' ? ['#4c3436', '#f05f67']
-            : tower.kind === 'support' ? ['#3a5144', '#74d69b']
-              : ['#4f5650', '#b7a45c']
-  const barrelRadius = tower.kind === 'cannon' || tower.kind === 'mortar' || tower.kind === 'rocket' ? 0.14 : tower.kind === 'flamethrower' ? 0.1 : 0.07
-  const variant = isTowerKind(tower.kind) ? getTowerVariant(tower.kind, tower.variantId) : undefined
-  const muzzle = isTowerKind(tower.kind) ? getTowerMuzzle(tower.kind) : getTowerMuzzle('gunner')
-  useFrame(() => {
-    if (!weaponMount.current || !muzzleFlash.current || !simulation) return
-    const age = simulation.elapsedSeconds - (simulation.towerLastShotAt.get(tower.id) ?? -100)
-    const kick = age >= 0 && age < 0.16 ? Math.sin(age / 0.16 * Math.PI) : 0
-    const weight = tower.kind === 'mortar' || tower.kind === 'cannon' ? 0.2 : tower.kind === 'rocket' ? 0.14 : 0.07
-    weaponMount.current.position.x = -kick * weight
-    muzzleFlash.current.visible = age >= 0 && age < 0.065
-    const flashScale = 0.8 + Math.max(0, 1 - age / 0.065) * 0.65
-    muzzleFlash.current.scale.setScalar(flashScale)
-  })
-  return (
-    <group position={[tower.x, 0, tower.z]} scale={TOWER_VISUAL_SCALE}>
-      {variant && <mesh position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.48, 0.57, 18]} />
-        <meshStandardMaterial color={variant.accent} emissive={variant.accent} emissiveIntensity={0.35} />
-      </mesh>}
-      <mesh position={[0, 0.22, 0]}>
-        <cylinderGeometry args={[0.48, 0.58, 0.44, 10]} />
-        <meshStandardMaterial color={colors[0]} metalness={0.45} roughness={0.7} />
-      </mesh>
-      <group position={[0, 0.62, 0]} rotation={[0, angle, 0]}>
-        <mesh>
-          <sphereGeometry args={[0.31, 10, 8]} />
-          <meshStandardMaterial color={colors[1]} metalness={0.35} />
-        </mesh>
-        {variant && <mesh position={[0, 0.34, 0]}>
-          <boxGeometry args={[0.17, 0.09, 0.17]} />
-          <meshStandardMaterial color={variant.accent} emissive={variant.accent} emissiveIntensity={0.55} />
-        </mesh>}
-        <group ref={weaponMount}>
-          <TowerWeapon kind={tower.kind} barrelRadius={barrelRadius} />
-          <mesh ref={muzzleFlash} visible={false} position={[muzzle.forward / TOWER_VISUAL_SCALE, muzzle.height / TOWER_VISUAL_SCALE - 0.62, 0]} rotation={[0, 0, -Math.PI / 2]}>
-            <coneGeometry args={[0.13, 0.42, 6]} />
-            <meshBasicMaterial color={muzzle.color} transparent opacity={0.9} depthWrite={false} toneMapped={false} />
-          </mesh>
-        </group>
-      </group>
-    </group>
-  )
-}
-
-function TowerWeapon({ kind, barrelRadius }: { kind: BuildTool; barrelRadius: number }) {
-  if (kind === 'rocket') return <group position={[0.48, 0, 0]}>
-    {[-0.16, 0.16].map((z) => <mesh key={z} position={[0, 0, z]} rotation={[0, 0, Math.PI / 2]}>
-      <cylinderGeometry args={[0.11, 0.15, 0.82, 8]} /><meshStandardMaterial color="#2b302f" metalness={0.8} />
-    </mesh>)}
-  </group>
-  if (kind === 'mortar') return <mesh position={[0.32, 0.2, 0]} rotation={[0, 0, Math.PI / 3]}>
-    <cylinderGeometry args={[0.16, 0.2, 0.8, 10]} /><meshStandardMaterial color="#292d2c" metalness={0.8} />
-  </mesh>
-  if (kind === 'tesla') return <group>
-    {[-0.18, 0, 0.18].map((z) => <mesh key={z} position={[0, 0.3, z]}>
-      <coneGeometry args={[0.07, 0.65, 6]} /><meshStandardMaterial color="#c9afff" emissive="#6040aa" emissiveIntensity={0.6} />
-    </mesh>)}
-  </group>
-  if (kind === 'support') return <group>
-    <mesh position={[0, 0.32, 0]}><cylinderGeometry args={[0.06, 0.09, 0.78, 8]} /><meshStandardMaterial color="#b7ddbc" /></mesh>
-    <mesh position={[0, 0.72, 0]}><octahedronGeometry args={[0.18]} /><meshStandardMaterial color="#77e2a1" emissive="#245f3c" /></mesh>
-  </group>
-  if (kind === 'laser') return <group position={[0.45, 0, 0]}>
-    <mesh rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.09, 0.14, 0.72, 8]} /><meshStandardMaterial color="#292d2c" metalness={0.8} /></mesh>
-    <mesh position={[0.43, 0, 0]} rotation={[0, 0, Math.PI / 2]}><coneGeometry args={[0.12, 0.32, 6]} /><meshStandardMaterial color="#ff7a83" emissive="#8c1f2b" emissiveIntensity={0.7} /></mesh>
-  </group>
-  return <mesh position={[0.64, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-    <cylinderGeometry args={[barrelRadius, barrelRadius * 1.4, kind === 'flamethrower' ? 0.72 : 0.95, 8]} />
-    <meshStandardMaterial color="#292d2c" metalness={0.8} />
-  </mesh>
 }
 
 function Wall({ point, health, maxHealth, length }: { point: Point & { rotation?: number }; health: number; maxHealth: number; length: number }) {
@@ -636,41 +568,28 @@ function Wall({ point, health, maxHealth, length }: { point: Point & { rotation?
 /** One body remains visible per live orc through the supported 5k stress envelope. */
 export const MAX_RENDERED_ORCS = 8192
 const FULL_DETAIL_ORCS = 3000
-const MAX_RENDERED_ARMOR = 1600
-const MAX_RENDERED_MARKERS = 900
 const MAX_RENDERED_BOSSES = 32
-const SPECIAL_ORC_COLORS: Partial<Record<EnemyKind, Color>> = {
-  shaman: new Color('#62d9dd'),
-  banner: new Color('#d84a3f'),
-  sapper: new Color('#f0a13b'),
-  berserker: new Color('#ff5d42'),
-  ogre: new Color('#ead49a'),
-}
 
 function OrcHorde({ simulation }: { simulation: SimulationState }) {
   const bodies = useRef<InstancedMesh>(null)
   const heads = useRef<InstancedMesh>(null)
-  const armor = useRef<InstancedMesh>(null)
-  const specialMarkers = useRef<InstancedMesh>(null)
   const bossRings = useRef<InstancedMesh>(null)
   const bossHealthBacks = useRef<InstancedMesh>(null)
   const bossHealthBars = useRef<InstancedMesh>(null)
   const dummy = useMemo(() => new Object3D(), [])
 
   useEffect(() => {
-    for (const mesh of [bodies.current, heads.current, armor.current, specialMarkers.current, bossRings.current, bossHealthBacks.current, bossHealthBars.current]) {
+    for (const mesh of [bodies.current, heads.current, bossRings.current, bossHealthBacks.current, bossHealthBars.current]) {
       mesh?.instanceMatrix.setUsage(DynamicDrawUsage)
     }
   }, [])
 
   useFrame(() => {
-    if (!bodies.current || !heads.current || !armor.current || !specialMarkers.current || !bossRings.current || !bossHealthBacks.current || !bossHealthBars.current) return
+    if (!bodies.current || !heads.current || !bossRings.current || !bossHealthBacks.current || !bossHealthBars.current) return
     const enemies = simulation.enemies
     const visibleCount = Math.min(enemies.length, MAX_RENDERED_ORCS)
     const detailedCount = Math.min(visibleCount, FULL_DETAIL_ORCS)
     const interpolation = Math.min(1, simulation.accumulator / SIMULATION_STEP)
-    let armorIndex = 0
-    let markerIndex = 0
     let bossIndex = 0
     for (let index = 0; index < visibleCount; index += 1) {
       const enemy = enemies[index]
@@ -701,14 +620,6 @@ function OrcHorde({ simulation }: { simulation: SimulationState }) {
         heads.current.setMatrixAt(index, dummy.matrix)
       }
 
-      if (armorIndex < MAX_RENDERED_ARMOR && (enemy.kind === 'shieldbearer' || enemy.kind === 'armored')) {
-        dummy.position.set(x + facingX * 0.28 * scale, 0.66 + wobble, z + facingZ * 0.28 * scale)
-        dummy.scale.setScalar(scale)
-        dummy.rotation.set(0, Math.atan2(-facingZ, facingX), -0.15)
-        dummy.updateMatrix()
-        armor.current.setMatrixAt(armorIndex, dummy.matrix)
-        armorIndex += 1
-      }
       if (enemy.kind === 'ogre' && bossIndex < MAX_RENDERED_BOSSES) {
         const pulse = 1 + Math.sin(simulation.elapsedSeconds * 2.4 + enemy.id) * 0.06
         dummy.position.set(x, 0.035, z)
@@ -728,34 +639,17 @@ function OrcHorde({ simulation }: { simulation: SimulationState }) {
         bossHealthBars.current.setMatrixAt(bossIndex, dummy.matrix)
         bossIndex += 1
       }
-
-      const markerColor = SPECIAL_ORC_COLORS[enemy.kind]
-      if (markerColor && markerIndex < MAX_RENDERED_MARKERS) {
-        const markerScale = enemy.kind === 'ogre' ? 0.28 : enemy.kind === 'banner' ? 0.2 : 0.15
-        dummy.position.set(x, 1.38 * scale + wobble, z)
-        dummy.scale.setScalar(markerScale)
-        dummy.rotation.set(0, enemy.id * 0.35, 0)
-        dummy.updateMatrix()
-        specialMarkers.current.setMatrixAt(markerIndex, dummy.matrix)
-        specialMarkers.current.setColorAt(markerIndex, markerColor)
-        markerIndex += 1
-      }
     }
     bodies.current.count = visibleCount
     heads.current.count = detailedCount
-    armor.current.count = armorIndex
-    specialMarkers.current.count = markerIndex
     bossRings.current.count = bossIndex
     bossHealthBacks.current.count = bossIndex
     bossHealthBars.current.count = bossIndex
     bodies.current.instanceMatrix.needsUpdate = true
     heads.current.instanceMatrix.needsUpdate = true
-    armor.current.instanceMatrix.needsUpdate = true
-    specialMarkers.current.instanceMatrix.needsUpdate = true
     bossRings.current.instanceMatrix.needsUpdate = true
     bossHealthBacks.current.instanceMatrix.needsUpdate = true
     bossHealthBars.current.instanceMatrix.needsUpdate = true
-    if (specialMarkers.current.instanceColor) specialMarkers.current.instanceColor.needsUpdate = true
   })
 
   return (
@@ -767,14 +661,6 @@ function OrcHorde({ simulation }: { simulation: SimulationState }) {
       <instancedMesh ref={heads} args={[undefined, undefined, MAX_RENDERED_ORCS]} frustumCulled={false}>
         <sphereGeometry args={[0.25, 7, 5]} />
         <meshStandardMaterial color="#78944f" roughness={1} />
-      </instancedMesh>
-      <instancedMesh ref={armor} args={[undefined, undefined, MAX_RENDERED_ARMOR]} frustumCulled={false}>
-        <boxGeometry args={[0.12, 0.72, 0.62]} />
-        <meshStandardMaterial color="#606867" metalness={0.65} />
-      </instancedMesh>
-      <instancedMesh ref={specialMarkers} args={[undefined, undefined, MAX_RENDERED_MARKERS]} frustumCulled={false}>
-        <octahedronGeometry args={[1, 0]} />
-        <meshStandardMaterial vertexColors emissive="#31140d" emissiveIntensity={0.35} />
       </instancedMesh>
       <instancedMesh ref={bossRings} args={[undefined, undefined, MAX_RENDERED_BOSSES]} frustumCulled={false}>
         <ringGeometry args={[0.78, 0.92, 24]} /><meshBasicMaterial color="#d7b85d" transparent opacity={0.72} depthWrite={false} />
@@ -790,7 +676,7 @@ function OrcHorde({ simulation }: { simulation: SimulationState }) {
 }
 
 function enemyScale(enemy: Enemy): number {
-  return enemy.kind === 'ogre' ? 1.35 : enemy.kind === 'brute' ? 0.92 : enemy.kind === 'runner' ? 0.48 : enemy.kind === 'sapper' ? 0.55 : 0.62
+  return getEnemyVisualScale(enemy.kind)
 }
 
 function Battle({ map, run, rules, reducedFlashes, screenShake, cameraShake, settings, placements, powerCommand, guidePoint, stressCommand, invulnerable, paused, speed, surrenderRevision, onSnapshot, onEnd, onWallRemoved }: {
@@ -816,7 +702,7 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, cameraShake, set
   const [, render] = useState(0)
   const ended = useRef(false)
   const sim = useRef(createSimulation(placements, rules, run.mode === 'challenge' ? run.modifiers.baseHealth ?? 100 : 100, map))
-  const towers = useMemo(() => placements.filter((item) => isTowerKind(item.kind)), [placements])
+  const towers = useMemo(() => placements.filter((item): item is Placement & { kind: TowerKind } => isTowerKind(item.kind)), [placements])
   const pathInfos = useMemo(() => map.paths.map(buildPathInfo), [map.paths])
   const lastPowerId = useRef<number | null>(null)
   const lastStressId = useRef<number | null>(null)
@@ -855,7 +741,12 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, cameraShake, set
       stressStream.current = { ...createStressStream(stressCommand.count, stressCommand.streamRate, stressCommand.liveCap), kind: stressCommand.kind }
     } else {
       stressStream.current = null
+      const start = sim.current.enemies.length
       spawnStressEnemies(sim.current, map, rules, stressCommand.count, stressCommand.kind)
+      if (stressCommand.statusAudit) {
+        const statuses: readonly EnemyStatusVisual[] = ['burn', 'slow', 'freeze', 'stun', 'brittle', 'armorBreak']
+        sim.current.enemies.slice(start).forEach((enemy, index) => applyStatusVisualPreview(enemy.status, statuses[index % statuses.length]))
+      }
     }
     onSnapshot(toSnapshot(sim.current, run))
   }, [map, onSnapshot, rules, run, stressCommand])
@@ -931,6 +822,8 @@ function Battle({ map, run, rules, reducedFlashes, screenShake, cameraShake, set
         <Wall key={wall.id} point={wall} health={wall.health} maxHealth={rules.tuning.wall.health} length={wall.length} />
       ))}
       <OrcHorde simulation={state} />
+      <OrcRoleAccessories simulation={state} />
+      <OrcStatusEffects simulation={state} reducedFlashes={reducedFlashes} />
       <FortressFeedback map={map} simulation={state} reducedFlashes={reducedFlashes} />
       {map.secondaryObjective && <SecondaryObjectiveFeedback objective={map.secondaryObjective} simulation={state} reducedFlashes={reducedFlashes} />}
       <ProjectilePool simulation={state} />
@@ -990,9 +883,7 @@ function SecondaryObjectiveFeedback({ objective, simulation, reducedFlashes }: {
 
 function PowerVisual({ power, definition, mapWidth, reducedFlashes }: { power: PowerRun; definition: PowerDefinition; mapWidth: number; reducedFlashes: boolean }) {
   const warning = !power.fired
-  const color = power.kind === 'cryoBeam' ? '#80e8f2' : power.kind === 'nuke' ? '#ff583d'
-    : power.kind === 'barrage' ? '#ffad58' : power.kind === 'orbitalLaser' ? '#f4c7ff'
-      : power.kind === 'repair' ? '#79dfa0' : '#f5d46c'
+  const color = getPowerVisual(power.kind).color
   if (definition.shape === 'circle') return (
     <group position={[power.point.x, 0, power.point.z]}>
       <mesh position={[0, 0.13, 0]} rotation={[-Math.PI / 2, 0, 0]}>

@@ -38,6 +38,7 @@ Green March is now a short 107-enemy teaching battle instead of a 636-enemy endu
 - [ ] Max Polished Action to 3/3, then unlock the separate Rapid Feed card. Confirm 1/3 or 2/3 cannot unlock it and Standard remains unchanged until Rapid Feed is equipped.
 - [ ] Confirm Armory branches fan out from their tool root and tower, power, wall, and variant unlock badges are readable.
 - [ ] Unlock both profiles for one tower, select each and Standard in turn, and confirm only one profile is active for that tower family.
+- [ ] Inspect all ten tower families and both profiles for each; confirm the family silhouette and equipped-profile hardware remain recognizable at normal top-down zoom without relying on the accent color.
 - [ ] Confirm a locked, unknown, or wrong-family saved profile safely loads as Standard.
 - [ ] Enable Unlock All Content and confirm the run is marked unranked.
 - [ ] Create two lanes and boulders in Map Forge, export/import JSON, save, refresh, and replay the map.
@@ -61,6 +62,7 @@ Green March is now a short 107-enemy teaching battle instead of a 636-enemy endu
 - [ ] Knock enemies toward temporary walls, polygon terrain, and the map edge; confirm they stop or slide rather than crossing.
 - [ ] Let fortress health cross 70% and 30%; confirm cracks, rubble, and smoke stage clearly without covering the route.
 - [ ] Spawn an Ogre and confirm its marker and health bar remain readable in a dense horde.
+- [ ] Spawn every enemy role and confirm shields, plate shells, spirit orbs, banners, bomb packs, rage horns, size classes, and the Ogre presentation identify them without reading UI text.
 - [ ] Use wheel and `− / FIT / +` zoom while paused and under fortress shake; confirm world targeting remains aligned and off-screen enemies continue moving.
 - [ ] Review briefing, deployment, battle controls, Armory, settings, and results at desktop and narrow widths for the forged command-board visual language.
 - [ ] Drag Strafe/Cryo horizontally and diagonally, guide Orbital while active, and confirm spent Repair charges disable its control.
@@ -69,6 +71,7 @@ Green March is now a short 107-enemy teaching battle instead of a 636-enemy endu
 - [ ] On Twin Fork, defend/lose the supply cache and confirm its bonus appears correctly in results.
 - [ ] Change settings, reload, and confirm UI scale, screen shake, reduced flashes, and focus-loss pause persist.
 - [ ] Open devtools, tune a power, spawn one chosen orc, enable fortress invulnerability, and confirm the run becomes unranked.
+- [ ] Use PREVIEW ALL STATUS FX and confirm burn, slow, freeze, stun, brittle, and armor break use distinct shapes; confirm simultaneous real combat statuses remain layered.
 - [ ] Spawn 5,000 live orcs and run the 50,000-total stream preset; confirm the drawn/live count, stream remainder, and frame/simulation telemetry update.
 - [ ] In Map Forge, change wave HP/speed/damage and reward multipliers, mark a boss wave, save/reload, and launch it.
 - [ ] Resize to a narrow viewport and confirm setup, battle controls, editors, and overlays remain usable.

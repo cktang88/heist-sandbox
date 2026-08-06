@@ -89,7 +89,7 @@ We evaluated general spatial-tree libraries but did not add one. Flatbush is exp
 ### Content and feel
 
 1. Add secondary-objective types, challenge modifiers, and map decorations; tune doctrine balance after broader playtesting.
-2. Refine the implemented firing/locomotion/effect timing with wider human playtesting and final art/audio assets.
+2. Refine the implemented firing/locomotion/effect timing and newly shape-coded tower, enemy, power, and status language with wider human playtesting and final art/audio assets.
 3. Add touch controls, remappable keys, and controller support.
 4. Add production sound design, music, mixing, and more complete accessibility options.
 5. Continue tuning upgrade costs, firing sectors, tower profile tradeoffs, wave pacing, and endless scaling.

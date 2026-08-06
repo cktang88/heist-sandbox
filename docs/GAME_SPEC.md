@@ -68,6 +68,10 @@ Temporary walls are the one construction exception: they are an equipped combat 
 
 Combat feedback is layered but restrained. A tower recoils and flashes at the muzzle, and its pooled tracer begins at the same measured barrel-tip position. Ballistic shots use bright yellow/orange lines; energy and status weapons retain readable family colors. A heavy projectile follows a weapon-specific arc, the impact emits a bounded spark burst and force, and a killed orc leaves a readable corpse. These are instanced pools with fixed budgets rather than independent React or ECS entities. Corpses have a separate history budget so rapid gunfire cannot erase them prematurely.
 
+Battlefield identity must not rely on color alone. Every tower family has a recognizable weapon silhouette, and each equipped special profile adds visible hardware such as a drum, muzzle brake, shell rack, fuel tank, crystal, lens, turbine, or shield array. The placement ghost renders that actual family/profile model. Enemy roles use scale or shape-coded equipment: shields, plate shells, spirit orbs, banners, bomb packs, rage horns, and an Ogre boss ring/health bar. Powers combine a stable family color with a different target mark: aircraft, shells, snowflake, radiation rings, beam, or repair cross.
+
+Every active enemy status is visible and simultaneous states remain layered. Burning uses an orange flame, slow a cyan ground ring, freeze an ice cage, stun a yellow rotating halo, brittle a violet shard, and armor break a red broken-shell marker. These use six fixed-capacity instanced meshes supporting the full 8,192 rendered-orc ceiling without creating per-orc React objects. Bleeding is not a current combat mechanic. Devtools can spawn one long-lived example of every implemented status for rapid visual checks.
+
 Knockback is an impulse that decays over several fixed steps. Its strength comes from weapon data, blast falloff, upgrades, and variants; heavy units and Ogres resist it. Each impulse advances in small navigation-grid-tested steps and may slide along a blocker, but it cannot tunnel through a terrain polygon, map boundary, or temporary wall.
 
 ### 2.4 Results

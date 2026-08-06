@@ -22,6 +22,14 @@ describe('tower variant catalog', () => {
     for (const tower of TOWER_KINDS) expect(getTowerVariants(tower)).toHaveLength(2)
   })
 
+  it('gives every equipped profile its own non-color visual attachment', () => {
+    for (const tower of TOWER_KINDS) {
+      const variants = getTowerVariants(tower)
+      expect(new Set(variants.map((variant) => variant.visual)).size, tower).toBe(variants.length)
+      expect(variants.every((variant) => variant.visual.length > 3), tower).toBe(true)
+    }
+  })
+
   it('gives every special variant distinct stats without mutating standard tuning', () => {
     for (const variant of TOWER_VARIANTS) {
       const standard = structuredClone(DEFAULT_TUNING.towers[variant.tower])

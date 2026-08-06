@@ -90,7 +90,7 @@ const FIELDS: readonly TuningField[] = [
   { id: 'wall-radius', label: 'Wall collision radius', step: 0.05, read: (tuning) => tuning.wall.collisionRadius, write: (tuning, value) => ({ ...tuning, wall: { ...tuning.wall, collisionRadius: value } }) },
 ]
 
-export function TuningPanel({ tuning, devUnlockAll, stressAvailable, invulnerable, onToggleDevUnlockAll, onSpawnStress, onSpawnEnemy, onToggleInvulnerable, onResetRuntimeCheats, onChange, onClose, onQuickRestart }: {
+export function TuningPanel({ tuning, devUnlockAll, stressAvailable, invulnerable, onToggleDevUnlockAll, onSpawnStress, onSpawnEnemy, onPreviewStatuses, onToggleInvulnerable, onResetRuntimeCheats, onChange, onClose, onQuickRestart }: {
   tuning: GameTuning
   devUnlockAll: boolean
   stressAvailable: boolean
@@ -98,6 +98,7 @@ export function TuningPanel({ tuning, devUnlockAll, stressAvailable, invulnerabl
   onToggleDevUnlockAll: () => void
   onSpawnStress: (count: number, streamed?: boolean) => void
   onSpawnEnemy: (kind: EnemyKind) => void
+  onPreviewStatuses: () => void
   onToggleInvulnerable: () => void
   onResetRuntimeCheats: () => void
   onChange: (tuning: GameTuning) => void
@@ -143,6 +144,8 @@ export function TuningPanel({ tuning, devUnlockAll, stressAvailable, invulnerabl
           <button onClick={() => onSpawnStress(5000)} disabled={!stressAvailable}>SPAWN 5,000</button>
           <button onClick={() => onSpawnStress(50000, true)} disabled={!stressAvailable}>STREAM 50,000</button>
         </div>
+        <button onClick={onPreviewStatuses} disabled={!stressAvailable}>PREVIEW ALL STATUS FX</button>
+        <small className="status-visual-legend">🔥 BURN · ◎ SLOW · ◇ FREEZE · ⚡ STUN · ◆ BRITTLE · ▱ ARMOR BREAK</small>
         {telemetry && <dl className="runtime-telemetry" aria-label="Runtime telemetry">
           <div><dt>LIVE / DRAWN</dt><dd>{telemetry.entities.toLocaleString()} / {telemetry.renderedOrcs.toLocaleString()}</dd></div>
           <div><dt>FPS / FRAME</dt><dd>{telemetry.fps.toFixed(0)} / {telemetry.frameMs.toFixed(1)}ms</dd></div>

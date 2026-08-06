@@ -822,6 +822,14 @@ export default function App() {
               setTuningOpen(false)
               setPaused(false)
             }}
+            onPreviewStatuses={() => {
+              if (phase !== 'battle') return
+              setRankedRun(false)
+              setBattleUnrankedReason('The status visual audit was used during this run.')
+              setStressCommand((current) => ({ id: (current?.id ?? 0) + 1, count: 6, kind: 'grunt', statusAudit: true }))
+              setTuningOpen(false)
+              setPaused(false)
+            }}
             onToggleInvulnerable={() => {
               if (phase !== 'battle') return
               setRankedRun(false)

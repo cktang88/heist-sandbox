@@ -20,15 +20,15 @@ npm run build
 
 1. Six campaign missions with distinct themed waves, deterministic endless mode, and six modifier challenges.
 2. Six maps, including corridor battles, a three-approach boss citadel, and the open-field polygon arena Shattered Expanse, plus custom saved maps.
-3. Ten compact half-scale towers with forgiving footprint-matched placement, each with Standard plus two research-unlocked special variants, ten enemy roles, status effects, support buffs, and damage statistics.
+3. Ten compact half-scale towers with family-specific silhouettes and two geometry-coded special variants each; ten shape-coded enemy roles; visible burn, slow, freeze, stun, brittle, and armor-break states; support buffs; and damage statistics.
 4. Drag-aimed Strafe/Cryo, barrage, nuke, guideable orbital laser, finite emergency repair, and temporary combat walls.
 5. A persistent branching 83-node armory with visually distinct stat, tower, variant, power, wall, and doctrine cards. Every special profile is a separate unlock reached only after its relevant stat path is fully ranked.
 6. Map Forge with a reload-safe custom library, corridor/open-field navigation, editable polygon platforms and blockers, multiple lanes, build zones, supply-cache objectives, terrain palettes, decoration stamps, authored Sandbox waves, validation, and JSON import/export.
-7. Live tuning for every tower, enemy, and battlefield power, plus unranked per-type spawning, fortress invulnerability, stress hordes, and quick restart.
+7. Live tuning for every tower, enemy, and battlefield power, plus unranked per-type spawning, a six-status visual audit, fortress invulnerability, stress hordes, and quick restart.
 8. Versioned saves, a separate persistent defense layout for every map and challenge, campaign/challenge progress, percentage-based Command Medals with a large first-clear bonus and half-rate replays, four research-unlocked Commander Doctrines, pause, surrender, 1×/2× speed, and persistent accessibility settings including screen shake.
 9. Flow-field wall detours, overlapping horde streams, and unranked 2,000/5,000-enemy plus 50,000-total stream stress controls.
 10. Spatially indexed combat queries, interpolated instanced crowds, collision-safe force, and bounded projectile/particle/corpse pools.
-11. A forged field-command interface, wheel/button camera zoom, shared barrel-tip muzzle/tracer origins, bright weapon-colored shot lines, ballistic shell arcs, marching orcs, persistent fortress damage, and marked Ogre bosses.
+11. A forged field-command interface, wheel/button camera zoom, shared barrel-tip muzzle/tracer origins, bright weapon-colored shot lines, ballistic shell arcs, marked powers, marching orcs, persistent fortress damage, and marked Ogre bosses.
 
 ## Controls
 
