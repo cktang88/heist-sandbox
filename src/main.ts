@@ -5,13 +5,14 @@ import { createWorld, type World } from './game/world'
 import { attachInput } from './inputDevice'
 import { createCamera } from './render/camera'
 import { drawHud } from './render/drawHud'
-import { drawScene } from './render/drawScene'
+import { createSceneRenderer } from './render/drawScene'
 
 const MAX_FRAME_SECONDS = 1 / 30
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const context = canvas.getContext('2d')!
 const input = attachInput(canvas, TOOLS.length)
+const scene = createSceneRenderer()
 
 function newSeed(): number {
   const fromUrl = Number(new URLSearchParams(location.search).get('seed'))
@@ -22,8 +23,10 @@ let world: World = createWorld(newSeed())
 let lastTime = performance.now()
 
 function resize(): void {
-  canvas.width = window.innerWidth
-  canvas.height = window.innerHeight
+  // Draw at the screen's real pixel density so edges stay sharp.
+  const density = Math.min(2, window.devicePixelRatio || 1)
+  canvas.width = Math.round(window.innerWidth * density)
+  canvas.height = Math.round(window.innerHeight * density)
 }
 window.addEventListener('resize', resize)
 resize()
@@ -39,7 +42,7 @@ function frame(now: number): void {
   else input.consumeRestart()
 
   stepWorld(world, frameInput, realDt)
-  drawScene(context, world, camera, frameInput.aim)
+  scene.draw(context, world, camera, frameInput.aim)
   drawHud(context, world, canvas.width, canvas.height)
   ;(globalThis as { __game?: { world: World } }).__game = { world }
   requestAnimationFrame(frame)

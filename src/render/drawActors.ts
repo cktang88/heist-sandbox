@@ -1,8 +1,9 @@
 import type { Guard } from '../game/guards'
-import { TILE_DEFS } from '../game/tiles'
 import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
-import { castRay, normalize } from '../game/vision'
+import { normalize } from '../game/vision'
+import { tracePolygon, visionCone } from './cone'
+import { lampIsLit } from './lighting'
 import type { World } from '../game/world'
 
 const GUARD_COLORS = { patrol: '#5b7aa6', suspicious: '#d9b23c', alert: '#d94a3c', dead: '#4a4f58' } as const
@@ -35,20 +36,21 @@ export function drawGuard(context: CanvasRenderingContext2D, world: World, guard
 /** Shows what a guard can see, clipped by walls, so sneaking is readable. */
 function drawVisionCone(context: CanvasRenderingContext2D, world: World, guard: Guard): void {
   if (guard.state === 'dead') return
-  const eye = { x: guard.x + guard.w / 2, y: guard.y + 0.35 }
-  const range = guard.state === 'alert' ? 9 : 13
-  context.beginPath()
-  context.moveTo(eye.x, eye.y)
-  for (let index = 0; index <= 10; index += 1) {
-    const slope = -0.8 + (index / 10) * 1.6
-    const direction = normalize(guard.facing, slope)
-    const hit = castRay(world.grid, eye, direction, range, (kind) => TILE_DEFS[kind].opaque)
-    const reach = hit ? hit.distance : range
-    context.lineTo(eye.x + direction.x * reach, eye.y + direction.y * reach)
-  }
-  context.closePath()
+  tracePolygon(context, visionCone(world, guard))
   context.fillStyle = CONE_COLORS[guard.state]
   context.fill()
+}
+
+/** Ceiling fittings and street-light poles. The glow itself is added by the lighting pass. */
+export function drawLamps(context: CanvasRenderingContext2D, world: World): void {
+  for (const lamp of world.lamps) {
+    context.fillStyle = '#2a2f3a'
+    if (lamp.hung) context.fillRect(lamp.x - 0.05, lamp.y - 0.25, 0.1, 0.25)
+    else context.fillRect(lamp.x - 0.09, lamp.y, 0.18, 5.5)
+    context.fillRect(lamp.x - 0.4, lamp.y - 0.08, 0.8, 0.16)
+    context.fillStyle = lampIsLit(world, lamp) ? '#fff2cf' : '#3a3f4a'
+    context.fillRect(lamp.x - 0.3, lamp.y + 0.06, 0.6, 0.1)
+  }
 }
 
 export function drawPlayer(context: CanvasRenderingContext2D, world: World, aim: Vec): void {
@@ -130,6 +132,9 @@ export function drawThings(context: CanvasRenderingContext2D, world: World): voi
     context.fillRect(center.x + 0.15, world.drone.y, 0.35, 0.07)
   }
 
+}
+
+export function drawProjectiles(context: CanvasRenderingContext2D, world: World): void {
   for (const projectile of world.projectiles) {
     const direction = normalize(projectile.vx, projectile.vy)
     const length = projectile.kind === 'rocket' ? 0.7 : 0.9
