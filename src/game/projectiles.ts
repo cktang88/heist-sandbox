@@ -3,7 +3,7 @@ import { burst, flash } from './effects'
 import { explode, ROCKET_BLAST } from './explosions'
 import { hurtGuard } from './guards'
 import { isSolidAt } from './tiles'
-import { triggerSlowmo } from './time'
+import { hitPause, triggerSlowmo } from './time'
 import { centerOf, distance, type Rect, type Vec } from './types'
 import type { World } from './world'
 
@@ -14,10 +14,22 @@ export type Projectile = Vec & {
   fromPlayer: boolean
   damage: number
   tileDamage: number
+  push: number
   life: number
 }
 
-export type ShotSpec = { kind: Projectile['kind']; fromPlayer: boolean; speed: number; damage: number; tileDamage: number; spread: number }
+export type ShotSpec = {
+  kind: Projectile['kind']
+  fromPlayer: boolean
+  speed: number
+  damage: number
+  tileDamage: number
+  spread: number
+  /** How hard a hit shoves its target. */
+  push: number
+  /** Seconds before the shot fizzles out. Short for shotgun pellets. */
+  life?: number
+}
 
 const MAX_STEP = 0.3
 const NEAR_MISS_DISTANCE = 1.3
@@ -26,9 +38,9 @@ export function fireShot(world: World, from: Vec, direction: Vec, spec: ShotSpec
   const angle = Math.atan2(direction.y, direction.x) + (world.rng() - 0.5) * 2 * spec.spread
   world.projectiles.push({
     x: from.x, y: from.y, vx: Math.cos(angle) * spec.speed, vy: Math.sin(angle) * spec.speed,
-    kind: spec.kind, fromPlayer: spec.fromPlayer, damage: spec.damage, tileDamage: spec.tileDamage, life: 3,
+    kind: spec.kind, fromPlayer: spec.fromPlayer, damage: spec.damage, tileDamage: spec.tileDamage, push: spec.push, life: spec.life ?? 3,
   })
-  flash(world.effects, from, 0.5, 0.06, 'muzzle')
+  flash(world.effects, from, 0.5, 0.07, 'muzzle', angle)
 }
 
 export function stepProjectiles(world: World, dt: number): void {
@@ -73,7 +85,11 @@ function hitSomething(world: World, projectile: Projectile): boolean {
 
   const guard = world.guards.find((other) => other.state !== 'dead' && contains(other, projectile))
   if (!guard) return false
-  if (projectile.kind === 'bullet') hurtGuard(world, guard, projectile.damage, centerOf(world.player))
+  if (projectile.kind === 'bullet') {
+    const speed = Math.hypot(projectile.vx, projectile.vy)
+    guard.vx += (projectile.vx / speed) * projectile.push
+    if (hurtGuard(world, guard, projectile.damage, centerOf(world.player))) hitPause(world.time, 0.06)
+  }
   return true
 }
 

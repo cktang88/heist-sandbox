@@ -1,28 +1,25 @@
 import { throwCharge } from './charges'
 import { hurtTile } from './destruction'
 import { launchDrone } from './drone'
-import { burst } from './effects'
+import { burst, ejectShell } from './effects'
+import { GUNS, MAX_BLOOM } from './guns'
 import type { Input } from './input'
 import { emitNoise } from './noise'
 import { fireShot } from './projectiles'
+import { isSolidAt } from './tiles'
 import { TOOLS } from './toolDefs'
 import type { Vec } from './types'
 import { castRay, normalize } from './vision'
 import type { World } from './world'
 
-const PISTOL = { kind: 'bullet', fromPlayer: true, speed: 70, damage: 40, tileDamage: 3, spread: 0.01 } as const
-const RIFLE = { kind: 'bullet', fromPlayer: true, speed: 70, damage: 24, tileDamage: 12, spread: 0.05 } as const
-const ROCKET = { kind: 'rocket', fromPlayer: true, speed: 30, damage: 0, tileDamage: 0, spread: 0.02 } as const
-const PISTOL_NOISE = 4
-const RIFLE_NOISE = 30
-const ROCKET_NOISE = 22
+const MUZZLE_REACH = 0.8
 const DRILL_REACH = 2.4
 const DRILL_DAMAGE_PER_SECOND = 130
 const DRILL_NOISE = 6
 const DRILL_NOISE_EVERY = 0.35
 
 export function handOf(world: World): Vec {
-  return { x: world.player.x + world.player.w / 2, y: world.player.y + 0.6 }
+  return { x: world.player.x + world.player.w / 2, y: world.player.y + 0.55 }
 }
 
 /** Uses the tool in the player's hands when the trigger is pulled. */
@@ -39,30 +36,25 @@ export function useTool(world: World, input: Input, dt: number): void {
 
   const hand = handOf(world)
   const aim = normalize(input.aim.x - hand.x, input.aim.y - hand.y)
-  switch (tool.id) {
-    case 'pistol':
-      fireShot(world, hand, aim, PISTOL)
-      emitNoise(world, hand, PISTOL_NOISE)
-      break
-    case 'rifle':
-      fireShot(world, hand, aim, RIFLE)
-      emitNoise(world, hand, RIFLE_NOISE)
-      world.shake = Math.min(1, world.shake + 0.05)
-      break
-    case 'rocket':
-      fireShot(world, hand, aim, ROCKET)
-      emitNoise(world, hand, ROCKET_NOISE)
-      break
-    case 'c4':
-      throwCharge(world, hand, aim)
-      break
-    case 'drill':
-      drill(world, hand, aim, dt)
-      break
-    case 'drone':
-      launchDrone(world)
-      break
+  const gun = GUNS[tool.id]
+  if (gun) {
+    // Shots leave from the barrel, unless the barrel is poking into a wall.
+    const barrel = { x: hand.x + aim.x * MUZZLE_REACH, y: hand.y + aim.y * MUZZLE_REACH }
+    const muzzle = isSolidAt(world.grid, barrel.x, barrel.y) ? hand : barrel
+    for (let pellet = 0; pellet < gun.pellets; pellet += 1) {
+      fireShot(world, muzzle, aim, { ...gun.shot, spread: gun.shot.spread + player.bloom })
+    }
+    if (gun.ejectsShell) ejectShell(world.effects, world.rng, hand, player.facing)
+    emitNoise(world, hand, gun.noise)
+    player.bloom = Math.min(MAX_BLOOM, player.bloom + gun.bloomPerShot)
+    player.kick = Math.min(1, player.kick + gun.kick)
+    world.shake = Math.min(1, world.shake + gun.shake)
+    return
   }
+
+  if (tool.id === 'c4') throwCharge(world, hand, aim)
+  else if (tool.id === 'drill') drill(world, hand, aim, dt)
+  else if (tool.id === 'drone') launchDrone(world)
 }
 
 /** Chews quietly through whatever is in front of the player: slow, but far less noisy than explosives. */
@@ -71,5 +63,6 @@ function drill(world: World, hand: Vec, aim: Vec, dt: number): void {
   if (!hit) return
   hurtTile(world, hit.tileX, hit.tileY, DRILL_DAMAGE_PER_SECOND * dt)
   burst(world.effects, world.rng, { x: hit.tileX + 0.5, y: hit.tileY + 0.5 }, 1, '#ffd27a', 3)
+  world.player.kick = Math.max(world.player.kick, 0.15 + world.rng() * 0.15)
   if (world.clock % DRILL_NOISE_EVERY < dt) emitNoise(world, hand, DRILL_NOISE)
 }

@@ -4,7 +4,7 @@ import type { Vec } from './types'
 
 export type Particle = Vec & { vx: number; vy: number; life: number; color: string; size: number }
 /** Short-lived ring or burst drawn at a spot: explosions, noise ripples, muzzle flashes. */
-export type Flash = Vec & { radius: number; life: number; duration: number; kind: 'explosion' | 'noise' | 'muzzle' }
+export type Flash = Vec & { radius: number; life: number; duration: number; kind: 'explosion' | 'noise' | 'muzzle'; angle: number }
 
 export type Effects = { particles: Particle[]; flashes: Flash[] }
 
@@ -21,8 +21,14 @@ export function burst(effects: Effects, rng: Rng, at: Vec, count: number, color:
   }
 }
 
-export function flash(effects: Effects, at: Vec, radius: number, duration: number, kind: Flash['kind']): void {
-  effects.flashes.push({ x: at.x, y: at.y, radius, life: duration, duration, kind })
+export function flash(effects: Effects, at: Vec, radius: number, duration: number, kind: Flash['kind'], angle = 0): void {
+  effects.flashes.push({ x: at.x, y: at.y, radius, life: duration, duration, kind, angle })
+}
+
+/** A spent brass casing flicked out behind the shooter. */
+export function ejectShell(effects: Effects, rng: Rng, at: Vec, facing: number): void {
+  if (effects.particles.length >= MAX_PARTICLES) return
+  effects.particles.push({ x: at.x, y: at.y, vx: -facing * (2 + rng() * 3), vy: -4 - rng() * 3, life: 1.4, color: '#e0b95a', size: 0.11 })
 }
 
 export function stepEffects(effects: Effects, dt: number): void {
