@@ -39,9 +39,10 @@ npm run build
 |---|---|
 | A / D | Move |
 | W / S | Climb ladders |
-| Space | Jump. In mid-air: open or close the parachute |
+| Space | Jump. Tap again in the air to double jump |
+| Hold Space while falling | Parachute |
 | Mouse | Aim and use the tool in hand |
-| 1-6 or wheel | Pick a tool |
+| 1-8 or wheel | Pick a tool |
 | E | Pick locks (hold), take down an unaware guard, recall the drone |
 | Q | Set off all C4 |
 | Shift | Focus: slow motion, slowest when you hold still |
@@ -52,11 +53,15 @@ npm run build
 | # | Tool | Quiet? | Use |
 |---|---|---|---|
 | 1 | Pistol | Yes | Drops unaware guards in one shot |
-| 2 | Rifle | No | Fast fire, chews through walls |
-| 3 | Rockets | No | Blast holes anywhere |
-| 4 | C4 | Until it goes off | Throw, then press Q. Breaks even the steel vault |
-| 5 | Drill | Mostly | Tunnel through anything, slowly |
-| 6 | Drone | Yes | Fly it with the move keys to scout, click to detonate |
+| 2 | Rifle | No | Fast fire; spread grows while you hold the trigger |
+| 3 | Shotgun | No | Nine pellets, huge up close, useless far away |
+| 4 | Sniper | No | One heavy, perfectly straight shot |
+| 5 | Rockets | No | Blast holes anywhere |
+| 6 | C4 | Until it goes off | Throw, then press Q. Breaks even the steel vault |
+| 7 | Drill | Mostly | Tunnel through anything, slowly |
+| 8 | Drone | Yes | Fly it with the move keys to scout, click to detonate |
+
+The crosshair ring widens as a gun gets less accurate, so spread is never a surprise.
 
 ## How stealth works
 
@@ -68,6 +73,6 @@ npm run build
 ## Code layout
 
 - `src/game/` is the whole game with no browser code: tiles, physics, guards, tools, explosions. `step.ts` advances one frame; `world.ts` holds the state.
-- `src/render/` only draws the world.
+- `src/render/` only draws the world: cached textured tiles (`tileCache.ts`), night lighting (`lighting.ts`), and code-drawn people (`human/`).
 - `src/inputDevice.ts` turns keyboard and mouse into the `Input` the game reads.
 - Add `?seed=1` to the URL to replay the same level.
