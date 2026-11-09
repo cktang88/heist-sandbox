@@ -1,16 +1,22 @@
+import { GUNS } from '../game/guns'
 import { MAX_FOCUS_SECONDS } from '../game/player'
 import { TOOLS } from '../game/toolDefs'
+import { handOf } from '../game/tools'
+import type { Vec } from '../game/types'
 import type { World } from '../game/world'
+import { worldToScreen, type Camera } from './camera'
 
 const HELP = [
-  'A/D move    W/S climb    SPACE jump (in the air: parachute)',
-  'MOUSE aim and fire    1-6 or wheel: pick a tool    Q: set off C4',
+  'A/D move    W/S climb    SPACE jump, tap again to double jump',
+  'HOLD SPACE while falling: parachute',
+  'MOUSE aim and fire    1-8 or wheel: pick a tool    Q: set off C4',
   'E: pick locks, take down unaware guards, recall the drone',
   'SHIFT: focus (slow motion, slowest when you hold still)',
   'Steal the gold case from the vault and get back to the van.',
 ]
 
-export function drawHud(context: CanvasRenderingContext2D, world: World, width: number, height: number): void {
+export function drawHud(context: CanvasRenderingContext2D, world: World, camera: Camera, aim: Vec): void {
+  const { width, height } = camera
   const unit = Math.max(12, Math.round(height / 45))
   drawSlowmoTint(context, world, width, height)
 
@@ -24,28 +30,51 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, width: 
   const goal = world.player.hasLoot ? 'Get back to the van' : 'Steal the gold case from the vault'
   text(context, goal, width - unit, unit * 3.4, '#d8dce4', unit, 'right')
 
-  drawTools(context, world, unit, height)
+  drawTools(context, world, unit, width, height)
+  drawCrosshair(context, world, camera, aim)
   if (world.drone) text(context, `DRONE  ${Math.ceil(world.drone.battery)}s   click: detonate   E: recall`, width / 2, unit * 2, '#6fd0ff', unit, 'center')
   if (world.status === 'playing' && world.clock < 9 && !world.alarm) {
     context.fillStyle = 'rgba(5,6,10,0.55)'
-    context.fillRect(width / 2 - unit * 21, height * 0.28 - unit * 1.6, unit * 42, unit * 8.4)
+    context.fillRect(width / 2 - unit * 21, height * 0.28 - unit * 1.6, unit * 42, unit * 9.9)
     HELP.forEach((line, index) => text(context, line, width / 2, height * 0.28 + index * unit * 1.5, 'rgba(255,255,255,0.85)', unit, 'center'))
   }
   if (world.status !== 'playing') drawEndScreen(context, world, width, height, unit)
 }
 
-function drawTools(context: CanvasRenderingContext2D, world: World, unit: number, height: number): void {
+/** The ring widens as sustained fire makes the gun less accurate, so spread is never a surprise. */
+function drawCrosshair(context: CanvasRenderingContext2D, world: World, camera: Camera, aim: Vec): void {
+  const at = worldToScreen(camera, aim)
+  const hand = handOf(world)
+  const gun = GUNS[TOOLS[world.player.tool].id]
+  const spread = gun ? gun.shot.spread + world.player.bloom : 0
+  const reach = Math.hypot(aim.x - hand.x, aim.y - hand.y) * camera.scale
+  const radius = Math.max(camera.height / 110, Math.tan(spread) * reach)
+  const tick = camera.height / 90
+  context.strokeStyle = 'rgba(255,255,255,0.9)'
+  context.lineWidth = Math.max(1.5, camera.height / 500)
+  context.beginPath()
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    context.moveTo(at.x + dx * radius, at.y + dy * radius)
+    context.lineTo(at.x + dx * (radius + tick), at.y + dy * (radius + tick))
+  }
+  context.stroke()
+  context.fillStyle = '#ff2d3d'
+  context.fillRect(at.x - 1.5, at.y - 1.5, 3, 3)
+}
+
+function drawTools(context: CanvasRenderingContext2D, world: World, unit: number, width: number, height: number): void {
+  const slot = Math.min(unit * 8, (width - unit * 2) / TOOLS.length)
   TOOLS.forEach((tool, index) => {
-    const x = unit + index * unit * 8.2
+    const x = unit + index * slot
     const y = height - unit * 2.6
     const selected = index === world.player.tool
     context.fillStyle = selected ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.45)'
-    context.fillRect(x, y, unit * 7.8, unit * 2)
+    context.fillRect(x, y, slot - unit * 0.3, unit * 2)
     const ammo = world.player.ammo[index]
     const count = Number.isFinite(ammo) ? ` ${ammo}` : ''
     text(context, `${index + 1} ${tool.name}${count}`, x + unit * 0.4, y + unit * 1.3, selected ? '#ffffff' : '#9aa2b0', unit * 0.8, 'left')
     context.fillStyle = tool.quiet ? '#7ee08a' : '#ff7a5a'
-    context.fillRect(x, y + unit * 1.85, unit * 7.8, unit * 0.15)
+    context.fillRect(x, y + unit * 1.85, slot - unit * 0.3, unit * 0.15)
   })
 }
 
@@ -82,7 +111,7 @@ function bar(context: CanvasRenderingContext2D, x: number, y: number, w: number,
 }
 
 function text(context: CanvasRenderingContext2D, value: string, x: number, y: number, color: string, size: number, align: CanvasTextAlign): void {
-  context.font = `bold ${Math.round(size)}px monospace`
+  context.font = `bold ${Math.round(size)}px ui-monospace, monospace`
   context.textAlign = align
   context.fillStyle = color
   context.fillText(value, x, y)
