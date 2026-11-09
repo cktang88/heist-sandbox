@@ -1,6 +1,7 @@
 import type { Input } from './input'
 import { GRAVITY, moveBody } from './physics'
 import { tileAt, type Grid } from './tiles'
+import { BLOOM_RECOVERY_PER_SECOND } from './guns'
 import { TOOLS } from './toolDefs'
 import { centerOf, type Body, type Vec } from './types'
 
@@ -10,6 +11,8 @@ const JUMP_SPEED = 15.5
 const CLIMB_SPEED = 6.5
 const CHUTE_FALL_SPEED = 3.5
 const CHUTE_GLIDE_SPEED = 9
+const CHUTE_OPENS_AT_SPEED = 7
+const KICK_RECOVERY = 16
 const SAFE_FALL_SPEED = 24
 const FALL_DAMAGE_PER_SPEED = 6
 const WATER_SLOWDOWN = 0.6
@@ -27,17 +30,22 @@ export type Player = Body & {
   hasLoot: boolean
   /** Lockpicking progress from 0 to 1. */
   pick: number
+  /** Recoil shove, 0..1, straight after firing. */
+  kick: number
+  /** Extra spread from sustained fire, in radians. */
+  bloom: number
+  airJumps: number
 }
 
 export function createPlayer(start: Vec): Player {
   return {
     x: start.x, y: start.y, w: 0.7, h: 1.6, vx: 0, vy: 0, onGround: false,
     facing: 1, hp: 100, chute: false, onLadder: false, tool: 0,
-    ammo: TOOLS.map((tool) => tool.ammo), cooldown: 0, focus: MAX_FOCUS_SECONDS, hasLoot: false, pick: 0,
+    ammo: TOOLS.map((tool) => tool.ammo), cooldown: 0, focus: MAX_FOCUS_SECONDS, hasLoot: false, pick: 0, kick: 0, bloom: 0, airJumps: 1,
   }
 }
 
-/** Running, jumping, ladders and the parachute. Jump in mid-air opens or closes the chute. */
+/** Running, jumping, ladders and the parachute. Tap jump in mid-air to double jump; hold it while falling to open the chute. */
 export function movePlayer(grid: Grid, player: Player, input: Input, dt: number): void {
   const center = centerOf(player)
   const bodyTile = tileAt(grid, Math.floor(center.x), Math.floor(center.y))
@@ -47,12 +55,15 @@ export function movePlayer(grid: Grid, player: Player, input: Input, dt: number)
   const touchingLadder = bodyTile === 'ladder' || feetTile === 'ladder' || belowTile === 'ladder'
   const move = (input.right ? 1 : 0) - (input.left ? 1 : 0)
   player.facing = input.aim.x >= center.x ? 1 : -1
+  player.kick *= Math.exp(-KICK_RECOVERY * dt)
+  player.bloom = Math.max(0, player.bloom - BLOOM_RECOVERY_PER_SECOND * dt)
 
   if (!touchingLadder) player.onLadder = false
   else if (input.up || input.down || (!player.onGround && player.vy >= 0 && !player.chute)) player.onLadder = true
 
   if (player.onLadder) {
     player.chute = false
+    player.airJumps = 1
     player.vx = move * RUN_SPEED * 0.5
     player.vy = ((input.down ? 1 : 0) - (input.up ? 1 : 0)) * CLIMB_SPEED
     if (input.jumpPressed) {
@@ -66,8 +77,12 @@ export function movePlayer(grid: Grid, player: Player, input: Input, dt: number)
     player.vy += GRAVITY * dt
     if (input.jumpPressed) {
       if (player.onGround) player.vy = -JUMP_SPEED
-      else player.chute = !player.chute
+      else if (player.airJumps > 0) {
+        player.airJumps -= 1
+        player.vy = -JUMP_SPEED * 0.9
+      }
     }
+    player.chute = input.jumpHeld && !player.onGround && (player.chute || player.vy > CHUTE_OPENS_AT_SPEED)
     if (player.chute) player.vy = Math.min(player.vy, CHUTE_FALL_SPEED)
   }
 
@@ -76,6 +91,7 @@ export function movePlayer(grid: Grid, player: Player, input: Input, dt: number)
   if (player.onGround) {
     if (fallSpeed > SAFE_FALL_SPEED) player.hp -= (fallSpeed - SAFE_FALL_SPEED) * FALL_DAMAGE_PER_SPEED
     player.chute = false
+    player.airJumps = 1
   }
 }
 

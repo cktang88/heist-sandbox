@@ -2,7 +2,7 @@ import { burst } from './effects'
 import { DRONE_BLAST, explode } from './explosions'
 import type { Input } from './input'
 import { moveBody } from './physics'
-import { TOOLS } from './toolDefs'
+import { toolIndex } from './toolDefs'
 import { centerOf, type Body } from './types'
 import type { World } from './world'
 
@@ -32,7 +32,7 @@ export function stepDrone(world: World, input: Input, dt: number): void {
     explode(world, centerOf(drone), DRONE_BLAST)
   } else if (input.interactPressed) {
     world.drone = null
-    world.player.ammo[TOOLS.findIndex((tool) => tool.id === 'drone')] += 1
+    world.player.ammo[toolIndex('drone')] += 1
   } else if (drone.battery <= 0) {
     world.drone = null
     burst(world.effects, world.rng, centerOf(drone), 8, '#8a8f98', 4)

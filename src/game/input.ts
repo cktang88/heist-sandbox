@@ -7,6 +7,7 @@ export type Input = {
   up: boolean
   down: boolean
   jumpPressed: boolean
+  jumpHeld: boolean
   fire: boolean
   firePressed: boolean
   interact: boolean
@@ -20,7 +21,7 @@ export type Input = {
 
 export function idleInput(aim: Vec = { x: 0, y: 0 }): Input {
   return {
-    left: false, right: false, up: false, down: false, jumpPressed: false, fire: false, firePressed: false,
+    left: false, right: false, up: false, down: false, jumpPressed: false, jumpHeld: false, fire: false, firePressed: false,
     interact: false, interactPressed: false, detonatePressed: false, focus: false, aim, selectTool: null,
   }
 }

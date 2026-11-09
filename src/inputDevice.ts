@@ -49,6 +49,7 @@ export function attachInput(canvas: HTMLCanvasElement, toolCount: number): Input
         up: held.has('KeyW') || held.has('ArrowUp'),
         down: held.has('KeyS') || held.has('ArrowDown'),
         jumpPressed: pressed.has('Space'),
+        jumpHeld: held.has('Space'),
         fire: mouse.down,
         firePressed: mouse.pressed,
         interact: held.has('KeyE'),

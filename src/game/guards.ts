@@ -23,6 +23,11 @@ export type Guard = Body & {
   shootCooldown: number
   alertSeconds: number
   lostSeconds: number
+  /** Recoil shove, 0..1, straight after firing. */
+  kick: number
+  /** Seconds left of the white flash shown when hit. */
+  hitFlash: number
+  deadSeconds: number
 }
 
 const WALK_SPEED = 2.4
@@ -33,13 +38,14 @@ const PATROL_RANGE = 9
 const ALARM_AFTER_SECONDS = 2.5
 const SEARCH_SECONDS = 4
 const UNAWARE_DAMAGE_BONUS = 3
-const SHOT = { speed: 24, damage: 12, tileDamage: 6, spread: 0.07, noise: 28 }
+const SHOT = { speed: 24, damage: 12, tileDamage: 6, spread: 0.07, push: 0 }
+const SHOT_NOISE = 28
 
 export function createGuard(spawn: GuardSpawn): Guard {
   return {
     x: spawn.x + 0.15, y: spawn.y - 1.6, w: 0.7, h: 1.6, vx: 0, vy: 0, onGround: false,
     hp: 100, facing: spawn.facing, state: 'patrol', awareness: 0, homeX: spawn.x,
-    target: null, wait: 0, shootCooldown: 0.4, alertSeconds: 0, lostSeconds: 0,
+    target: null, wait: 0, shootCooldown: 0.4, alertSeconds: 0, lostSeconds: 0, kick: 0, hitFlash: 0, deadSeconds: 0,
   }
 }
 
@@ -55,6 +61,7 @@ export function investigate(guard: Guard, at: Vec): void {
 export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec): boolean {
   if (guard.state === 'dead') return false
   guard.hp -= damage * (guard.state === 'alert' ? 1 : UNAWARE_DAMAGE_BONUS)
+  guard.hitFlash = 0.1
   burst(world.effects, world.rng, centerOf(guard), 6, '#b3202a', 6)
   if (guard.hp <= 0) {
     guard.state = 'dead'
@@ -88,7 +95,10 @@ export function canSee(world: World, guard: Guard, target: Vec): boolean {
 }
 
 export function updateGuard(world: World, guard: Guard, dt: number): void {
+  guard.kick *= Math.exp(-14 * dt)
+  guard.hitFlash = Math.max(0, guard.hitFlash - dt)
   if (guard.state === 'dead') {
+    guard.deadSeconds += dt
     guard.vy += GRAVITY * dt
     if (guard.onGround) guard.vx *= 0.8
     moveBody(world.grid, guard, dt)
@@ -155,7 +165,8 @@ function fight(world: World, guard: Guard, sees: boolean, gap: number, playerCen
     const eye = eyeOf(guard)
     const aim = normalize(playerCenter.x - eye.x, playerCenter.y - eye.y)
     fireShot(world, eye, aim, { kind: 'bullet', fromPlayer: false, ...SHOT })
-    emitNoise(world, eye, SHOT.noise)
+    emitNoise(world, eye, SHOT_NOISE)
+    guard.kick = 0.7
     guard.shootCooldown = 0.5 + world.rng() * 0.45
   }
   return gap > 6 ? guard.facing * CHASE_SPEED : 0

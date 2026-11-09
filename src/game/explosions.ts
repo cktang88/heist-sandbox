@@ -48,7 +48,7 @@ export function explode(world: World, at: Vec, blast: Blast): void {
   flash(world.effects, at, blast.radius, 0.35, 'explosion')
   burst(world.effects, world.rng, at, 26, '#ffb347', 14)
   burst(world.effects, world.rng, at, 14, '#55504a', 9)
-  world.shake = Math.min(1.4, world.shake + blast.radius * 0.18)
+  world.shake = Math.min(1, world.shake + blast.radius * 0.2)
   emitNoise(world, at, 45)
   if (killed > 0) triggerSlowmo(world.time, 0.45, 0.18)
 }

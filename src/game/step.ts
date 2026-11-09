@@ -19,7 +19,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   const focusing = playing && updateFocus(world.player, input.focus, realDt)
   const dt = stepTime(world.time, realDt, focusing, acting) * realDt
 
-  world.shake = Math.max(0, world.shake - realDt * 2.5)
+  world.shake = Math.max(0, world.shake - realDt * 1.8)
   stepEffects(world.effects, dt)
   if (!playing) return
   world.clock += dt

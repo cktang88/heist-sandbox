@@ -32,7 +32,7 @@ describe('heist', () => {
 
   it('lands safely when the parachute is opened', () => {
     const world = createWorld(1)
-    run(world, 12, (frame) => ({ jumpPressed: frame === 20 }))
+    run(world, 12, (frame) => ({ jumpHeld: frame > 20 }))
     expect(world.status).toBe('playing')
     expect(world.player.hp).toBe(100)
     expect(world.player.onGround).toBe(true)
@@ -90,6 +90,29 @@ describe('heist', () => {
     expect(world.player.x).toBeGreaterThan(78)
   })
 
+  it('fires a spread of pellets from the shotgun and kicks the gun', () => {
+    const world = createWorld(1)
+    world.guards = []
+    onStreet(world, 30)
+    run(world, FRAME, () => ({ selectTool: 2, firePressed: true }))
+    expect(world.projectiles.length).toBe(9)
+    expect(world.player.kick).toBeGreaterThan(0.5)
+    expect(new Set(world.projectiles.map((shot) => shot.vy.toFixed(3))).size).toBeGreaterThan(5)
+  })
+
+  it('allows one extra jump in mid-air', () => {
+    const world = createWorld(1)
+    world.guards = []
+    onStreet(world, 30)
+    run(world, FRAME, () => ({ jumpPressed: true }))
+    run(world, 0.25)
+    const before = world.player.vy
+    run(world, FRAME, () => ({ jumpPressed: true }))
+    expect(world.player.vy).toBeLessThan(before - 5)
+    run(world, FRAME, () => ({ jumpPressed: true }))
+    expect(world.player.airJumps).toBe(0)
+  })
+
   it('wins when the loot reaches the extraction zone', () => {
     const world = createWorld(1)
     world.guards = []
@@ -105,7 +128,8 @@ describe('heist', () => {
       left: rng() < 0.3, right: rng() < 0.6, up: rng() < 0.2, down: rng() < 0.2,
       jumpPressed: frame === 20 || rng() < 0.03, fire: rng() < 0.5, firePressed: rng() < 0.1,
       interact: rng() < 0.3, interactPressed: rng() < 0.05, detonatePressed: rng() < 0.02, focus: rng() < 0.2,
-      selectTool: rng() < 0.05 ? Math.floor(rng() * 6) : null,
+      selectTool: rng() < 0.05 ? Math.floor(rng() * 8) : null,
+      jumpHeld: rng() < 0.4,
       aim: { x: world.player.x + (rng() - 0.5) * 20, y: world.player.y + (rng() - 0.5) * 20 },
     }))
     expect(Number.isFinite(world.player.x)).toBe(true)
