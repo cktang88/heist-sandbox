@@ -42,7 +42,9 @@ export function movePlayer(grid: Grid, player: Player, input: Input, dt: number)
   const center = centerOf(player)
   const bodyTile = tileAt(grid, Math.floor(center.x), Math.floor(center.y))
   const feetTile = tileAt(grid, Math.floor(center.x), Math.floor(player.y + player.h - 0.1))
-  const touchingLadder = bodyTile === 'ladder' || feetTile === 'ladder'
+  // The tile just under the feet counts too, so the top of a ladder can be stood on and stepped off.
+  const belowTile = tileAt(grid, Math.floor(center.x), Math.floor(player.y + player.h + 0.2))
+  const touchingLadder = bodyTile === 'ladder' || feetTile === 'ladder' || belowTile === 'ladder'
   const move = (input.right ? 1 : 0) - (input.left ? 1 : 0)
   player.facing = input.aim.x >= center.x ? 1 : -1
 

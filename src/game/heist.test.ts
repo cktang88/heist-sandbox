@@ -85,6 +85,9 @@ describe('heist', () => {
     Object.assign(world.player, { x: 77.15, y: GROUND + 3, vx: 0, vy: 0 })
     run(world, 2, () => ({ up: true }))
     expect(world.player.y + world.player.h).toBeLessThan(GROUND)
+    run(world, 1, () => ({ right: true }))
+    expect(world.player.onGround).toBe(true)
+    expect(world.player.x).toBeGreaterThan(78)
   })
 
   it('wins when the loot reaches the extraction zone', () => {
