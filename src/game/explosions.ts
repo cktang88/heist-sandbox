@@ -12,7 +12,7 @@ export const ROCKET_BLAST: Blast = { radius: 3.4, tileDamage: 260, bodyDamage: 1
 export const C4_BLAST: Blast = { radius: 4.6, tileDamage: 650, bodyDamage: 260 }
 export const DRONE_BLAST: Blast = { radius: 2.6, tileDamage: 180, bodyDamage: 140 }
 
-const PLAYER_DAMAGE_SHARE = 0.5
+const PLAYER_DAMAGE_SHARE = 0.35
 const KNOCK_SPEED = 16
 const CHAIN_FUSE_SECONDS = 0.08
 

@@ -79,6 +79,14 @@ describe('heist', () => {
     expect(world.alarm).toBe(false)
   })
 
+  it('climbs the basement ladder up to the ground floor', () => {
+    const world = createWorld(1)
+    world.guards = []
+    Object.assign(world.player, { x: 77.15, y: GROUND + 3, vx: 0, vy: 0 })
+    run(world, 2, () => ({ up: true }))
+    expect(world.player.y + world.player.h).toBeLessThan(GROUND)
+  })
+
   it('wins when the loot reaches the extraction zone', () => {
     const world = createWorld(1)
     world.guards = []

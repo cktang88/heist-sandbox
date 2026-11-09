@@ -27,6 +27,8 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, width: 
   drawTools(context, world, unit, height)
   if (world.drone) text(context, `DRONE  ${Math.ceil(world.drone.battery)}s   click: detonate   E: recall`, width / 2, unit * 2, '#6fd0ff', unit, 'center')
   if (world.status === 'playing' && world.clock < 9 && !world.alarm) {
+    context.fillStyle = 'rgba(5,6,10,0.55)'
+    context.fillRect(width / 2 - unit * 21, height * 0.28 - unit * 1.6, unit * 42, unit * 8.4)
     HELP.forEach((line, index) => text(context, line, width / 2, height * 0.28 + index * unit * 1.5, 'rgba(255,255,255,0.85)', unit, 'center'))
   }
   if (world.status !== 'playing') drawEndScreen(context, world, width, height, unit)
