@@ -18,13 +18,13 @@ export const TILE_DEFS: Record<TileKind, TileDef> = {
   bedrock: { solid: true, opaque: true, hp: Number.POSITIVE_INFINITY, color: '#1f2227' },
 }
 
-/** Tiles are grouped into square chunks so drawing code can redo only the parts that changed. */
+/** Tiles are grouped into square chunks so drawing code can redo only the parts that changed. `version` goes up on every change. */
 export const CHUNK_TILES = 16
 
-export type Grid = { width: number; height: number; kinds: Uint8Array; hp: Float32Array; dirtyChunks: Set<number> }
+export type Grid = { width: number; height: number; kinds: Uint8Array; hp: Float32Array; dirtyChunks: Set<number>; version: number }
 
 export function createGrid(width: number, height: number): Grid {
-  return { width, height, kinds: new Uint8Array(width * height), hp: new Float32Array(width * height), dirtyChunks: new Set() }
+  return { width, height, kinds: new Uint8Array(width * height), hp: new Float32Array(width * height), dirtyChunks: new Set(), version: 0 }
 }
 
 export function inBounds(grid: Grid, x: number, y: number): boolean {
@@ -51,6 +51,7 @@ export function chunkIndex(grid: Grid, chunkX: number, chunkY: number): number {
 
 /** Flags the tile's chunk, and its neighbours' when the tile sits on a chunk edge, since edges shade each other. */
 function markDirty(grid: Grid, x: number, y: number): void {
+  grid.version += 1
   for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
     if (!inBounds(grid, x + dx, y + dy)) continue
     grid.dirtyChunks.add(chunkIndex(grid, Math.floor((x + dx) / CHUNK_TILES), Math.floor((y + dy) / CHUNK_TILES)))

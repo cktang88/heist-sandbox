@@ -1,14 +1,14 @@
 import { GROUND, type Lamp } from '../game/level'
 import { isSolidAt } from '../game/tiles'
-import { centerOf } from '../game/types'
+import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
 import type { Camera } from './camera'
 import { eyeOf, lightPolygon, tracePolygon, visionCone } from './cone'
 
 /** The light image is drawn small and stretched, which is cheap and softens shadow edges for free. */
-const DOWNSCALE = 3
+const DOWNSCALE = 4
 const AMBIENT = '#343e60'
-const MOONLIGHT = '#1c2440'
+const MOONLIGHT = '#5d6480'
 const GLOW_COLORS = { warm: '255,196,120', cold: '170,205,255', green: '120,230,150', fire: '255,150,60', gold: '255,215,90' } as const
 type GlowColor = keyof typeof GLOW_COLORS
 
@@ -27,6 +27,16 @@ export function createLighting(): Lighting {
   const map = document.createElement('canvas')
   const lc = map.getContext('2d')!
   const sprites = Object.fromEntries(Object.entries(GLOW_COLORS).map(([name, rgb]) => [name, glowSprite(rgb)])) as Record<GlowColor, HTMLCanvasElement>
+
+  // A lamp's lit area only changes when walls change, so it is worked out once per level change.
+  const lampAreas = new WeakMap<Lamp, { version: number; area: Vec[] }>()
+  function areaOf(world: World, lamp: Lamp): Vec[] {
+    const cached = lampAreas.get(lamp)
+    if (cached && cached.version === world.grid.version) return cached.area
+    const area = lightPolygon(world.grid, lamp, lamp.radius)
+    lampAreas.set(lamp, { version: world.grid.version, area })
+    return area
+  }
 
   function glow(c: CanvasRenderingContext2D, color: GlowColor, x: number, y: number, radius: number, alpha = 1): void {
     c.globalAlpha = alpha
@@ -60,7 +70,7 @@ export function createLighting(): Lighting {
       for (const lamp of world.lamps) {
         if (!onScreen(lamp.x, lamp.y, lamp.radius) || !lampIsLit(world, lamp)) continue
         lc.save()
-        tracePolygon(lc, lightPolygon(world.grid, lamp, lamp.radius))
+        tracePolygon(lc, areaOf(world, lamp))
         lc.clip()
         glow(lc, lamp.color, lamp.x, lamp.y, lamp.radius)
         lc.restore()
