@@ -25,6 +25,7 @@ export type World = {
   effects: Effects
   loot: Loot
   extraction: Rect
+  interiors: Rect[]
   time: TimeState
   alarm: boolean
   shake: number
@@ -46,6 +47,7 @@ export function createWorld(seed: number): World {
     effects: { particles: [], flashes: [] },
     loot: { x: level.loot.x, y: level.loot.y - 0.8, w: 0.8, h: 0.8, vx: 0, vy: 0, onGround: false, taken: false },
     extraction: level.extraction,
+    interiors: level.interiors,
     time: createTime(),
     alarm: false,
     shake: 0,

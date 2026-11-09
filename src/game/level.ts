@@ -9,7 +9,8 @@ export const GROUND = 40
 const STOREY = 6
 
 export type GuardSpawn = Vec & { facing: 1 | -1 }
-export type Level = { grid: Grid; playerStart: Vec; extraction: Rect; loot: Vec; guards: GuardSpawn[] }
+/** `interiors` are the indoor and underground areas, so the renderer can draw a back wall instead of sky. */
+export type Level = { grid: Grid; playerStart: Vec; extraction: Rect; loot: Vec; guards: GuardSpawn[]; interiors: Rect[] }
 
 const BUILDING = { left: 70, right: 118 }
 const BASEMENT = { left: 74, right: 94, top: 43, bottom: 47 }
@@ -39,9 +40,14 @@ export function createLevel(seed: number): Level {
   guards.push({ x: 100, y: VAULT.bottom + 1, facing: -1 })
   guards.push({ x: 60, y: SEWER.bottom + 1, facing: -1 })
 
+  const roof = GROUND - storeys * STOREY
   return {
     grid,
     guards,
+    interiors: [
+      { x: BUILDING.left, y: roof, w: BUILDING.right - BUILDING.left + 1, h: GROUND - roof },
+      { x: 0, y: GROUND, w: WORLD_WIDTH, h: WORLD_HEIGHT - GROUND },
+    ],
     playerStart: { x: 46, y: 1 },
     extraction: { x: 3, y: GROUND - 4, w: 8, h: 4 },
     loot: { x: 104, y: VAULT.bottom + 1 },
