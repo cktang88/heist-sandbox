@@ -9,8 +9,11 @@ export const GROUND = 40
 const STOREY = 6
 
 export type GuardSpawn = Vec & { facing: 1 | -1 }
-/** `interiors` are the indoor and underground areas, so the renderer can draw a back wall instead of sky. */
-export type Level = { grid: Grid; playerStart: Vec; extraction: Rect; loot: Vec; guards: GuardSpawn[]; interiors: Rect[] }
+/** An indoor or underground area, so the renderer can draw a back wall instead of sky. */
+export type Interior = Rect & { kind: 'room' | 'earth' }
+/** A light fitting. Hung lamps go dark when the ceiling tile above them is destroyed. */
+export type Lamp = Vec & { radius: number; color: 'warm' | 'cold' | 'green'; hung: boolean }
+export type Level = { grid: Grid; playerStart: Vec; extraction: Rect; loot: Vec; guards: GuardSpawn[]; interiors: Interior[]; lamps: Lamp[] }
 
 const BUILDING = { left: 70, right: 118 }
 const BASEMENT = { left: 74, right: 94, top: 43, bottom: 47 }
@@ -27,11 +30,12 @@ export function createLevel(seed: number): Level {
   const grid = createGrid(WORLD_WIDTH, WORLD_HEIGHT)
   const storeys = randomInt(rng, 3, 5)
   const guards: GuardSpawn[] = []
+  const lamps: Lamp[] = []
 
   fillTiles(grid, 0, GROUND, WORLD_WIDTH - 1, WORLD_HEIGHT - 3, 'dirt')
   fillTiles(grid, 0, WORLD_HEIGHT - 2, WORLD_WIDTH - 1, WORLD_HEIGHT - 1, 'bedrock')
 
-  buildTower(grid, rng, storeys, guards)
+  buildTower(grid, rng, storeys, guards, lamps)
   buildBasement(grid)
   buildSewer(grid)
 
@@ -44,9 +48,10 @@ export function createLevel(seed: number): Level {
   return {
     grid,
     guards,
+    lamps: [...lamps, ...fixedLamps()],
     interiors: [
-      { x: BUILDING.left, y: roof, w: BUILDING.right - BUILDING.left + 1, h: GROUND - roof },
-      { x: 0, y: GROUND, w: WORLD_WIDTH, h: WORLD_HEIGHT - GROUND },
+      { kind: 'room', x: BUILDING.left, y: roof, w: BUILDING.right - BUILDING.left + 1, h: GROUND - roof },
+      { kind: 'earth', x: 0, y: GROUND, w: WORLD_WIDTH, h: WORLD_HEIGHT - GROUND },
     ],
     playerStart: { x: 46, y: 1 },
     extraction: { x: 3, y: GROUND - 4, w: 8, h: 4 },
@@ -54,7 +59,7 @@ export function createLevel(seed: number): Level {
   }
 }
 
-function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[]): void {
+function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[], lamps: Lamp[]): void {
   const { left, right } = BUILDING
   const roof = GROUND - storeys * STOREY
   fillTiles(grid, left, roof, right, GROUND - 1, 'air')
@@ -82,6 +87,8 @@ function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[])
     // Ladder up to the next storey. The top one ends at a locked roof hatch.
     fillTiles(grid, ladderX, ceilingY + 1, ladderX, floorY - 1, 'ladder')
     setTile(grid, ladderX, ceilingY, storey === storeys - 1 ? 'door' : 'ladder')
+
+    for (let x = left + 6; x < right - 3; x += 11) lamps.push({ x: x + 0.5, y: ceilingY + 1.2, radius: 8, color: 'warm', hung: true })
 
     const blocked = [wallX, ladderX, holeX]
     guards.push({ x: pickClearX(rng, left + 3, right - 3, blocked), y: floorY, facing: rng() < 0.5 ? 1 : -1 })
@@ -114,6 +121,16 @@ function pickWallX(rng: Rng, left: number, right: number, ladderX: number): numb
     if (Math.abs(x - ladderX) > 3) return x
   }
   return ladderX < (left + right) / 2 ? right - 9 : left + 9
+}
+
+/** Street lights, plus the dim fittings in the basement, vault and sewer. */
+function fixedLamps(): Lamp[] {
+  const lamps: Lamp[] = []
+  for (const x of [8, 34, 58]) lamps.push({ x: x + 0.5, y: GROUND - 5.5, radius: 9, color: 'warm', hung: false })
+  for (const x of [80, 90]) lamps.push({ x: x + 0.5, y: BASEMENT.top + 0.2, radius: 7, color: 'cold', hung: true })
+  lamps.push({ x: 103.5, y: VAULT.top + 0.2, radius: 8, color: 'cold', hung: true })
+  for (let x = 24; x < SEWER.right; x += 18) lamps.push({ x: x + 0.5, y: SEWER.top + 0.2, radius: 6, color: 'green', hung: true })
+  return lamps
 }
 
 function buildBasement(grid: Grid): void {

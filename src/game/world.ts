@@ -2,7 +2,7 @@ import type { Charge } from './charges'
 import type { Drone } from './drone'
 import type { Effects } from './effects'
 import type { Guard } from './guards'
-import { createLevel } from './level'
+import { createLevel, type Interior, type Lamp } from './level'
 import { createPlayer, type Player } from './player'
 import type { Projectile } from './projectiles'
 import { createRng, type Rng } from './rng'
@@ -25,7 +25,8 @@ export type World = {
   effects: Effects
   loot: Loot
   extraction: Rect
-  interiors: Rect[]
+  interiors: Interior[]
+  lamps: Lamp[]
   time: TimeState
   alarm: boolean
   shake: number
@@ -48,6 +49,7 @@ export function createWorld(seed: number): World {
     loot: { x: level.loot.x, y: level.loot.y - 0.8, w: 0.8, h: 0.8, vx: 0, vy: 0, onGround: false, taken: false },
     extraction: level.extraction,
     interiors: level.interiors,
+    lamps: level.lamps,
     time: createTime(),
     alarm: false,
     shake: 0,
