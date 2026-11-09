@@ -3,9 +3,11 @@ import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import { createBackdrop } from './backdrop'
 import type { Camera } from './camera'
-import { drawEffects, drawGuard, drawLamps, drawPlayer, drawProjectiles, drawThings } from './drawActors'
+import { drawEffects, drawGoggles, drawGuard, drawGuardMarks, drawLamps, drawPlayer, drawProjectiles, drawSignals, drawThings } from './drawActors'
 import { createLighting } from './lighting'
 import { createTileCache, type TileCache } from './tileCache'
+
+const MAX_SHAKE_TILES = 0.45
 
 export type SceneRenderer = { draw(context: CanvasRenderingContext2D, world: World, camera: Camera, aim: Vec): void }
 
@@ -27,8 +29,10 @@ export function createSceneRenderer(): SceneRenderer {
       context.imageSmoothingEnabled = true
       backdrop.draw(context, camera)
 
-      const shakeX = (Math.random() - 0.5) * world.shake * 0.6
-      const shakeY = (Math.random() - 0.5) * world.shake * 0.6
+      // Shake grows with the square of the jolt, so small hits stay subtle and big ones slam.
+      const jolt = world.shake * world.shake * MAX_SHAKE_TILES
+      const shakeX = (Math.random() - 0.5) * 2 * jolt
+      const shakeY = (Math.random() - 0.5) * 2 * jolt
       const toWorld = () => {
         context.setTransform(camera.scale, 0, 0, camera.scale, camera.width / 2 + (shakeX - camera.x) * camera.scale, camera.height / 2 + (shakeY - camera.y) * camera.scale)
       }
@@ -45,6 +49,9 @@ export function createSceneRenderer(): SceneRenderer {
 
       toWorld()
       lighting.drawGlows(context, world)
+      drawGoggles(context, world)
+      drawGuardMarks(context, world)
+      drawSignals(context, world)
       drawProjectiles(context, world)
       drawEffects(context, world)
       context.setTransform(1, 0, 0, 1, 0, 0)
