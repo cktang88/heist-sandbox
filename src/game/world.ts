@@ -20,6 +20,9 @@ import type { SoundEvent } from './sounds'
 import { createTime, type TimeState } from './time'
 import type { Body, Rect } from './types'
 import { createGuard } from './guards'
+import type { Frag } from './frag/frag'
+import type { Rope } from './rope/rope'
+import { createFallingProps, type FallingPropsState } from './vehicles/fallingProps'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -60,6 +63,12 @@ export type World = {
   hazards: HazardState
   security: SecurityState
   elevatorCars: ElevatorCar[]
+  /** Thrown frag grenades. */
+  frags: Frag[]
+  /** Climbing ropes the player has tied off. */
+  ropes: Rope[]
+  /** Floor props dropping through a destroyed floor. */
+  fallingProps: FallingPropsState
   /** Lighting circuits whose fuse box has been cut. */
   deadCircuits: Set<number>
   /** The hacking menu that is open, if any. */
@@ -106,6 +115,9 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     hazards: createHazards(),
     security: createSecurity(),
     elevatorCars: createElevators(level.elevators),
+    frags: [],
+    ropes: [],
+    fallingProps: createFallingProps(),
     deadCircuits: new Set(),
     terminal: null,
     prompt: null,

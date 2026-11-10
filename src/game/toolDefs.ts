@@ -1,8 +1,18 @@
 export type ToolId = 'pistol' | 'rifle' | 'shotgun' | 'sniper' | 'rocket' | 'c4' | 'drill' | 'drone' | 'smoke' | 'flash'
 
-export type ToolDef = { id: ToolId; name: string; ammo: number; cooldown: number; auto: boolean; quiet: boolean }
+/** What a tool does when it differs from what the hands hold: `id` is the item the renderers draw in the hands. */
+export type ToolAction = 'frag' | 'rope'
 
-/** The player's kit, in hotkey order (1-9, then 0). For guns, `ammo` is the spare rounds beyond the first magazine. */
+/**
+ * `slot` is the hotkey a second-page tool shares with a first-page one: pressing that key again swaps between them.
+ * First-page tools use the key of their own index.
+ */
+export type ToolDef = { id: ToolId; name: string; ammo: number; cooldown: number; auto: boolean; quiet: boolean; action?: ToolAction; slot?: number }
+
+/** The ten hotkeys, 1-9 then 0. */
+export const HOTKEYS = 10
+
+/** The player's kit. The first ten are on keys 1-9, then 0; for guns, `ammo` is the spare rounds beyond the first magazine. */
 export const TOOLS: readonly ToolDef[] = [
   { id: 'pistol', name: 'Pistol', ammo: 60, cooldown: 0.2, auto: false, quiet: true },
   { id: 'rifle', name: 'Rifle', ammo: 210, cooldown: 0.085, auto: true, quiet: false },
@@ -14,8 +24,31 @@ export const TOOLS: readonly ToolDef[] = [
   { id: 'drone', name: 'Drone', ammo: 3, cooldown: 0.5, auto: false, quiet: true },
   { id: 'smoke', name: 'Smoke', ammo: 4, cooldown: 0.6, auto: false, quiet: true },
   { id: 'flash', name: 'Flash', ammo: 4, cooldown: 0.6, auto: false, quiet: false },
+  // Second page: a frag shares the smoke key (9), the rope shares the drill key (7).
+  { id: 'flash', name: 'Frag', ammo: 4, cooldown: 0.6, auto: false, quiet: false, action: 'frag', slot: 8 },
+  { id: 'c4', name: 'Rope', ammo: 3, cooldown: 0.5, auto: false, quiet: true, action: 'rope', slot: 6 },
 ]
 
+/** The first tool with this held item: always the first-page one. */
 export function toolIndex(id: ToolId): number {
-  return TOOLS.findIndex((tool) => tool.id === id)
+  return TOOLS.findIndex((tool) => tool.id === id && !tool.action)
+}
+
+export function actionIndex(action: ToolAction): number {
+  return TOOLS.findIndex((tool) => tool.action === action)
+}
+
+function slotOf(index: number): number {
+  return TOOLS[index].slot ?? index
+}
+
+/**
+ * The tool a hotkey press picks. Pressing the key of the tool in hand swaps to the next tool on that key.
+ * A number past the hotkeys is read as a key too (the input device counts all tools and wraps its digits).
+ */
+export function toolForKey(key: number, current: number): number {
+  const slot = key % HOTKEYS
+  const onKey = TOOLS.map((_, index) => index).filter((index) => slotOf(index) === slot)
+  const at = onKey.indexOf(current)
+  return at < 0 ? onKey[0] : onKey[(at + 1) % onKey.length]
 }
