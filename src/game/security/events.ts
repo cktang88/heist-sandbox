@@ -5,7 +5,7 @@ import type { Rope } from '../rope/rope'
 import type { Lamp } from '../site'
 import type { Vec } from '../types'
 
-export type Tamper = 'door' | 'lock' | 'rope' | 'line' | 'window' | 'charge' | 'hostage' | 'blood' | 'radio'
+export type Tamper = 'door' | 'lock' | 'rope' | 'line' | 'window' | 'charge' | 'hostage' | 'blood' | 'radio' | 'moved'
 
 /**
  * Site alert level, held by the control room:
