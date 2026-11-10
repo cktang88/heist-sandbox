@@ -136,6 +136,10 @@ export const COMBAT = {
   flashCooldown: 18,
   flashRange: 14,
   replanSeconds: 1.4,
+  /** An assault guard behind cover who has not seen the man for this long moves up to find him. */
+  coverPatience: 1.5,
+  /** A guard holding a choke point the man has not shown at for this long moves up too. */
+  holdPatience: 2,
 } as const
 
 export const CAMERAS = {

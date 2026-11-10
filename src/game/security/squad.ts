@@ -1,9 +1,10 @@
 import { distance } from '../types'
 import type { World } from '../world'
 import { barkLine, type LineKind } from './barks'
-import { feetOf, isActive, type CombatRole, type Guard } from './model'
+import { planFlank } from './flank'
+import { feetOf, isActive, type CombatRole, type Guard, type SearchPlan } from './model'
 import { isBreaking, isShaken } from './nerve'
-import { COMBAT } from './tuning'
+import { COMBAT, NERVE } from './tuning'
 
 /**
  * The squad layer above each fighting guard: who may fire aimed shots (attack tokens, so not everyone
@@ -13,6 +14,8 @@ import { COMBAT } from './tuning'
  */
 
 const CAMP_RADIUS = 1.5
+/** Nerve a falling-back guard must climb back above the breaking point before he rejoins the fight. */
+const RECOVERY_MARGIN = 0.1
 const KILLING_ZONE_SECONDS = 8
 const ROLE_LINES: Partial<Record<CombatRole, LineKind>> = { flank: 'flank', hold: 'hold', suppress: 'suppress', fallback: 'fallback' }
 
@@ -52,16 +55,23 @@ export function organiseSquad(world: World, dt: number): void {
     }
     if (tokens.has(guard) && guard.seesPlayer) security.shooters.push(index)
     let role: CombatRole
-    if (guard.hp < guard.maxHp * COMBAT.fallbackHealth || isBreaking(guard)) role = 'fallback'
+    let plan: SearchPlan | null = null
+    if (fallingBack(guard)) role = 'fallback'
     else if (tokens.has(guard)) role = 'assault'
     else if (guard.combatRole === 'flank' && stillFlanking(world, guard)) role = 'flank'
-    else if (flankers < flankersWanted && mayFlank(guard) && (routesRound || suppressor || !guard.seesPlayer)) role = 'flank'
+    else if (flankers < flankersWanted && mayFlank(guard) && (routesRound || suppressor || !guard.seesPlayer) && guard.replan <= 0 && (plan = planFlank(world, guard))) role = 'flank'
     else if (guard.seesPlayer && !suppressor) role = 'suppress'
     else role = 'hold'
     if (role === 'suppress') suppressor = true
     if (role === 'flank' && guard.combatRole !== 'flank') flankers += 1
-    setRole(world, guard, role)
+    if (setRole(world, guard, role) && plan) guard.search = plan
   }
+}
+
+/** Badly hurt or breaking. Once falling back he stays back until his nerve has properly recovered, so he does not dither. */
+function fallingBack(guard: Guard): boolean {
+  if (guard.hp < guard.maxHp * COMBAT.fallbackHealth) return true
+  return guard.combatRole === 'fallback' ? guard.nerve < NERVE.breaking + RECOVERY_MARGIN : isBreaking(guard)
 }
 
 /** Steady, unarmoured men go round; heavies and the shaken stay with the squad. */
@@ -74,15 +84,19 @@ function stillFlanking(world: World, guard: Guard): boolean {
   return guard.search !== null && world.clock < guard.search.endsAt && guard.search.index < guard.search.points.length
 }
 
-/** Changes a guard's role, but not more often than every couple of seconds (except to fall back), so nobody dithers. */
-function setRole(world: World, guard: Guard, role: CombatRole): void {
-  if (guard.combatRole === role || (guard.replan > 0 && role !== 'fallback')) return
+/**
+ * Changes a guard's role, but not more often than every couple of seconds (except to fall back), so nobody dithers.
+ * Returns true if the role changed.
+ */
+function setRole(world: World, guard: Guard, role: CombatRole): boolean {
+  if (guard.combatRole === role || (guard.replan > 0 && role !== 'fallback')) return false
   guard.combatRole = role
   guard.cover = null
   guard.replan = COMBAT.replanSeconds
-  if (role !== 'flank') guard.search = null
+  guard.search = null
   const line = ROLE_LINES[role]
   if (line) barkLine(world, guard, line, role === 'fallback')
+  return true
 }
 
 /** The freshest last known position among the fighters, and how long it has stayed in one spot. */

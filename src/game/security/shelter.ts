@@ -17,7 +17,7 @@ const STEP = 0.5
 /** A peek is standing up where he is, or stepping (dashing) out this far. */
 const PEEK_STEPS = [0.6, 1.2, 1.8, 2.5, 3.2, 4]
 /** Two guards do not share one spot. */
-const SPACING = 0.9
+const SPACING = 1.2
 const NO_PEEK = 3
 /** A long dash out to fire is worse than standing up where he is. */
 const PEEK_COST = 0.5
@@ -44,7 +44,7 @@ export function findShelter(world: World, guard: Guard, threat: Vec, reach: numb
     const peek = crouch ? spot : stepOut(world, threat, spot)
     const score = offset + (peek ? Math.abs(peek.x - spot.x) * PEEK_COST : NO_PEEK) + (crouch ? STANDING_EXPOSED : 0) + (underOpening(world, spot, threat) ? UNDER_OPENING : 0)
     if (score < bestScore) {
-      best = { x: spot.x, y: spot.y, hidden: true, crouch, peek, from: { ...threat } }
+      best = { x: spot.x, y: spot.y, hidden: true, crouch, peek, from: { ...threat }, spent: false, waits: 0 }
       bestScore = score
     }
   }
@@ -102,7 +102,7 @@ function stepOut(world: World, threat: Vec, spot: Vec): Vec | null {
 function outOfTheWay(world: World, feet: Vec, threat: Vec, reach: number): Shelter {
   let best = { x: feet.x, y: feet.y }
   for (const { spot } of walkable(world, feet, reach)) if (distanceAlong(spot, threat) > distanceAlong(best, threat)) best = spot
-  return { ...best, hidden: false, crouch: true, peek: null, from: { ...threat } }
+  return { ...best, hidden: false, crouch: true, peek: null, from: { ...threat }, spent: false, waits: 0 }
 }
 
 function distanceAlong(at: Vec, threat: Vec): number {

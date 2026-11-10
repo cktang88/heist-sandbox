@@ -48,9 +48,10 @@ export type CombatRole = 'assault' | 'suppress' | 'flank' | 'hold' | 'fallback' 
 /**
  * A place to fight from that the shooter's rounds cannot reach (`hidden`; false means only somewhere out of the way, the best
  * he could find), whether he must kneel there, and `peek`: where he stands up (or steps out) to fire back, if anywhere.
- * `from` is the shooter's position it was chosen against.
+ * `from` is the shooter's position it was chosen against. `spent`: he got there and it still leaves him in the open, so
+ * sheltering has nothing more to offer and his squad role takes over again. `waits` counts how long he has sat in it.
  */
-export type Shelter = Vec & { hidden: boolean; crouch: boolean; peek: Vec | null; from: Vec }
+export type Shelter = Vec & { hidden: boolean; crouch: boolean; peek: Vec | null; from: Vec; spent: boolean; waits: number }
 
 export type Guard = Body & {
   hp: number
