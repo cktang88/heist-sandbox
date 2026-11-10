@@ -1,77 +1,60 @@
-import { CanvasTexture, Mesh, MeshBasicMaterial, PlaneGeometry, SRGBColorSpace } from 'three'
-import { cellHash } from './noise'
+import { Group, Mesh, MeshBasicMaterial, PlaneGeometry, type Texture } from 'three'
+import type { TimeOfDay } from '../game/site'
+import { addNeighbours } from './rooms/neighbours'
+import { DAY_BANDS, NIGHT_BANDS, paintCity, paintSky, type Sheet } from './rooms/skyline'
 
-const WIDTH = 4096
-const HEIGHT = 1024
+/** Must match the camera in `renderer3d.ts`: 30 degree view, 24 tiles tall at the walking lane. */
+const CAMERA_DISTANCE = 12 / Math.tan((30 * Math.PI) / 360)
+/** Widest screen shape the backdrop is sized for (21:9 is 2.33). */
+const WIDEST = 2.4
+/** The camera keeps at least this far inside the level's edges and top (half the view). */
+const EDGE = 21
+const TOP = 12
+/** The camera draws nothing beyond 400 units, so the sky stays inside that. */
+const SKY_Z = -330
+const BANDS_Z = [-260, -170, -95] as const
+/** How far each band of city rises above the street, in tiles. The furthest holds the megastructures. */
+const BANDS_HEIGHT = [360, 180, 120] as const
+const BELOW_GROUND = 110
 
-/** A far-off night city painted once onto a big backdrop. Perspective makes it drift slower than the level. */
-export function createSky(levelWidth: number, groundY: number): Mesh {
-  const canvas = document.createElement('canvas')
-  canvas.width = WIDTH
-  canvas.height = HEIGHT
-  const c = canvas.getContext('2d')!
-
-  const fade = c.createLinearGradient(0, 0, 0, HEIGHT)
-  fade.addColorStop(0, '#03050c')
-  fade.addColorStop(0.55, '#0b1226')
-  fade.addColorStop(0.8, '#1c2038')
-  fade.addColorStop(1, '#2a2536')
-  c.fillStyle = fade
-  c.fillRect(0, 0, WIDTH, HEIGHT)
-
-  for (let star = 0; star < 500; star += 1) {
-    c.fillStyle = `rgba(255,255,255,${0.15 + cellHash(star, 1, 5) * 0.6})`
-    const size = 1 + cellHash(star, 2, 5) * 1.5
-    c.fillRect(cellHash(star, 3, 5) * WIDTH, cellHash(star, 4, 5) * HEIGHT * 0.6, size, size)
-  }
-
-  const moon = { x: WIDTH * 0.7, y: HEIGHT * 0.22 }
-  const halo = c.createRadialGradient(moon.x, moon.y, 0, moon.x, moon.y, 320)
-  halo.addColorStop(0, 'rgba(190,205,255,0.35)')
-  halo.addColorStop(1, 'rgba(190,205,255,0)')
-  c.fillStyle = halo
-  c.fillRect(0, 0, WIDTH, HEIGHT)
-  c.fillStyle = '#e6ebf7'
-  c.beginPath()
-  c.arc(moon.x, moon.y, 38, 0, Math.PI * 2)
-  c.fill()
-
-  // Low cloud lit from below by the city.
-  for (let cloud = 0; cloud < 26; cloud += 1) {
-    const x = cellHash(cloud, 1, 9) * WIDTH
-    const y = HEIGHT * (0.35 + cellHash(cloud, 2, 9) * 0.3)
-    const puff = c.createRadialGradient(x, y, 0, x, y, 260)
-    puff.addColorStop(0, 'rgba(70,74,104,0.22)')
-    puff.addColorStop(1, 'rgba(70,74,104,0)')
-    c.fillStyle = puff
-    c.fillRect(x - 260, y - 120, 520, 240)
-  }
-
-  paintSkyline(c, 1, '#141a2e', 0.5, 0.42)
-  paintSkyline(c, 2, '#0b0f1c', 0.75, 0.3)
-
-  const texture = new CanvasTexture(canvas)
-  texture.colorSpace = SRGBColorSpace
-  const width = levelWidth * 2.4
-  const sky = new Mesh(new PlaneGeometry(width, width * (HEIGHT / WIDTH)), new MeshBasicMaterial({ map: texture, fog: false, toneMapped: true }))
-  sky.position.set(levelWidth / 2, -groundY + width * (HEIGHT / WIDTH) * 0.5 - 6, -70)
-  return sky
+/** The world rectangle a plane at depth `z` must cover so it fills the view from every camera position. */
+function sheetAt(z: number, levelWidth: number, ground: number, height: number): Sheet {
+  const distance = CAMERA_DISTANCE - z
+  const halfTall = (12 * distance) / CAMERA_DISTANCE
+  const halfWide = halfTall * WIDEST
+  return { left: EDGE - halfWide, right: levelWidth - EDGE + halfWide, bottom: ground - BELOW_GROUND, top: ground + height }
 }
 
-function paintSkyline(c: CanvasRenderingContext2D, seed: number, color: string, windowChance: number, tallest: number): void {
-  let x = 0
-  for (let building = 0; x < WIDTH; building += 1) {
-    const width = 50 + cellHash(building, seed, 1) * 120
-    const height = HEIGHT * (0.12 + cellHash(building, seed, 2) * tallest)
-    c.fillStyle = color
-    c.fillRect(x, HEIGHT - height, width, height)
-    for (let wy = HEIGHT - height + 12; wy < HEIGHT - 8; wy += 15) {
-      for (let wx = x + 7; wx < x + width - 9; wx += 13) {
-        if (cellHash(Math.round(wx), Math.round(wy), seed) > windowChance * 0.42) continue
-        c.fillStyle = cellHash(Math.round(wx), Math.round(wy), seed + 9) < 0.78 ? 'rgba(255,190,110,0.8)' : 'rgba(170,210,255,0.75)'
-        c.fillRect(wx, wy, 6, 8)
-      }
-    }
-    x += width + cellHash(building, seed, 3) * 12
-  }
+function plane(sheet: Sheet, z: number, map: Texture, transparent: boolean): Mesh {
+  const width = sheet.right - sheet.left
+  const height = sheet.top - sheet.bottom
+  const mesh = new Mesh(new PlaneGeometry(width, height), new MeshBasicMaterial({ map, fog: false, transparent, depthWrite: !transparent }))
+  mesh.position.set((sheet.left + sheet.right) / 2, (sheet.top + sheet.bottom) / 2, z)
+  mesh.matrixAutoUpdate = false
+  mesh.updateMatrix()
+  return mesh
+}
+
+/**
+ * Everything seen beyond the level, built once: a sky (moon and night cloud, or a veiled sun through overcast),
+ * three bands of distant city fading into mist, and the real blocks across the back street. Each sits at its
+ * own depth, so the perspective camera moves them at different speeds. Sized so the view is always filled,
+ * from the parachute drop above the tower to either end of the level.
+ */
+export function createSky(levelWidth: number, groundY: number, time: TimeOfDay = 'night'): Group {
+  const group = new Group()
+  const ground = -groundY
+  // The highest the camera goes is TOP rows below the top of the level (y = -TOP); add the view's half height there.
+  const skyTop = -TOP + (12 * (CAMERA_DISTANCE - SKY_Z)) / CAMERA_DISTANCE + 10
+  const skySheet = sheetAt(SKY_Z, levelWidth, ground, skyTop - ground)
+  group.add(plane(skySheet, SKY_Z, paintSky(skySheet, ground, time), false))
+  const bands = time === 'night' ? NIGHT_BANDS : DAY_BANDS
+  BANDS_Z.forEach((z, index) => {
+    const sheet = sheetAt(z, levelWidth, ground, BANDS_HEIGHT[index])
+    const mesh = plane(sheet, z, paintCity(sheet, ground, bands[index], time), true)
+    mesh.renderOrder = -10 + index
+    group.add(mesh)
+  })
+  addNeighbours(group, -60, levelWidth + 60, ground, time)
+  return group
 }
