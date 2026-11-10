@@ -141,12 +141,16 @@ describe('guards and hazards', () => {
     for (let x = 22; x <= 38; x += 1) for (let y = GROUND - 2; y < GROUND; y += 1) startFire(world, x, y, 1, 3)
     let fled = 0
     let fought = false
+    let panicked = false
     run(world, 3, {}, () => {
       fled = Math.max(fled, Math.abs(feetOf(guard).x - 30))
       fought ||= guard.mode === 'combat'
+      panicked ||= guard.mode === 'panic'
     })
     expect(guard.hp).toBeLessThan(guard.maxHp)
     expect(fought).toBe(false)
+    // He walks out because he chose to, not because he broke and ran.
+    expect(panicked).toBe(false)
     expect(fled).toBeGreaterThan(7)
   })
 
