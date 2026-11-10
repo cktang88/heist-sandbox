@@ -13,7 +13,8 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
     const model = buildProp(prop.kind, materials)
     if (spec.mount === 'floor') model.position.set(prop.x + 0.5, -prop.y, 0)
     else model.position.set(prop.x + 0.5, -prop.y, spec.mount === 'wall' ? BACK + 0.02 : -0.9)
-    if (prop.flip) model.scale.x = -1
+    // Wall items carry lettering (posters, signs, screens), which must not be mirrored.
+    if (prop.flip && spec.mount !== 'wall') model.scale.x = -1
     group.add(model)
     return { prop, model, onFloor: spec.mount === 'floor' }
   })
