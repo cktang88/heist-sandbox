@@ -73,20 +73,23 @@ function fall(world: World, prop: PropState, loose: LooseProp, dt: number): void
   const box = propBox(prop)
   let dy = body.y - start.y
   let dx = body.x - start.x
-  // Only the footing is moved through the grid; the prop's own sides, wider than it, stop a slide at a wall...
-  if (dx !== 0 && boxHitsSolid(world.grid, offset(box, dx, dy)) && !boxHitsSolid(world.grid, offset(box, 0, dy))) {
-    dx = 0
-    body.vx = 0
-  }
-  // ...and tip it into a hole it overhangs, sliding over so it fits, or catch on the rim of a gap too narrow for it.
-  if (dy > 0 && boxHitsSolid(world.grid, offset(box, dx, dy)) && !boxHitsSolid(world.grid, offset(box, dx, 0))) {
-    const slide = slideToFit(world.grid, box, dx, dy)
-    if (slide !== null) dx += slide
-    else {
-      const rim = Math.floor(box.y + box.h + dy) - (box.y + box.h)
-      dy = rim > 0 && !boxHitsSolid(world.grid, offset(box, dx, rim)) ? rim : 0
-      body.vy = 0
-      body.onGround = true
+  // Only the footing is moved through the grid. Unless the prop is already caught in something, its own sides,
+  // wider than the footing, stop a slide at a wall, and its edges tip it into a hole it overhangs (sliding over
+  // so it fits) or catch it on the rim of a gap too narrow for it.
+  if (!boxHitsSolid(world.grid, box)) {
+    if (dx !== 0 && boxHitsSolid(world.grid, offset(box, dx, 0))) {
+      dx = 0
+      body.vx = 0
+    }
+    if (dy > 0 && boxHitsSolid(world.grid, offset(box, dx, dy))) {
+      const slide = slideToFit(world.grid, box, dx, dy)
+      if (slide !== null) dx += slide
+      else {
+        const rim = Math.floor(box.y + box.h + dy) - (box.y + box.h)
+        dy = rim > 0 && !boxHitsSolid(world.grid, offset(box, dx, rim)) ? rim : 0
+        body.vy = 0
+        body.onGround = true
+      }
     }
   }
   shiftProp(prop, dx, dy)
