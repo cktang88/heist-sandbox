@@ -4,6 +4,7 @@ import { deviceCenter, flipPower } from './devices/power'
 import { deviceState } from './devices/state'
 import { callElevator, carUnderPlayer, doorColumn, elevatorRefuses, shaftDoorAt, shaftOf } from './elevators'
 import { canClose, closeDoor, doorCentre, openDoor as openDoorTiles, openDoorBy, openedDoors, type DoorHow } from './doors/doors'
+import { onLine } from './grapple/state'
 import { windowAction } from './grapple/windows'
 import type { Input } from './input'
 import { interrogateAction, readAction } from './intel/intel'
@@ -157,14 +158,14 @@ function perform(world: World, input: Input, dt: number, action: Action | null):
 const healthBefore = new WeakMap<World, number>()
 
 /**
- * A held action (a lock, a hack, a cable) needs him to stay put: walking off, jumping, falling or taking a hit
- * starts it over.
+ * A held action (a lock, a hack, a cable, cutting a window) needs him to stay put, standing or hanging on a ladder,
+ * rope or the grapple line: walking off, jumping, falling or taking a hit starts it over.
  */
 function steadyHands(world: World, input: Input): boolean {
   const player = world.player
   const hit = player.hp < (healthBefore.get(world) ?? player.hp)
   healthBefore.set(world, player.hp)
-  return !hit && !input.left && !input.right && !input.jumpPressed && (player.onGround || player.onLadder)
+  return !hit && !input.left && !input.right && !input.jumpPressed && (player.onGround || player.onLadder || onLine(world.grapple))
 }
 
 function typeAway(world: World, dt: number): void {

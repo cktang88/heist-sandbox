@@ -137,6 +137,17 @@ describe('window entry', () => {
     expect(world.player.x).toBeLessThan(WALL)
   })
 
+  it.each([['the grapple line', onGrappleLine], ['a rope', onRope]])('holding E on %s cuts the glass and climbs in', (_, setUp) => {
+    const world = setUp()
+    run(world, FRAME)
+    expect(world.prompt).toContain('Hold E: cut glass')
+    run(world, 3.2, { interact: true })
+    expect(glassLeft(world)).toBe(0)
+    expect(world.sounds.some((sound) => sound.kind === 'glass')).toBe(false)
+    run(world, 1)
+    expect(insideOnFloor(world)).toBe(true)
+  })
+
   it('lets go of the line with E when no window is in reach', () => {
     const world = buildingWorld()
     standAt(world, 28, STREET)
