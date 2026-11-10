@@ -162,6 +162,7 @@ function perceive(world: World, guard: Guard, dt: number): void {
 export function noticeBody(world: World, guard: Guard, body: number): void {
   guard.bodiesSeen.push(body)
   world.stealth.found.add(body)
+  world.stats.bodiesFound = world.stealth.found.size
   const other = world.guards[body]
   frighten(guard, other.out ? NERVE.body / 2 : NERVE.body)
   if (world.security.reportedBodies.has(body) || guard.interest?.kind === 'body') return

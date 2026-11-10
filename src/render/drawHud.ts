@@ -8,6 +8,8 @@ import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
 import { objectiveText } from '../game/intel/intel'
+import { stealthCues } from '../game/stealth/cues'
+import { stealthRating } from '../game/stealth/rating'
 import { worldToScreen, type Camera } from './camera'
 import { drawIntel } from './intelHud'
 
@@ -15,8 +17,8 @@ const HELP = [
   'A/D move    W/S climb and take stairs    SPACE jump, tap again to double jump',
   'HOLD SPACE while falling: parachute    C or CTRL: crouch',
   'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool (9 again: frag; 7 again: rope, grapple)',
-  'Q or RIGHT-CLICK: set off C4    E: pick locks, use devices, take down, recall the drone',
-  'F punch    V kick    HOLD G drag furniture or grab a guard    T throw',
+  'Q or RIGHT-CLICK: set off C4    E: pick locks, use devices, take down (crouch + hold E: choke), hide',
+  'F punch    V kick    HOLD G drag furniture or grab a guard    G pick up a body    T throw    X whistle',
   'SHIFT: focus (slow motion, slowest when you hold still)',
   'Find the gold case: make guards talk, read notes, hack files. Then get to the van.',
 ]
@@ -61,6 +63,7 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   if (world.drone) caption(context, `DRONE  ${Math.ceil(world.drone.battery)}s   click: detonate   E: recall`, width / 2, unit * 2, '#6fd0ff', unit, 'center')
   if (world.charges.length > 0) caption(context, `C4 SET x${world.charges.length}   Q or right-click: detonate all`, width / 2, unit * (world.drone ? 3.3 : 2), '#ffb347', unit, 'center')
   if (world.prompt && world.status === 'playing') drawPrompt(context, world.prompt, unit, width, height)
+  if (world.stealth.hint && world.status === 'playing') caption(context, world.stealth.hint, width / 2, height - unit * 3.55, DIM, unit * 0.75, 'center')
   if (world.terminal && world.status === 'playing') drawTerminal(context, world.terminal, unit, width, height)
   if (world.status === 'playing' && world.clock < 9 && world.security.level === 0) drawHelp(context, unit, width, height)
   if (world.status !== 'playing') drawEndScreen(context, world, width, height, unit)
@@ -85,6 +88,20 @@ function drawVitals(context: CanvasRenderingContext2D, world: World, unit: numbe
   const word = seen < 0.25 ? 'HIDDEN' : seen < 0.55 ? 'DIM' : 'EXPOSED'
   caption(context, word, x + barWidth + unit * 0.5, unit * 4.1, seen < 0.25 ? '#7ee08a' : seen < 0.55 ? '#e8d27a' : '#ffb347', unit * 0.75, 'left')
   if (player.crouching) caption(context, 'LOW', x + barWidth - unit * 0.2, unit * 3.15, DIM, unit * 0.6, 'right')
+  drawCues(context, world, x, unit * 5.9, unit)
+}
+
+/** Under the vitals: why the player is or is not being seen, each cue a small tag (green helps, amber gives away). */
+function drawCues(context: CanvasRenderingContext2D, world: World, x: number, y: number, unit: number): void {
+  const size = unit * 0.62
+  let left = x
+  for (const cue of stealthCues(world)) {
+    const w = measure(context, cue.text, size) + unit * 0.7
+    context.fillStyle = cue.good ? 'rgba(20,60,30,0.75)' : 'rgba(80,40,10,0.8)'
+    context.fillRect(left - unit * 0.1, y - size * 1.05, w, size * 1.5)
+    caption(context, cue.text, left + unit * 0.25, y, cue.good ? '#9ff0a8' : '#ffc070', size, 'left')
+    left += w + unit * 0.3
+  }
 }
 
 let lastLight = { clock: -1, level: 0 }
@@ -253,8 +270,9 @@ function drawTools(context: CanvasRenderingContext2D, world: World, unit: number
     caption(context, fit(context, tool.name.toUpperCase(), size, x + w - unit * 0.3 - nameLeft), nameLeft, y + size * 1.25, selected ? '#ffffff' : '#b4bcc8', size, 'left')
     if (onKey.length > 1) caption(context, `${Math.max(0, held) + 1}/${onKey.length}`, x + unit * 0.35, y + h - unit * 0.55, selected ? '#ffd27a' : DIM, size * 0.8, 'left')
     const ammo = world.player.ammo[index]
-    const count = GUNS[tool.id] ? `${world.player.mags[index]} / ${ammo}` : Number.isFinite(ammo) ? `${ammo}` : '∞'
-    const empty = GUNS[tool.id] ? world.player.mags[index] === 0 : ammo === 0
+    const gun = GUNS[tool.id] && !tool.action
+    const count = gun ? `${world.player.mags[index]} / ${ammo}` : Number.isFinite(ammo) ? `${ammo}` : '∞'
+    const empty = gun ? world.player.mags[index] === 0 : ammo === 0
     caption(context, count, x + w - unit * 0.35, y + h - unit * 0.55, empty ? '#ff6a5a' : selected ? '#ffffff' : DIM, size, 'right')
   }
 }
@@ -275,11 +293,12 @@ function drawEndScreen(context: CanvasRenderingContext2D, world: World, width: n
   context.fillRect(width / 2 - unit * 10, height * 0.36 - unit * 3.4, unit * 20, 2)
   caption(context, won ? 'CLEAN GETAWAY' : 'CAUGHT', width / 2, height * 0.36, colour, unit * 3, 'center')
   const peak = ALERT_LEVELS[Math.max(0, Math.min(4, world.security.level))].word
-  const style = !world.alarm && world.stats.kills === 0 ? 'GHOST: never seen, nobody hurt' : !world.alarm ? 'QUIET: the alarm never rang' : 'LOUD: the whole block heard you'
+  const rating = stealthRating(world)
+  const stats = world.stats
   const lines = [
-    won ? style : 'The heist is over.',
-    `TIME ${world.clock.toFixed(1)}s    GUARDS DOWN ${world.stats.kills}    TILES DESTROYED ${world.stats.tilesDestroyed}`,
-    `TIMES SPOTTED ${world.stats.timesSpotted}    ALERT AT THE END ${peak}`,
+    won ? `${rating.name}: ${rating.line}` : 'The heist is over.',
+    `TIME ${world.clock.toFixed(1)}s    KILLS ${stats.kills}    KNOCKOUTS ${stats.knockouts}    TILES DESTROYED ${stats.tilesDestroyed}`,
+    `TIMES SPOTTED ${stats.timesSpotted}    BODIES FOUND ${stats.bodiesFound}    ALARMS ${stats.alarms}    ALERT AT THE END ${peak}`,
   ]
   lines.forEach((line, index) => caption(context, line, width / 2, height * 0.47 + index * unit * 1.9, TEXT, Math.min(unit * 1.05, width / 52), 'center'))
   caption(context, 'PRESS ENTER FOR A NEW HEIST', width / 2, height * 0.47 + unit * 7, '#ffd27a', unit, 'center')

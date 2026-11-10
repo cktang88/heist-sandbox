@@ -52,8 +52,9 @@ function playerAct(world: World, feet: Vec, hand: Vec, held: ToolId): Act | unde
     const rope = world.ropes.find((line) => line.x === column && feet.y - 1 >= line.top && feet.y - 1 <= line.bottom + 1)
     return rope ? { kind: 'rope', x: rope.x + 0.5 } : undefined
   }
-  const captive = world.melee.shield
+  const captive = world.melee.shield ?? chokedMan(world)
   if (captive) return { kind: 'hostage', neck: captiveNeck(feetOf(captive), captive.facing) }
+  if (world.stealth.carried !== null) return { kind: 'carry' }
   const grabbed = world.physProps.grabbed && propById(world, world.physProps.grabbed.id)
   if (grabbed) return { kind: 'drag', grip: dragGrip(propBox(grabbed), feet) }
   const strike = world.melee.strike
@@ -66,6 +67,12 @@ function playerAct(world: World, feet: Vec, hand: Vec, held: ToolId): Act | unde
   }
   if (hero.slide > 0) return { kind: 'slide' }
   return THROWN.has(held) && hero.cooldown > 0 ? throwAct(world, hand, held) : undefined
+}
+
+/** The man in the player's chokehold, if any: held like a shield while he struggles. */
+function chokedMan(world: World): Guard | null {
+  const choke = world.stealth.choke
+  return choke ? world.guards[choke.guard] : null
 }
 
 /** The corner of the ledge or sill the hands are on, worked out from where the climb started. */
@@ -147,7 +154,8 @@ function guardAct(world: World, guard: Guard): Act | undefined {
   const dragger = guard.draggedBy !== null ? world.guards[guard.draggedBy] : undefined
   if (dragger) return { kind: 'dragged', byX: feetOf(dragger).x }
   if (guard.diveSeconds > 0) return { kind: 'dive', t: 1 - guard.diveSeconds / UNDER_FIRE.diveSeconds }
-  if (world.melee.shield === guard) return { kind: 'captive' }
+  if (world.melee.shield === guard || chokedMan(world) === guard) return { kind: 'captive' }
+  if (guard.startle) return { kind: 'startled', t: 1 - guard.startle.seconds / guard.startle.total }
   if (guard.mode === 'surrendered') return { kind: 'surrender' }
   if (guard.blindSeconds > 0 && guard.blindReaction) return { kind: 'blinded', how: guard.blindReaction }
   if (guard.mode === 'panic') return { kind: 'cower' }

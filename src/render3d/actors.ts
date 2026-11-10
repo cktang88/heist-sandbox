@@ -74,9 +74,11 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
   // Each layer's set-up and per-frame time is measured, for the `?debug=1` readout (User Timing and the frame probe).
   const layers: { name: string; layer: Layer }[] = []
 
-  const player = new Figure('operative')
+  const operative = new Figure('operative')
+  // In a stolen uniform the player is drawn as a guard: a second figure, swapped in while the disguise is on.
+  const disguised = new Figure(outfitFor('patrol', false))
   const parachute = buildParachute()
-  group.add(player.group, parachute)
+  group.add(operative.group, disguised.group, parachute)
   const guards = new Map<Guard, Figure>()
 
   const van = buildVan()
@@ -120,6 +122,11 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       const near = (x: number, y: number) => Math.abs(x - view.x) < DRAW_DISTANCE && Math.abs(y - view.y) < DRAW_DISTANCE * 0.62
       const hero = now.player
       const posed = playerMotion(now, aim)
+      const player = now.stealth.disguise ? disguised : operative
+      const spare = player === operative ? disguised : operative
+      spare.group.visible = false
+      // Shut in a locker or under a desk the player is not drawn; the overlay marks where he is.
+      player.group.visible = !hero.hidden
       const body = player.animate(posed.motion, posed.held)
       player.group.position.z = hero.stairs ? STAIR_LANE : depthOffsetFor(now, hero)
       parachute.visible = hero.chute
@@ -138,7 +145,8 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
           guards.set(guard, figure)
         }
         if (!figure.group.parent) group.add(figure.group)
-        figure.group.visible = true
+        // A body stuffed in a locker is out of sight.
+        figure.group.visible = guard.hiddenIn === null
         figure.showDropped(guard.droppedWeapon, weaponFor(guard.role, guard.armored))
         const mood = guardMood(guard)
         if (mood === 'dead') {

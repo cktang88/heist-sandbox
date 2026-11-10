@@ -15,13 +15,15 @@ const DEAD_LOOK: Look = { ...GUARD, suit: '#5d7391', skin: '#b89a80' }
 export function drawGuard(context: CanvasRenderingContext2D, world: World, guard: Guard): void {
   const feet = { x: guard.x + guard.w / 2, y: guard.y + guard.h }
   const mood = guardMood(guard)
+  // A body stuffed in a locker is out of sight.
+  if (guard.hiddenIn !== null) return
   if (mood === 'dead') {
     if (guard.ragdoll) drawRagdoll(context, guard.ragdoll, guard.armored ? RESPONDER : DEAD_LOOK)
     return
   }
 
   tracePolygon(context, visionCone(world, guard))
-  context.fillStyle = CONE_COLORS[mood]
+  context.fillStyle = coneColor(guard, mood)
   context.fill()
 
   const { motion, held } = guardMotion(world, guard, guard.armored ? 'rifle' : 'pistol')
@@ -33,6 +35,13 @@ export function drawGuard(context: CanvasRenderingContext2D, world: World, guard
     context.fillStyle = '#ffd23f'
     context.fillRect(feet.x - 0.5, guard.y - 0.55, guard.awareness, 0.14)
   }
+}
+
+/** A calm guard's cone warms toward yellow as his suspicion builds, so the player sees it coming. */
+function coneColor(guard: Guard, mood: 'calm' | 'suspicious' | 'alert'): string {
+  if (mood !== 'calm' || guard.awareness < 0.05) return CONE_COLORS[mood]
+  const a = Math.min(1, guard.awareness)
+  return `rgba(255,${Math.round(255 - 45 * a)},${Math.round(255 - 192 * a)},${(0.05 + 0.08 * a).toFixed(3)})`
 }
 
 /** Alert marks float above the dark, so the player can always read a guard's mood. */
@@ -52,13 +61,15 @@ export function drawPlayer(context: CanvasRenderingContext2D, world: World, aim:
   const { motion, held } = playerMotion(world, aim)
   const body = poseHuman(motion)
   playerBody = body
+  // Shut in a locker or under a desk the player is not drawn; the overlay marks where he is.
+  if (player.hidden) return
 
   if (player.chute) drawParachute(context, body)
   if (player.hasLoot) {
     context.fillStyle = '#ffd23f'
     context.fillRect(body.shoulder.x - player.facing * 0.42 - 0.15, body.shoulder.y + 0.05, 0.3, 0.45)
   }
-  drawHuman(context, body, player.facing, OPERATIVE, held)
+  drawHuman(context, body, player.facing, world.stealth.disguise ? GUARD : OPERATIVE, held)
 
   if (player.pick > 0) {
     context.fillStyle = 'rgba(0,0,0,0.6)'
@@ -94,7 +105,7 @@ function drawParachute(context: CanvasRenderingContext2D, body: Skeleton): void 
 
 /** The operative's three green goggle lights, visible even in pitch dark. */
 export function drawGoggles(context: CanvasRenderingContext2D, world: World): void {
-  if (!playerBody) return
+  if (!playerBody || world.player.hidden || world.stealth.disguise) return
   context.fillStyle = '#39ff6a'
   for (const light of goggleLights(playerBody, world.player.facing)) {
     context.globalAlpha = 0.35
