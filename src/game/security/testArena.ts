@@ -1,8 +1,13 @@
 import { createGuard, type Guard } from '../guards'
+import { GUNS } from '../guns'
 import { idleInput, type Input } from '../input'
+import { emitNoise } from '../noise'
+import { fireShot } from '../projectiles'
 import type { GuardRole, Room } from '../site'
 import { stepWorld } from '../step'
 import { createGrid, fillTiles, type TileKind } from '../tiles'
+import type { Vec } from '../types'
+import { normalize } from '../vision'
 import { createWorld, type Device, type World } from '../world'
 import type { Tier } from './model'
 import { TIERS } from './tuning'
@@ -80,4 +85,24 @@ export function runListening(world: World, seconds: number, input: Partial<Input
     return each?.()
   })
   return [...heard]
+}
+
+/** Where the player's gun hand is (shots and their bang start here, as in tools.ts). */
+export function playerHand(world: World): Vec {
+  return { x: world.player.x + world.player.w / 2, y: world.player.y + 0.6 }
+}
+
+/** One round from the player's gun at a point, with the bang it makes, exactly as pulling the trigger does. */
+export function playerFires(world: World, at: Vec, gun: 'pistol' | 'rifle' | 'shotgun' | 'sniper' = 'rifle'): void {
+  const def = GUNS[gun]!
+  const hand = playerHand(world)
+  for (let pellet = 0; pellet < def.pellets; pellet += 1) fireShot(world, hand, normalize(at.x - hand.x, at.y - hand.y), { ...def.shot, spread: 0 })
+  emitNoise(world, hand, def.noise)
+}
+
+/** A slab one storey up (feet row GROUND - 6) from `fromX` to `toX`, so the arena has an upper floor. */
+export function addUpperFloor(world: World, fromX: number, toX: number): number {
+  const floorY = GROUND - 6
+  fillTiles(world.grid, fromX, floorY, toX, floorY, 'concrete')
+  return floorY
 }

@@ -8,6 +8,7 @@ import { onHurt, onKilled } from './security/nerve'
 import { beingDragged } from './security/selfPreservation'
 import { deployResponders } from './security/response'
 import { raiseLevel } from './security/report'
+import { markUnderFire, witnessHit } from './security/takingFire'
 import { centerOf, type Vec } from './types'
 import type { World } from './world'
 
@@ -56,6 +57,7 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec,
   guard.hitFlash = 0.1
   world.security.lastCasualtyAt = world.clock
   burst(world.effects, world.rng, centerOf(guard), 6, '#b3202a', 6)
+  if (cause === 'attack') witnessHit(world, guard)
   if (guard.hp <= 0) {
     setMode(guard, 'dead')
     guard.announced = 'dead'
@@ -67,7 +69,9 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec,
     return true
   }
   onHurt(guard)
-  if (cause === 'attack') enterCombat(world, guard, from)
+  if (cause !== 'attack') return false
+  enterCombat(world, guard, from)
+  markUnderFire(world, guard, from)
   return false
 }
 

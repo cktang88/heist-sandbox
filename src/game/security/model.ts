@@ -42,7 +42,15 @@ export type RadioCall = { event: SecurityEvent; seconds: number }
 /** Where to look next while searching, and for how long. Points are feet positions. */
 export type SearchPlan = { points: Vec[]; index: number; dwell: number; endsAt: number }
 
-export type CombatRole = 'assault' | 'suppress' | 'flank' | 'hold' | 'fallback'
+/** `stack`: one of a shield team moving as a column behind the man with the shield (see shieldTeam.ts). */
+export type CombatRole = 'assault' | 'suppress' | 'flank' | 'hold' | 'fallback' | 'stack'
+
+/**
+ * A place to fight from that the shooter's rounds cannot reach (`hidden`; false means only somewhere out of the way, the best
+ * he could find), whether he must kneel there, and `peek`: where he stands up (or steps out) to fire back, if anywhere.
+ * `from` is the shooter's position it was chosen against.
+ */
+export type Shelter = Vec & { hidden: boolean; crouch: boolean; peek: Vec | null; from: Vec }
 
 export type Guard = Body & {
   hp: number
@@ -164,6 +172,23 @@ export type Guard = Body & {
   unwatchedSeconds: number
   /** Tied up by the player: out of the game for good, but alive. */
   restrained: boolean
+  /** Which way his weapon points, as a unit vector (y down): straight up at a hole in the ceiling is (0, -1). For renderers. */
+  aim: Vec
+  /** Clock time he last heard the intruder's gun with a clear idea where it was, and last had rounds come his way (or saw a colleague hit). */
+  heardAt: number
+  underFireAt: number
+  /** Where he is sheltering from fire, and whether he is up and firing from it right now (`peeking`, for renderers). */
+  shelter: Shelter | null
+  peeking: boolean
+  /** Counts down the current duck or peek. */
+  peekSeconds: number
+  /** Carries a ballistic shield: rounds from in front stop on it (see shieldTeam.ts). For renderers. */
+  shield: boolean
+  /** In a shield team's column: the guard index of the man with the shield he follows (his own index for the shield man), and his place in it (0 is the shield). */
+  stackLeader: number | null
+  stackSlot: number
+  /** Clock time he last threw a grenade to clear a spot before going through it. */
+  clearedAt: number
 }
 
 const BASE_HP = 100
@@ -189,6 +214,8 @@ export function createGuard(spawn: GuardSpawn, armored = false): Guard {
     tier, nerve: TIERS[tier].nerve, shock: 0, suppression: 0, nerveTimer: 0, nearMissAt: -Infinity,
     rounds: magazineOf(tough), reloadSeconds: 0, diveSeconds: 0, hesitateSeconds: 0, hesitatedRoom: null, partnerWait: 0, backupAt: -Infinity,
     blindFiring: false, bounding: false, boundSince: 0, draggedBy: null, dragSeconds: 0, blindReaction: null, droppedWeapon: null, unwatchedSeconds: 0, restrained: false,
+    aim: { x: spawn.facing, y: 0 }, heardAt: -Infinity, underFireAt: -Infinity, shelter: null, peeking: false, peekSeconds: 0,
+    shield: false, stackLeader: null, stackSlot: 0, clearedAt: -Infinity,
   }
 }
 

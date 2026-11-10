@@ -20,7 +20,8 @@ import { patrolBehaviour } from './patrol'
 import { detectPlayer, isAlerted, spotBody } from './perception'
 import { buildingAt, deviceFeet, floorBelow, sameFloor, travelCost } from './places'
 import { beingDragged, stepDive, watchForGrenades } from './selfPreservation'
-import { AWARENESS, COMMS, LOD, NERVE, PATROL, RESPONSE, TIERS, TIMING, VISION } from './tuning'
+import { isShooterAt, locates, locateShooter, markUnderFire } from './takingFire'
+import { AWARENESS, COMMS, LOD, NERVE, PATROL, RESPONSE, SHELTER, TIERS, TIMING, VISION } from './tuning'
 
 /**
  * One guard's mind, run every frame: keep his nerve up to date, look after his own skin (dive from a grenade,
@@ -59,6 +60,8 @@ export function thinkGuard(world: World, guard: Guard, dt: number): void {
   } else {
     act(world, guard, dt)
   }
+  // Out of a fight the gun points where he walks.
+  if (guard.mode !== 'combat') guard.aim = { x: guard.facing, y: 0 }
   announce(world, guard)
 }
 
@@ -182,14 +185,14 @@ function noticeSomething(guard: Guard, at: Vec, kind: InterestKind, priority: nu
 }
 
 /**
- * A bullet cracked past him. Someone is shooting at him: he knows roughly where from, and a guard who had
- * no idea turns to face it at once.
+ * A bullet cracked past him. Someone is shooting at him and he knows where from: a guard who had no idea turns his
+ * gun on the spot at once, and anyone already fighting gets out of the line of fire.
  */
 export function shotAt(world: World, guard: Guard): void {
-  if (guard.mode === 'combat' || guard.mode === 'panic') return
-  guard.awareness = Math.max(guard.awareness, 0.8)
-  noticeSomething(guard, floorBelow(world, centerOf(world.player)), 'gunfire', 6)
-  if (guard.interest?.kind === 'gunfire') guard.modeSeconds = Math.max(guard.modeSeconds, TIMING.noticePause * 0.6)
+  if (guard.mode === 'panic') return
+  const from = centerOf(world.player)
+  markUnderFire(world, guard, from)
+  enterCombat(world, guard, from)
 }
 
 /** Sends a calm guard to look at a spot (a noise, a distraction). Fighting and dead guards ignore it. */
@@ -214,8 +217,10 @@ export function hearNoise(world: World, guard: Guard, at: Vec, radius: number, s
     }
     return
   }
+  const shot = kind === 'loud' && !blast && isShooterAt(world, at)
   if (guard.mode === 'combat') {
-    if (kind === 'loud' && !guard.seesPlayer) {
+    if (shot && locates(world, guard, at)) locateShooter(world, guard, at)
+    else if (kind === 'loud' && !guard.seesPlayer) {
       guard.lastKnown = { ...at }
       guard.lastKnownAt = world.clock
     }
@@ -230,7 +235,14 @@ export function hearNoise(world: World, guard: Guard, at: Vec, radius: number, s
     return
   }
   guard.awareness = Math.max(guard.awareness, 0.5)
-  if (answers(world, guard, at, blast ? 'blast' : 'gunfire', 6)) noticeSomething(guard, { ...at }, 'gunfire', 6)
+  if (shot && locates(world, guard, at)) {
+    // Gunfire is a target: close, with a clear line to it, he knows where the shooter is and turns his gun on him.
+    enterCombat(world, guard, at)
+    locateShooter(world, guard, at)
+  } else if (shot && distance(eyeOf(guard), at) < SHELTER.nearbyShots && answers(world, guard, at, 'gunfire', 6)) {
+    // Right next door: he does not know the exact spot, but close enough to fight for it, not to wander over and look.
+    enterCombat(world, guard, at)
+  } else if (answers(world, guard, at, blast ? 'blast' : 'gunfire', 6)) noticeSomething(guard, { ...at }, 'gunfire', 6)
   else if (guard.mode === 'calm') setMode(guard, 'caution')
   if (blast) {
     if (!alreadyCalling(world, 'explosion', at)) startRadio(world, guard, { kind: 'explosion', at: { ...at } })

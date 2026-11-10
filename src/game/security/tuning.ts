@@ -295,3 +295,44 @@ export const DISCOVERY = {
   smokeSeen: 0.25,
   smokeSight: 9,
 } as const
+
+/** Taking fire: sheltering from it, peeking out to fire back, and firing back at where shots come from. */
+export const SHELTER = {
+  /** Rounds came his way (or he saw a colleague hit) this recently: he gets out of the line of fire. */
+  memory: 4,
+  /** How far along his floor he looks for a spot the shooter cannot hit. */
+  reach: 12,
+  /** How often an exposed guard re-checks the spot he chose. */
+  checkEvery: 0.5,
+  /** Down behind cover, then up firing, then down again. */
+  duckMin: 0.9,
+  duckMax: 1.8,
+  peekMin: 0.8,
+  peekMax: 1.3,
+  /** He fires back at a shooter he only heard for this long after the last shot. */
+  returnFireSeconds: 3,
+  /** Never at a sound further off than this. */
+  returnFireReach: 30,
+  returnSpread: 0.12,
+  returnCooldownMin: 0.45,
+  returnCooldownMax: 0.9,
+  /** Gunfire heard this close, with a clear line to it, tells him exactly where the shooter is. */
+  locateReach: 24,
+  /** Located gunfire this close is being fired into his room: he treats it as fire at him. */
+  closeFire: 14,
+  /** Gunfire this close, even round a corner or through a slab, tells him roughly where: near enough to join the fight. */
+  nearbyShots: 12,
+} as const
+
+/** Places where colleagues have died: avoided, cleared with a grenade first, or waited out. */
+export const KILL_ZONES = {
+  /** Half-width along the floor. */
+  radius: 2.5,
+  /** Feared this long after the last death there. */
+  seconds: 45,
+  /** A grenade thrown through makes it passable for this long. */
+  clearedSeconds: 5,
+  /** A guard throws something through a kill zone this close in front of him, at most this often. */
+  throwReach: 10,
+  throwEvery: 12,
+} as const

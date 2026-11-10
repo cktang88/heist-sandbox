@@ -15,7 +15,9 @@ import { companyOf, isShaken } from './nerve'
 import { startSearch } from './orders'
 import { floorBelow, isDoorway, landingsOnFloor, sameFloor } from './places'
 import { clearOfDoorway, dragWounded } from './selfPreservation'
-import { COMBAT, PATROL, TIERS, TIMING, UNDER_FIRE } from './tuning'
+import { GUARD_PISTOL, GUARD_RIFLE, roundReaches } from './lineOfFire'
+import { ducked, takeShelter } from './takingFire'
+import { COMBAT, PATROL, SHELTER, TIERS, TIMING, UNDER_FIRE } from './tuning'
 
 /**
  * Fighting as a trained team. Each guard plays the role the squad gave him (squad.ts): assault guards
@@ -72,7 +74,9 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
   guard.replan -= dt
   guard.lostSeconds = guard.seesPlayer ? 0 : guard.lostSeconds + dt
   const known = guard.lastKnown
-  if (!known || guard.lostSeconds > TIMING.lostContact) {
+  // Hearing the man's gun keeps a fight going as surely as seeing him.
+  const heardLately = world.clock - guard.heardAt < TIMING.lostContact
+  if (!known || (guard.lostSeconds > TIMING.lostContact && !heardLately)) {
     barkLine(world, guard, 'lost', true)
     startSearch(world, guard, known ? floorBelow(world, known) : feetOf(guard))
     hold(world, guard, dt)
@@ -89,7 +93,7 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
     return
   }
   if (escapeHazard(world, guard, dt)) return
-  guard.facing = known.x >= feetOf(guard).x ? 1 : -1
+  faceThreat(guard, known)
   if (guard.flashWindup > 0) {
     guard.flashWindup -= dt
     hold(world, guard, dt)
@@ -111,20 +115,54 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
   const pinned = guard.suppression > UNDER_FIRE.duckAbove
   askForBackup(world, guard, alone, pinned)
   if (!world.security.shooters.includes(world.guards.indexOf(guard)) && dragWounded(world, guard, known, dt)) return
-  if (pinned) keepHeadDown(world, guard, known, dt)
+  if (takeShelter(world, guard, known, dt)) {
+    if (pinned) barkLine(world, guard, 'pinned')
+  } else if (pinned) keepHeadDown(world, guard, known, dt)
   else {
     if (guard.seesPlayer && world.player.stairs) barkLine(world, guard, 'stairs')
     // Shaken and on his own, he does not push forward: he holds and waits for help.
     const role = guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : guard.combatRole
     moveForRole(world, guard, known, role, dt)
   }
-  guard.facing = known.x >= feetOf(guard).x ? 1 : -1
+  faceThreat(guard, known)
   if (isShielded(world, guard)) {
     if (guard.seesPlayer) barkLine(world, guard, 'holdFire')
     return
   }
   if (mayBlindFire(guard, pinned)) blindFire(world, guard, known)
-  else if (!pinned) tryFire(world, guard, known)
+  else if (!pinned && !ducked(guard)) {
+    if (guard.seesPlayer) tryFire(world, guard, known)
+    else returnFire(world, guard, known)
+  }
+}
+
+/** Turns to the threat and points the gun straight at it, up or down included. */
+function faceThreat(guard: Guard, known: Vec): void {
+  const eye = eyeOf(guard)
+  if (Math.abs(known.x - eye.x) > 0.3) guard.facing = known.x > eye.x ? 1 : -1
+  guard.aim = normalize(known.x - eye.x, known.y - eye.y)
+}
+
+/** Penetration of his gun: a rifle for the armoured, a pistol for the rest. */
+function gunPower(guard: Guard): number {
+  return guard.armored ? GUARD_RIFLE : GUARD_PISTOL
+}
+
+/**
+ * He cannot see the man but has just heard him fire from there: shots back at the spot, if a round could get there
+ * (through a hole in the floor, a window, a door his rifle punches through). It keeps the shooter's head down.
+ */
+function returnFire(world: World, guard: Guard, known: Vec): void {
+  if (guard.drawSeconds > 0 || guard.shootCooldown > 0 || guard.radio) return
+  if (world.clock - guard.heardAt > SHELTER.returnFireSeconds) return
+  const eye = eyeOf(guard)
+  if (distance(eye, known) > SHELTER.returnFireReach || !roundReaches(world, eye, known, gunPower(guard))) return
+  if (colleagueInLine(world, guard, eye, known)) {
+    guard.shootCooldown = 0.3
+    return
+  }
+  shoot(world, guard, known, SHELTER.returnSpread * TIERS[guard.tier].spread * (1 + guard.suppression * UNDER_FIRE.suppressionSpread))
+  guard.shootCooldown = SHELTER.returnCooldownMin + world.rng() * (SHELTER.returnCooldownMax - SHELTER.returnCooldownMin)
 }
 
 /** Is the player holding a colleague as a human shield between himself and this guard? */
@@ -304,7 +342,7 @@ function tryFire(world: World, guard: Guard, known: Vec): void {
 
 function shoot(world: World, guard: Guard, at: Vec, spread: number): void {
   const eye = eyeOf(guard)
-  fireShot(world, eye, normalize(at.x - eye.x, at.y - eye.y), { kind: 'bullet', fromPlayer: false, ...SHOT, spread })
+  fireShot(world, eye, normalize(at.x - eye.x, at.y - eye.y), { kind: 'bullet', fromPlayer: false, ...SHOT, spread, penetration: gunPower(guard) })
   emitNoise(world, eye, SHOT_NOISE, 'guard')
   playSound(world, 'guardShot', eye)
   guard.kick = 0.7
