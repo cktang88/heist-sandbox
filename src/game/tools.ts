@@ -52,7 +52,7 @@ export function useTool(world: World, input: Input, dt: number): void {
     else if (tool.action === 'rope') {
       // Nowhere to tie it: the rope is not used up.
       if (!anchorRope(world)) player.ammo[player.tool] += 1
-    } else if (tool.id === 'c4') throwCharge(world, hand, aim)
+    } else if (tool.id === 'c4') throwCharge(world, hand, aim, input.aim)
     else if (tool.id === 'drill') drill(world, hand, aim, dt)
     else if (tool.id === 'drone') launchDrone(world)
     else if (tool.id === 'smoke' || tool.id === 'flash') throwGrenade(world, tool.id, hand, aim)
