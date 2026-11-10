@@ -39,8 +39,8 @@ export function useTool(world: World, input: Input, dt: number): void {
     }
   }
   player.cooldown = Math.max(0, player.cooldown - dt)
-  // Shut in a locker there is no room to raise a gun.
-  if (player.hidden) return
+  // Shut in a locker there is no room to raise a gun; choking a man takes both arms.
+  if (player.hidden || world.stealth.choke) return
 
   const tool = TOOLS[player.tool]
   // The dart gun is drawn as a pistol but shoots darts, one at a time, with no magazine.

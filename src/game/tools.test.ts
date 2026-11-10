@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from './input'
 import { GROUND } from './level'
 import { stepWorld } from './step'
-import { actionIndex, TOOLS, wheelSelection } from './toolDefs'
+import { actionIndex, toolIndex, TOOLS, wheelSelection } from './toolDefs'
+import { addGuard, arena, putPlayer, run } from './security/testArena'
 import { createWorld, type World } from './world'
 
 /** Scripted play with the tools in hand: picking them, using them, running dry. */
@@ -50,5 +51,25 @@ describe('picking a tool', () => {
       names.push(TOOLS[world.player.tool].name)
     }
     expect(names).toEqual(['Smoke', 'Frag', 'Smoke', 'Drill', 'Rope'])
+  })
+})
+
+describe('hands busy', () => {
+  it('choking a guard, the trigger does nothing: no shot, no drone launched', () => {
+    const world = arena()
+    addGuard(world, 20, 1)
+    putPlayer(world, 19.1)
+    run(world, 0.1, { crouch: true })
+    expect(world.prompt).toBe('Hold E: choke out')
+    run(world, FRAME, { crouch: true, interact: true, interactPressed: true })
+    expect(world.stealth.choke).not.toBeNull()
+    const rounds = world.player.mags[0]
+    world.player.tool = 0
+    run(world, 0.3, { crouch: true, interact: true, fire: true, firePressed: true })
+    expect(world.player.mags[0]).toBe(rounds)
+    world.player.tool = toolIndex('drone')
+    run(world, FRAME, { crouch: true, interact: true, fire: true, firePressed: true })
+    expect(world.drone).toBeNull()
+    expect(world.stealth.choke).not.toBeNull()
   })
 })
