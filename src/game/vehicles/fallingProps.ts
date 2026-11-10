@@ -53,6 +53,8 @@ export function stepFallingProps(world: World, dt: number): void {
   if (state.grid !== world.grid || !state.solid) remember(world, state)
   else if (world.grid.version !== state.version) {
     for (const prop of propsOnLostTiles(world, state)) {
+      // Furniture the player has disturbed has its own physics (physprops/gravity.ts), which drops it.
+      if (world.physProps.loose.has(prop.id)) continue
       if (!state.falling.some((item) => item.id === prop.id) && !isSupported(world.grid, prop, prop.y)) state.falling.push({ id: prop.id, vy: 0 })
     }
   }

@@ -6,6 +6,9 @@ import { addGuard, addProp, bareWorld } from '../hazards/testWorld'
 import { propBox } from '../hazards/props'
 import { boxHitsSolid } from '../physics'
 import { fillTiles } from '../tiles'
+import { idleInput } from '../input'
+import { loosen } from '../physprops/state'
+import { stepWorld } from '../step'
 import type { World } from '../world'
 import { stepFallingProps } from './fallingProps'
 
@@ -96,6 +99,19 @@ describe('falling props', () => {
     const box = propBox(crates)
     expect(boxHitsSolid(world.grid, { x: box.x + 0.05, y: box.y + 0.05, w: box.w - 0.1, h: box.h - 0.1 })).toBe(false)
     expect(crates.y).toBe(GROUND - 1)
+  })
+
+  it('furniture the player has dragged falls with the furniture physics when its floor goes, and lands once', () => {
+    const world = garage()
+    const desk = addProp(world, 'desk', 30, UPPER)
+    stepWorld(world, idleInput(), FRAME)
+    // Some unrelated damage first, so the index of what stands where already exists.
+    fillTiles(world.grid, 5, UPPER, 5, UPPER, 'air')
+    stepWorld(world, idleInput(), FRAME)
+    loosen(world, desk)
+    fillTiles(world.grid, 28, UPPER, 32, UPPER, 'air')
+    for (let frame = 0; frame < 90; frame += 1) stepWorld(world, idleInput(), FRAME)
+    expect(desk.y).toBe(GROUND)
   })
 
   it('a blast through the deck sends a parked car down', () => {
