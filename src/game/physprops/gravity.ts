@@ -37,7 +37,11 @@ export function settleLooseProps(world: World, dt: number): void {
       glide(world, prop, loose, dt)
       continue
     }
-    if (loose.vx === 0 && loose.vy === 0 && (isResting(world.grid, prop) || restsOnRim(world.grid, prop))) continue
+    if (loose.vx === 0 && loose.vy === 0 && (isResting(world.grid, prop) || restsOnRim(world.grid, prop))) {
+      // A door shut on it, or a wall or heap filled in around it: it is shoved out of the way.
+      if (boxHitsSolid(world.grid, propBox(prop))) unbury(world, prop, loose)
+      continue
+    }
     fall(world, prop, loose, dt)
   }
 }
@@ -194,6 +198,11 @@ export function standClear(grid: Grid, prop: PropState): void {
     shiftProp(prop, 0, -lift)
     return
   }
+}
+
+function unbury(world: World, prop: PropState, loose: LooseProp): void {
+  standClear(world.grid, prop)
+  rekeyIfMoved(world, prop, loose, true)
 }
 
 /** Whoever the falling prop comes down on is hurt once per fall, harder for heavy things falling fast. */
