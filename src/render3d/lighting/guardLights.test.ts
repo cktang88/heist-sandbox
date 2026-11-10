@@ -2,7 +2,7 @@ import { Group, type Mesh, SpotLight } from 'three'
 import { describe, expect, it } from 'vitest'
 import { knockOutCold } from '../../game/stealth/bodies'
 import { createWorld } from '../../game/world'
-import { createGuardLights } from './guardLights'
+import { beamOpacity, createGuardLights } from './guardLights'
 
 function shining(group: Group): { beams: number; torches: number } {
   const beams = group.children.filter((child) => (child as Mesh).isMesh && child.visible).length
@@ -30,5 +30,17 @@ describe('guard torches', () => {
     first.hiddenIn = 0
     lights.update(world, view)
     expect(shining(group)).toEqual({ beams: 0, torches: 0 })
+  })
+
+  it('share their glow out when bunched, so a stack of four does not white out the room', () => {
+    const world = createWorld(1, 'outpost')
+    const [lone, ...rest] = world.guards
+    const stack = rest.slice(0, 4)
+    stack.forEach((guard, index) => Object.assign(guard, { x: 50 + index * 0.8, y: 20 }))
+    lone.x = 10
+    lone.y = 20
+    expect(beamOpacity(lone, [lone, ...stack])).toBeCloseTo(0.2)
+    const total = stack.reduce((sum, guard) => sum + beamOpacity(guard, stack), 0)
+    expect(total).toBeLessThan(0.4)
   })
 })

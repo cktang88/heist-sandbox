@@ -29,11 +29,22 @@ function createSightBeam(): Mesh {
   for (let index = 1; index < CONE_POINTS - 1; index += 1) fan.push(0, index, index + 1)
   geometry.setIndex(fan)
   const beam = new Mesh(geometry, new MeshBasicMaterial({
-    color: TORCH_COLOR, vertexColors: true, transparent: true, opacity: 0.2, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false,
+    color: TORCH_COLOR, vertexColors: true, transparent: true, opacity: BEAM_OPACITY, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false,
   }))
   beam.frustumCulled = false
   beam.visible = false
   return beam
+}
+
+/** One beam's opacity. Beams add up, so guards bunched together (a search pair, a shield stack) share it out. */
+const BEAM_OPACITY = 0.2
+const BUNCHED = { x: 6, y: 2 }
+
+/** Fainter for each other beam starting close by: four men in a stack fill the room with a glow, not a white-out. */
+export function beamOpacity(guard: Guard, others: readonly Guard[]): number {
+  let bunched = 0
+  for (const other of others) if (Math.abs(other.x - guard.x) < BUNCHED.x && Math.abs(other.y - guard.y) < BUNCHED.y) bunched += 1
+  return BEAM_OPACITY / Math.pow(Math.max(1, bunched), 0.7)
 }
 
 function beamColor(guard: Guard): number {
@@ -99,7 +110,9 @@ export function createGuardLights(group: Group): GuardLights {
         const outline = beam.geometry.getAttribute('position')
         visionCone(world, guard).forEach((corner, at) => outline.setXYZ(at, corner.x, -corner.y, 0.12))
         outline.needsUpdate = true
-        ;(beam.material as MeshBasicMaterial).color.setHex(beamColor(guard))
+        const material = beam.material as MeshBasicMaterial
+        material.color.setHex(beamColor(guard))
+        material.opacity = beamOpacity(guard, nearest)
       }
     },
   }
