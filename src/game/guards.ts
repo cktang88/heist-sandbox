@@ -1,6 +1,6 @@
 import { burst } from './effects'
 import { openDoor } from './interact'
-import { GROUND, type GuardSpawn } from './level'
+import type { GuardSpawn } from './level'
 import { emitNoise } from './noise'
 import { GRAVITY, moveBody } from './physics'
 import { playSound } from './sounds'
@@ -292,7 +292,7 @@ export function raiseAlarm(world: World): void {
     // Backup drives in from the end of the street opposite the getaway van.
     const fromRight = world.extraction.x < world.grid.width / 2
     const x = fromRight ? world.grid.width - 4 - index * 2 : 3 + index * 2
-    const responder = createGuard({ x, y: GROUND, facing: fromRight ? -1 : 1 }, true)
+    const responder = createGuard({ x, y: world.groundY, facing: fromRight ? -1 : 1 }, true)
     becomeAlert(responder, at)
     world.guards.push(responder)
   }

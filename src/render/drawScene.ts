@@ -29,7 +29,7 @@ export function createSceneRenderer(): SceneRenderer {
 
       context.setTransform(1, 0, 0, 1, 0, 0)
       context.imageSmoothingEnabled = true
-      backdrop.draw(context, camera)
+      backdrop.draw(context, camera, world.groundY)
       drawRain(context, camera, world.clock)
 
       // Shake grows with the square of the jolt, so small hits stay subtle and big ones slam.

@@ -1,9 +1,8 @@
-import { GROUND } from '../game/level'
 import type { Camera } from './camera'
 import { hash } from './tileArt'
 
 /** Night sky with a moon, plus two layers of distant city that slide slower than the foreground. */
-export type Backdrop = { draw(context: CanvasRenderingContext2D, camera: Camera): void }
+export type Backdrop = { draw(context: CanvasRenderingContext2D, camera: Camera, groundY: number): void }
 
 const STRIP_WIDTH = 2048
 const STRIP_HEIGHT = 600
@@ -14,10 +13,10 @@ export function createBackdrop(): Backdrop {
   const near = skyline(2, '#0f1426', 0.6, 20)
 
   return {
-    draw(context, camera) {
+    draw(context, camera, groundY) {
       if (!sky || sky.width !== camera.width || sky.height !== camera.height) sky = paintSky(camera.width, camera.height)
       context.drawImage(sky, 0, 0)
-      const horizon = camera.height / 2 + (GROUND - camera.y) * camera.scale
+      const horizon = camera.height / 2 + (groundY - camera.y) * camera.scale
       drawStrip(context, far, camera, horizon, 0.12)
       drawStrip(context, near, camera, horizon, 0.3)
     },

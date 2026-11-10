@@ -3,7 +3,7 @@ import type { Input } from './game/input'
 import { stepWorld } from './game/step'
 import { TOOLS } from './game/toolDefs'
 import { centerOf } from './game/types'
-import { createWorld, type World } from './game/world'
+import { createWorld, type SiteKind, type World } from './game/world'
 import { attachInput } from './inputDevice'
 import { createCamera, followFocus } from './render/camera'
 import { drawHud } from './render/drawHud'
@@ -41,7 +41,9 @@ function newSeed(): number {
   return Number.isFinite(fromUrl) && fromUrl > 0 ? fromUrl : Math.floor(Math.random() * 1e9)
 }
 
-let world: World = createWorld(newSeed())
+/** The full complex by default; add `?site=outpost` for the small single building. */
+const siteKind: SiteKind = new URLSearchParams(location.search).get('site') === 'outpost' ? 'outpost' : 'complex'
+let world: World = createWorld(newSeed(), siteKind)
 let lastTime = performance.now()
 let view = centerOf(world.player)
 let aim = view
@@ -69,7 +71,7 @@ function frame(now: number): void {
   const frameInput = input.read(camera)
   aim = frameInput.aim
   if (world.status !== 'playing' && input.consumeRestart()) {
-    world = createWorld(Math.floor(Math.random() * 1e9))
+    world = createWorld(Math.floor(Math.random() * 1e9), siteKind)
     view = centerOf(world.player)
   } else input.consumeRestart()
 

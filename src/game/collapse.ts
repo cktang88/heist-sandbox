@@ -17,13 +17,15 @@ const MAX_FALL_SPEED = 30
 
 /**
  * Finds solid tiles that are no longer held up. A tile is supported when a chain of
- * touching solid tiles links it to the bottom of the map.
+ * touching solid tiles (or ladders) links it to the bottom of the map.
  */
 export function findUnsupported(grid: Grid): number[] {
   const { width, height } = grid
   const supported = new Uint8Array(width * height)
   const queue: number[] = []
   const solid = (index: number) => TILE_DEFS[TILE_KINDS[grid.kinds[index]]].solid
+  // Ladders are bolted to the walls beside them, so they hold the two sides of a shaft together.
+  const carries = (index: number) => solid(index) || TILE_KINDS[grid.kinds[index]] === 'ladder'
   for (let x = 0; x < width; x += 1) {
     const index = (height - 1) * width + x
     if (solid(index)) {
@@ -36,7 +38,7 @@ export function findUnsupported(grid: Grid): number[] {
     const x = index % width
     const neighbours = [index - width, index + width, x > 0 ? index - 1 : -1, x < width - 1 ? index + 1 : -1]
     for (const next of neighbours) {
-      if (next < 0 || next >= supported.length || supported[next] || !solid(next)) continue
+      if (next < 0 || next >= supported.length || supported[next] || !carries(next)) continue
       supported[next] = 1
       queue.push(next)
     }

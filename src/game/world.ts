@@ -3,7 +3,9 @@ import type { FallingTile } from './collapse'
 import type { Drone } from './drone'
 import type { Effects } from './effects'
 import type { Guard } from './guards'
-import { createLevel, type Interior, type Lamp, type Prop } from './level'
+import { createComplex } from './complex/complex'
+import { createLevel } from './level'
+import type { DeviceSpawn, ElevatorShaft, Interior, Lamp, Prop, Room, Stairwell, TimeOfDay } from './site'
 import { mirrorLevel } from './mirror'
 import { createPlayer, type Player } from './player'
 import type { Projectile } from './projectiles'
@@ -16,6 +18,10 @@ import { createGuard } from './guards'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
+/** A device in play. `disabled` means cut, broken or switched off; `hacked` means the player controls it. */
+export type Device = DeviceSpawn & { id: number; disabled: boolean; hacked: boolean }
+/** Which site to build: the full complex, or the small single building used for quick games and tests. */
+export type SiteKind = 'complex' | 'outpost'
 export type RunStats = { kills: number; tilesDestroyed: number; timesSpotted: number }
 
 /** Everything about one heist in progress. Systems read and change this; rendering only reads it. */
@@ -35,7 +41,15 @@ export type World = {
   loot: Loot
   pickups: Pickup[]
   extraction: Rect
+  name: string
+  timeOfDay: TimeOfDay
+  /** Row of the street surface. */
+  groundY: number
   interiors: Interior[]
+  rooms: Room[]
+  stairwells: Stairwell[]
+  elevators: ElevatorShaft[]
+  devices: Device[]
   lamps: Lamp[]
   props: Prop[]
   time: TimeState
@@ -47,9 +61,10 @@ export type World = {
   rng: Rng
 }
 
-export function createWorld(seed: number): World {
+export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
   // Even seeds are flipped, so the van and the building swap sides.
-  const level = seed % 2 === 0 ? mirrorLevel(createLevel(seed)) : createLevel(seed)
+  const built = kind === 'complex' ? createComplex(seed) : createLevel(seed)
+  const level = seed % 2 === 0 ? mirrorLevel(built) : built
   return {
     grid: level.grid,
     player: createPlayer(level.playerStart),
@@ -64,7 +79,14 @@ export function createWorld(seed: number): World {
     loot: { x: level.loot.x, y: level.loot.y - 0.8, w: 0.8, h: 0.8, vx: 0, vy: 0, onGround: false, taken: false },
     pickups: level.pickups.map((spawn) => ({ x: spawn.x + 0.15, y: spawn.y - 0.6, w: 0.7, h: 0.6, vx: 0, vy: 0, onGround: false, kind: spawn.kind, taken: false })),
     extraction: level.extraction,
+    name: level.name,
+    timeOfDay: level.timeOfDay,
+    groundY: level.groundY,
     interiors: level.interiors,
+    rooms: level.rooms,
+    stairwells: level.stairwells,
+    elevators: level.elevators,
+    devices: level.devices.map((device, id) => ({ ...device, id, disabled: false, hacked: false })),
     lamps: level.lamps,
     props: level.props,
     time: createTime(),

@@ -1,4 +1,4 @@
-import { GROUND, type Lamp } from '../game/level'
+import type { Lamp } from '../game/level'
 import { isSolidAt } from '../game/tiles'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
@@ -72,6 +72,7 @@ export function createLighting(): Lighting {
       // Moonlight falls on everything outdoors, but not inside the building.
       lc.fillStyle = MOONLIGHT
       const room = world.interiors.find((area) => area.kind === 'room')
+      const GROUND = world.groundY
       if (!room) lc.fillRect(0, 0, world.grid.width, GROUND)
       else {
         lc.fillRect(0, 0, room.x, GROUND)

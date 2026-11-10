@@ -13,6 +13,7 @@ export type RoomKind =
   | 'lockers' | 'barracks' | 'lounge' | 'gym' | 'infirmary' | 'lab' | 'server' | 'security' | 'armory'
   | 'cells' | 'archive' | 'janitor' | 'mechanical' | 'electrical' | 'storage' | 'loadingDock' | 'garage'
   | 'stairwell' | 'elevatorLobby' | 'vault' | 'penthouse' | 'workshop' | 'silo' | 'gatehouse' | 'sewer'
+  | 'street' | 'yard' | 'rooftop'
 
 /** One room: the open space between its walls, floor and ceiling. */
 export type Room = Rect & {

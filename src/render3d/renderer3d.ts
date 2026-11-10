@@ -4,7 +4,6 @@ import {
 } from 'three'
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
-import { GROUND } from '../game/level'
 import type { Grid } from '../game/tiles'
 import type { Vec } from '../game/types'
 import type { World } from '../game/world'
@@ -63,9 +62,9 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       stage.actors.dispose()
     }
     const group = new Group()
-    const level = createLevelMesh(world.grid, world.interiors, materials)
+    const level = createLevelMesh(world.grid, world.interiors, world.groundY, materials)
     const actors = createActors(world, materials)
-    group.add(level.group, actors.group, createSky(world.grid.width, GROUND))
+    group.add(level.group, actors.group, createSky(world.grid.width, world.groundY))
     // The building is drawn cut open, so invisible sheets stand in for its missing front and keep moonlight out.
     const blocker = new MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: DoubleSide })
     for (const area of world.interiors) {

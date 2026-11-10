@@ -1,5 +1,5 @@
 import { Group, Mesh, type Material } from 'three'
-import { GROUND, type Interior } from '../game/level'
+import type { Interior } from '../game/level'
 import { CHUNK_TILES, chunkIndex, TILE_DEFS, tileAt, type Grid, type TileKind } from '../game/tiles'
 import { MeshBuilder } from './meshBuilder'
 
@@ -24,7 +24,7 @@ function fills(kind: TileKind): boolean {
 /** The level as 3D geometry, split into chunks so only damaged areas are rebuilt. */
 export type LevelMesh = { group: Group; refresh(): void; dispose(): void }
 
-export function createLevelMesh(grid: Grid, interiors: Interior[], materials: SurfaceMaterials): LevelMesh {
+export function createLevelMesh(grid: Grid, interiors: Interior[], groundY: number, materials: SurfaceMaterials): LevelMesh {
   const group = new Group()
   const chunks = new Map<number, Mesh[]>()
   const across = Math.ceil(grid.width / CHUNK_TILES)
@@ -40,7 +40,7 @@ export function createLevelMesh(grid: Grid, interiors: Interior[], materials: Su
     const builder = (name: SurfaceName) => builders.get(name) ?? builders.set(name, new MeshBuilder()).get(name)!
     for (let ty = chunkY * CHUNK_TILES; ty < Math.min(grid.height, (chunkY + 1) * CHUNK_TILES); ty += 1) {
       for (let tx = chunkX * CHUNK_TILES; tx < Math.min(grid.width, (chunkX + 1) * CHUNK_TILES); tx += 1) {
-        addTile(grid, builder, tx, ty)
+        addTile(grid, builder, tx, ty, groundY)
       }
     }
     const meshes: Mesh[] = []
@@ -87,7 +87,7 @@ export function createLevelMesh(grid: Grid, interiors: Interior[], materials: Su
   }
 }
 
-function addTile(grid: Grid, builder: (name: SurfaceName) => MeshBuilder, tx: number, ty: number): void {
+function addTile(grid: Grid, builder: (name: SurfaceName) => MeshBuilder, tx: number, ty: number, groundY: number): void {
   const kind = tileAt(grid, tx, ty)
   if (kind === 'air') return
   const top = -ty
@@ -122,7 +122,7 @@ function addTile(grid: Grid, builder: (name: SurfaceName) => MeshBuilder, tx: nu
   built.quad([[x0, bottom, z1], [x1, bottom, z1], [x1, top, z1], [x0, top, z1]], [0, 0, 1], [[x0 * UV, bottom * UV], [x1 * UV, bottom * UV], [x1 * UV, top * UV], [x0 * UV, top * UV]], shade)
   if (open(0, -1)) {
     // The street is tarmac; every other exposed top is the wall's own material.
-    const cap = kind === 'dirt' && ty === GROUND ? builder('asphalt') : built
+    const cap = kind === 'dirt' && ty === groundY ? builder('asphalt') : built
     cap.quad([[x0, top, z1], [x1, top, z1], [x1, top, z0], [x0, top, z0]], [0, 1, 0], [[x0 * UV, z1 * UV], [x1 * UV, z1 * UV], [x1 * UV, z0 * UV], [x0 * UV, z0 * UV]], shade)
   }
   if (open(0, 1)) built.quad([[x0, bottom, z0], [x1, bottom, z0], [x1, bottom, z1], [x0, bottom, z1]], [0, -1, 0], [[x0 * UV, z0 * UV], [x1 * UV, z0 * UV], [x1 * UV, z1 * UV], [x0 * UV, z1 * UV]], shade)
