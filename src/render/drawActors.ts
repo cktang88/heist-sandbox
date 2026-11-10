@@ -4,7 +4,7 @@ import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
 import { tracePolygon, visionCone } from './cone'
-import { drawHuman, goggleLights, GUARD, OPERATIVE, type Look } from './human/draw'
+import { drawHuman, drawRagdoll, goggleLights, GUARD, OPERATIVE, type Look } from './human/draw'
 import { poseHuman, type Motion, type Skeleton } from './human/pose'
 import { lampIsLit } from './lighting'
 import { paintTile } from './tileArt'
@@ -16,14 +16,7 @@ const DEAD_LOOK: Look = { ...GUARD, suit: '#5d7391', skin: '#b89a80' }
 export function drawGuard(context: CanvasRenderingContext2D, world: World, guard: Guard): void {
   const feet = { x: guard.x + guard.w / 2, y: guard.y + guard.h }
   if (guard.state === 'dead') {
-    // Topple over, then lie flat. A body thrown by a blast tumbles until it lands.
-    const fall = Math.min(1, guard.deadSeconds * 4)
-    const spin = guard.onGround ? 0 : guard.deadSeconds * 9
-    context.save()
-    context.translate(feet.x, feet.y - 0.16 * fall)
-    context.rotate(-guard.facing * (fall * Math.PI * 0.5 + spin))
-    drawHuman(context, poseHuman({ x: 0, feetY: 0, facing: guard.facing, vx: 0, vy: 0, onGround: true, mode: 'normal', aim: Math.PI / 2, kick: 0 }), guard.facing, DEAD_LOOK, 'pistol')
-    context.restore()
+    if (guard.ragdoll) drawRagdoll(context, guard.ragdoll, DEAD_LOOK)
     return
   }
 

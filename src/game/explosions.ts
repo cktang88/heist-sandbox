@@ -2,6 +2,7 @@ import { hurtTile } from './destruction'
 import { burst, flash } from './effects'
 import { hurtGuard } from './guards'
 import { emitNoise } from './noise'
+import { pushRagdoll } from './ragdoll'
 import { triggerSlowmo } from './time'
 import { centerOf, distance, type Body, type Vec } from './types'
 import type { World } from './world'
@@ -28,7 +29,10 @@ export function explode(world: World, at: Vec, blast: Blast): void {
 
   let killed = 0
   for (const guard of world.guards) {
-    if (guard.state === 'dead') continue
+    if (guard.state === 'dead') {
+      if (guard.ragdoll) pushRagdoll(guard.ragdoll, at, blast.radius + 1, KNOCK_SPEED * 1.6)
+      continue
+    }
     const force = falloff(at, guard, blast.radius)
     if (force <= 0) continue
     knock(guard, at, force)

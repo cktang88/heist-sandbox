@@ -1,3 +1,4 @@
+import { JOINT, type Ragdoll } from '../../game/ragdoll'
 import type { ToolId } from '../../game/toolDefs'
 import type { Vec } from '../../game/types'
 import type { Limb, Skeleton } from './pose'
@@ -77,6 +78,28 @@ export function drawHuman(c: Ctx, body: Skeleton, facing: 1 | -1, look: Look, he
     c.arc(part.end.x, part.end.y, 0.07, 0, Math.PI * 2)
     c.fill()
   }
+}
+
+/** Draws a limp body straight from its joints. */
+export function drawRagdoll(c: Ctx, ragdoll: Ragdoll, look: Look): void {
+  c.lineCap = 'round'
+  c.lineJoin = 'round'
+  const at = (joint: number) => ragdoll.points[joint]
+  const part = (root: number, joint: number, end: number): Limb => ({ root: at(root), joint: at(joint), end: at(end) })
+  limb(c, part(JOINT.neck, JOINT.elbowB, JOINT.handB), darker(look.suit, 0.3))
+  limb(c, part(JOINT.hip, JOINT.kneeB, JOINT.footB), darker(look.limbs, 0.3), LIMB_WIDTH + 0.02)
+  line(c, at(JOINT.hip), at(JOINT.neck), 0.38, OUTLINE)
+  line(c, at(JOINT.hip), at(JOINT.neck), 0.31, look.suit)
+  c.fillStyle = OUTLINE
+  c.beginPath()
+  c.arc(at(JOINT.head).x, at(JOINT.head).y, 0.19, 0, Math.PI * 2)
+  c.fill()
+  c.fillStyle = look.skin
+  c.beginPath()
+  c.arc(at(JOINT.head).x, at(JOINT.head).y, 0.155, 0, Math.PI * 2)
+  c.fill()
+  limb(c, part(JOINT.hip, JOINT.kneeA, JOINT.footA), look.limbs, LIMB_WIDTH + 0.02)
+  limb(c, part(JOINT.neck, JOINT.elbowA, JOINT.handA), look.suit)
 }
 
 function mix(from: Vec, to: Vec, amount: number): Vec {

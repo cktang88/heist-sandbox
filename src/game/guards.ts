@@ -2,6 +2,7 @@ import { burst } from './effects'
 import type { GuardSpawn } from './level'
 import { emitNoise } from './noise'
 import { GRAVITY, moveBody } from './physics'
+import { createRagdoll, stepRagdoll, type Ragdoll } from './ragdoll'
 import { fireShot } from './projectiles'
 import { isSolidAt } from './tiles'
 import { triggerSlowmo } from './time'
@@ -28,6 +29,8 @@ export type Guard = Body & {
   /** Seconds left of the white flash shown when hit. */
   hitFlash: number
   deadSeconds: number
+  /** The limp body, once the guard is down. */
+  ragdoll: Ragdoll | null
 }
 
 const WALK_SPEED = 2.4
@@ -45,7 +48,7 @@ export function createGuard(spawn: GuardSpawn): Guard {
   return {
     x: spawn.x + 0.15, y: spawn.y - 1.6, w: 0.7, h: 1.6, vx: 0, vy: 0, onGround: false,
     hp: 100, facing: spawn.facing, state: 'patrol', awareness: 0, homeX: spawn.x,
-    target: null, wait: 0, shootCooldown: 0.4, alertSeconds: 0, lostSeconds: 0, kick: 0, hitFlash: 0, deadSeconds: 0,
+    target: null, wait: 0, shootCooldown: 0.4, alertSeconds: 0, lostSeconds: 0, kick: 0, hitFlash: 0, deadSeconds: 0, ragdoll: null,
   }
 }
 
@@ -65,6 +68,7 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec)
   burst(world.effects, world.rng, centerOf(guard), 6, '#b3202a', 6)
   if (guard.hp <= 0) {
     guard.state = 'dead'
+    guard.ragdoll = createRagdoll({ x: guard.x + guard.w / 2, y: guard.y + guard.h }, { x: guard.vx, y: guard.vy }, world.rng)
     world.stats.kills += 1
     return true
   }
@@ -99,9 +103,7 @@ export function updateGuard(world: World, guard: Guard, dt: number): void {
   guard.hitFlash = Math.max(0, guard.hitFlash - dt)
   if (guard.state === 'dead') {
     guard.deadSeconds += dt
-    guard.vy += GRAVITY * dt
-    if (guard.onGround) guard.vx *= 0.8
-    moveBody(world.grid, guard, dt)
+    if (guard.ragdoll) stepRagdoll(world.grid, guard.ragdoll, dt)
     return
   }
 
