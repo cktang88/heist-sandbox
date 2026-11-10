@@ -84,33 +84,47 @@ export function soak(world: World, tick: number): void {
     if (spray.kind !== 'water' && spray.kind !== 'foam') continue
     // A loose extinguisher whips about and keeps finding the flames.
     if (spray.kind === 'foam') spray.angle = aimAtFire(world, spray, spray.reach) ?? spray.angle
-    for (const tile of coneTiles(world, spray)) {
-      const key = tileKey(world, tile.x, tile.y)
-      if (hazards.fires.delete(key)) addSmoke(world, tile.x, tile.y, 0.3, 'screen')
+    const count = coneTiles(world, spray)
+    for (let index = 0; index < count; index += 1) {
+      const x = coneX[index]
+      const y = coneY[index]
+      const key = tileKey(world, x, y)
+      if (hazards.fires.delete(key)) addSmoke(world, x, y, 0.3, 'screen')
       hazards.wet.set(key, WET_SECONDS)
       // The floor under the spray gets wet too.
-      if (isSolidAt(world.grid, tile.x, tile.y + 1)) hazards.wet.set(tileKey(world, tile.x, tile.y + 1), WET_SECONDS)
-      thinSmoke(world, tile.x, tile.y, keep)
+      if (isSolidAt(world.grid, x, y + 1)) hazards.wet.set(tileKey(world, x, y + 1), WET_SECONDS)
+      thinSmoke(world, x, y, keep)
     }
   }
 }
 
-/** Tiles inside a spray's cone that the spray can reach without passing through anything solid. */
-function coneTiles(world: World, spray: Spray): Vec[] {
-  const tiles: Vec[] = []
+/** The tiles `coneTiles` found, kept between calls so soaking allocates nothing. */
+const coneX: number[] = []
+const coneY: number[] = []
+
+/**
+ * Tiles inside a spray's cone that the spray can reach without passing through anything solid, written to
+ * `coneX` and `coneY`. Returns how many.
+ */
+function coneTiles(world: World, spray: Spray): number {
+  let count = 0
   const reach = Math.ceil(spray.reach)
   const startX = Math.floor(spray.x)
   const startY = Math.floor(spray.y)
   for (let y = startY - reach; y <= startY + reach; y += 1) {
     for (let x = startX - reach; x <= startX + reach; x += 1) {
-      const target = { x: x + 0.5, y: y + 0.5 }
-      const gap = Math.hypot(target.x - spray.x, target.y - spray.y)
+      const dx = x + 0.5 - spray.x
+      const dy = y + 0.5 - spray.y
+      const gap = Math.sqrt(dx * dx + dy * dy)
       if (gap > spray.reach) continue
-      if (gap > 0.8 && angleOff(Math.atan2(target.y - spray.y, target.x - spray.x), spray.angle) > spray.spread) continue
-      if (pathClear(world, spray, target, gap)) tiles.push({ x, y })
+      if (gap > 0.8 && angleOff(Math.atan2(dy, dx), spray.angle) > spray.spread) continue
+      if (!pathClear(world, spray, x + 0.5, y + 0.5, gap)) continue
+      coneX[count] = x
+      coneY[count] = y
+      count += 1
     }
   }
-  return tiles
+  return count
 }
 
 /** The size of the angle between two directions, 0..PI. */
@@ -119,13 +133,13 @@ function angleOff(a: number, b: number): number {
 }
 
 /** Is the way from a spray to a tile open? The tile itself may be solid: a wooden wall still gets wet. */
-function pathClear(world: World, from: Vec, to: Vec, gap: number): boolean {
+function pathClear(world: World, from: Vec, toX: number, toY: number, gap: number): boolean {
   const steps = Math.floor(gap / 0.4)
   for (let step = 1; step < steps; step += 1) {
     const along = step / steps
-    const x = from.x + (to.x - from.x) * along
-    const y = from.y + (to.y - from.y) * along
-    if (Math.floor(x) === Math.floor(to.x) && Math.floor(y) === Math.floor(to.y)) break
+    const x = from.x + (toX - from.x) * along
+    const y = from.y + (toY - from.y) * along
+    if (Math.floor(x) === Math.floor(toX) && Math.floor(y) === Math.floor(toY)) break
     if (isSolidAt(world.grid, x, y)) return false
   }
   return true
