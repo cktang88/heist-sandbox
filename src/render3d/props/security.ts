@@ -189,10 +189,14 @@ const metalDetector = prop((group) => {
 
 // ---------- Cells ----------
 
+/** Bars across the front of a cell, facing the camera, the full 2.4 tiles of the catalogue footprint. */
+const BARS_Z = -0.75
 const CELL_BARS = mergedBoxes('cellBars', [
-  ...Array.from({ length: 14 }, (_, index) => [-0.03, 0.05, 0.06, 3.85, 0.06, -2.3 + index * 0.2] as const),
-  [-0.08, 0, 0.16, 0.12, 2.7, -1.0], [-0.08, 3.85, 0.16, 0.15, 2.7, -1.0], [-0.06, 1.9, 0.12, 0.08, 2.7, -1.0],
-  [-0.15, 0, 0.3, 4, 0.14, -2.33], [-0.15, 0, 0.3, 4, 0.14, 0.3],
+  ...Array.from({ length: 15 }, (_, index) => [-1.08 + index * 0.15, 0.1, 0.05, 3.8, 0.05, BARS_Z] as const),
+  [-1.2, 0, 0.12, 4, 0.14, BARS_Z], [1.08, 0, 0.12, 4, 0.14, BARS_Z],
+  [-1.2, 0, 2.4, 0.12, 0.1, BARS_Z], [-1.2, 3.88, 2.4, 0.12, 0.1, BARS_Z], [-1.2, 1.9, 2.4, 0.08, 0.08, BARS_Z],
+  // The lock box on the door side.
+  [0.62, 1.55, 0.22, 0.3, 0.12, BARS_Z + 0.04],
 ])
 
 const cellBars = prop((group) => {
