@@ -1,4 +1,6 @@
 import { Color, MeshStandardMaterial, type WebGLProgramParametersWithUniforms } from 'three'
+import type { TimeOfDay } from '../../game/site'
+import { applySkyShading } from '../core/skyShading'
 
 /**
  * Every body part, garment and weapon is drawn with one material. Colour comes from the vertices and
@@ -6,12 +8,27 @@ import { Color, MeshStandardMaterial, type WebGLProgramParametersWithUniforms } 
  * pads and straps is a single draw call while cloth, kevlar, steel and skin still each catch light
  * their own way.
  */
+/**
+ * Extra flat light on people under the open sky, as a share of their own colour. High above the site (the opening
+ * parachute drop) nothing else lights them from the camera's side, and the operative read as a black cut-out against
+ * a bright day sky. Indoors it fades out with the sky (see `skyShading.ts`).
+ */
+const outdoorFill = { value: 0.12 }
+const FILL: Record<TimeOfDay, number> = { day: 0.45, night: 0.12 }
+
+export function setPeopleOutdoorFill(time: TimeOfDay): void {
+  outdoorFill.value = FILL[time]
+}
+
 function addFinish(shader: WebGLProgramParametersWithUniforms): void {
+  applySkyShading(shader)
+  shader.uniforms.outdoorFill = outdoorFill
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', '#include <common>\nattribute vec3 finish;\nvarying vec3 vFinish;')
     .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFinish = finish;')
   shader.fragmentShader = shader.fragmentShader
-    .replace('#include <common>', '#include <common>\nvarying vec3 vFinish;')
+    .replace('#include <common>', '#include <common>\nvarying vec3 vFinish;\nuniform float outdoorFill;')
+    .replace('#include <aomap_fragment>', '#include <aomap_fragment>\nreflectedLight.indirectDiffuse += diffuseColor.rgb * outdoorFill * skyOpen;')
     .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = vFinish.x;')
     .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = vFinish.y;')
     // Glowing parts (goggle lenses, screens) shine in their own colour, strong enough to bloom.

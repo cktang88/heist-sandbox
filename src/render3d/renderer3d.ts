@@ -19,6 +19,7 @@ import { createLevelMesh, FRONT, type LevelMesh } from './levelMesh'
 import { createLights } from './lights'
 import { createSurfaceMaterials, setWetness } from './materials'
 import { createPost, type PostChain } from './post'
+import { setPeopleOutdoorFill } from './people/surface'
 import { createSky, setSkyStyle } from './sky'
 import { createCameraRig, TILES_TALL } from './style/cameraRig'
 import { pixelGrid, type PixelGrid } from './style/pixelGrid'
@@ -167,6 +168,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     environment.apply(look)
     sky.setIndoor(look.indoorDiffuse, look.indoorSpecular)
     setWetness(materials, look.wet ? 1 : 0)
+    setPeopleOutdoorFill(world.timeOfDay)
     warming = warmUp(world, environment.ready())
   }
 
