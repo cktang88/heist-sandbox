@@ -125,14 +125,14 @@ const frac = (value: number) => value - Math.floor(value)
 function gaitFor(mode: Mode, speed: number): Gait {
   const pace = clamp01(speed / RUN_SPEED)
   if (mode === 'crouch') {
-    return { stride: 0.95 + 0.12 * speed, stance: 0.62, clearance: 0.07, hip: CROUCH_HIP, bob: 0.012, lean: 0.08, swing: 0.2, elbow: 0.6 }
+    return { stride: 0.95 + 0.12 * speed, stance: 0.62, clearance: 0.07, hip: CROUCH_HIP, bob: 0.006, lean: 0.08, swing: 0.2, elbow: 0.6 }
   }
   return {
     stride: 1.25 + 0.2 * speed,
     stance: lerp(0.62, 0.36, pace),
     clearance: lerp(0.07, 0.24, pace),
     hip: STAND_HIP,
-    bob: lerp(0.025, 0.05, pace),
+    bob: lerp(0.012, 0.024, pace),
     lean: lerp(0.05, 0.3, pace),
     swing: lerp(0.3, 0.75, pace),
     elbow: lerp(0.3, 1.5, pace),
@@ -406,9 +406,9 @@ export function poseHuman(motion: Motion): Skeleton {
     x: hip.x + Math.sin(lean) * BONES.torso - facing * (kick * 0.035 + flinch * 0.03),
     y: hip.y - Math.cos(lean) * BONES.torso - breath,
   }
-  // The neck holds the head steadier and more upright than the spine.
+  // The neck holds the head steadier and more upright than the spine, and soaks up most of the step's rise and fall.
   const neckLean = lean * 0.45 + facing * (0.14 - flinch * 0.35)
-  const head = { x: shoulder.x + Math.sin(neckLean) * BONES.neck, y: shoulder.y - Math.cos(neckLean) * BONES.neck + lower.bob * 0.4 }
+  const head = { x: shoulder.x + Math.sin(neckLean) * BONES.neck, y: shoulder.y - Math.cos(neckLean) * BONES.neck - lower.bob * 0.6 }
 
   // Shoulders turn against the hips.
   const twist = (arm: number) => -(lower.legs[arm].root.x - hip.x) * 0.8
