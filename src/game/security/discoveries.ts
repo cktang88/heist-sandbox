@@ -95,7 +95,7 @@ function doorTampered(world: World, guard: Guard): Finding | null {
 
 /** Smoke hanging in the air ahead, in a room nobody has reported it in yet. The first guard to see it claims it. */
 function smokeAhead(world: World, guard: Guard): Finding | null {
-  if (!world.hazards.smoke) return null
+  if (!world.hazards.smoke?.active.length) return null
   const eye = eyeOf(guard)
   for (const step of SMOKE_SAMPLES) {
     const at = { x: eye.x + guard.facing * step, y: eye.y }

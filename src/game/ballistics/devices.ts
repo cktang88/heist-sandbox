@@ -17,6 +17,11 @@ const SPARK = '#ffd36b'
 
 const devicesAt = makeTileIndex<Device>((device) => (SHOOTABLE.has(device.kind) ? [{ x: device.x, y: device.y }] : []))
 
+/** Files the devices by tile now, during loading, rather than on the first shot. */
+export function indexDevices(world: World): void {
+  devicesAt(world.devices, 0, 0)
+}
+
 /** Is a device's casing still worth hitting? One already cut for good is just scrap; one a hack switched off for a while is not. */
 function intact(world: World, device: Device): boolean {
   return !device.disabled || deviceState(world).offTimers.has(device.id)

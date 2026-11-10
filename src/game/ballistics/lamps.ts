@@ -18,6 +18,11 @@ const SHARDS = '#d9eef5'
 
 const lampsAt = makeTileIndex<Lamp>((lamp) => tilesAround(lamp, LAMP_HIT_RADIUS))
 
+/** Files the lamps by tile now, during loading, rather than on the first shot. */
+export function indexLamps(world: World): void {
+  lampsAt(world.lamps, 0, 0)
+}
+
 /** Smashes any lamp close to this point on a bullet's path. Bullets fly on through. */
 export function shootLampsAt(world: World, at: Vec): void {
   for (const lamp of lampsAt(world.lamps, at.x, at.y)) {

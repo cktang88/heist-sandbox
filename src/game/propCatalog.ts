@@ -214,8 +214,14 @@ export const PROP_CATALOG = {
 
 export type PropKind = keyof typeof PROP_CATALOG
 
-export function propSpec(kind: PropKind): PropSpec {
-  return PROP_CATALOG[kind]
-}
-
 export const PROP_KINDS = Object.keys(PROP_CATALOG) as PropKind[]
+
+/**
+ * The same catalogue as a Map, which is what lookups use: with this many kinds the object is a dictionary to V8, and
+ * looking a kind up in it took about five times as long (it is asked tens of thousands of times a frame in a fight).
+ */
+const SPECS = new Map<PropKind, PropSpec>(PROP_KINDS.map((kind) => [kind, PROP_CATALOG[kind]]))
+
+export function propSpec(kind: PropKind): PropSpec {
+  return SPECS.get(kind)!
+}

@@ -3,7 +3,7 @@ import { propSpec } from '../propCatalog'
 import { roomAt } from '../site'
 import type { Rect, Vec } from '../types'
 import type { World } from '../world'
-import { addKey, currentBuckets, type KeysOf, type PropBuckets } from './buckets'
+import { addKey, currentBuckets, refile, type KeysOf, type PropBuckets } from './buckets'
 import { tileKey, type HazardState, type PropIndex } from './state'
 
 /**
@@ -51,6 +51,12 @@ function tileKeysOf(world: World): KeysOf {
  * again" (vehicles/fallingProps.ts), and looking again then means checking which props moved, not rebuilding.
  */
 const tileBuckets = new WeakMap<HazardState, PropBuckets>()
+
+/** Files a prop that has moved (one that fell and landed) under the tiles it covers now. */
+export function propMoved(world: World, prop: PropState): void {
+  const index = world.hazards.propIndex
+  if (index && index.byTile.props === world.props) refile(index.byTile, prop, tileKeysOf(world))
+}
 
 /** Brought up to date only if the prop list was replaced, grew or was flagged, and then only for props that moved. */
 function propIndex(world: World): PropIndex {

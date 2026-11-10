@@ -44,6 +44,19 @@ describe('furniture over a hole in the front of the floor', () => {
     expect(desk.y).toBeGreaterThan(floorY + 3)
   })
 
+  it('falls when the hole it stands over is widened beside it, past what the back strip spans', () => {
+    const { world, x0, x1, floorY } = office()
+    const desk = addProp(world, 'desk', x0 + 7, floorY)
+    setTile(world.grid, x0 + 7, floorY, 'air')
+    setTile(world.grid, x0 + 8, floorY, 'air')
+    run(world, 0.5)
+    expect(desk.y).toBe(floorY)
+    // The tiles under the desk are not touched again: only the slab beside them goes.
+    for (let x = x0; x <= x1; x += 1) if (x !== x0 + 7 && x !== x0 + 8) setTile(world.grid, x, floorY, 'air')
+    run(world, 1.5)
+    expect(desk.y).toBeGreaterThan(floorY + 3)
+  })
+
   it('is dragged along the back strip across the hole', () => {
     const { world, x0, floorY } = office()
     const crate = addProp(world, 'crate', x0 + 4, floorY)

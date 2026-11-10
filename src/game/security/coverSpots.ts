@@ -31,6 +31,11 @@ function coverByFloor(props: readonly PropState[]): Map<number, CoverProp[]> {
   return index
 }
 
+/** Files the cover props by floor now, during loading, rather than when a guard first looks for cover. */
+export function indexCoverSpots(world: World): void {
+  coverByFloor(world.props)
+}
+
 /**
  * Intact cover props on the floor with this feet row whose footprint comes within `reach` of x. Tables count
  * only once kicked over onto their side, when their top hides a standing man.

@@ -9,6 +9,7 @@ import { createBackdropMaterial } from './material'
 import type { Mood } from './moods'
 import { paintLayer } from './paintLayer'
 import { paintMist, paintRain, paintSky } from './paintSky'
+import { createPixelSkyline } from './pixelSkyline'
 import { createRng } from './random'
 
 /**
@@ -44,8 +45,16 @@ function addSearchlights(cards: CardList, layer: Layer, mood: Mood, seed: number
   }
 }
 
-/** `groundRow` is the street's row in the level (y down); `seed` fixes the layout. */
-export function createSkyline(levelWidth: number, groundRow: number, mood: Mood, seed: number): Skyline {
+/**
+ * `groundRow` is the street's row in the level (y down); `seed` fixes the layout. `pixel` draws it as pixel
+ * art for the pixel looks (see pixelSkyline.ts), where the soft blur would turn into dither noise.
+ */
+export function createSkyline(levelWidth: number, groundRow: number, mood: Mood, seed: number, pixel = false): Skyline {
+  const crisp = pixel ? createPixelSkyline(levelWidth, groundRow, mood, seed) : null
+  return crisp ?? createSoftSkyline(levelWidth, groundRow, mood, seed)
+}
+
+function createSoftSkyline(levelWidth: number, groundRow: number, mood: Mood, seed: number): Skyline {
   const start = performance.now()
   const ground = -groundRow
   const layers = LAYERS.map((spec) => layOutLayer(spec, levelWidth, ground, seed))

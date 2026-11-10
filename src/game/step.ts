@@ -23,12 +23,15 @@ import { stepMelee } from './melee/melee'
 import { stepIntel } from './intel/intel'
 import { stepPhysProps } from './physprops/physprops'
 import { stepGaps } from './gaps/gaps'
+import { forgetSeenChanges } from './tiles'
 import { useTool } from './tools'
+import { beginStepTiming, endStepTiming, lapStepTiming as lap } from './stepTimings'
 import { overlaps } from './types'
 import type { World } from './world'
 
 /** Advances the heist by one frame of real time. Slow motion scales how much game time that is. */
 export function stepWorld(world: World, input: Input, realDt: number): void {
+  beginStepTiming()
   const playing = world.status === 'playing'
   const acting = input.left || input.right || input.up || input.down || input.fire || input.interact
   const focusing = playing && updateFocus(world.player, input.focus, realDt)
@@ -36,41 +39,63 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
 
   world.shake = Math.max(0, world.shake - realDt * 1.8)
   stepEffects(world.effects, dt)
-  if (!playing) return
+  lap('effects')
+  if (!playing) {
+    endStepTiming()
+    return
+  }
   world.clock += dt
 
   const alarmBefore = world.alarm
   if (world.drone) {
     movePlayer(world.grid, world.player, idleInput(input.aim), dt, world.stairwells)
     stepDrone(world, input, dt)
+    lap('drone')
   } else {
     movePlayer(world.grid, world.player, input, dt, world.stairwells)
     emitMovementNoise(world)
+    lap('player')
     interact(world, input, dt)
+    lap('interact')
     // While a hacking menu is open, the number keys choose its options and not a weapon.
     useTool(world, terminalConsumesInput(world) ? { ...input, selectTool: null } : input, dt)
+    lap('tools')
   }
   stepGrapple(world, input, dt)
   aimAtCables(world)
+  lap('grapple')
   // While the drone is flown, the keys steer it: the body does not punch, kick, grab or throw.
   const hands = world.drone ? idleInput(input.aim) : input
   stepMelee(world, hands, dt)
+  lap('melee')
   stepPhysProps(world, hands, dt)
+  lap('physprops')
   stepProjectiles(world, dt)
+  lap('projectiles')
   stepCharges(world, input.detonatePressed, dt)
+  lap('charges')
   stepCollapse(world, dt)
+  lap('collapse')
   stepHazards(world, dt)
+  lap('hazards')
   stepDevices(world, input, dt)
   stepElevators(world, input, dt)
+  lap('devices')
   stepSecurity(world, dt)
+  lap('security')
   for (const guard of world.guards) updateGuard(world, guard, dt)
+  lap('guards')
   stepGaps(world, input)
+  lap('gaps')
   if (!alarmBefore && world.alarm) raiseAlarm(world)
   stepFrags(world, dt)
   stepAftermath(world)
   stepRopes(world)
+  lap('frags')
   stepFallingProps(world, dt)
+  lap('fallingProps')
   stepIntel(world, dt)
+  lap('intel')
 
   for (const pickup of world.pickups) {
     if (pickup.taken) continue
@@ -85,4 +110,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
 
   if (world.player.hp <= 0) world.status = 'dead'
   else if (world.player.hasLoot && overlaps(world.player, world.extraction)) world.status = 'won'
+  lap('bodies')
+  forgetSeenChanges(world.grid)
+  endStepTiming()
 }

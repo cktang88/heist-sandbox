@@ -19,6 +19,7 @@ import { measured } from './render3d/core/timing'
 import { createRenderer3d, type Renderer3d } from './render3d/renderer3d'
 import { onLookChange, randomSeed, writeSeed } from './ui/address'
 import { loadingScreen, nextPaint } from './ui/loading'
+import { enableStepTimings, stepTimings } from './game/stepTimings'
 import { createMenus } from './ui/menus'
 
 const MAX_FRAME_SECONDS = 1 / 30
@@ -114,6 +115,11 @@ function startHeist(seed: number): void {
   world = createWorld(seed, siteKind)
   view = centerOf(world.player)
   beginLoading()
+}
+// `?debug=1` times each game system; read the slowest steps with `__stepTimings()` in the console.
+if (new URLSearchParams(location.search).get('debug') === '1') {
+  enableStepTimings(true)
+  ;(globalThis as { __stepTimings?: unknown }).__stepTimings = stepTimings
 }
 const menus = createMenus({ audio, site: siteKind, newHeist: startHeist })
 if (scene.draw3d) onLookChange((look) => scene.draw3d?.setLook(look))
