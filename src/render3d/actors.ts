@@ -7,7 +7,9 @@ import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import type { Motion } from '../render/human/pose'
 import { createEffects3d } from './fx3d'
-import type { SurfaceMaterials, SurfaceName } from './levelMesh'
+import { BACK, FRONT, type SurfaceMaterials, type SurfaceName } from './levelMesh'
+import { MeshBuilder } from './meshBuilder'
+import type { FallingTile } from '../game/collapse'
 import { Figure, outfitFor, weaponFor } from './people3d'
 import { BOX, buildDrone, buildLoot, buildParachute, buildPickup, buildVan, CHARGE_LIGHT, CHARGE_MATERIAL } from './props3d'
 import { createDevicesLayer } from './devicesLayer'
@@ -28,6 +30,14 @@ export type Actors = { group: Group; update(world: World, aim: Vec, view: Vec): 
 
 /** People on a staircase are drawn further back, on the stairs behind the walking lane. */
 const STAIR_LANE = -1.5
+
+/** A tile-sized piece of wall, a hair smaller than its cell so a falling stack shows its cracks, textured like the level. */
+const FALLING_BLOCK = (() => {
+  const block = new MeshBuilder()
+  const [half, depth] = [0.48, (FRONT - BACK) / 2 - 0.02]
+  block.box(-half, -half, -depth, half, half, depth, 0.5, 0.82)
+  return block.build()
+})()
 
 const FALLING_SURFACE: Partial<Record<TileKind, SurfaceName>> = {
   dirt: 'dirt', brick: 'brick', concrete: 'concrete', steel: 'steel', wood: 'wood', door: 'door', glass: 'glass',
@@ -64,6 +74,8 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
     return { block, light }
   })
   const falling: Mesh[] = []
+  // Where each falling piece was last seen, so a piece that vanished (landed or broke up) leaves a puff of dust.
+  let fallingSeen = new Map<FallingTile, Vec>()
   let lastClock = world.clock
 
   return {
@@ -136,20 +148,26 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
         light.scale.setScalar(0.08)
       })
 
+      const stillFalling = new Map<FallingTile, Vec>()
       now.falling.forEach((tile, index) => {
         let mesh = falling[index]
         if (!mesh) {
-          mesh = new Mesh(BOX, materials.concrete)
+          mesh = new Mesh(FALLING_BLOCK, materials.concrete)
           mesh.castShadow = true
           falling.push(mesh)
           group.add(mesh)
         }
         mesh.visible = true
         mesh.material = materials[FALLING_SURFACE[tile.kind] ?? 'concrete']
-        mesh.position.set(tile.x + 0.5, -(tile.y + 0.5), -0.95)
-        mesh.scale.set(1, 1, 2.9)
+        // A loose piece tips a little as it drops; kept slight because it snaps square again when it lands.
+        const lean = (((tile.x * 7919) % 13) / 13 - 0.5) * 0.12 * Math.min(1, tile.vy / 12)
+        mesh.position.set(tile.x + 0.5, -(tile.y + 0.5), (FRONT + BACK) / 2)
+        mesh.rotation.set(lean * 0.4, 0, lean)
+        stillFalling.set(tile, { x: tile.x + 0.5, y: tile.y + 1 })
       })
       for (let index = now.falling.length; index < falling.length; index += 1) falling[index].visible = false
+      for (const [tile, at] of fallingSeen) if (!stillFalling.has(tile)) effects.dust(at.x, at.y, 1)
+      fallingSeen = stillFalling
 
       const dt = Math.max(0, now.clock - lastClock)
       effects.update(now, dt)

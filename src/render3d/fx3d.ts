@@ -2,8 +2,9 @@ import {
   AdditiveBlending, BoxGeometry, CanvasTexture, Color, DynamicDrawUsage, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial,
   Quaternion, SphereGeometry, Sprite, SpriteMaterial, Vector3,
 } from 'three'
-import type { Flash } from '../game/effects'
+import type { Flash, Particle } from '../game/effects'
 import type { World } from '../game/world'
+import { createRubble3d } from './rubble3d'
 
 const MAX_TRACERS = 96
 const MAX_PARTICLES = 700
@@ -48,8 +49,13 @@ function starBurst(): CanvasTexture {
 
 type Smoke = { sprite: Sprite; life: number; duration: number; vx: number; vy: number; grow: number }
 
-/** Shots, sparks, rubble, fireballs and smoke. */
-export type Effects3d = { group: Group; update(world: World, gameDt: number): void }
+/** Shots, sparks, rubble, fireballs, smoke and dust. */
+export type Effects3d = {
+  group: Group
+  update(world: World, gameDt: number): void
+  /** Pale dust kicked up at a spot in game space, such as where a falling piece of wall lands. */
+  dust(x: number, y: number, amount: number): void
+}
 
 export function createEffects3d(): Effects3d {
   const group = new Group()
@@ -89,6 +95,11 @@ export function createEffects3d(): Effects3d {
     return sprite
   })
   const seen = new WeakSet<Flash>()
+  const rubble = createRubble3d()
+  group.add(rubble.group)
+  // Bits of wall thrown by a blast become lasting rubble, drawn by `rubble` instead of as short-lived specks.
+  const looked = new WeakSet<Particle>()
+  const adopted = new WeakSet<Particle>()
 
   const matrix = new Matrix4()
   const spin = new Quaternion()
@@ -99,6 +110,7 @@ export function createEffects3d(): Effects3d {
 
   return {
     group,
+    dust: rubble.dust,
     update(world, gameDt) {
       let count = 0
       for (const shot of world.projectiles) {
@@ -120,6 +132,11 @@ export function createEffects3d(): Effects3d {
       count = 0
       for (const particle of world.effects.particles) {
         if (count >= MAX_PARTICLES) break
+        if (!looked.has(particle)) {
+          looked.add(particle)
+          if (rubble.adopt(particle)) adopted.add(particle)
+        }
+        if (adopted.has(particle)) continue
         spin.setFromAxisAngle(axis, particle.x * 3 + particle.y * 2)
         place.set(particle.x, -particle.y, 0.2 + ((count * 37) % 10) * 0.03)
         size.setScalar(particle.size * Math.min(1, particle.life * 2))
@@ -149,6 +166,7 @@ export function createEffects3d(): Effects3d {
           }
           if (!seen.has(flash)) {
             seen.add(flash)
+            rubble.dust(flash.x, flash.y, Math.min(5, flash.radius))
             for (let index = 0; index < 9; index += 1) {
               const sprite = smokePool.find((candidate) => !candidate.visible)
               if (!sprite) break
@@ -168,6 +186,7 @@ export function createEffects3d(): Effects3d {
         }
       }
 
+      rubble.update(world.grid, gameDt)
       for (let index = smoke.length - 1; index >= 0; index -= 1) {
         const cloud = smoke[index]
         cloud.life -= gameDt
