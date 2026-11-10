@@ -4,7 +4,7 @@ import { findLedge, letGo, startMantle, stepMantle, type Mantle } from './moveme
 import { slideVelocity, STAND_HEIGHT, updatePosture } from './movement/posture'
 import { GRAVITY, moveBody, slipPastCorner } from './physics'
 import type { Stairwell } from './site'
-import { climbStairs, findLanding, type OnStairs } from './stairs'
+import { climbStairs, findLanding, stepOffFlight, type OnStairs } from './stairs'
 import { tileAt, type Grid } from './tiles'
 import { BLOOM_RECOVERY_PER_SECOND, GUNS } from './guns'
 import { TOOLS } from './toolDefs'
@@ -95,7 +95,7 @@ export function movePlayer(grid: Grid, player: Player, input: Input, dt: number,
     player.vy = 0
     return
   }
-  if (takeStairs(player, input, dt, stairwells)) return
+  if (takeStairs(grid, player, input, dt, stairwells)) return
   const center = centerOf(player)
   const move = (input.right ? 1 : 0) - (input.left ? 1 : 0)
   player.facing = input.aim.x >= center.x ? 1 : -1
@@ -197,7 +197,7 @@ function climbLedge(player: Player, input: Input, dt: number): boolean {
  * Stairs: stand at a landing and hold up or down to climb. Keep holding to carry on past each floor;
  * let go to step off at the next landing, or jump to leave mid-flight. Returns true while on the stairs.
  */
-function takeStairs(player: Player, input: Input, dt: number, stairwells: readonly Stairwell[]): boolean {
+function takeStairs(grid: Grid, player: Player, input: Input, dt: number, stairwells: readonly Stairwell[]): boolean {
   const climb = (input.up ? 1 : 0) - (input.down ? 1 : 0)
   if (!player.stairs) {
     if (climb === 0 || !player.onGround) return false
@@ -211,6 +211,7 @@ function takeStairs(player: Player, input: Input, dt: number, stairwells: readon
   if (!well || input.jumpPressed) {
     player.stairs = null
     player.vy = -JUMP_SPEED * 0.6
+    stepOffFlight(grid, player)
     return false
   }
   player.chute = false
