@@ -165,4 +165,11 @@ describe('going loud', () => {
     expect(world.intel.move.moves).toBe(1)
   })
 
+  it('does not move it while it is on the player\'s screen, even across the room', () => {
+    const world = freshWorld(1)
+    Object.assign(world.player, { x: world.loot.x + 18, y: world.loot.y - 1 })
+    world.security.level = 3
+    for (let time = 0; time < 25; time += FRAME) stepIntel(world, FRAME)
+    expect(world.intel.move.moves).toBe(0)
+  })
 })

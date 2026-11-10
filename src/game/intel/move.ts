@@ -19,8 +19,9 @@ const MOVE_DELAY = 20
 /** After a move, a continuing alarm moves it again only after this much longer. */
 const REARM_SECONDS = 60
 const MAX_MOVES = 2
-/** The player this close to either end sees it happen, so it waits. */
-const WATCH_RANGE = 14
+/** The player sees this far either way on screen (24 tiles tall, a little over 42 wide), so a move this near waits. */
+const WATCH_HALF_WIDTH = 23
+const WATCH_HALF_HEIGHT = 13
 
 export function stepLootMove(world: World, dt: number): void {
   const intel = world.intel
@@ -52,7 +53,8 @@ function orderMove(world: World): void {
 }
 
 function watched(world: World, at: Vec): boolean {
-  return distance(centerOf(world.player), at) < WATCH_RANGE
+  const player = centerOf(world.player)
+  return Math.abs(player.x - at.x) < WATCH_HALF_WIDTH && Math.abs(player.y - at.y) < WATCH_HALF_HEIGHT
 }
 
 function spotOf(place: Place): Vec {
