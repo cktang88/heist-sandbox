@@ -7,6 +7,9 @@ import { fillTiles, tileAt } from './tiles'
 import { damageProp } from './cover'
 import { propBox } from './hazards/props'
 import { enterSpot } from './stealth/hide'
+import { pickUp } from './stealth/carry'
+import { addGuard } from './hazards/testWorld'
+import { deviceState, doorKey } from './devices/state'
 import { switchOff } from './devices/terminal'
 import { spotKind } from './stealth/spots'
 import { tileKey } from './hazards/state'
@@ -231,5 +234,26 @@ describe('an open terminal', () => {
     play(world, FRAME, { selectTool: 0 })
     expect(world.terminal).toBeNull()
     expect(world.prompt ?? '').not.toMatch(/choose/)
+  })
+})
+
+describe('E while carrying a body', () => {
+  it('opens the door in front of the player when there is nowhere to hide the body', () => {
+    const world = createWorld(1)
+    world.guards = []
+    placePlayer(world, 66.5, GROUND)
+    const guard = addGuard(world, 66, GROUND, 1)
+    guard.restrained = true
+    pickUp(world, world.guards.indexOf(guard))
+    world.player.hp = 1e6
+    play(world, 0.1)
+    // Not that door: the outpost's door at x 70 is locked. Unlock it so a single press opens it.
+    for (let y = GROUND - 3; y < GROUND; y += 1) if (tileAt(world.grid, 70, y) === 'door') deviceState(world).unlockedDoors.add(doorKey({ x: 70, y }))
+    play(world, 1.5, { right: true })
+    play(world, 0.1)
+    expect(world.stealth.carried).not.toBeNull()
+    expect(world.prompt).toMatch(/open door/)
+    press(world)
+    expect(tileAt(world.grid, 70, GROUND - 1)).toBe('air')
   })
 })

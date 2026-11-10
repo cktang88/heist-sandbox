@@ -81,13 +81,26 @@ function leaveLostHidingPlace(world: World): void {
 function bestAction(world: World): Action | null {
   // Nothing is in reach through the walls of a moving car.
   if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
-  if (world.stealth.carried !== null) return stashAction(world) ?? doorAction(world)
+  if (world.stealth.carried !== null) return carryingAction(world)
   if (world.player.hidden) return null
   return tieUpAction(world) ?? takedownAction(world) ?? bodyAction(world) ?? interrogateAction(world)
     ?? nearestAtHand(world, [deviceAction(world, 'near'), elevatorAction(world), windowAction(world), doorAction(world), closeDoorAction(world)])
     ?? deviceAction(world, 'camera') ?? readAction(world) ?? hideAction(world) ?? noisemakerAction(world) ?? deviceAction(world, 'lightSwitch')
     ?? systemsAction(world)
 }
+
+/**
+ * With a body on the shoulder: stuff it in a hiding place in reach; otherwise the free hand still opens and shuts
+ * doors. With neither, the hint says what G and T do.
+ */
+function carryingAction(world: World): Action | null {
+  const stash = stashAction(world)
+  if (stash && stash.key !== CARRY_HINT_KEY) return stash
+  return nearestAtHand(world, [doorAction(world), closeDoorAction(world)]) ?? stash
+}
+
+/** The key of the plain carrying hint from `stashAction`, which does nothing on E. */
+const CARRY_HINT_KEY = 'carry'
 
 /** Something behind the player counts this much further away than it is: E goes to what he faces first. */
 const BEHIND_PENALTY = 0.6
