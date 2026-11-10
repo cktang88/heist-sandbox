@@ -4,6 +4,7 @@ import { idleInput, type Input } from './input'
 import { GROUND } from './level'
 import { stepWorld } from './step'
 import { tileAt } from './tiles'
+import { tileKey } from './hazards/state'
 import { createWorld, type Device, type World } from './world'
 
 /** Scripted play: what the single E key does, and whether its hint tells the truth. */
@@ -101,5 +102,29 @@ describe('the E key with several things in reach', () => {
     play(world, 1, { left: true })
     play(world, 2, { up: true })
     expect(world.player.y).toBeLessThan(stuckAt - 5)
+  })
+
+  it('a door hot from a fire on the other side says so instead of opening, and burns the hand that tries', () => {
+    const world = createWorld(1)
+    world.guards = []
+    placePlayer(world, 68.55, GROUND)
+    world.systems.hotDoors.set(tileKey(world, 70, GROUND - 1), 30)
+    world.systems.hotDoors.set(tileKey(world, 70, GROUND - 2), 30)
+    world.systems.hotDoors.set(tileKey(world, 70, GROUND - 3), 30)
+    play(world, 0.1)
+    expect(world.prompt).toBe('Too hot to touch')
+    const hp = world.player.hp
+    press(world)
+    expect(world.player.hp).toBeLessThan(hp)
+    expect(tileAt(world.grid, 70, GROUND - 1)).toBe('door')
+  })
+
+  it('opens a tap at a sink when nothing else is in reach', () => {
+    const world = createWorld(1, 'complex')
+    world.guards = []
+    const sink = world.props.find((prop) => prop.kind === 'sink' && prop.roomId !== undefined)!
+    placePlayer(world, sink.x + 0.5, world.rooms[sink.roomId!].floorY)
+    play(world, 0.1)
+    expect(world.prompt).toBe('E: open valve')
   })
 })

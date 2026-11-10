@@ -65,6 +65,18 @@ describe('tonight\'s conditions', () => {
     expect(world.director.masking.outdoors).toBeGreaterThan(0)
   })
 
+  it('lightning lands on the skyline: the bolt cracks on top of whatever stands highest, not in the sky', () => {
+    const world = directedWorld(3, 'complex', ['storm'])
+    let struck: { x: number; y: number } | undefined
+    for (let second = 0; second < 90 && !struck; second += 1) {
+      idle(world, 1)
+      if (world.clock - world.director.lightningAt < 1) struck = [...world.sounds].reverse().find((sound) => sound.kind === 'explosion')
+    }
+    expect(struck).toBeDefined()
+    expect(struck!.y).toBeGreaterThan(0)
+    expect(tileAt(world.grid, Math.floor(struck!.x), Math.floor(struck!.y + 1))).not.toBe('air')
+  })
+
   it('backup power leaves one building dark all night without anyone sent to fix it', () => {
     const world = directedWorld(4, 'complex', ['backupPower'])
     const dark = ['quarters', 'depot', 'tower'].find((building) => buildingCircuits(world, building).every((circuit) => world.deadCircuits.has(circuit)))!

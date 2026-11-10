@@ -57,13 +57,16 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
     stepDrone(world, input, dt)
     lap('drone')
   } else {
-    movePlayer(world.grid, world.player, input, dt, world.stairwells)
+    // Knocked off his feet or jolted: for that moment the keys do nothing.
+    const control = world.player.stunSeconds > 0 ? idleInput(input.aim) : input
+    world.player.stunSeconds = Math.max(0, world.player.stunSeconds - dt)
+    movePlayer(world.grid, world.player, control, dt, world.stairwells)
     emitMovementNoise(world)
     lap('player')
-    interact(world, input, dt)
+    interact(world, control, dt)
     lap('interact')
     // While a hacking menu is open, the number keys choose its options and not a weapon.
-    useTool(world, terminalConsumesInput(world) ? { ...input, selectTool: null } : input, dt)
+    useTool(world, terminalConsumesInput(world) ? { ...control, selectTool: null } : control, dt)
     lap('tools')
   }
   stepGrapple(world, input, dt)

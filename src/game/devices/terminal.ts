@@ -10,6 +10,7 @@ import { floorOf, onFloor, roomOf, type Floor } from './floor'
 import { unlockFloorDoors } from './locks'
 import { deviceCenter, floorCircuits } from './power'
 import { deviceState } from './state'
+import { ventilationOption } from './ventilation'
 import { loopFeeds, loopSecondsLeft } from '../stealth/cameraLoop'
 import { CAMERA_LOOP } from '../stealth/tuning'
 
@@ -87,6 +88,8 @@ function terminalOptions(world: World, device: Device): Option[] {
   }
   if (has(CAN_FAKE_ALARM)) options.push({ label: 'Trigger false alarm on another floor', run: () => falseAlarm(world, floor) })
   options.push(...elevatorOptions(world, floor, has(CAN_HOLD_ELEVATORS)))
+  const fans = ventilationOption(world, device)
+  if (fans) options.push(fans)
   return options
 }
 

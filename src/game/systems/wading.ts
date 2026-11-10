@@ -61,15 +61,16 @@ export function rollSlip(world: World, body: Body, running: boolean, dt: number)
   return true
 }
 
+/** Down on the wet floor this long. */
+const PLAYER_SLIP_STUN = 0.8
+
 function stepPlayer(world: World, dt: number): void {
   const player = world.player
   const depth = depthUnder(world, player)
   drag(player, depth, dt)
   if (rollSlip(world, player, Math.abs(player.vx) > PLAYER_RUNNING && !player.crouching, dt)) {
-    // Feet go out: he skids along on his back, which is what a slide already looks like.
-    player.slide = 0.7
-    player.crouching = true
-    player.vx *= 1.3
+    // Feet go out: he is down for a moment, out of control, and skids on.
+    player.stunSeconds = Math.max(player.stunSeconds, PLAYER_SLIP_STUN)
     player.hp -= SLIP_DAMAGE
     fall(world, player, 'player')
   }

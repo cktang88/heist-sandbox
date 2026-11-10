@@ -2,6 +2,8 @@ import { note } from '../../chronicle/note'
 import { deviceCenter } from '../../devices/power'
 import { floorName } from '../../security/places'
 import { playSound } from '../../sounds'
+import { strikeAt } from '../../systems/systems'
+import { isSolidAt } from '../../tiles'
 import type { World } from '../../world'
 import { pick } from '../crew'
 import { fuseBoxOf, killCircuit, siteCircuits } from '../power'
@@ -40,10 +42,17 @@ export const storm: ConditionDef = {
   },
 }
 
+/** The top of whatever stands highest in this column (a roof, a mast, the ground): where the bolt lands. */
+function skyline(world: World, column: number): number {
+  let row = 0
+  while (row < world.grid.height - 1 && !isSolidAt(world.grid, column + 0.5, row + 0.5)) row += 1
+  return row - 0.5
+}
+
 function strike(world: World, circuit: number | null, offset: number): void {
   world.director.lightningAt = world.clock
   const x = Math.max(0, Math.min(world.grid.width - 1, world.player.x + (offset - 0.5) * 2 * FAR_STRIKE))
-  playSound(world, Math.abs(x - world.player.x) < FAR_STRIKE / 2 ? 'explosion' : 'collapse', { x, y: 0 })
+  strikeAt(world, { x, y: skyline(world, Math.floor(x)) })
   if (circuit === null || !killCircuit(world, circuit, false)) return
   const box = fuseBoxOf(world, circuit)
   const at = box ? deviceCenter(box) : { x, y: world.groundY }

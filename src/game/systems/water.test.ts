@@ -78,6 +78,19 @@ describe('water', () => {
     expect(slipped).toBe(true)
   })
 
+  it('the player running on a wet floor goes down: stunned for a moment, not just sliding', () => {
+    const world = twoStoreys()
+    for (let x = 5; x < 25; x += 1) world.hazards.wet.set(13 * world.grid.width + x, 60)
+    Object.assign(world.player, { x: 6, y: 14 - world.player.h, onGround: true })
+    let stunned = false
+    runAll(world, 15, () => {
+      world.player.vx = 7
+      world.player.onGround = true
+      if (world.player.stunSeconds > 0) stunned = true
+    })
+    expect(stunned).toBe(true)
+  })
+
   it('an explosion bursts the pipes it reaches, and a shot sink pours', () => {
     const world = twoStoreys()
     explode(world, { x: 15, y: 10 }, { radius: 3, tileDamage: 0, bodyDamage: 0 })

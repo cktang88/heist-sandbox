@@ -17,6 +17,7 @@ import { bodyAction, hideAction, noisemakerAction, stashAction, takedownAction, 
 import { hidingPrompt, stealthControls } from './stealth/controls'
 import { rigBreaker, rigSecondsLeft } from './stealth/sabotage'
 import { SABOTAGE } from './stealth/tuning'
+import { doorTooHot, systemsAction, touchHotDoor } from './systems/systems'
 
 const PICK_REACH = 2
 
@@ -73,6 +74,7 @@ function bestAction(world: World): Action | null {
   return tieUpAction(world) ?? takedownAction(world) ?? bodyAction(world) ?? interrogateAction(world)
     ?? nearestAtHand(world, [deviceAction(world, 'near'), elevatorAction(world), windowAction(world), doorAction(world), closeDoorAction(world)])
     ?? deviceAction(world, 'camera') ?? readAction(world) ?? hideAction(world) ?? noisemakerAction(world) ?? deviceAction(world, 'lightSwitch')
+    ?? systemsAction(world)
 }
 
 /** Something behind the player counts this much further away than it is: E goes to what he faces first. */
@@ -284,6 +286,7 @@ function doorAction(world: World): Action | null {
   const center = centerOf(world.player)
   const door = nearestDoor(world.grid, center)
   if (!door) return null
+  if (doorTooHot(world, door)) return { prompt: 'Too hot to touch', key: `door:${door.x}`, at: { x: door.x + 0.5, y: door.y + 0.5 }, run: () => touchHotDoor(world) }
   const seconds = lockSeconds(world, door)
   // Crouched, the door is eased open without a sound; standing it clunks; a kick (V) bursts it.
   const easy = world.player.crouching

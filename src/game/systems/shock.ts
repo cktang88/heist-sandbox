@@ -14,6 +14,8 @@ import { feetTile } from './footing'
 const PLAYER_SHOCK = 18
 const GUARD_SHOCK = 25
 const GUARD_STUN = 3
+/** The jolt locks his muscles for a moment. */
+const PLAYER_SHOCK_STUN = 0.5
 const COOLDOWN = 0.8
 const NOISE = 4
 const ARC = '#cfe9ff'
@@ -66,6 +68,7 @@ function shockPlayer(world: World): void {
   player.hp -= PLAYER_SHOCK
   // A white jolt across the eyes, so the player sees what hit him.
   player.blindSeconds = Math.max(player.blindSeconds, 0.25)
+  player.stunSeconds = Math.max(player.stunSeconds, PLAYER_SHOCK_STUN)
 }
 
 function zap(world: World, body: Body, source: 'player' | 'guard'): void {

@@ -11,7 +11,7 @@ import type { FanMode, SystemAction } from './state'
  * blowing toward one side (pushing a cloud through a doorway into the next room). A terminal or the player's own
  * hands set it; it runs in the air tick.
  */
-const FAN_UNITS: ReadonlySet<PropKind> = new Set(['hvacUnit', 'wallAc', 'ceilingFan', 'roofVent', 'roofAcUnit', 'coolingUnit'])
+export const FAN_UNITS: ReadonlySet<PropKind> = new Set(['hvacUnit', 'wallAc', 'ceilingFan', 'roofVent', 'roofAcUnit', 'coolingUnit'])
 /** Wall and ceiling units are reached by stretching up. */
 const REACH = 3
 const EXTRACT_SHARE = 0.25
