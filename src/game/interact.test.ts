@@ -7,6 +7,7 @@ import { fillTiles, tileAt } from './tiles'
 import { damageProp } from './cover'
 import { propBox } from './hazards/props'
 import { enterSpot } from './stealth/hide'
+import { switchOff } from './devices/terminal'
 import { spotKind } from './stealth/spots'
 import { tileKey } from './hazards/state'
 import { createWorld, type Device, type World } from './world'
@@ -212,5 +213,23 @@ describe('a held action started over', () => {
     expect(world.player.pick).toBe(0)
     play(world, 0.2, { interact: true })
     expect(world.player.pick).toBeGreaterThan(0)
+  })
+})
+
+describe('an open terminal', () => {
+  it('closes when the computer is shot out, so its menu stops working', () => {
+    const world = createWorld(1, 'complex')
+    world.guards = []
+    const computer = world.devices.find((device) => device.kind === 'computer' && device.roomId !== undefined)!
+    computer.hacked = true
+    placePlayer(world, computer.x + 0.5, Math.ceil(computer.y + 0.5))
+    play(world, 0.1)
+    expect(world.prompt).toBe('E: use terminal')
+    press(world)
+    expect(world.terminal).not.toBeNull()
+    switchOff(world, [computer], Number.POSITIVE_INFINITY)
+    play(world, FRAME, { selectTool: 0 })
+    expect(world.terminal).toBeNull()
+    expect(world.prompt ?? '').not.toMatch(/choose/)
   })
 })

@@ -180,7 +180,8 @@ function useTerminal(world: World, input: Input): void {
   const terminal = world.terminal!
   const device = world.devices.find((candidate) => candidate.id === terminal.device)
   world.player.pick = 0
-  if (!device || input.interactPressed || distance(centerOf(world.player), deviceCenter(device)) > TERMINAL_REACH) {
+  // Shot or shorted out while open, the screen goes dead with the menu on it.
+  if (!device || device.disabled || input.interactPressed || distance(centerOf(world.player), deviceCenter(device)) > TERMINAL_REACH) {
     closeTerminal(world)
     world.prompt = null
     return
