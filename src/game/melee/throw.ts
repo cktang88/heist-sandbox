@@ -135,8 +135,9 @@ function land(world: World, prop: PropState, loose: LooseProp, at: Vec): void {
   emitNoise(world, at, CLATTER_NOISE + weightOf(prop.kind) * CLATTER_NOISE_PER_WEIGHT)
 }
 
+/** A man on his feet in the way. Bodies lie low (or sit in a locker) and are flown over. */
 function guardAt(world: World, at: Vec): Guard | null {
-  return world.guards.find((guard) => guard.mode !== 'dead' && guard !== world.melee.shield
+  return world.guards.find((guard) => guard.mode !== 'dead' && !guard.out && guard !== world.melee.shield
     && at.x >= guard.x && at.x <= guard.x + guard.w && at.y >= guard.y && at.y <= guard.y + guard.h) ?? null
 }
 

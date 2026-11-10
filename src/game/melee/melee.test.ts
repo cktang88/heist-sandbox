@@ -11,6 +11,7 @@ import { fillTiles, tileAt } from '../tiles'
 import { toolIndex } from '../toolDefs'
 import { centerOf } from '../types'
 import type { World } from '../world'
+import { knockOutCold } from '../stealth/bodies'
 import { KNOCKOUT_SECONDS } from './strikes'
 
 /** The player a step to the left of a guard, facing him. */
@@ -247,6 +248,19 @@ describe('throwing', () => {
     run(world, 1 / 60, { throwPressed: true, aim: { x: 30, y: world.player.y + 0.4 } })
     run(world, 0.3)
     expect(guard.stunSeconds).toBeGreaterThan(0)
+  })
+
+  it('flies over a body lying in its way instead of hurting it', () => {
+    const world = arena()
+    addProp(world, 'officeChair', 11, GROUND)
+    const body = addGuard(world, 15, -1)
+    knockOutCold(world, body, 1000)
+    putPlayer(world, 10.5)
+    run(world, 0.5)
+    run(world, 1 / 60, { throwPressed: true, aim: { x: 30, y: GROUND - 0.6 } })
+    run(world, 1)
+    expect(body.hp).toBe(body.maxHp)
+    expect(body.mode).not.toBe('combat')
   })
 
   it('finds nothing to throw when nothing small is in reach', () => {
