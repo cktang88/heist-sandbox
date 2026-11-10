@@ -73,8 +73,17 @@ export function deviceFeet(world: World, device: Device): Vec {
  * a point that is not on any floor would leave guards walking back and forth over the hole.
  */
 export function floorBelow(world: World, at: Vec): Vec {
-  for (let y = Math.floor(at.y); y < at.y + STOREY_ROWS * FLOORS_TO_LOOK_DOWN; y += 1) if (isSolidAt(world.grid, at.x, y)) return { x: at.x, y }
+  for (let y = Math.floor(at.y); y < at.y + STOREY_ROWS * FLOORS_TO_LOOK_DOWN; y += 1) if (isSolidAt(world.grid, at.x, y)) return roomFloor(world, { x: at.x, y })
   return { x: at.x, y: Math.ceil(at.y) }
+}
+
+/**
+ * Rubble heaped on a room's floor is still that room's floor. Routes are planned by storeys, and a goal partway up a
+ * room reads as a floor of its own that no staircase reaches: guards would ride the stairs up and down for good.
+ */
+function roomFloor(world: World, feet: Vec): Vec {
+  const room = roomOf(world, feet)
+  return room && feet.y < room.floorY && feet.y > room.floorY - STOREY_ROWS + 1 ? { x: feet.x, y: room.floorY } : feet
 }
 
 /**
