@@ -29,8 +29,8 @@ import { createWorld, type World } from './world'
 
 /**
  * The research note's "big fight" on the big site, timed system by system. Skipped unless asked for, because
- * it takes about a minute: `FIGHT_BENCH=1 npx vitest run src/game/fight.bench.test.ts` (add
- * `NODE_OPTIONS=--expose-gc` for steadier allocation numbers). The timers live here, not in shipped code, so
+ * it takes a couple of minutes: `FIGHT_BENCH=1 npx vitest run src/game/fight.bench.test.ts` (add
+ * `NODE_OPTIONS=--expose-gc` for steadier allocation numbers; FIGHT_RUNS and FIGHT_SECONDS change the length). The timers live here, not in shipped code, so
  * the system list below mirrors `stepWorld` and must follow it when a system is added.
  */
 const FRAME = 1 / 60
@@ -108,14 +108,15 @@ function mayhem(world: World, second: number): void {
   fireShot(world, hand, { x: rng() - 0.5, y: rng() - 0.5 }, { kind: 'rocket', fromPlayer: true, speed: 25, damage: 100, tileDamage: 100, spread: 0, push: 5 })
 }
 
-type Pause = { duration: number }
+/** What one run measured. Steps are numbered, so runs of the same scenario can be compared step by step. */
+type Measured = { frames: number[]; totals: Totals; allocations: number[]; pauses: number[]; cpu: number }
 
-async function run(world: World, seconds: number, each?: (second: number) => void): Promise<string[]> {
+async function measure(world: World, seconds: number, each?: (second: number) => void): Promise<Measured> {
   const totals: Totals = {}
   const frames: number[] = []
   const allocations: number[] = []
-  const pauses: Pause[] = []
-  const observer = new PerformanceObserver((list) => { for (const entry of list.getEntries()) pauses.push({ duration: entry.duration }) })
+  const pauses: number[] = []
+  const observer = new PerformanceObserver((list) => { for (const entry of list.getEntries()) pauses.push(entry.duration) })
   ;(globalThis as { gc?: () => void }).gc?.()
   observer.observe({ entryTypes: ['gc'] })
   const cpuBefore = process.cpuUsage()
@@ -133,23 +134,41 @@ async function run(world: World, seconds: number, each?: (second: number) => voi
       if (grown >= 0) allocations.push(grown)
     }
   }
-  const cpu = process.cpuUsage(cpuBefore)
+  const usage = process.cpuUsage(cpuBefore)
   // The loop never yields, and collections are only reported once it does.
   await new Promise((resolve) => setTimeout(resolve, 100))
   observer.disconnect()
-  frames.sort((a, b) => a - b)
-  allocations.sort((a, b) => a - b)
+  return { frames, totals, allocations, pauses, cpu: (usage.user + usage.system) / 1000 }
+}
+
+/**
+ * The scenario is deterministic, so every run does the same work step for step. On a busy machine the other
+ * jobs only ever add time, so the fastest of the runs for each step (and each system) is the cleanest reading.
+ */
+function fastestOf(runs: Measured[]): Measured {
+  const frames = runs[0].frames.map((_, index) => Math.min(...runs.map((run) => run.frames[index])))
+  const totals: Totals = {}
+  for (const name of Object.keys(runs[0].totals)) totals[name] = Math.min(...runs.map((run) => run.totals[name]))
+  const quietest = runs.reduce((best, run) => (sum(run.pauses) < sum(best.pauses) ? run : best))
+  return { frames, totals, allocations: runs[0].allocations, pauses: quietest.pauses, cpu: Math.min(...runs.map((run) => run.cpu)) }
+}
+
+function sum(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0)
+}
+
+function summary(measured: Measured): string[] {
+  const frames = [...measured.frames].sort((a, b) => a - b)
+  const allocations = [...measured.allocations].sort((a, b) => a - b)
   const count = frames.length
-  const mean = frames.reduce((sum, value) => sum + value, 0) / count
   const at = (fraction: number) => frames[Math.min(count - 1, Math.floor(count * fraction))].toFixed(2)
-  const allocMean = allocations.reduce((sum, value) => sum + value, 0) / Math.max(1, allocations.length)
-  const gcTotal = pauses.reduce((sum, pause) => sum + pause.duration, 0)
+  const kilobytes = (bytes: number) => (bytes / 1024).toFixed(0)
   const lines = [
-    `mean ${mean.toFixed(2)} ms  p50 ${at(0.5)}  p95 ${at(0.95)}  p99 ${at(0.99)}  max ${at(1)}  cpu/step ${((cpu.user + cpu.system) / 1000 / count).toFixed(2)} ms`,
-    `allocated per step: mean ${(allocMean / 1024).toFixed(0)} KB, median ${(allocations[allocations.length >> 1] / 1024).toFixed(0)} KB  (${allocations.length} clean samples)`,
-    `gc: ${pauses.length} pauses, ${gcTotal.toFixed(0)} ms total, worst ${Math.max(0, ...pauses.map((pause) => pause.duration)).toFixed(1)} ms`,
+    `mean ${(sum(frames) / count).toFixed(2)} ms  p50 ${at(0.5)}  p95 ${at(0.95)}  p99 ${at(0.99)}  max ${at(1)}  cpu/step ${(measured.cpu / count).toFixed(2)} ms`,
+    `allocated per step: mean ${kilobytes(sum(allocations) / Math.max(1, allocations.length))} KB, median ${kilobytes(allocations[allocations.length >> 1])} KB  (${allocations.length} clean samples)`,
+    `gc: ${measured.pauses.length} pauses, ${sum(measured.pauses).toFixed(0)} ms total, worst ${Math.max(0, ...measured.pauses).toFixed(1)} ms`,
   ]
-  for (const [name, total] of Object.entries(totals).sort((a, b) => b[1] - a[1])) {
+  for (const [name, total] of Object.entries(measured.totals).sort((a, b) => b[1] - a[1])) {
     lines.push(`  ${name.padEnd(24)} ${(total / count).toFixed(3)} ms`)
   }
   return lines
@@ -178,17 +197,29 @@ async function sampleAllocations(work: () => Promise<void>): Promise<void> {
   session.disconnect()
 }
 
+/** How many times each scenario is run; see `fastestOf`. */
+const RUNS = Number(process.env.FIGHT_RUNS ?? 2)
+
+function bigFight(): World {
+  const fight = createWorld(1, 'complex')
+  raiseAlarm(fight)
+  return fight
+}
+
 describe.skipIf(!process.env.FIGHT_BENCH)('big-site step cost', () => {
   it('times a calm minute and a big fight', async () => {
-    await run(createWorld(3, 'complex'), 3)
-    const calm = await run(createWorld(1, 'complex'), Math.min(SECONDS, 20))
-    print(['== CALM', ...calm])
-    const fight = createWorld(1, 'complex')
-    raiseAlarm(fight)
-    let report: string[] = []
-    await sampleAllocations(async () => { report = await run(fight, SECONDS, (second) => mayhem(fight, second)) })
-    const dead = fight.guards.filter((guard) => guard.mode === 'dead').length
-    const peaks = `dead ${dead}/${fight.guards.length}, tiles destroyed ${fight.stats.tilesDestroyed}, fires ${fight.hazards.fires.size}, smoke ${fight.hazards.smoke?.active.length ?? 0}`
-    print(['== BIG FIGHT', ...report, peaks])
-  }, 900_000)
+    await measure(createWorld(3, 'complex'), 3)
+    const calm: Measured[] = []
+    for (let run = 0; run < RUNS; run += 1) calm.push(await measure(createWorld(1, 'complex'), Math.min(SECONDS, 20)))
+    print(['== CALM', ...summary(fastestOf(calm))])
+    const fights: Measured[] = []
+    const ends: string[] = []
+    for (let run = 0; run < RUNS; run += 1) {
+      const fight = bigFight()
+      await sampleAllocations(async () => { fights.push(await measure(fight, SECONDS, (second) => mayhem(fight, second))) })
+      const dead = fight.guards.filter((guard) => guard.mode === 'dead').length
+      ends.push(`dead ${dead}/${fight.guards.length}, tiles destroyed ${fight.stats.tilesDestroyed}, fires ${fight.hazards.fires.size}, smoke ${fight.hazards.smoke?.active.length ?? 0}`)
+    }
+    print(['== BIG FIGHT', ...summary(fastestOf(fights)), ...ends])
+  }, 1_800_000)
 })

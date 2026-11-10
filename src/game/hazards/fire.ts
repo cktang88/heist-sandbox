@@ -17,9 +17,9 @@ export const MAX_FIRES = 600
 const BURN_RATE: Partial<Record<TileKind, number>> = { wood: 1.6, door: 3.6 }
 /** Chance per second, at full heat, that fire jumps to a neighbouring fuel: fastest upward, slowest downward. */
 const SPREAD_PER_SECOND = 0.9
-const SPREAD: readonly (readonly [number, number, number])[] = [
-  [0, -1, 1], [-1, -1, 0.5], [1, -1, 0.5], [-1, 0, 0.42], [1, 0, 0.42], [0, 1, 0.12],
-]
+const SPREAD_X = [0, -1, 1, -1, 1, 0]
+const SPREAD_Y = [-1, -1, -1, 0, 0, 1]
+const SPREAD_SHARE = [1, 0.5, 0.5, 0.42, 0.42, 0.12]
 /** Burning props shed flames onto the floor beside them, so fire creeps along a row of furniture. */
 const FLOOR_CREEP = 0.5
 const GROW_PER_SECOND = 0.3
@@ -54,19 +54,28 @@ export function startFire(world: World, x: number, y: number, heat: number, flar
   return true
 }
 
+/** This tick's fires, copied before any burns so fires lit during the tick wait for the next one to spread. */
+const burning: Fire[] = []
+
 /** One fire tick: burn, spread, smoke. Returns the rooms with a real fire in them, for the sprinklers. */
 export function stepFires(world: World, tick: number): Set<number> {
   const hazards = world.hazards
   const rooms = new Set<number>()
-  // A snapshot, so fires lit this tick wait until the next one to spread.
-  for (const [key, fire] of [...hazards.fires]) {
-    if (!burnOne(world, key, fire, tick)) continue
+  let count = 0
+  for (const fire of hazards.fires.values()) burning[count++] = fire
+  for (let index = 0; index < count; index += 1) {
+    const fire = burning[index]
+    if (!burnOne(world, tileKey(world, fire.x, fire.y), fire, tick)) continue
     if (fire.room >= 0 && fire.heat > 0.3) rooms.add(fire.room)
     if (gasNear(world, fire.x, fire.y)) igniteGas(world, fire.x, fire.y)
   }
+  // Let go of the fires, so ones that went out are not kept alive here.
+  burning.fill(EMPTY_FIRE, 0, count)
   makeFireNoise(world, tick)
   return rooms
 }
+
+const EMPTY_FIRE: Fire = { x: 0, y: 0, heat: 0, flare: 0, room: -1 }
 
 /** Burns one tile for a tick. Returns false if the fire went out. */
 function burnOne(world: World, key: number, fire: Fire, tick: number): boolean {
@@ -102,8 +111,10 @@ function burnOne(world: World, key: number, fire: Fire, tick: number): boolean {
 function spread(world: World, fire: Fire, fed: boolean, propFed: boolean, tick: number): void {
   const hazards = world.hazards
   const strength = SPREAD_PER_SECOND * fire.heat * tick * (fed ? 1 : 0.6)
-  for (const [dx, dy, share] of SPREAD) {
-    const x = fire.x + dx
+  for (let direction = 0; direction < SPREAD_SHARE.length; direction += 1) {
+    const dy = SPREAD_Y[direction]
+    const share = SPREAD_SHARE[direction]
+    const x = fire.x + SPREAD_X[direction]
     const y = fire.y + dy
     const key = tileKey(world, x, y)
     if (hazards.fires.has(key) || hazards.wet.has(key)) continue
@@ -113,14 +124,23 @@ function spread(world: World, fire: Fire, fed: boolean, propFed: boolean, tick: 
       continue
     }
     if (TILE_DEFS[kind].solid) continue
-    const burnable = propsAt(world, x, y).filter((id) => canCatch(world, id))
-    if (burnable.length > 0 && world.rng() < strength * share) {
-      for (const id of burnable) igniteProp(world, id)
+    if (anyCanCatch(world, x, y) && world.rng() < strength * share) {
+      igniteAll(world, x, y)
       continue
     }
     const onFloor = dy === 0 && TILE_DEFS[tileAt(world.grid, x, y + 1)].solid
     if (propFed && onFloor && world.rng() < strength * share * FLOOR_CREEP) startFire(world, x, y, 0.5, FLARE_SECONDS * 1.5)
   }
+}
+
+function anyCanCatch(world: World, x: number, y: number): boolean {
+  for (const id of propsAt(world, x, y)) if (canCatch(world, id)) return true
+  return false
+}
+
+/** Sets alight every burnable prop on a tile (`igniteProp` passes over the ones that cannot catch). */
+function igniteAll(world: World, x: number, y: number): void {
+  for (const id of propsAt(world, x, y)) igniteProp(world, id)
 }
 
 /** Fire crackles now and then, which guards can hear. */
@@ -148,15 +168,53 @@ export function fireHeatAt(world: World, x: number, y: number): number {
   return world.hazards.fires.get(tileKey(world, x, y))?.heat ?? 0
 }
 
-/** The middle of the nearest burning tile within `range`, or null. */
+/**
+ * The middle of the nearest burning tile within `range`, or null. With many fires and a short range it looks
+ * only at the tiles in reach rather than at every fire. Of two fires exactly as near, either may be chosen.
+ */
 export function nearestFire(world: World, at: Vec, range = Number.POSITIVE_INFINITY): Vec | null {
-  let best: Vec | null = null
+  const fires = world.hazards.fires
+  if (fires.size === 0) return null
+  const span = 2 * range + 2
+  const found = span * span < fires.size ? nearestInReach(world, at, range) : nearestOfAll(world, at, range)
+  return found ? { x: found.x + 0.5, y: found.y + 0.5 } : null
+}
+
+function gapTo(fire: Fire, at: Vec): number {
+  const dx = fire.x + 0.5 - at.x
+  const dy = fire.y + 0.5 - at.y
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+function nearestOfAll(world: World, at: Vec, range: number): Fire | null {
+  let best: Fire | null = null
   let bestGap = range
   for (const fire of world.hazards.fires.values()) {
-    const gap = Math.hypot(fire.x + 0.5 - at.x, fire.y + 0.5 - at.y)
+    const gap = gapTo(fire, at)
     if (gap > bestGap) continue
     bestGap = gap
-    best = { x: fire.x + 0.5, y: fire.y + 0.5 }
+    best = fire
+  }
+  return best
+}
+
+function nearestInReach(world: World, at: Vec, range: number): Fire | null {
+  const { width, height } = world.grid
+  const x0 = Math.max(0, Math.ceil(at.x - 0.5 - range))
+  const x1 = Math.min(width - 1, Math.floor(at.x - 0.5 + range))
+  const y0 = Math.max(0, Math.ceil(at.y - 0.5 - range))
+  const y1 = Math.min(height - 1, Math.floor(at.y - 0.5 + range))
+  let best: Fire | null = null
+  let bestGap = range
+  for (let y = y0; y <= y1; y += 1) {
+    for (let x = x0; x <= x1; x += 1) {
+      const fire = world.hazards.fires.get(y * width + x)
+      if (!fire) continue
+      const gap = gapTo(fire, at)
+      if (gap > bestGap) continue
+      bestGap = gap
+      best = fire
+    }
   }
   return best
 }

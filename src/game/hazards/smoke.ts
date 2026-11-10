@@ -29,7 +29,7 @@ const SKY_ROWS = 2
 /** How fast sight is lost per tile of full smoke. Two tiles of thick smoke read as 0.63. */
 const OPACITY_PER_TILE = 0.5
 
-const SOLID = TILE_KINDS.map((kind) => TILE_DEFS[kind].solid)
+const SOLID = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid ? 1 : 0))
 
 function field(world: World): SmokeField {
   if (world.hazards.smoke) return world.hazards.smoke
@@ -44,7 +44,7 @@ function field(world: World): SmokeField {
 }
 
 function solidKey(world: World, key: number): boolean {
-  return SOLID[world.grid.kinds[key]]
+  return SOLID[world.grid.kinds[key]] === 1
 }
 
 const NEAREST_OPEN: readonly (readonly [number, number])[] = [[0, 0], [0, -1], [-1, 0], [1, 0], [0, 1]]
@@ -194,58 +194,70 @@ export function smokeBetween(world: World, from: Vec, to: Vec): number {
   return 1 - Math.exp(-depth * OPACITY_PER_TILE)
 }
 
+/**
+ * This tick's cells: the active ones and any they flow into. Shared scratch space (a tick runs start to finish
+ * before another can begin), so a tick allocates nothing.
+ */
+const touched = new Int32Array(MAX_SMOKE_CELLS)
+let touchedCount = 0
+
 /** One smoke and gas tick. Flows are worked out from this tick's values first, then applied, so order does not matter. */
 export function stepSmoke(world: World, tick: number): void {
   const smoke = world.hazards.smoke
   if (!smoke || smoke.active.length === 0) return
   smoke.stamp += 1
-  const touched = smoke.active.slice()
-  for (const key of touched) smoke.seen[key] = smoke.stamp
-  for (let index = 0; index < smoke.active.length; index += 1) spreadFrom(world, smoke, smoke.active[index], touched)
-  settle(world, smoke, touched, tick)
+  const count = smoke.active.length
+  for (let index = 0; index < count; index += 1) {
+    const key = smoke.active[index]
+    touched[index] = key
+    smoke.seen[key] = smoke.stamp
+  }
+  touchedCount = count
+  for (let index = 0; index < count; index += 1) spreadFrom(world, smoke, smoke.active[index])
+  settle(world, smoke, tick)
 }
 
-function spreadFrom(world: World, smoke: SmokeField, key: number, touched: number[]): void {
-  const up = openNeighbour(world, key, 0, -1)
-  const left = openNeighbour(world, key, -1, 0)
-  const right = openNeighbour(world, key, 1, 0)
-  const down = openNeighbour(world, key, 0, 1)
+function spreadFrom(world: World, smoke: SmokeField, key: number): void {
+  const { width, height, kinds } = world.grid
+  const x = key % width
+  const y = (key - x) / width
+  // The open neighbours, or -1 where the map ends or the tile is solid.
+  const up = y > 0 && !SOLID[kinds[key - width]] ? key - width : -1
+  const left = x > 0 && !SOLID[kinds[key - 1]] ? key - 1 : -1
+  const right = x < width - 1 && !SOLID[kinds[key + 1]] ? key + 1 : -1
+  const down = y < height - 1 && !SOLID[kinds[key + width]] ? key + width : -1
   const total = density(smoke, key)
   if (total > EMPTY) {
     const rise = COOL_RISE + (HOT_RISE - COOL_RISE) * (smoke.toxic[key] / total)
-    if (up >= 0) moveSmoke(smoke, key, up, rise * Math.max(0, total - LAYERING * density(smoke, up)), total, touched)
-    if (left >= 0) moveSmoke(smoke, key, left, SIDE_SHARE * Math.max(0, total - density(smoke, left)), total, touched)
-    if (right >= 0) moveSmoke(smoke, key, right, SIDE_SHARE * Math.max(0, total - density(smoke, right)), total, touched)
-    if (down >= 0) moveSmoke(smoke, key, down, DOWN_SHARE * Math.max(0, total - density(smoke, down) - 0.2), total, touched)
+    if (up >= 0) moveSmoke(smoke, key, up, rise * Math.max(0, total - LAYERING * density(smoke, up)), total)
+    if (left >= 0) moveSmoke(smoke, key, left, SIDE_SHARE * Math.max(0, total - density(smoke, left)), total)
+    if (right >= 0) moveSmoke(smoke, key, right, SIDE_SHARE * Math.max(0, total - density(smoke, right)), total)
+    if (down >= 0) moveSmoke(smoke, key, down, DOWN_SHARE * Math.max(0, total - density(smoke, down) - 0.2), total)
   }
   if (smoke.gas[key] <= EMPTY) return
-  for (const other of [up, left, right, down]) if (other >= 0) moveGas(smoke, key, other, touched)
-}
-
-/** The key of the neighbouring tile in a direction, or -1 if it is off the map or solid. */
-function openNeighbour(world: World, key: number, dx: number, dy: number): number {
-  const { width, height } = world.grid
-  const x = key % width
-  const y = (key - x) / width
-  if (x + dx < 0 || x + dx >= width || y + dy < 0 || y + dy >= height) return -1
-  const other = key + dy * width + dx
-  return solidKey(world, other) ? -1 : other
+  if (up >= 0) moveGas(smoke, key, up)
+  if (left >= 0) moveGas(smoke, key, left)
+  if (right >= 0) moveGas(smoke, key, right)
+  if (down >= 0) moveGas(smoke, key, down)
 }
 
 /** Adds a tile to this tick's list, unless it is new and the field is full. */
-function touch(smoke: SmokeField, touched: number[], key: number): boolean {
+function touch(smoke: SmokeField, key: number): boolean {
   if (smoke.seen[key] === smoke.stamp) return true
-  if (touched.length >= MAX_SMOKE_CELLS) return false
+  if (touchedCount >= MAX_SMOKE_CELLS) return false
   smoke.seen[key] = smoke.stamp
-  touched.push(key)
+  touched[touchedCount] = key
+  touchedCount += 1
   return true
 }
 
 /** Moves `amount` of a cell's smoke to a neighbour, keeping the mix of kinds. */
-function moveSmoke(smoke: SmokeField, from: number, to: number, amount: number, total: number, touched: number[]): void {
-  if (amount <= 0 || !touch(smoke, touched, to)) return
+function moveSmoke(smoke: SmokeField, from: number, to: number, amount: number, total: number): void {
+  if (amount <= 0 || !touch(smoke, to)) return
   const share = amount / total
-  const [screen, toxic, foam] = smoke.flow
+  const screen = smoke.flow[0]
+  const toxic = smoke.flow[1]
+  const foam = smoke.flow[2]
   const movedScreen = smoke.screen[from] * share
   const movedToxic = smoke.toxic[from] * share
   const movedFoam = smoke.foam[from] * share
@@ -257,37 +269,52 @@ function moveSmoke(smoke: SmokeField, from: number, to: number, amount: number, 
   foam[to] += movedFoam
 }
 
-function moveGas(smoke: SmokeField, from: number, to: number, touched: number[]): void {
+function moveGas(smoke: SmokeField, from: number, to: number): void {
   const amount = GAS_SHARE * (smoke.gas[from] - smoke.gas[to])
-  if (amount <= 0 || !touch(smoke, touched, to)) return
+  if (amount <= 0 || !touch(smoke, to)) return
   smoke.flow[3][from] -= amount
   smoke.flow[3][to] += amount
 }
 
-/** Applies the flows, thins everything and drops cells that have emptied. */
-function settle(world: World, smoke: SmokeField, touched: number[], tick: number): void {
-  const layers = [smoke.screen, smoke.toxic, smoke.foam, smoke.gas]
-  const keep = [FADE.screen, FADE.toxic, FADE.foam, FADE.gas].map((fade) => Math.max(0, 1 - fade * tick))
+/**
+ * Applies the flows, thins everything and drops cells that have emptied. The active list is overwritten in
+ * place and then cut to length, rather than emptied and refilled, so its storage is reused from tick to tick.
+ */
+function settle(world: World, smoke: SmokeField, tick: number): void {
+  const keepScreen = Math.max(0, 1 - FADE.screen * tick)
+  const keepToxic = Math.max(0, 1 - FADE.toxic * tick)
+  const keepFoam = Math.max(0, 1 - FADE.foam * tick)
+  const keepGas = Math.max(0, 1 - FADE.gas * tick)
   const skyRow = SKY_ROWS * world.grid.width
-  smoke.active.length = 0
+  const kinds = world.grid.kinds
+  const active = smoke.active
+  let kept = 0
   smoke.gasCells = 0
-  for (const key of touched) {
-    let left = 0
-    const blocked = solidKey(world, key)
-    for (let index = 0; index < 4; index += 1) {
-      const layer = layers[index]
-      let value = (layer[key] + smoke.flow[index][key]) * keep[index]
-      smoke.flow[index][key] = 0
-      if (blocked || value < EMPTY) value = 0
-      if (key < skyRow) value *= 0.5
-      layer[key] = Math.min(MAX_PRESSURE, value)
-      left += value
-    }
+  for (let index = 0; index < touchedCount; index += 1) {
+    const key = touched[index]
+    const blocked = SOLID[kinds[key]] === 1
+    const sky = key < skyRow
+    const left = settleLayer(smoke.screen, smoke.flow[0], key, keepScreen, blocked, sky)
+      + settleLayer(smoke.toxic, smoke.flow[1], key, keepToxic, blocked, sky)
+      + settleLayer(smoke.foam, smoke.flow[2], key, keepFoam, blocked, sky)
+      + settleLayer(smoke.gas, smoke.flow[3], key, keepGas, blocked, sky)
     smoke.live[key] = left > 0 ? 1 : 0
     if (left <= 0) continue
-    smoke.active.push(key)
+    active[kept] = key
+    kept += 1
     if (smoke.gas[key] > 0) smoke.gasCells += 1
   }
+  active.length = kept
+}
+
+/** Applies one layer's flow at a tile and thins it. Returns what is left there (before the pressure cap). */
+function settleLayer(layer: Float32Array, flow: Float32Array, key: number, keep: number, blocked: boolean, sky: boolean): number {
+  let value = (layer[key] + flow[key]) * keep
+  flow[key] = 0
+  if (blocked || value < EMPTY) value = 0
+  if (sky) value *= 0.5
+  layer[key] = Math.min(MAX_PRESSURE, value)
+  return value
 }
 
 /** Every smoky cell, for drawing and tests. Calls `visit` with the tile, density 0..1, and whether it is toxic. */
