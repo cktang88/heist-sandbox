@@ -19,7 +19,8 @@ import { GUARD_PISTOL, GUARD_RIFLE, roundReaches } from './lineOfFire'
 import { ducked, takeShelter } from './takingFire'
 import { flankRoute } from './flank'
 import { respectKillZones } from './killZones'
-import { COMBAT, PATROL, SHELTER, TIERS, TIMING, UNDER_FIRE } from './tuning'
+import { moveInStack, stackBroken } from './shieldTeam'
+import { COMBAT, PATROL, SHELTER, SHIELD, TIERS, TIMING, UNDER_FIRE } from './tuning'
 
 /**
  * Fighting as a trained team. Each guard plays the role the squad gave him (squad.ts): assault guards
@@ -75,10 +76,12 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
   guard.flashCooldown -= dt
   guard.replan -= dt
   guard.lostSeconds = guard.seesPlayer ? 0 : guard.lostSeconds + dt
+  if (guard.stackLeader !== null) followReports(world, guard)
   const known = guard.lastKnown
-  // Hearing the man's gun keeps a fight going as surely as seeing him.
+  // Hearing the man's gun keeps a fight going as surely as seeing him; a shield team pushes on the reports far longer.
   const heardLately = world.clock - guard.heardAt < TIMING.lostContact
-  if (!known || (guard.lostSeconds > TIMING.lostContact && !heardLately)) {
+  const patience = guard.stackLeader !== null ? SHIELD.patience : TIMING.lostContact
+  if (!known || (guard.lostSeconds > patience && !heardLately)) {
     barkLine(world, guard, 'lost', true)
     startSearch(world, guard, known ? floorBelow(world, known) : feetOf(guard))
     hold(world, guard, dt)
@@ -96,6 +99,11 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
   }
   if (escapeHazard(world, guard, dt)) return
   faceThreat(guard, known)
+  if (guard.stackLeader !== null && !stackBroken(world, guard)) {
+    moveInStack(world, guard, known, dt)
+    if (guard.seesPlayer && !isShielded(world, guard)) tryFire(world, guard, known)
+    return
+  }
   if (guard.flashWindup > 0) {
     guard.flashWindup -= dt
     hold(world, guard, dt)
@@ -136,6 +144,14 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
     if (guard.seesPlayer) tryFire(world, guard, known)
     else returnFire(world, guard, known)
   }
+}
+
+/** A shield team man without sight of the intruder goes on the control room's latest report of him. */
+function followReports(world: World, guard: Guard): void {
+  const report = world.security.lastKnown
+  if (guard.seesPlayer || !report || world.security.lastContactAt <= guard.lastKnownAt) return
+  guard.lastKnown = { ...report }
+  guard.lastKnownAt = world.security.lastContactAt
 }
 
 /** Turns to the threat and points the gun straight at it, up or down included. */
@@ -380,6 +396,8 @@ export function colleagueInLine(world: World, shooter: Guard, eye: Vec, to: Vec)
   const maxY = Math.max(from.y, to.y) + 0.2
   return world.guards.some((other) => {
     if (other === shooter || other.mode === 'dead') return false
+    // A shield team fires past its own men's shoulders.
+    if (shooter.stackLeader !== null && other.stackLeader === shooter.stackLeader) return false
     if (other.x > maxX || other.x + other.w < minX || other.y > maxY || other.y + other.h < minY) return false
     const top = other.crouching ? other.y + other.h * (1 - KNEELING_HEIGHT) : other.y
     return segmentHitsBox(from, to, { x: other.x - 0.1, y: top - 0.1, w: other.w + 0.2, h: other.y + other.h - top + 0.2 })

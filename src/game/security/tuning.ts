@@ -336,3 +336,35 @@ export const KILL_ZONES = {
   throwReach: 10,
   throwEvery: 12,
 } as const
+
+/** The shield team the control room sends once a choke point keeps killing men or the squad is losing. */
+export const SHIELD = {
+  /** Deaths at one kill zone that bring the team in. */
+  zoneDeaths: 2,
+  /** Or this many guards killed within `lossWindow` seconds. */
+  losses: 3,
+  lossWindow: 60,
+  maxTeams: 2,
+  /** Seconds between teams. */
+  every: 90,
+  size: 4,
+  /** Rounds with at least this much penetration go through the shield (a sniper rifle's). */
+  stops: 10,
+  /** Rounds coming down more steeply than this (vertical over horizontal speed) go over the top of it. */
+  steepest: 0.8,
+  /** The column moves at a slow walk, a pace apart. */
+  speed: 2.2,
+  gap: 0.9,
+  /** The shield man waits for anyone this far behind. */
+  straggle: 3,
+  /** He stops this far short of the intruder. */
+  standOff: 3,
+  /** A doorway this close ahead with the intruder within `flashReach` beyond it: flashbang first. */
+  doorAhead: 4,
+  flashReach: 14,
+  flashEvery: 8,
+  /** Held after the throw, until it has gone off. */
+  flashWait: 1.7,
+  /** The team keeps pushing on the last report this long without contact before it searches. */
+  patience: 60,
+} as const

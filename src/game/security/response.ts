@@ -25,11 +25,9 @@ export function deployResponders(world: World): void {
   security.responseSent = true
   security.responders += 1
   const goal = security.lastKnown ? floorBelow(world, security.lastKnown) : security.focus
-  const fromRight = world.extraction.x < world.grid.width / 2
-  const door = goal ? streetDoor(world, goal, fromRight) : null
+  const entry = entryFor(world, goal)
   for (let index = 0; index < LEVELS.respondersAtLevel3; index += 1) {
-    const x = door ? door.x + door.inward * (2 + index * 1.5) : fromRight ? world.grid.width - 4 - index * 2 : 3 + index * 2
-    const responder = createGuard({ x, y: world.groundY, facing: door ? door.inward : fromRight ? -1 : 1 }, true)
+    const responder = createGuard({ ...entry(index), y: world.groundY }, true)
     responder.checkInAt = Infinity
     if (goal) {
       responder.search = { ...planSearch(world, goal, SWEEP_SECONDS), index: 0 }
@@ -42,6 +40,15 @@ export function deployResponders(world: World): void {
     world.guards.push(responder)
   }
   log(world, 'Control: Response team is on site.')
+}
+
+/** Where the n-th man of a team sent toward `goal` is set down, and which way he faces. */
+export function entryFor(world: World, goal: Vec | null): (index: number) => { x: number; facing: 1 | -1 } {
+  const fromRight = world.extraction.x < world.grid.width / 2
+  const door = goal ? streetDoor(world, goal, fromRight) : null
+  return (index) => door
+    ? { x: door.x + door.inward * (2 + index * 1.5), facing: door.inward }
+    : { x: fromRight ? world.grid.width - 4 - index * 2 : 3 + index * 2, facing: fromRight ? -1 : 1 }
 }
 
 /**

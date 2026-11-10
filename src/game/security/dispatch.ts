@@ -8,6 +8,7 @@ import { noticeDeadCircuits, stepCheckIns, watchRelays } from './checkins'
 import type { AlertLevel } from './events'
 import { log, raiseLevel } from './report'
 import { organiseSquad } from './squad'
+import { considerShieldTeam } from './shieldTeam'
 import { assignStations } from './stations'
 import { FEAR, LEVELS, RESPONSE } from './tuning'
 
@@ -42,6 +43,7 @@ export function stepSecurity(world: World, dt: number): void {
     watchCameraFeeds(world)
     noticeShotLamps(world)
     forgetOldTrouble(world)
+    considerShieldTeam(world)
   }
   watchIncomingFire(world, dt, shotAt)
   stepCameras(world, dt)
