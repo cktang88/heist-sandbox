@@ -71,7 +71,8 @@ export function layFloor(rng: Rng, room: Room, spans: Span[], style: RoomStyle):
         continue
       }
       const fits = style.clutter.filter((kind) => arrange([kind], cursor, flip).end <= span.to)
-      if (fits.length === 0 || rng() < 0.25) break
+      // A room never stops short of its first piece, however little floor it has.
+      if (fits.length === 0 || (placed.length > 0 && rng() < 0.25)) break
       const { items, end } = arrange([pickFrom(rng, fits)], cursor, flip)
       placed.push(...items)
       cursor = end + gapAfter(rng)

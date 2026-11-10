@@ -98,7 +98,11 @@ function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[],
     fillTiles(grid, ladderX, ceilingY + 1, ladderX, floorY - 1, 'ladder')
     setTile(grid, ladderX, ceilingY, storey === storeys - 1 ? 'door' : 'ladder')
 
-    for (let x = left + 6; x < right - 3; x += 11) lamps.push({ x: x + 0.5, y: ceilingY + 1.2, radius: 8, strength: 1, color: LIGHT.warm, fixture: 'ceilingPanel', hung: true })
+    for (let x = left + 6; x < right - 3; x += 11) {
+      // Moved off the partition and the ladder hole through this ceiling, so every lamp has a ceiling to hang from.
+      const at = x === wallX || x === ladderX ? x + 2 : x
+      lamps.push({ x: at + 0.5, y: ceilingY + 1.2, radius: 8, strength: 1, color: LIGHT.warm, fixture: 'ceilingPanel', hung: true })
+    }
 
     const blocked = [wallX, ladderX, holeX]
     const furniture = ['desk', 'filingCabinet', 'plant', 'serverRack', 'desk', 'crate'] as const

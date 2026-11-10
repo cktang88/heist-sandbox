@@ -37,6 +37,13 @@ export type Stairwell = {
   rightX: number
   /** Floor y of each stop, lowest first. Stop 0 uses the left landing, stop 1 the right, and so on. */
   stops: number[]
+  /**
+   * The building the staircase serves: the columns of its outer walls and the floor y of its street storey,
+   * so a route to another building knows to go down to the street and across. `splits` are the floors cut in two
+   * by the open void over a double-height room (columns `from..to` have no floor), which a walk cannot cross.
+   * Absent on sites of one building.
+   */
+  bounds?: { x0: number; x1: number; streetY: number; splits?: { y: number; from: number; to: number }[] }
 }
 
 /** An elevator shaft. The car itself is run by the elevator system. */
