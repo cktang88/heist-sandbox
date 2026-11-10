@@ -15,7 +15,7 @@ const CHOKES_AT = 0.5
 /** Hurts everyone standing in fire or thick fire smoke for `seconds`. Called a couple of times a second, not every frame. */
 export function harmPeople(world: World, seconds: number): void {
   const hazards = world.hazards
-  if (hazards.fires.size === 0 && !hazards.smoke?.active.size) return
+  if (hazards.fires.size === 0 && !hazards.smoke?.active.length) return
   const player = world.player
   player.hp -= (PLAYER_BURN * burnOn(world, player) + PLAYER_CHOKE * chokeOn(world, player)) * seconds
   for (const guard of world.guards) {

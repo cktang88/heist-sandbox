@@ -16,7 +16,7 @@ const DOWN = Math.PI / 2
 const UP = -Math.PI / 2
 const SPRINKLER: SprayPlan = { kind: 'water', aim: DOWN, spread: 0.8, reach: 5.5, life: 10 }
 const PLANS: Partial<Record<PropKind, SprayPlan>> = {
-  fireExtinguisher: { kind: 'foam', aim: 'side', spread: 0.35, reach: 3.5, life: 3 },
+  fireExtinguisher: { kind: 'foam', aim: 'side', spread: 0.5, reach: 4, life: 3 },
   sprinkler: SPRINKLER,
   fireHydrant: { kind: 'water', aim: UP, spread: 0.3, reach: 5, life: 6 },
   waterTank: { kind: 'water', aim: 'side', spread: 0.5, reach: 4, life: 6 },
@@ -46,9 +46,12 @@ export function burstSpray(world: World, prop: PropState, center: Vec): void {
 /** A loose jet whips toward whatever burns nearby (that is why you shoot an extinguisher), otherwise to a random side. */
 function aimOf(world: World, plan: SprayPlan, from: Vec): number {
   if (plan.aim !== 'side') return plan.aim
-  const fire = nearestFire(world, from, plan.reach + 1)
-  if (fire) return Math.atan2(fire.y - from.y, fire.x - from.x)
-  return world.rng() < 0.5 ? DOWN - 1 : DOWN + 1
+  return aimAtFire(world, from, plan.reach) ?? (world.rng() < 0.5 ? DOWN - 1 : DOWN + 1)
+}
+
+function aimAtFire(world: World, from: Vec, reach: number): number | null {
+  const fire = nearestFire(world, from, reach + 1)
+  return fire ? Math.atan2(fire.y - from.y, fire.x - from.x) : null
 }
 
 /** A shot extinguisher bursts into a cloud of powder: blinding for a moment, gone in a second or two. */
@@ -79,6 +82,8 @@ export function soak(world: World, tick: number): void {
   const keep = Math.pow(SMOKE_KEPT_PER_SECOND, tick)
   for (const spray of hazards.sprays) {
     if (spray.kind !== 'water' && spray.kind !== 'foam') continue
+    // A loose extinguisher whips about and keeps finding the flames.
+    if (spray.kind === 'foam') spray.angle = aimAtFire(world, spray, spray.reach) ?? spray.angle
     for (const tile of coneTiles(world, spray)) {
       const key = tileKey(world, tile.x, tile.y)
       if (hazards.fires.delete(key)) addSmoke(world, tile.x, tile.y, 0.3, 'screen')

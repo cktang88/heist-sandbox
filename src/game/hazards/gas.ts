@@ -8,9 +8,9 @@ import { MAX_FIRES, startFire } from './fire'
 import { addGas, gasAt, hasGas, takeGas } from './smoke'
 
 /** Below this a tile's gas is too thin to light. */
-const LIGHTS_AT = 0.08
+const LIGHTS_AT = 0.05
 /** Gas still burns along with a lit cloud down to this. */
-const BURNS_AT = 0.03
+const BURNS_AT = 0.015
 /** Gas a leak gives off per second. A stove left leaking for ten seconds fills a kitchen corner. */
 const LEAK_PER_SECOND = 0.7
 /** A lit cloud holding more than this goes bang; less just flashes into fire. */
@@ -72,6 +72,11 @@ export function igniteGas(world: World, x: number, y: number): void {
     if (world.hazards.fires.size >= MAX_FIRES) break
     startFire(world, tile.x, tile.y, Math.min(1, 0.5 + tile.gas), 0.5 + world.rng() * 0.4)
   }
+  // A leak caught in the flash is burnt out: the line is wrecked and stops feeding the room.
+  const burnt = new Set(cloud.map((tile) => tile.y * world.grid.width + tile.x))
+  const outside = (at: Vec) => !burnt.has(Math.floor(at.y) * world.grid.width + Math.floor(at.x))
+  world.hazards.leaks = world.hazards.leaks.filter(outside)
+  world.hazards.sprays = world.hazards.sprays.filter((spray) => spray.kind !== 'gas' || outside(spray))
   const middle = { x: middleX / total, y: middleY / total }
   if (total >= BLAST_GAS) {
     explode(world, middle, {

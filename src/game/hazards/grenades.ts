@@ -5,7 +5,7 @@ import { playSound } from '../sounds'
 import { centerOf, distance, type Vec } from '../types'
 import { hasLineOfSight } from '../vision'
 import type { World } from '../world'
-import { addSmoke } from './smoke'
+import { openAreaAround, topUpSmoke } from './smoke'
 import type { Grenade, GrenadeKind } from './state'
 
 const THROW_SPEED = 15
@@ -15,11 +15,14 @@ const FUSE: Record<GrenadeKind, number> = { smoke: 1.2, flash: 1.5 }
 /** Bounces keep this share of the speed; rolling slows by this share per second. */
 const BOUNCE = 0.35
 const ROLL_FRICTION = 4
-/** A smoke grenade pours out a thick puff for its first moments, then keeps the cloud topped up. */
+/**
+ * A smoke grenade's cloud fills the nearest open tiles (about a 10-tile-wide room) over its first moments,
+ * stays thick while the canister burns, then thins away on its own: about 20 s in all.
+ */
 const SMOKE_SECONDS = 9
 const BLOOM_SECONDS = 1.5
-const BLOOM_RATE = 34
-const KEEP_UP_RATE = 5
+const CLOUD_TILES = 50
+const CLOUD_DENSITY = 1.2
 const FLASH_REACH = 12
 const FLASH_NOISE = 40
 /** Blindness facing the flash at point-blank range, and facing away; deafness at point-blank range. */
@@ -37,7 +40,7 @@ export function throwGrenade(world: World, kind: GrenadeKind, from: Vec, directi
   world.hazards.grenades.push({
     x: from.x - SIZE / 2, y: from.y - SIZE / 2, w: SIZE, h: SIZE,
     vx: (direction.x / length) * THROW_SPEED, vy: (direction.y / length) * THROW_SPEED - LOFT, onGround: false,
-    kind, fuse: FUSE[kind], popped: false, smokeLeft: 0,
+    kind, fuse: FUSE[kind], popped: false, smokeLeft: 0, cloud: [],
   })
 }
 
@@ -55,8 +58,10 @@ export function stepGrenades(world: World, dt: number): void {
     grenade.popped = true
     if (grenade.kind === 'flash') detonateFlash(world, centerOf(grenade))
     else {
-      playSound(world, 'smokePop', centerOf(grenade))
+      const at = centerOf(grenade)
+      playSound(world, 'smokePop', at)
       grenade.smokeLeft = SMOKE_SECONDS
+      grenade.cloud = openAreaAround(world, Math.floor(at.x), Math.floor(at.y), CLOUD_TILES)
     }
   }
   hazards.grenades = hazards.grenades.filter((grenade) => !grenade.popped || grenade.smokeLeft > 0)
@@ -78,9 +83,9 @@ function fly(world: World, grenade: Grenade, dt: number): void {
 }
 
 function pourSmoke(world: World, grenade: Grenade, dt: number): void {
-  const at = centerOf(grenade)
-  const rate = SMOKE_SECONDS - grenade.smokeLeft < BLOOM_SECONDS ? BLOOM_RATE : KEEP_UP_RATE
-  addSmoke(world, Math.floor(at.x), Math.floor(at.y), rate * dt, 'screen')
+  const bloom = Math.min(1, (SMOKE_SECONDS - grenade.smokeLeft) / BLOOM_SECONDS)
+  const reached = Math.ceil(grenade.cloud.length * bloom)
+  for (let index = 0; index < reached; index += 1) topUpSmoke(world, grenade.cloud[index], CLOUD_DENSITY * bloom)
   grenade.smokeLeft -= dt
 }
 

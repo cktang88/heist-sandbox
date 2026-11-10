@@ -16,8 +16,11 @@ export type Fire = {
   room: number
 }
 
-/** A thrown grenade. A flashbang is gone once it pops; a smoke grenade lies there pouring smoke for `smokeLeft` seconds. */
-export type Grenade = Body & { kind: GrenadeKind; fuse: number; popped: boolean; smokeLeft: number }
+/**
+ * A thrown grenade. A flashbang is gone once it pops; a smoke grenade lies there pouring smoke for `smokeLeft`
+ * seconds into `cloud`, the tiles around it it fills.
+ */
+export type Grenade = Body & { kind: GrenadeKind; fuse: number; popped: boolean; smokeLeft: number; cloud: number[] }
 
 export type SprayKind = 'water' | 'foam' | 'steam' | 'gas'
 /** A jet or shower from a burst prop. `spread` is the half-angle of its cone in radians. */
@@ -41,7 +44,11 @@ export type SmokeField = {
   gas: Float32Array
   /** Scratch space for one step's flows, kept to avoid allocating every tick. */
   flow: Float32Array[]
-  active: Set<number>
+  /** Tiles holding anything, `live` marking the same tiles; `seen` stamps the tiles visited in one tick. */
+  active: number[]
+  live: Uint8Array
+  seen: Int32Array
+  stamp: number
   gasCells: number
 }
 

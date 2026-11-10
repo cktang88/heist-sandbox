@@ -14,7 +14,7 @@ import type { HazardState } from './state'
 
 /**
  * Fire, smoke, gas, water and thrown grenades. Fire and smoke live on sparse per-tile maps, so a quiet site
- * costs nothing to step; fire ticks ten times a second and smoke twenty, whatever the frame rate.
+ * costs nothing to step; fire ticks ten times a second and smoke thirty, whatever the frame rate.
  */
 export { createHazards, type GrenadeKind, type HazardState } from './state'
 export { throwGrenade } from './grenades'
@@ -26,7 +26,7 @@ export { fireCells, smokeCells, grenadeViews, sprayViews, flashViews } from './v
 export type { FireCell, SmokeCell, GrenadeView, SprayView, FlashView } from './views'
 
 const FIRE_TICK = 0.1
-const SMOKE_TICK = 0.05
+const SMOKE_TICK = 1 / 30
 const HARM_TICK = 0.5
 /** After a long hitch, skip ahead rather than run many catch-up ticks in one frame. */
 const MAX_TICKS_PER_FRAME = 3
@@ -35,7 +35,7 @@ const BLAST_CATCH_RADIUS = 2.5
 const BLAST_GAS_RADIUS = 3
 
 function isQuiet(hazards: HazardState): boolean {
-  return hazards.fires.size === 0 && hazards.burningProps.size === 0 && !hazards.smoke?.active.size && hazards.grenades.length === 0
+  return hazards.fires.size === 0 && hazards.burningProps.size === 0 && !hazards.smoke?.active.length && hazards.grenades.length === 0
     && hazards.sprays.length === 0 && hazards.flashes.length === 0 && hazards.blasts.length === 0 && hazards.leaks.length === 0
     && hazards.wet.size === 0 && hazards.roomFire.size === 0 && hazards.sprinkling.size === 0
 }
