@@ -6,6 +6,7 @@ import { toolIndex } from '../toolDefs'
 import { createWorld, type World } from '../world'
 import { debriefOf, debriefText } from './chronicle'
 import { guardName } from './names'
+import { note } from './note'
 import { placeName } from './place'
 import { loudRun, parachuteIn, quietRun } from './scenarios'
 import type { BeatKind } from './types'
@@ -81,5 +82,15 @@ describe('the chronicle', () => {
     run(world, 0.5)
     expect(target.mode).toBe('dead')
     expect(world.chronicle.beats.filter((beat) => beat.kind === 'down').at(-1)?.detail).toMatch(/^shot:/)
+  })
+
+  it('keeps the drop and the way in through a very long, very loud night', () => {
+    const world = createWorld(3, 'complex')
+    note(world, 'landed', world.player)
+    note(world, 'entered', world.player, { detail: 'door' })
+    for (let blast = 0; blast < 1000; blast += 1) note(world, 'explosion', world.player, { n: blast })
+    expect(world.chronicle.beats.length).toBeLessThanOrEqual(400)
+    expect(kinds(world)).toContain('landed')
+    expect(kinds(world)).toContain('entered')
   })
 })
