@@ -1,6 +1,6 @@
 import { CanvasTexture, Color, Group, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, Quaternion, Vector3 } from 'three'
 import type { World } from '../../game/world'
-import { isSolidAt } from '../../game/tiles'
+import { isSolidAt, type Grid } from '../../game/tiles'
 import { BACK } from '../levelMesh'
 import { fractalNoise } from '../noise'
 import { cellSeed } from './quads'
@@ -41,6 +41,22 @@ const wallSoot = (x: number, y: number, grain: number) => {
   const streaks = fractalNoise(x, 0.3, 6, 5, 3)
   const body = Math.pow(Math.max(0, 1 - across - (grain - 0.5) * 0.7), 1.8)
   return body * Math.pow(1 - up, 1.2) * Math.min(1, up * 5) * (0.35 + streaks * 0.75)
+}
+
+/**
+ * How far up and down the back wall a soot plume from a burn at (x, y) reaches, in game rows (y down). It climbs about
+ * 1.3 sizes and hangs 0.2 below, but stops at the ceiling: soot does not go on through the slab onto the wall of the
+ * room upstairs (a charge on the ceiling used to stain the room above).
+ */
+export function plumeSpan(grid: Grid, x: number, y: number, size: number): { top: number; bottom: number } {
+  const bottom = y + size * 0.2
+  let top = y - size * 1.3
+  for (let row = Math.floor(y) - 1; row >= Math.floor(top); row -= 1) {
+    if (!isSolidAt(grid, x, row + 0.5)) continue
+    top = row + 1
+    break
+  }
+  return { top: Math.min(top, bottom - 0.3), bottom }
 }
 
 function decals(texture: CanvasTexture): InstancedMesh {
@@ -99,8 +115,9 @@ export function createScorch(): ScorchFx {
       const indoors = world.interiors.some((area) => area.kind === 'room' && x >= area.x && x < area.x + area.w && y >= area.y && y < area.y + area.h)
       if (indoors) {
         // Heat climbs, so the plume's foot sits at the flames and it widens up the wall.
-        place.set(x + (seed - 0.5) * 0.4, -y + size * 0.55, BACK + 0.03 + seed * 0.01)
-        scale.set(size * (0.8 + seed * 0.3), size * 1.5, 1)
+        const span = plumeSpan(world.grid, x, y, size)
+        place.set(x + (seed - 0.5) * 0.4, -(span.top + span.bottom) / 2, BACK + 0.03 + seed * 0.01)
+        scale.set(size * (0.8 + seed * 0.3), span.bottom - span.top, 1)
         add(wall, seed, upright)
       }
       for (let below = tileY; below <= tileY + 2; below += 1) {
