@@ -8,7 +8,7 @@ import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
 import { objectiveText } from '../game/intel/intel'
-import { stealthCues } from '../game/stealth/cues'
+import { stealthCues, type Cue } from '../game/stealth/cues'
 import { stealthRating } from '../game/stealth/rating'
 import { worldToScreen, type Camera } from './camera'
 import { drawIntel } from './intelHud'
@@ -55,8 +55,9 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   const { width, height } = camera
   const unit = hudUnit(height)
   drawSlowmoTint(context, world, width, height)
-  drawVitals(context, world, unit)
-  drawIntel(context, world, unit, width, height)
+  const cues = stealthCues(world)
+  drawVitals(context, world, unit, cues)
+  drawIntel(context, world, unit, width, height, intelTop(unit, cues.length > 0))
   drawSituation(context, world, unit, width)
   drawTools(context, world, unit, width, height)
   drawCrosshair(context, world, camera, aim)
@@ -69,8 +70,15 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   if (world.status !== 'playing') drawEndScreen(context, world, width, height, unit)
 }
 
+/** Where the Intel panel starts: under the vitals, and under the row of stealth tags when there is one. */
+export function intelTop(unit: number, hasCues: boolean): number {
+  return hasCues ? CUES_Y * unit + unit * 0.75 : unit * 5.6
+}
+
+const CUES_Y = 5.9
+
 /** Health, focus and how visible the player is. */
-function drawVitals(context: CanvasRenderingContext2D, world: World, unit: number): void {
+function drawVitals(context: CanvasRenderingContext2D, world: World, unit: number, cues: readonly Cue[]): void {
   const player = world.player
   const x = unit
   const barWidth = unit * 11
@@ -88,14 +96,14 @@ function drawVitals(context: CanvasRenderingContext2D, world: World, unit: numbe
   const word = seen < 0.25 ? 'HIDDEN' : seen < 0.55 ? 'DIM' : 'EXPOSED'
   caption(context, word, x + barWidth + unit * 0.5, unit * 4.1, seen < 0.25 ? '#7ee08a' : seen < 0.55 ? '#e8d27a' : '#ffb347', unit * 0.75, 'left')
   if (player.crouching) caption(context, 'LOW', x + barWidth - unit * 0.2, unit * 3.15, DIM, unit * 0.6, 'right')
-  drawCues(context, world, x, unit * 5.9, unit)
+  drawCues(context, cues, x, unit * CUES_Y, unit)
 }
 
 /** Under the vitals: why the player is or is not being seen, each cue a small tag (green helps, amber gives away). */
-function drawCues(context: CanvasRenderingContext2D, world: World, x: number, y: number, unit: number): void {
+function drawCues(context: CanvasRenderingContext2D, cues: readonly Cue[], x: number, y: number, unit: number): void {
   const size = unit * 0.62
   let left = x
-  for (const cue of stealthCues(world)) {
+  for (const cue of cues) {
     const w = measure(context, cue.text, size) + unit * 0.7
     context.fillStyle = cue.good ? 'rgba(20,60,30,0.75)' : 'rgba(80,40,10,0.8)'
     context.fillRect(left - unit * 0.1, y - size * 1.05, w, size * 1.5)
@@ -105,8 +113,9 @@ function drawCues(context: CanvasRenderingContext2D, world: World, x: number, y:
 }
 
 let lastLight = { clock: -1, level: 0 }
-/** How easy the player is to spot: the light on them, less when crouched. Re-read a few times a second. */
-function visibility(world: World): number {
+/** How easy the player is to spot: the light on them, less when crouched, none shut in a hiding place. Re-read a few times a second. */
+export function visibility(world: World): number {
+  if (world.player.hidden) return 0
   if (Math.abs(world.clock - lastLight.clock) > 0.15) lastLight = { clock: world.clock, level: lightLevelAt(world, centerOf(world.player)) }
   return Math.max(0, Math.min(1, lastLight.level * (world.player.crouching ? 0.65 : 1)))
 }

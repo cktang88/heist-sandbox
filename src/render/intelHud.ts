@@ -15,11 +15,10 @@ const HINTS = ['No intel yet. Make someone talk:', 'a guard with his hands up, h
 type Line = { text: string; colour: string; size: number }
 
 /** The Intel panel, top left under the health and focus bars. */
-export function drawIntel(context: CanvasRenderingContext2D, world: World, unit: number, width: number, height: number): void {
+export function drawIntel(context: CanvasRenderingContext2D, world: World, unit: number, width: number, height: number, top: number): void {
   if (world.intel.places.length < 2 || world.player.hasLoot || world.status !== 'playing') return
   const lines = panelLines(world, unit)
   const x = unit
-  const top = unit * 5.6
   const lineHeight = unit * 1.15
   const textWidth = Math.min(width * 0.4, Math.max(...lines.map((line) => measure(context, line.text, line.size))))
   if (top + lines.length * lineHeight > height * 0.6) lines.length = Math.max(1, Math.floor((height * 0.6 - top) / lineHeight))

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from '../game/input'
 import { stepWorld } from '../game/step'
 import { createWorld, type World } from '../game/world'
-import { objectiveLine } from './drawHud'
+import { intelTop, objectiveLine, visibility } from './drawHud'
 
 const FRAME = 1 / 60
 
@@ -28,5 +28,21 @@ describe('the objective line', () => {
     expect(objectiveLine(world)).toContain(`vault: ${vault.building}`)
     world.player.hasLoot = true
     expect(objectiveLine(world)).toBe('Get back to the van')
+  })
+})
+
+describe('the vitals', () => {
+  it('read fully hidden while shut in a hiding place, whatever the light outside', () => {
+    const world = createWorld(1, 'outpost')
+    world.player.hidden = true
+    expect(visibility(world)).toBe(0)
+  })
+
+  it('leave room for the stealth tags above the Intel panel', () => {
+    const unit = 15
+    // A tag's box ends 0.45 of its text size (0.62 units) under the tag's baseline at 5.9 units.
+    const tagBottom = unit * 5.9 + unit * 0.62 * 0.45
+    expect(intelTop(unit, true)).toBeGreaterThan(tagBottom)
+    expect(intelTop(unit, false)).toBeGreaterThan(unit * 5.1)
   })
 })
