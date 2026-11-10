@@ -1,6 +1,6 @@
 import { Group, Mesh, type Material } from 'three'
 import type { Interior } from '../game/level'
-import { CHUNK_TILES, chunkIndex, TILE_DEFS, TILE_KINDS, tileAt, type Grid, type TileKind } from '../game/tiles'
+import { CHUNK_TILES, chunkIndex, CLEAR_OF_LANE, RUBBLE, TILE_DEFS, TILE_KINDS, tileAt, type Grid, type TileKind } from '../game/tiles'
 import type { Vec } from '../game/types'
 import { addChips, addRebar, coreMaterial, coreTint, type BreakSpec, type Side } from './breaks'
 import { MeshBuilder, type P3, type Rgb } from './meshBuilder'
@@ -138,7 +138,7 @@ export function backLook(shaper: Pick<TileShaper, 'grid' | 'behind' | 'wasSolid'
   return behind & BEHIND_DIRT ? 'dirt' : 'plaster'
 }
 
-const CAVITY_TONE = 0.42
+const CAVITY_TONE = 0.2
 
 /** One row of back wall within a chunk, merged into runs of the same look. */
 function addBackRow(shaper: TileShaper, builder: (name: MeshName) => MeshBuilder, x0: number, x1: number, ty: number): void {
@@ -146,10 +146,46 @@ function addBackRow(shaper: TileShaper, builder: (name: MeshName) => MeshBuilder
   let look = backLook(shaper, x0, ty)
   for (let x = x0 + 1; x <= x1; x += 1) {
     const next = x < x1 ? backLook(shaper, x, ty) : 'none'
+    if (look === 'cavity') scorchTongues(shaper, builder('core'), x - 1, ty)
     if (next === look && x < x1) continue
     if (look !== 'none') backRun(builder, look, start, x, ty)
     start = x
     look = next
+  }
+}
+
+const TONGUE_TONE = CAVITY_TONE * 1.6
+const TONGUE_SIDES: [number, number][] = [[0, -1], [0, 1], [-1, 0], [1, 0]]
+
+/**
+ * Where a cavity meets clean back wall, jagged dark tongues of soot and torn plaster lick out past the tile's
+ * square edge, so the hole's outline is ragged. They sit a hair in front of the wall to avoid z-fighting.
+ */
+function scorchTongues(shaper: TileShaper, core: MeshBuilder, tx: number, ty: number): void {
+  const z = BACK + 0.003
+  for (const [dx, dy] of TONGUE_SIDES) {
+    const [nx, ny] = [tx + dx, ty + dy]
+    if (nx < 0 || ny < 0 || nx >= shaper.grid.width || ny >= shaper.grid.height || backLook(shaper, nx, ny) !== 'plaster') continue
+    // The shared edge, running from (ax, ay) along (ux, uy); game y grows downward, scene y upward.
+    const horizontal = dy !== 0
+    const ax = horizontal ? tx : dx > 0 ? tx + 1 : tx
+    const ay = horizontal ? -(dy > 0 ? ty + 1 : ty) : -(ty + 1)
+    const [ux, uy] = horizontal ? [1, 0] : [0, 1]
+    const [ox, oy] = [dx, -dy]
+    const teeth = 4
+    for (let tooth = 0; tooth < teeth; tooth += 1) {
+      const roll = (salt: number) => cellHash(tx * 4 + tooth, ty * 4 + dx + 2 * dy + 3, salt)
+      const from = tooth / teeth
+      const to = (tooth + 1) / teeth
+      // An uneven flap: each outer corner reaches its own distance, some barely past the edge.
+      const reach = (salt: number) => (roll(salt) < 0.3 ? 0.02 : 0.05 + roll(salt + 1) * 0.22)
+      const at = (along: number, out: number): P3 => [ax + ux * along + ox * out, ay + uy * along + oy * out, z]
+      const corners: [P3, P3, P3, P3] = [at(from, 0), at(to, 0), at(to - roll(125) * 0.08, reach(121)), at(from + roll(126) * 0.08, reach(123))]
+      // Wind the face toward the camera whichever way the edge runs.
+      const facing = (corners[1][0] - corners[0][0]) * (corners[2][1] - corners[0][1]) - (corners[1][1] - corners[0][1]) * (corners[2][0] - corners[0][0])
+      if (facing < 0) corners.reverse()
+      core.quad(corners, [0, 0, 1], corners.map(([x, y]) => [x * UV, y * UV] as [number, number]), TONGUE_TONE)
+    }
   }
 }
 
@@ -237,6 +273,13 @@ export function damageShade(shaper: Pick<TileShaper, 'grid' | 'wasSolid'>, x: nu
   return (1 - worn * WORST_DAMAGE) * (1 - breaks * SOOT_PER_BREAK)
 }
 
+/** Tiles standing aside from the walking lane end here in depth, so it reads that people pass in front of them. */
+const LANE_CLEAR_FRONT = -0.6
+
+function laneFlags(grid: Grid, x: number, y: number): number {
+  return x >= 0 && y >= 0 && x < grid.width && y < grid.height ? grid.lane[y * grid.width + x] : 0
+}
+
 const scaled = (color: Rgb, by: number): Rgb => [color[0] * by, color[1] * by, color[2] * by]
 /** Bevels catch a little more light, like worn edges. */
 const EDGE_LIGHTER = 1.1
@@ -250,13 +293,19 @@ const CORE_DEEP = 0.5
  */
 function addBlock(shaper: TileShaper, builder: (name: MeshName) => MeshBuilder, surface: SurfaceName, tx: number, ty: number): void {
   const { grid, groundY } = shaper
-  const built = builder(surface)
+  const heap = laneFlags(grid, tx, ty) & RUBBLE
+  const setBack = (x: number, y: number) => (laneFlags(grid, x, y) & CLEAR_OF_LANE) !== 0
+  const back = setBack(tx, ty)
+  // Fallen rubble is all broken material, front included.
   const core = builder('core')
-  const open = (dx: number, dy: number) => !fills(tileAt(grid, tx + dx, ty + dy))
-  const broken = (dx: number, dy: number) => open(dx, dy) && shaper.wasSolid(tx + dx, ty + dy)
+  const built = heap ? core : builder(surface)
+  const gone = (dx: number, dy: number) => !fills(tileAt(grid, tx + dx, ty + dy))
+  // A neighbour set back from the lane leaves this tile's side showing in front of it.
+  const open = (dx: number, dy: number) => gone(dx, dy) || (!back && setBack(tx + dx, ty + dy))
+  const broken = (dx: number, dy: number) => (heap ? open(dx, dy) : gone(dx, dy) && shaper.wasSolid(tx + dx, ty + dy))
   const exposed = { top: open(0, -1), bottom: open(0, 1), left: open(-1, 0), right: open(1, 0) }
   const breaks = { top: broken(0, -1), bottom: broken(0, 1), left: broken(-1, 0), right: broken(1, 0) }
-  const [x0, x1, z0, z1] = [tx, tx + 1, BACK, FRONT]
+  const [x0, x1, z0, z1] = [tx, tx + 1, BACK, back ? LANE_CLEAR_FRONT : FRONT]
   const [top, bottom] = [-ty, -(ty + 1)]
 
   // Bevel depth at each corner, zero where neither edge meeting there is exposed.
@@ -284,6 +333,7 @@ function addBlock(shaper: TileShaper, builder: (name: MeshName) => MeshBuilder, 
     bl: cornerColor(x0, ty + 1, shade.bl, groundY, true), br: cornerColor(x1, ty + 1, shade.br, groundY, true),
   }
   const tint = coreTint(surface)
+  if (heap) for (const corner of ['tl', 'tr', 'bl', 'br'] as const) color[corner] = [color[corner][0] * tint[0], color[corner][1] * tint[1], color[corner][2] * tint[2]]
   const coreAt = (corner: keyof typeof shade) => scaled(tint, shade[corner])
   const deep = (rgb: Rgb) => scaled(rgb, CORE_DEEP)
   const flatUv = (corners: P3[]) => corners.map(([x, y]) => [x * UV, y * UV] as [number, number])

@@ -29,9 +29,10 @@ export type Actors = { group: Group; update(world: World, aim: Vec, view: Vec): 
 const STAIR_LANE = -1.5
 
 /** A tile-sized piece of wall, a hair smaller than its cell so a falling stack shows its cracks, textured like the level. */
+const FALLING_SHRINK = 0.96
 const FALLING_BLOCK = (() => {
   const block = new MeshBuilder()
-  const [half, depth] = [0.48, (FRONT - BACK) / 2 - 0.02]
+  const [half, depth] = [FALLING_SHRINK / 2, (FRONT - BACK) / 2 - 0.02]
   block.box(-half, -half, -depth, half, half, depth, 0.5, 0.82)
   return block.build()
 })()
@@ -72,7 +73,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
   })
   const falling: Mesh[] = []
   // Where each falling piece was last seen, so a piece that vanished (landed or broke up) leaves a puff of dust.
-  let fallingSeen = new Map<FallingTile, Vec>()
+  let fallingSeen = new Map<FallingTile, Vec & { slab: boolean }>()
   let lastClock = world.clock
 
   return {
@@ -133,7 +134,11 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
         light.scale.setScalar(0.08)
       })
 
-      const stillFalling = new Map<FallingTile, Vec>()
+      // A storey that comes loose falls as one slab: its tiles share a row and speed, and are drawn as one solid
+      // piece (no cracks, no tipping). A lone piece shows its cracks and tips a little as it drops.
+      const rows = new Set(now.falling.map((tile) => `${tile.x},${tile.y}`))
+      const inSlab = (tile: FallingTile) => rows.has(`${tile.x - 1},${tile.y}`) || rows.has(`${tile.x + 1},${tile.y}`)
+      const stillFalling = new Map<FallingTile, Vec & { slab: boolean }>()
       now.falling.forEach((tile, index) => {
         let mesh = falling[index]
         if (!mesh) {
@@ -144,14 +149,21 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
         }
         mesh.visible = true
         mesh.material = materials[FALLING_SURFACE[tile.kind] ?? 'concrete']
-        // A loose piece tips a little as it drops; kept slight because it snaps square again when it lands.
-        const lean = (((tile.x * 7919) % 13) / 13 - 0.5) * 0.12 * Math.min(1, tile.vy / 12)
+        const slab = inSlab(tile)
+        // Kept slight because the piece snaps square again when it lands.
+        const lean = slab ? 0 : (((tile.x * 7919) % 13) / 13 - 0.5) * 0.12 * Math.min(1, tile.vy / 12)
         mesh.position.set(tile.x + 0.5, -(tile.y + 0.5), (FRONT + BACK) / 2)
         mesh.rotation.set(lean * 0.4, 0, lean)
-        stillFalling.set(tile, { x: tile.x + 0.5, y: tile.y + 1 })
+        mesh.scale.set(slab ? 1 / FALLING_SHRINK : 1, 1, 1)
+        stillFalling.set(tile, { x: tile.x + 0.5, y: tile.y + 1, slab })
       })
       for (let index = now.falling.length; index < falling.length; index += 1) falling[index].visible = false
-      for (const [tile, at] of fallingSeen) if (!stillFalling.has(tile)) effects.dust(at.x, at.y, 1)
+      // A landing slab raises one long cloud: a puff every few tiles along it, bigger than a lone piece's.
+      for (const [tile, at] of fallingSeen) {
+        if (stillFalling.has(tile)) continue
+        if (!at.slab) effects.dust(at.x, at.y, 1)
+        else if (tile.x % 3 === 0) effects.dust(at.x, at.y, 1.6)
+      }
       fallingSeen = stillFalling
 
       const dt = Math.max(0, now.clock - lastClock)

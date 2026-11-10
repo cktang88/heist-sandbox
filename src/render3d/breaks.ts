@@ -13,13 +13,13 @@ export type Side = 'top' | 'bottom' | 'left' | 'right'
 
 /** The raw inside of each material, multiplied into the grey core texture. */
 const CORE_TINT: Record<string, Rgb> = {
-  concrete: [0.6, 0.58, 0.55],
-  reinforced: [0.6, 0.58, 0.55],
-  brick: [0.62, 0.34, 0.25],
-  wood: [0.52, 0.37, 0.22],
-  steel: [0.36, 0.37, 0.4],
-  dirt: [0.42, 0.32, 0.23],
-  rock: [0.35, 0.34, 0.33],
+  concrete: [0.78, 0.76, 0.72],
+  reinforced: [0.78, 0.76, 0.72],
+  brick: [0.85, 0.46, 0.34],
+  wood: [0.72, 0.52, 0.32],
+  steel: [0.5, 0.52, 0.56],
+  dirt: [0.6, 0.46, 0.33],
+  rock: [0.5, 0.49, 0.47],
 }
 
 export function coreTint(surface: string): Rgb {
@@ -28,7 +28,7 @@ export function coreTint(surface: string): Rgb {
 
 /** Materials whose break shows reinforcing bars. */
 const REINFORCED = new Set(['concrete', 'reinforced'])
-const REBAR: Rgb = [0.34, 0.22, 0.16]
+const REBAR: Rgb = [0.55, 0.36, 0.25]
 
 let core: Material | undefined
 
@@ -36,7 +36,7 @@ let core: Material | undefined
 export function coreMaterial(): Material {
   if (core) return core
   const map = typeof document === 'undefined' ? null : coreTexture()
-  core = new MeshStandardMaterial({ map, bumpMap: map, bumpScale: 2.5, roughness: 1, metalness: 0, vertexColors: true })
+  core = new MeshStandardMaterial({ map, bumpMap: map, bumpScale: 1.5, roughness: 1, metalness: 0, vertexColors: true })
   return core
 }
 
@@ -65,12 +65,12 @@ function coreTexture(): CanvasTexture {
 
 /** Brightness of the core texture at (u, v) in 0..1. */
 export function coreValue(u: number, v: number): number {
-  const mottle = fractalNoise(u, v, 8, 41, 4)
-  const stones = fractalNoise(u, v, 24, 43, 2)
-  const pits = fractalNoise(u, v, 48, 47, 2)
-  let value = 0.42 + (mottle - 0.5) * 0.35
-  if (stones > 0.62) value += (stones - 0.62) * 1.6
-  if (pits < 0.3) value -= (0.3 - pits) * 1.8
+  const mottle = fractalNoise(u, v, 4, 41, 4)
+  const stones = fractalNoise(u, v, 10, 43, 3)
+  const pits = fractalNoise(u, v, 16, 47, 2)
+  let value = 0.5 + (mottle - 0.5) * 0.4
+  if (stones > 0.6) value += (stones - 0.6) * 0.9
+  if (pits < 0.32) value -= (0.32 - pits) * 1.2
   return Math.max(0.05, Math.min(1, value))
 }
 
@@ -101,9 +101,9 @@ export function addChips(surfaceBuilder: MeshBuilder, coreBuilder: MeshBuilder, 
   const count = 2 + Math.floor(cellHash(spec.tx + salt, spec.ty, 101) * 2)
   for (let index = 0; index < count; index += 1) {
     const roll = (seed: number) => cellHash(spec.tx * 4 + index + salt, spec.ty, seed)
-    const width = 0.14 + roll(102) * 0.26
+    const width = 0.16 + roll(102) * 0.3
     const start = (index / count) + roll(103) * (1 / count - width * 0.6)
-    const reach = 0.05 + roll(104) * 0.2
+    const reach = 0.08 + roll(104) * 0.3
     const depth = roll(105) < 0.35 ? spec.front - spec.back : 0.3 + roll(106) * 1.4
     const box = chipBox(edge, Math.max(0, Math.min(1 - width, start)), width, reach)
     const [x0, y0, x1, y1] = box
