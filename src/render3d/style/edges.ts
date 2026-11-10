@@ -33,7 +33,11 @@ const EdgeShader = {
     uniform float reach;
     /** Depth jump (world units) where a silhouette line starts and where it is fully inked. */
     uniform vec2 jumpRange;
+    /** 1 where people mark their pixels (alpha 0 in tScene, see people/surface.ts): one line around them, none inside. */
+    uniform float personOutline;
     varying vec2 vUv;
+
+    bool isPerson(vec2 uv) { return personOutline > 0.5 && texture2D(tScene, uv).a < 0.25; }
 
     float distanceAt(vec2 uv) {
       float depth = texture2D(tDepth, uv).x;
@@ -65,7 +69,17 @@ const EdgeShader = {
       float fade = 1.0 - smoothstep(laneDistance + 6.0, laneDistance + 25.0, centre);
       // Light is never inked: lamps, neon, fire, sparks and muzzle flashes glow without an outline.
       fade *= 1.0 - smoothstep(1.5, 3.0, dot(texture2D(tScene, vUv).rgb, vec3(0.2126, 0.7152, 0.0722)));
-      gl_FragColor = vec4(silhouette * fade, crease * fade, 0.0, 1.0);
+      // A figure is only a few art pixels wide: inking its near side would swallow it whole. Its outline goes on the
+      // background pixels just outside it instead (even open sky), and nothing inside it is inked.
+      float outline = 0.0;
+      if (isPerson(vUv)) { fade = 0.0; }
+      else if (personOutline > 0.5) {
+        for (int i = 0; i < 4; i++) {
+          vec2 at = vUv + offsets[i] * texel;
+          if (isPerson(at) && distanceAt(at) < centre - jumpRange.x) outline = 1.0;
+        }
+      }
+      gl_FragColor = vec4(max(silhouette * fade, outline), crease * fade, 0.0, 1.0);
     }`,
 }
 
@@ -78,7 +92,8 @@ export class EdgePass extends Pass {
    * `jumpRange`: a leaning (oblique) view sees floor tops recede by a fair depth per pixel, so it needs a
    * higher threshold than a straight-on view, or whole floors would be inked.
    */
-  constructor(private readonly camera: Camera & { near: number; far: number }, pixelWorld: number, laneDistance: number, jumpRange: [number, number]) {
+  /** `personOutline`: people mark their pixels in this look (pixel looks), so they get an outer line only. */
+  constructor(private readonly camera: Camera & { near: number; far: number }, pixelWorld: number, laneDistance: number, jumpRange: [number, number], personOutline = false) {
     super()
     this.needsSwap = false
     this.material = new ShaderMaterial({
@@ -94,6 +109,7 @@ export class EdgePass extends Pass {
         laneDistance: { value: laneDistance },
         reach: { value: 1 },
         jumpRange: { value: new Vector2(...jumpRange) },
+        personOutline: { value: personOutline ? 1 : 0 },
       },
       depthTest: false,
       depthWrite: false,

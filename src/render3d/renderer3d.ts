@@ -19,7 +19,7 @@ import { createLevelMesh, FRONT, type LevelMesh } from './levelMesh'
 import { createLights } from './lights'
 import { createSurfaceMaterials, setWetness } from './materials'
 import { createPost, type PostChain } from './post'
-import { setPeopleOutdoorFill } from './people/surface'
+import { setPeopleOutdoorFill, setPeopleStandOut } from './people/surface'
 import { createSky, setSkyStyle } from './sky'
 import { BACKDROP_LAYER, createCameraRig, TILES_TALL } from './style/cameraRig'
 import { pixelGrid, type PixelGrid } from './style/pixelGrid'
@@ -70,7 +70,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   const materials = createSurfaceMaterials(renderer.capabilities.getMaxAnisotropy())
   let style: Style = styleFromQuery(location.search)
   let post: PostChain = createPost(renderer, scene, cameras, style)
-  setSurfaceStyle(style.surface)
+  applySurfaceStyle(style)
   const quality = createQualityController(lowDetail ? LOW_DETAIL : 0, lowDetail || pinnedHigh)
   const info = createRenderInfo(renderer, options.get('debug') === '1')
 
@@ -96,7 +96,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     // The cameras' clip planes depend on the look, and the new passes read them when built.
     fitCameras()
     post = createPost(renderer, scene, cameras, style)
-    setSurfaceStyle(style.surface)
+    applySurfaceStyle(style)
     post.setQuality(LADDER[appliedLevel])
     applySize(LADDER[appliedLevel].scale)
   }
@@ -237,6 +237,12 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       applySize(LADDER[appliedLevel].scale)
     },
   }
+}
+
+/** The material side of a look: every standard material's squeeze, and how far people stand out from the room. */
+function applySurfaceStyle(style: Style): void {
+  setSurfaceStyle(style.surface)
+  setPeopleStandOut(style.finish.kind === 'pixel' ? 1 : 0)
 }
 
 /** Moves the backdrop and everything in it to its own layer (see `BACKDROP_LAYER`). */
