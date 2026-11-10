@@ -32,6 +32,20 @@ const KNOWN_FOR = 8
 
 type Cached = { version: number; floorY: number; x: number; hole: number | null }
 const cache = new WeakMap<Guard, Cached>()
+/** The slab row a guard's route last sent him down a hole through, and when: whatever he is doing, that is where he goes. */
+const routedDown = new WeakMap<Guard, { floorY: number; clock: number }>()
+/** A route decision older than this no longer counts. */
+const ROUTE_FRESH = 0.25
+
+/** Movement found the way on goes down through a hole in this slab row (nav.ts). */
+export function routeDown(world: World, guard: Guard, floorY: number): void {
+  routedDown.set(guard, { floorY, clock: world.clock })
+}
+
+function routedDownNow(world: World, guard: Guard, floorY: number): boolean {
+  const routed = routedDown.get(guard)
+  return routed !== undefined && routed.floorY === floorY && world.clock - routed.clock < ROUTE_FRESH
+}
 
 /** The holes this guard may drop through: the nearest on his floor whose landing is not a kill zone. Cached between grid changes. */
 export function holesFor(world: World, guard: Guard): HoleFinder {
@@ -107,7 +121,8 @@ function manBelow(world: World, guard: Guard, floorY: number): Vec | null {
  * hurry for somewhere below, never into a kill zone, and not before he has finished softening up the room.
  */
 export function guardDropsThrough(world: World, guard: Guard, floorY: number): boolean {
-  if (!guardWantsToDrop(guard, floorY)) return false
+  // A searcher or a follower has no target to go by: his route sending him down the hole says it for him.
+  if (!guardWantsToDrop(guard, floorY) && !routedDownNow(world, guard, floorY)) return false
   const column = Math.floor(feetOf(guard).x)
   if (landsInKillZone(world, column, floorY)) return false
   const prep = guard.dropPrep

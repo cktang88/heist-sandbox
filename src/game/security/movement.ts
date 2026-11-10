@@ -9,7 +9,7 @@ import { climbStairs } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
 import type { Body, Vec } from '../types'
 import type { World } from '../world'
-import { holesFor, readyToDrop } from './holeDrop'
+import { holesFor, readyToDrop, routeDown } from './holeDrop'
 import { detourStep, doorHeld, reachedDetourStep } from './blockedDoors'
 import { feetOf, type Guard } from './model'
 
@@ -83,6 +83,7 @@ function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, c
     }
     return startLadder(world, guard, to, speed, dt)
   }
+  if (hop.kind === 'drop') routeDown(world, guard, Math.round(feet.y))
   const goalX = hop.kind === 'walk' || hop.kind === 'drop' ? hop.x : to.x
   const dx = goalX - feet.x
   if (hop.kind === 'drop' && Math.abs(dx) < DROP_EDGE && !readyToDrop(world, guard, hop.x)) {
