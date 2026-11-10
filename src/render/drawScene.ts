@@ -5,6 +5,7 @@ import { createBackdrop } from './backdrop'
 import type { Camera } from './camera'
 import { drawEffects, drawFalling, drawGoggles, drawGuard, drawLamps, drawPlayer, drawProjectiles, drawThings } from './drawActors'
 import { drawPickups, drawProps } from './drawProps'
+import { drawSystemsBehind, drawSystemsFront } from './drawSystems'
 import { createLighting } from './lighting'
 import { drawRain } from './rain'
 import { createTileCache, type TileCache } from './tileCache'
@@ -30,7 +31,8 @@ export function createSceneRenderer(): SceneRenderer {
       context.setTransform(1, 0, 0, 1, 0, 0)
       context.imageSmoothingEnabled = true
       backdrop.draw(context, camera, world.groundY)
-      drawRain(context, camera, world.clock)
+      // Only on a rainy night (the rain condition sets the outdoor masking).
+      if (world.director.masking.outdoors > 0) drawRain(context, camera, world.clock)
 
       // Shake grows with the square of the jolt, so small hits stay subtle and big ones slam.
       const jolt = world.shake * world.shake * MAX_SHAKE_TILES
@@ -44,6 +46,7 @@ export function createSceneRenderer(): SceneRenderer {
       tiles.draw(context, camera, 'back')
       drawProps(context, world)
       drawPickups(context, world)
+      drawSystemsBehind(context, world, camera)
       drawThings(context, world)
       drawLamps(context, world)
       for (const guard of world.guards) drawGuard(context, world, guard)
@@ -58,6 +61,7 @@ export function createSceneRenderer(): SceneRenderer {
       drawGoggles(context, world)
       drawProjectiles(context, world)
       drawEffects(context, world)
+      drawSystemsFront(context, world, camera)
       // Markers, names, barks and arrows are the same over both views: main.ts draws `overlay.ts` on top.
       context.setTransform(1, 0, 0, 1, 0, 0)
     },
