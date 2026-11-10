@@ -30,6 +30,8 @@ const QUIET_DOOR_NOISE = 2
 const KICKED_DOOR_NOISE = 16
 /** Feet this close to the middle of a hole he means to drop through are at its edge (closer and he is over it). */
 const DROP_EDGE = 1.4
+/** Feet may sink this far into a ladder hole in one frame and still be stepped round it. */
+const MAX_SINK = 0.9
 
 /** Stands still (finishing any staircase flight first, since nobody stops halfway up). */
 export function hold(world: World, guard: Guard, dt: number): void {
@@ -93,14 +95,46 @@ export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: num
 function walk(world: World, guard: Guard, speed: number, dt: number): boolean {
   guard.vx += (speed - guard.vx) * Math.min(1, dt * 12)
   guard.vy += GRAVITY * dt
+  const floor = guard.onGround ? Math.round(guard.y + guard.h) : null
   const blocked = moveBody(world.grid, guard, dt)
+  if (floor !== null) stepOverLadderHole(world, guard, floor)
   return blocked && speed !== 0
+}
+
+/**
+ * A ladder hole (an open hatch or manhole) is one tile at the front of the slab: walking past it, he steps round it
+ * on the floor beside it, as he would a walk-past hole, instead of falling down the shaft. Going down a ladder is
+ * done by climbing it (startLadder), never by walking in.
+ */
+function stepOverLadderHole(world: World, guard: Guard, floor: number): void {
+  const feet = guard.y + guard.h
+  if (feet <= floor || feet - floor > MAX_SINK || !ladderHoleAt(world, guard.x + guard.w / 2, floor)) return
+  guard.y = floor - guard.h - 0.001
+  guard.vy = 0
+  guard.onGround = true
+}
+
+/** The column at x in slab row `floorY` is an opening onto a ladder going down (an open hatch, or the ladder's own top). */
+function ladderHoleAt(world: World, x: number, floorY: number): boolean {
+  const column = Math.floor(x)
+  const top = tileAt(world.grid, column, floorY)
+  return top === 'ladder' || (top === 'air' && tileAt(world.grid, column, floorY + 1) === 'ladder')
 }
 
 function ledgeAhead(world: World, guard: Guard): boolean {
   const feet = feetOf(guard)
   const front = feet.x + guard.facing * 0.7
+  if (ladderHoleAt(world, front, Math.round(feet.y))) return false
   return !isSolidAt(world.grid, front, feet.y + 0.5) && !isSolidAt(world.grid, front, feet.y + 1.5)
+}
+
+/** Opens a floor hatch (or manhole cover) as quietly as a door, remembering it was one of their own. */
+function openHatch(world: World, at: Vec): void {
+  world.security.guardDoors.add(doorKeyAt(world, at.x, at.y))
+  openDoor(world.grid, at)
+  world.structureChanged = true
+  emitNoise(world, at, QUIET_DOOR_NOISE, 'guard')
+  playSound(world, 'door', at)
 }
 
 /**
@@ -161,6 +195,8 @@ function startLadder(world: World, guard: Guard, to: Vec, speed: number, dt: num
   }
   const offset = column + 0.5 - feet.x
   if (Math.abs(offset) < 0.25) {
+    const hatch = { x: column, y: Math.round(feet.y) }
+    if (rise > 0 && tileAt(world.grid, hatch.x, hatch.y) === 'door') openHatch(world, hatch)
     guard.climbing = true
     guard.x = column + 0.5 - guard.w / 2
     return 'moving'
@@ -173,7 +209,8 @@ function startLadder(world: World, guard: Guard, to: Vec, speed: number, dt: num
 function climbLadder(world: World, guard: Guard, to: Vec, dt: number): MoveStatus {
   const feet = feetOf(guard)
   const rise = to.y - feet.y
-  const touching = [guard.y + guard.h / 2, feet.y + 0.2].some((y) => tileAt(world.grid, Math.floor(feet.x), Math.floor(y)) === 'ladder')
+  // Going down from the top, the ladder starts under the opened hatch in the floor he stands on.
+  const touching = [guard.y + guard.h / 2, feet.y + 0.2, ...(rise > 0 ? [feet.y + 1.2] : [])].some((y) => tileAt(world.grid, Math.floor(feet.x), Math.floor(y)) === 'ladder')
   if (!touching || Math.abs(rise) < 0.5) {
     // Step off with a small hop toward the goal, clear of the ladder hole.
     guard.climbing = false
@@ -183,6 +220,9 @@ function climbLadder(world: World, guard: Guard, to: Vec, dt: number): MoveStatu
   }
   guard.vx = 0
   guard.vy = Math.sign(rise) * CLIMB_SPEED
+  // A hatch over his head: he pushes it open and climbs on through.
+  const overhead = { x: Math.floor(feet.x), y: Math.floor(guard.y - 0.2) }
+  if (rise < 0 && tileAt(world.grid, overhead.x, overhead.y) === 'door') openHatch(world, overhead)
   moveBody(world.grid, guard, dt)
   if (guard.vy === 0) {
     // Blocked by a locked hatch, or back on a floor.
@@ -198,9 +238,10 @@ function findLadder(world: World, fromX: number, feetY: number, goingUp: boolean
   const start = Math.floor(fromX)
   for (let reach = 0; reach <= LADDER_SEARCH_TILES; reach += 1) {
     for (const column of reach === 0 ? [start] : [start + reach, start - reach]) {
+      const below = tileAt(world.grid, column, bodyRow + 1)
       const found = goingUp
-        ? tileAt(world.grid, column, bodyRow) === 'ladder' && tileAt(world.grid, column, bodyRow - 3) === 'ladder'
-        : tileAt(world.grid, column, bodyRow + 1) === 'ladder'
+        ? tileAt(world.grid, column, bodyRow) === 'ladder' && ['ladder', 'door'].includes(tileAt(world.grid, column, bodyRow - 3))
+        : below === 'ladder' || ((below === 'door' || below === 'air') && tileAt(world.grid, column, bodyRow + 2) === 'ladder')
       if (found) return column
     }
   }
