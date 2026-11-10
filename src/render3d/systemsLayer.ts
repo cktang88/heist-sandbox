@@ -19,6 +19,8 @@ const REACH_Y = DRAW_DISTANCE * 0.55
 const SHEET_Z = 0.42
 const STREAM_Z = 0.1
 const MIN_SHEET = 0.07
+/** Share of live water tiles that carry an arc at all. */
+const LIVE_ARC_SHARE = 0.45
 
 /**
  * The scene is lit in high range and exposed down afterwards: plain unlit colours need lifting to read as bright. Each
@@ -123,7 +125,7 @@ const arcMaterial = () => new ShaderMaterial({
       float bend = (hash(frame + floor(vUv.x * 6.0)) - 0.5) * 0.5;
       float line = 1.0 - smoothstep(0.04, 0.16, abs(vUv.y - 0.5 - bend * sin(vUv.x * 3.14159)));
       float glow = (1.0 - smoothstep(0.0, 0.5, abs(vUv.y - 0.5))) * 0.15;
-      gl_FragColor = vec4(vec3(2.2, 2.8, 3.6) * (line + glow) * on, 1.0);
+      gl_FragColor = vec4(vec3(1.2, 1.5, 2.0) * (line + glow) * on, 1.0);
     }`,
   blending: AdditiveBlending,
   transparent: true,
@@ -203,7 +205,9 @@ export const createSystemsLayer: LayerFactory = (world) => {
         arcCount += 1
       }
       eachLiveTile(world, (x, y) => {
-        if (near(frame, x, y)) addArc(x + 0.5, y + 0.8, 1.4, 0.7, cellSeed(x, y))
+        // Every other tile or so: a flooded floor still reads as live without turning into a strip of lamps.
+        const seed = cellSeed(x, y)
+        if (seed < LIVE_ARC_SHARE && near(frame, x, y)) addArc(x + 0.5, y + 0.8, 1.2, 0.5, seed / LIVE_ARC_SHARE)
       })
       for (const wire of wires) {
         if (wire.live && near(frame, wire.x, wire.bottom)) addArc(wire.x, wire.bottom - 0.15, 0.6, 0.5, cellSeed(wire.x * 3, wire.top))
