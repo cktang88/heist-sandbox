@@ -261,7 +261,7 @@ function throwFlash(world: World, guard: Guard): void {
   if (!target) return
   const eye = eyeOf(guard)
   const dx = target.x - eye.x
-  throwGrenade(world, 'flash', eye, normalize(dx, target.y - eye.y - Math.abs(dx) * 0.35))
+  throwGrenade(world, 'flash', eye, normalize(dx, target.y - eye.y - Math.abs(dx) * 0.35), 'guard')
   world.security.campSeconds = 0
   for (const other of world.guards) if (other.armored && other.mode === 'combat') other.flashCooldown = Math.max(other.flashCooldown, COMBAT.flashCooldown / 2)
   guard.flashCooldown = COMBAT.flashCooldown

@@ -4,11 +4,11 @@ import type { World } from '../world'
 import { fireHeatAt } from './fire'
 import { smokeDensityAt, toxicAt } from './smoke'
 
-/** Damage per second at full heat or in fully toxic smoke. Guards take theirs through `hurtGuard`, which triples it for an unaware guard. */
+/** Damage per second at full heat or in fully toxic smoke. Guards take theirs through `hurtGuard` as hazard damage. */
 const PLAYER_BURN = 18
-const GUARD_BURN = 6
+const GUARD_BURN = 12
 const PLAYER_CHOKE = 3
-const GUARD_CHOKE = 1.5
+const GUARD_CHOKE = 3
 /** Smoke thinner than this is unpleasant but harmless. */
 const CHOKES_AT = 0.5
 
@@ -21,7 +21,7 @@ export function harmPeople(world: World, seconds: number): void {
   for (const guard of world.guards) {
     if (guard.state === 'dead') continue
     const damage = (GUARD_BURN * burnOn(world, guard) + GUARD_CHOKE * chokeOn(world, guard)) * seconds
-    if (damage > 0) hurtGuard(world, guard, damage, { x: guard.x + guard.w / 2, y: guard.y + guard.h })
+    if (damage > 0) hurtGuard(world, guard, damage, { x: guard.x + guard.w / 2, y: guard.y + guard.h }, 'hazard')
   }
 }
 
