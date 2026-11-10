@@ -105,8 +105,8 @@ describe('bonds between guards change what they do', () => {
     expect(a.guard.station).toBeNull()
   })
 
-  it('a partner does not sense his knocked-out partner through a wall, nor one stuffed in a cupboard', () => {
-    for (const where of ['behind a wall', 'in a cupboard'] as const) {
+  it('a partner does not sense his knocked-out partner through a wall, nor one on the intruder\'s shoulder', () => {
+    for (const where of ['behind a wall', 'carried off'] as const) {
       const world = arena()
       const a = person(world, 40)
       const b = person(world, 45)
@@ -114,7 +114,7 @@ describe('bonds between guards change what they do', () => {
       if (where === 'behind a wall') addWall(world, 43)
       run(world, 0.3)
       knockOutCold(world, b.guard, 30)
-      if (where === 'in a cupboard') b.guard.hiddenIn = 0
+      if (where === 'carried off') world.stealth.carried = world.guards.indexOf(b.guard)
       const heard = runListening(world, 2)
       expect(a.guard.station).toBeNull()
       expect(said(heard, 'partnerStays', b, world)).toBe(false)
