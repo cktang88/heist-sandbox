@@ -131,10 +131,10 @@ function visibleCharge(world: World, guard: Guard, wanted: (charge: Charge) => b
   return null
 }
 
-/** An officer on site sends the nearest calm man to search round the charge for whoever planted it. */
+/** An officer on site sends the nearest calm man to search round the charge for whoever planted it; with no officer left, the finder looks himself. */
 function sendOfficersMan(world: World, finder: Guard, at: Vec): void {
   const officer = world.guards.find((guard) => guard.role === 'officer' && isActive(guard))
-  if (!officer) return
+  if (!officer) return startSearch(world, finder, at, CHARGE_SEARCH)
   const sent = world.guards
     .filter((guard) => guard !== finder && isActive(guard) && (guard.mode === 'calm' || guard.mode === 'caution'))
     .sort((a, b) => distance(feetOf(a), at) - distance(feetOf(b), at))[0]
