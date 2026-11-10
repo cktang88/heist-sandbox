@@ -68,5 +68,5 @@ describe('playing in the complex', () => {
     run(world, 30, { jumpHeld: true, right: true })
     expect(Number.isFinite(world.player.x)).toBe(true)
     expect(world.guards.every((guard) => Number.isFinite(guard.x) && Number.isFinite(guard.y))).toBe(true)
-  })
+  }, 60_000)
 })

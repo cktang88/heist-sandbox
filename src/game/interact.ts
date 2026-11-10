@@ -51,7 +51,7 @@ export function interact(world: World, input: Input, dt: number): void {
 function bestAction(world: World): Action | null {
   // Nothing is in reach through the walls of a moving car.
   if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
-  return takedownAction(world) ?? deviceAction(world) ?? elevatorAction(world) ?? doorAction(world)
+  return takedownAction(world) ?? deviceAction(world) ?? elevatorAction(world) ?? deviceAction(world, true) ?? doorAction(world)
 }
 
 function collect(world: World): void {
@@ -127,12 +127,16 @@ function takedownAction(world: World): Action | null {
   return { prompt: 'E: take down', key: 'takedown', run: () => hurtGuard(world, guard, 1000, center) }
 }
 
-/** The nearest device in reach that has something to do. */
-function deviceAction(world: World): Action | null {
+/**
+ * The nearest device in reach that has something to do. Light switches are everywhere, so they only win
+ * when nothing more important (a terminal, a keypad, an elevator) is in reach: pass `switches` to pick them.
+ */
+function deviceAction(world: World, switches = false): Action | null {
   const center = centerOf(world.player)
   let best: Action | null = null
   let bestGap = Number.POSITIVE_INFINITY
   for (const device of world.devices) {
+    if ((device.kind === 'lightSwitch') !== switches) continue
     const gap = distance(center, deviceCenter(device))
     if (gap > (device.kind === 'camera' ? CAMERA_REACH : DEVICE_REACH) || gap >= bestGap) continue
     const action = actionFor(world, device)

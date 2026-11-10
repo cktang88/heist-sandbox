@@ -84,8 +84,9 @@ export function createComplex(seed: number): Level {
 
   const vault = placeVault(site)
   roamingPatrols(site)
-  addDucts(site)
+  // Furnish first, so the ducts can re-hang whatever ceiling fittings end up under them.
   furnishSite(site)
+  addDucts(site)
 
   return {
     name: 'Blackmoor Complex',
