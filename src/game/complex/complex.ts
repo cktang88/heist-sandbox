@@ -115,8 +115,9 @@ function buildSewer(site: SiteDraft): void {
   fill(site, SEWER.left, SEWER.top, SEWER.right, SEWER.bottom, 'air')
   fill(site, SEWER.left, SEWER.bottom, SEWER.right, SEWER.bottom, 'water')
   addRoom(site, 'sewer', 'sewer', -5, SEWER.left, SEWER.right, SEWER.bottom + 1, 4)
-  // Manholes on the street, in the yard and behind the rear fence.
-  for (const x of [22, 82, 285]) fill(site, x, ground, x, SEWER.bottom - 1, 'ladder')
+  // Manholes on the street, in the yard and behind the rear fence. The ladders reach down into the water,
+  // so someone standing on the sewer floor can take hold of them.
+  for (const x of [22, 82, 285]) fill(site, x, ground, x, SEWER.bottom, 'ladder')
   site.guards.push({ x: 120, y: SEWER.bottom + 1, facing: -1, role: 'patrol', route: [{ x: 60, y: SEWER.bottom + 1 }, { x: 200, y: SEWER.bottom + 1 }] })
 }
 
@@ -154,7 +155,7 @@ function buildSilo(site: SiteDraft, x0: number, x1: number): void {
   site.interiors.push({ kind: 'room', x: x0, y: top, w: x1 - x0 + 1, h: SILO_HEIGHT })
   addRoom(site, 'silo', 'silo', 0, x0 + 1, x1 - 1, ground, SILO_HEIGHT - 1)
   if (x0 === SILOS[1].x0) {
-    fill(site, x0 + 3, ground + 1, x0 + 3, SEWER.top - 1, 'ladder')
+    fill(site, x0 + 3, ground + 1, x0 + 3, SEWER.bottom, 'ladder')
     setTile(site.grid, x0 + 3, ground, 'door')
   }
 }
@@ -189,13 +190,16 @@ function buildWatchtower(site: SiteDraft, x: number, facing: 1 | -1): void {
   fill(site, x, deck, x + 4, deck, 'reinforced')
   fill(site, x, deck + 1, x, ground - 1, 'reinforced')
   fill(site, x + 4, deck + 1, x + 4, ground - 1, 'reinforced')
+  // Gates between the legs, so the tower does not wall off the ground it stands on.
+  for (const leg of [x, x + 4]) fill(site, leg, ground - 3, leg, ground - 1, 'door')
   fill(site, x + 2, deck, x + 2, ground - 1, 'ladder')
   fill(site, x, deck - 5, x + 4, deck - 5, 'steel')
   // Wire mesh sides hold the roof up and still let the sentry see and shoot out.
   fill(site, x, deck - 4, x, deck - 1, 'fence')
   fill(site, x + 4, deck - 4, x + 4, deck - 1, 'fence')
   site.guards.push({ x: x + (facing === 1 ? 3 : 1), y: deck, facing, role: 'sentry' })
-  site.lamps.push({ x: x + 2.5 + facing * 2, y: deck - 3.5, fixture: 'floodlight', color: LIGHT.sterile, radius: 16, strength: 3, hung: false })
+  // Just inside the mesh side it shines out of.
+  site.lamps.push({ x: x + 2.5 + facing * 1.4, y: deck - 3.5, fixture: 'floodlight', color: LIGHT.sterile, radius: 16, strength: 3, hung: false })
 }
 
 /** Records the open-air areas as rooms so they can be dressed and patrolled like any other. */
