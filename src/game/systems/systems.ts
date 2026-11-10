@@ -10,7 +10,7 @@ import { stepHeat } from './heat'
 import { dropBrokenFittings, loosenFittings, stepFallingFittings } from './hanging'
 import { hitTarget } from './hits'
 import { sparkSwitchedCircuits } from './ignition'
-import { stepLiquid } from './liquid'
+import { clearFalls, stepLiquid } from './liquid'
 import { blastPipes, watchFixtures } from './pipes'
 import { stepRolling } from './rolling'
 import { stepShocks } from './shock'
@@ -75,6 +75,7 @@ export function stepSystems(world: World, dt: number): void {
 }
 
 function liquidTick(world: World, tick: number): void {
+  clearFalls(world)
   watchFixtures(world)
   watchTanks(world)
   dropBrokenFittings(world)

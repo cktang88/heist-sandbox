@@ -92,6 +92,12 @@ export function pourLiquid(world: World, kind: LiquidKind, x: number, y: number,
   return key
 }
 
+/** Forgets last tick's streams; called before anything pours this tick. */
+export function clearFalls(world: World): void {
+  if (world.systems.water) world.systems.water.falls.length = 0
+  if (world.systems.fuel) world.systems.fuel.falls.length = 0
+}
+
 /** Takes up to `amount` of liquid out of a tile (burnt fuel, water boiled off). */
 export function takeLiquid(world: World, kind: LiquidKind, key: number, amount: number): void {
   const field = world.systems[kind]
@@ -137,7 +143,6 @@ function stairBelow(world: World, x: number, floorRow: number): number {
 export function stepLiquid(world: World, kind: LiquidKind, tick: number): void {
   const field = world.systems[kind]
   if (!field || field.size !== world.grid.width * world.grid.height) return
-  field.falls.length = 0
   for (let pass = 0; pass < PASSES && field.active.length > 0; pass += 1) {
     const count = field.active.length
     for (let index = 0; index < count; index += 1) flowFrom(world, field, field.active[index])
