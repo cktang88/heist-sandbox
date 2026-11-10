@@ -8,13 +8,16 @@ import type { World } from '../world'
 const KIND_WORDS: Partial<Record<RoomKind, string>> = {
   breakRoom: 'break room', loadingDock: 'loading dock', elevatorLobby: 'lift lobby', mechanical: 'plant room',
   electrical: 'electrical room', executive: 'executive suite', conference: 'conference room', security: 'security office',
-  server: 'server room', lockers: 'locker room', cells: 'holding cells', janitor: 'janitor closet', lab: 'laboratory',
+  server: 'server room', lockers: 'locker room', cells: 'holding cells', janitor: 'janitor closet', lab: 'laboratory', storage: 'store room',
 }
 
 const STOREY_ROWS = 6
 
+/** A spot in a wall or doorway between rooms still belongs to the room beside it. */
+const BESIDE = 3
+
 export function placeName(world: World, feet: Vec): string {
-  const room = roomOf(world, feet)
+  const room = roomOf(world, feet) ?? roomOf(world, { x: feet.x - BESIDE, y: feet.y }) ?? roomOf(world, { x: feet.x + BESIDE, y: feet.y })
   if (!room) return looseSpot(world, feet)
   const building = room.building
   switch (room.kind) {
@@ -49,5 +52,5 @@ function looseSpot(world: World, feet: Vec): string {
   if (feet.y > world.groundY + 1) return 'the tunnels under the site'
   const storey = Math.round((world.groundY - feet.y) / STOREY_ROWS)
   if (storey <= 0) return 'the street'
-  return `the ${storeyWord(storey)} of the ${world.name.toLowerCase()}`
+  return `a ${storeyWord(storey)} corridor`
 }

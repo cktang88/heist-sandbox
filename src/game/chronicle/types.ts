@@ -79,7 +79,7 @@ export type ChronicleState = {
   guards: { modes: string[]; out: boolean[]; tied: boolean[] }
   /** Before the player is first inside: a copy of the tile kinds and the recent changes near him, to tell how he got in. */
   entry: { kinds: Uint8Array | null; mark: number; openings: Opening[] }
-  destruction: { blasts: WeakSet<object>; lastBlast: (Vec & { t: number }) | null; lastBlastBeat: number; falling: boolean; fires: number; blaze: boolean; vehicles: number[] | null; wrecked: Set<number> }
+  destruction: { blasts: WeakSet<object>; lastBlast: (Vec & { t: number }) | null; lastBlastBeat: number; falling: boolean; lastFireAt: number; blaze: boolean; vehicles: number[] | null; wrecked: Set<number> }
   hide: HideStreak | null
   /** Seconds until the next slow look (guards, fires, hiding). */
   slowTimer: number
@@ -93,7 +93,7 @@ export function createChronicle(): ChronicleState {
     security: { level: 0, spotted: 0, bodies: 0, clues: 0, moves: 0, lastSpottedBeat: -Infinity },
     guards: { modes: [], out: [], tied: [] },
     entry: { kinds: null, mark: 0, openings: [] },
-    destruction: { blasts: new WeakSet(), lastBlast: null, lastBlastBeat: -Infinity, falling: false, fires: 0, blaze: false, vehicles: null, wrecked: new Set() },
+    destruction: { blasts: new WeakSet(), lastBlast: null, lastBlastBeat: -Infinity, falling: false, lastFireAt: -Infinity, blaze: false, vehicles: null, wrecked: new Set() },
     hide: null,
     slowTimer: 0,
   }

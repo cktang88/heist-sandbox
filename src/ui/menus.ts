@@ -8,6 +8,7 @@ import { showHint } from './hint'
 import { createLayerStack } from './layers'
 import './menu.css'
 import { pauseMenu } from './pauseMenu'
+import { pastHeistsButton, pastHeistsModal } from './debrief'
 import { settingsModal } from './settingsModal'
 
 /** What the menus need from the game loop. */
@@ -25,7 +26,7 @@ export type Menus = {
   afterStep(world: World): void
 }
 
-type ModalName = 'controls' | 'help' | 'settings'
+type ModalName = 'controls' | 'help' | 'settings' | 'past'
 
 /**
  * The pause menu and the controls, help and settings screens, drawn as page elements over the game.
@@ -50,6 +51,7 @@ export function createMenus(host: MenuHost): Menus {
     if (stack.top() === name) return
     if (name === 'controls') stack.push(name, controlsModal())
     if (name === 'help') stack.push(name, helpModal())
+    if (name === 'past') stack.push(name, pastHeistsModal())
     if (name === 'settings') stack.push(name, settingsModal(settings, {
       live: (chosen) => {
         settings = chosen
@@ -60,14 +62,16 @@ export function createMenus(host: MenuHost): Menus {
   }
 
   function openPause(): void {
-    stack.push('pause', pauseMenu(currentSeed(), host.site, {
+    const pause = pauseMenu(currentSeed(), host.site, {
       resume: () => stack.clear(),
       controls: () => openModal('controls'),
       help: () => openModal('help'),
       settings: () => openModal('settings'),
       sameSeed: () => startHeist(currentSeed()),
       newSeed: () => startHeist(randomSeed()),
-    }))
+    })
+    pause.querySelector('.sg-rule')?.before(pastHeistsButton(() => openModal('past')))
+    stack.push('pause', pause)
   }
 
   // Bubble phase on `document`: the menus' own handlers (Tab trapping, Enter on buttons) run first,

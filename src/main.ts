@@ -21,6 +21,13 @@ import { onLookChange, randomSeed, writeSeed } from './ui/address'
 import { loadingScreen, nextPaint } from './ui/loading'
 import { enableStepTimings, stepTimings } from './game/stepTimings'
 import { createMenus } from './ui/menus'
+// Director, briefing, weather and debrief (src/game/director, src/game/chronicle, src/ui/debrief.ts).
+import { startDirector } from './game/director/director'
+import { debriefOf } from './game/chronicle/chronicle'
+import { showBriefing } from './ui/briefing'
+import { showDebrief } from './ui/debrief'
+import { rememberHeist } from './ui/debriefStore'
+import { createWeather } from './ui/weather'
 
 const MAX_FRAME_SECONDS = 1 / 30
 
@@ -61,7 +68,9 @@ await nextPaint()
 const scene = measured('create renderer', createScene)
 loading.show(0.06, 'Generating the complex')
 await nextPaint()
-let world: World = measured('create world', () => createWorld(newSeed(), siteKind))
+let heistSeed = newSeed()
+let world: World = measured('create world', () => createWorld(heistSeed, siteKind))
+startDirector(world)
 let lastTime = performance.now()
 let view = centerOf(world.player)
 let aim = view
@@ -90,6 +99,7 @@ function finishLoading(now: number): void {
   if (new URLSearchParams(location.search).get('debug') === '1') console.info(`[perf] building during loading: ${buildMsSpent()} ms of script`)
   // The time spent loading is not game time.
   lastTime = now
+  showBriefing(world)
 }
 
 /**
@@ -113,8 +123,23 @@ function startHeist(seed: number): void {
   writeSeed(seed)
   loading.show(0.06, 'Generating the complex')
   world = createWorld(seed, siteKind)
+  heistSeed = seed
+  startDirector(world)
+  closeDebrief()
   view = centerOf(world.player)
   beginLoading()
+}
+
+// --- The debrief: when the heist ends (won or dead), its story goes on screen and into the past-heists list. ---
+const weather = createWeather()
+let closeDebrief = () => {}
+let debriefed: World | null = null
+function debriefIfOver(): void {
+  if (world.status === 'playing' || debriefed === world) return
+  debriefed = world
+  const entry = { debrief: debriefOf(world), seed: heistSeed, site: siteKind, when: new Date().toLocaleString() }
+  rememberHeist(entry)
+  closeDebrief = showDebrief(entry, { sameSeed: () => startHeist(heistSeed), newSeed: () => startHeist(randomSeed()) })
 }
 // `?debug=1` times each game system; read the slowest steps with `__stepTimings()` in the console.
 if (new URLSearchParams(location.search).get('debug') === '1') {
@@ -163,7 +188,9 @@ function frame(now: number): void {
       stepWorld(world, frameInput, realDt)
       menus.afterStep(world)
     })
+    debriefIfOver()
   }
+  weather.update(world)
   audio.update(world)
   timed('scene', () => {
     if (scene.draw3d) {

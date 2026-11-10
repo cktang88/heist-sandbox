@@ -1,6 +1,7 @@
 import { isVehicle } from '../vehicles/vehicles'
 import type { World } from '../world'
 import { note } from './note'
+import type { Beat } from './types'
 
 /**
  * Big destruction: explosions (each new blast flash), storeys coming down (a burst of falling structure), fires that
@@ -13,6 +14,8 @@ const BLAST_BEAT_GAP = 8
 const COLLAPSE_TILES = 30
 /** Burning tiles at once that make a fire worth telling. */
 const BLAZE_TILES = 12
+/** A fire that dies down and flares up again within this long is the same fire. */
+const SAME_FIRE = 30
 
 /** Every step: a blast flash lives only a moment. */
 export function watchBlasts(world: World): void {
@@ -47,15 +50,23 @@ function watchFire(world: World): void {
   const tally = world.chronicle.tally
   const burning = world.hazards.fires.size
   tally.maxFire = Math.max(tally.maxFire, burning)
-  if (!seen.blaze && burning >= BLAZE_TILES) {
-    seen.blaze = true
-    const first = world.hazards.fires.values().next().value
-    if (first) note(world, 'fire', { x: first.x + 0.5, y: first.y + 1 }, { n: burning })
-  } else if (seen.blaze) {
-    const beat = [...world.chronicle.beats].reverse().find((old) => old.kind === 'fire')
+  if (burning > 0) seen.lastFireAt = world.clock
+  if (seen.blaze) {
+    const beat = lastFire(world)
     if (beat) beat.n = Math.max(beat.n ?? 0, burning)
-    if (burning === 0) seen.blaze = false
+    if (burning === 0 && world.clock - seen.lastFireAt > SAME_FIRE) seen.blaze = false
+    return
   }
+  if (burning < BLAZE_TILES) return
+  seen.blaze = true
+  const first = world.hazards.fires.values().next().value
+  if (first) note(world, 'fire', { x: first.x + 0.5, y: first.y + 1 }, { n: burning })
+}
+
+function lastFire(world: World): Beat | undefined {
+  const beats = world.chronicle.beats
+  for (let index = beats.length - 1; index >= 0; index -= 1) if (beats[index].kind === 'fire') return beats[index]
+  return undefined
 }
 
 function watchVehicles(world: World): void {

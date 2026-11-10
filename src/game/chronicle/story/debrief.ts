@@ -105,6 +105,7 @@ function openingLine(record: HeistRecord, choose: Chooser): string {
 function entryLine(record: HeistRecord, choose: Chooser): string | null {
   const entered = record.beats.find((beat) => beat.kind === 'entered')
   if (!entered) return null
+  if (entered.detail === 'sewer' && /sewer|tunnels/.test(entered.place)) return '{When}, the intruder went in underground, through the sewer.'
   const how = choose('entry', ENTRY_WORDS[entered.detail ?? 'open'] ?? ENTRY_WORDS.open)
   return `{When}, the intruder ${how} ${entered.place}.`
 }
@@ -136,9 +137,9 @@ function fillers(record: HeistRecord): string[] {
   const lines: string[] = []
   if (n.seen === 0) lines.push('No guard so much as glimpsed the intruder.')
   if (n.peakLevel === 0) lines.push('Not one alarm was raised; the radio log reads "all quiet" from start to finish.')
-  if (n.killed === 0 && n.knockedOut === 0) lines.push('Nobody was hurt.')
+  if (n.killed === 0 && n.knockedOut === 0) lines.push('Not a single guard was hurt.')
   if (n.clues > 0) lines.push(`Along the way the intruder picked up ${count(n.clues, 'clue')} about where the case was kept.`)
-  lines.push(`The whole job took ${clock(record.seconds)}.`)
+  if (record.outcome === 'won') lines.push(`The whole job took ${clock(record.seconds)}.`)
   return lines
 }
 

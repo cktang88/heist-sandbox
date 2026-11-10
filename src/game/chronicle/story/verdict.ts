@@ -30,8 +30,8 @@ const VERDICTS: Record<Style, readonly string[]> = {
 const DIED: readonly string[] = ['The job ended on the floor.', 'A bad night with no way home.', 'The house won this one.']
 
 export function verdictOf(record: HeistRecord, style: Style, choose: Chooser): { style: Style; word: string; line: string } {
-  const line = record.outcome === 'dead' ? choose('verdict-dead', DIED) : choose('verdict', VERDICTS[style])
-  return { style, word: STYLE_WORDS[style], line }
+  if (record.outcome === 'dead') return { style, word: 'Failed', line: choose('verdict-dead', DIED) }
+  return { style, word: STYLE_WORDS[style], line: choose('verdict', VERDICTS[style]) }
 }
 
 /** "Blackmoor Complex" reads as "Blackmoor" in a headline. */
