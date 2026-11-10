@@ -5,6 +5,7 @@ import { hurtGuard } from './guards'
 import { igniteAt } from './hazards/hazards'
 import { emitNoise } from './noise'
 import { reportEvent } from './security/report'
+import { throwPropsFromBlast } from './physprops/blast'
 import { pushRagdoll } from './ragdoll'
 import { playSound } from './sounds'
 import { triggerSlowmo } from './time'
@@ -68,6 +69,7 @@ function blowUp(world: World, at: Vec, blast: Blast, cause: BlastCause): void {
   }
 
   hurtPropsInRadius(world, at, blast.radius, blast.bodyDamage)
+  throwPropsFromBlast(world, at, blast.radius)
 
   let killed = 0
   for (const guard of world.guards) {
