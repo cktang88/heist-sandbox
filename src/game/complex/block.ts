@@ -28,6 +28,11 @@ export type BlockSpec = {
 const TALL: readonly RoomKind[] = ['lobby', 'cafeteria', 'gym', 'lab', 'server', 'loadingDock', 'garage', 'lounge', 'workshop', 'mechanical']
 const BEAM_EVERY = 14
 const MIN_ROOM = 8
+/**
+ * A strip left over beside a staircase or the outer wall is still made a (small) room down to this width:
+ * walled off solid instead, it would bury the street door or doorway that opens onto it.
+ */
+const MIN_LEFTOVER = 6
 const MAX_ROOM = 22
 const TALL_ROOM_ODDS = 0.55
 const OPEN_ARCH_ODDS = 0.3
@@ -133,7 +138,7 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
 
   let cursor = left
   for (const zone of zones) {
-    if (zone.from - 2 >= cursor + MIN_ROOM - 1) {
+    if (zone.from - 2 >= cursor + MIN_LEFTOVER - 1) {
       furnish({ from: cursor, to: zone.from - 2 })
       partition(site, zone.from - 1, floorY, zone.kind === 'void' ? 'overlook' : 'door')
     } else if (zone.from - 1 >= cursor) {
@@ -147,7 +152,7 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
     cursor = zone.to + 2
     if (cursor - 1 <= right) partition(site, zone.to + 1, floorY, zone.kind === 'void' ? 'overlook' : 'door')
   }
-  if (right >= cursor + MIN_ROOM - 1) furnish({ from: cursor, to: right })
+  if (right >= cursor + MIN_LEFTOVER - 1) furnish({ from: cursor, to: right })
   else if (right >= cursor) fill(site, cursor, floorY - ROOM_HEIGHT, right, floorY - 1, spec.facade)
 
   return voidsAbove
