@@ -44,30 +44,9 @@ export type SlabRow = { y: number; x0: number; x1: number; top: number; bottom: 
 export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): number[] {
   const { width, height, kinds } = grid
   const size = width * height
-  const supported = new Uint8Array(size)
-  // Every tile can be on the stack at most once, so a fixed buffer is enough. Run on every door opened, so kept lean.
-  const stack = new Int32Array(size)
-  let top = 0
-  const reach = (next: number): void => {
-    if (supported[next] || !CARRIES[kinds[next]]) return
-    supported[next] = 1
-    stack[top++] = next
-  }
-  const hanger = HANGER_ROWS * width
-  const spread = (): void => {
-    while (top > 0) {
-      const index = stack[--top]
-      const x = index % width
-      if (index >= width) reach(index - width)
-      if (index + width < size) reach(index + width)
-      if (x > 0) reach(index - 1)
-      if (x < width - 1) reach(index + 1)
-      // Ducts hang on rods from the slab two rows up, over their crawl space, not from the doors they pass over.
-      if (index + hanger < size && kinds[index + hanger] === DUCT) reach(index + hanger)
-    }
-  }
-  for (let index = (height - 1) * width; index < size; index += 1) if (SOLID[kinds[index]]) reach(index)
-  spread()
+  clearScratch(size)
+  for (let index = (height - 1) * width; index < size; index += 1) if (SOLID[kinds[index]]) reach(kinds, index)
+  spread(grid)
   const loose: number[] = []
   for (let index = 0; index < size; index += 1) if (!supported[index] && SOLID[kinds[index]]) loose.push(index)
   // Almost always everything is held by the plain rule; the back walls only need asking when something is not.
@@ -76,14 +55,57 @@ export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): num
   const held = new Uint8Array(slabs.length)
   for (let changed = true; changed;) {
     changed = false
-    slabs.forEach((slab, entry) => {
-      if (held[entry] || !holdSlab(grid, supported, slab, reach)) return
+    for (let entry = 0; entry < slabs.length; entry += 1) {
+      if (held[entry] || !holdSlab(grid, slabs[entry])) continue
       held[entry] = 1
       changed = true
-      spread()
-    })
+      spread(grid)
+    }
   }
-  return loose.filter((index) => !supported[index])
+  let kept = 0
+  for (const index of loose) if (!supported[index]) loose[kept++] = index
+  loose.length = kept
+  return loose
+}
+
+/**
+ * Scratch for `findUnsupported`, kept between calls (it runs on every door opened): one flag per tile, and a stack
+ * that can hold every tile once.
+ */
+let supported = new Uint8Array(0)
+let stack = new Int32Array(0)
+let top = 0
+
+function clearScratch(size: number): void {
+  if (supported.length !== size) {
+    supported = new Uint8Array(size)
+    stack = new Int32Array(size)
+  } else supported.fill(0)
+  top = 0
+}
+
+/** Marks a tile held and queues it, if it carries weight and is not already held. */
+function reach(kinds: Uint8Array, next: number): void {
+  if (supported[next] || !CARRIES[kinds[next]]) return
+  supported[next] = 1
+  stack[top++] = next
+}
+
+/** Holds everything touching the queued tiles, and so on outwards. */
+function spread(grid: Grid): void {
+  const { width, kinds } = grid
+  const size = kinds.length
+  const hanger = HANGER_ROWS * width
+  while (top > 0) {
+    const index = stack[--top]
+    const x = index % width
+    if (index >= width) reach(kinds, index - width)
+    if (index + width < size) reach(kinds, index + width)
+    if (x > 0) reach(kinds, index - 1)
+    if (x < width - 1) reach(kinds, index + 1)
+    // Ducts hang on rods from the slab two rows up, over their crawl space, not from the doors they pass over.
+    if (index + hanger < size && kinds[index + hanger] === DUCT) reach(kinds, index + hanger)
+  }
 }
 
 /**
@@ -94,7 +116,7 @@ export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): num
  * it: only what a blast destroyed disappears. A storey comes down only once nothing at all holds its slab (its walls
  * and the storeys below are gone). Returns true if it held the row.
  */
-function holdSlab(grid: Grid, supported: Uint8Array, slab: SlabRow, reach: (index: number) => void): boolean {
+function holdSlab(grid: Grid, slab: SlabRow): boolean {
   if (slab.y < 0 || slab.y >= grid.height) return false
   const x0 = Math.max(0, slab.x0)
   const x1 = Math.min(grid.width - 1, slab.x1)
@@ -105,7 +127,7 @@ function holdSlab(grid: Grid, supported: Uint8Array, slab: SlabRow, reach: (inde
   const from = Math.max(0, slab.top, slab.y - STOREY + 1)
   const to = Math.min(grid.height - 1, slab.bottom, slab.y + STOREY - 1)
   for (let y = from; y <= to; y += 1) {
-    for (let x = x0; x <= x1; x += 1) if (SOLID[grid.kinds[y * grid.width + x]]) reach(y * grid.width + x)
+    for (let x = x0; x <= x1; x += 1) if (SOLID[grid.kinds[y * grid.width + x]]) reach(grid.kinds, y * grid.width + x)
   }
   return true
 }
@@ -139,8 +161,27 @@ export function stepCollapse(world: World, dt: number): void {
   if (world.falling.length === 0) return
 
   // Lowest first, so a falling stack lands in order instead of on top of itself.
-  world.falling.sort((a, b) => b.y - a.y)
-  world.falling = world.falling.filter((tile) => !dropTile(world, tile, dt))
+  const { falling } = world
+  sortLowestFirst(falling)
+  let kept = 0
+  for (const tile of falling) if (!dropTile(world, tile, dt)) falling[kept++] = tile
+  falling.length = kept
+}
+
+/**
+ * Sorts falling tiles lowest first, in place and keeping the order of equals (as `sort` does). They fall at much
+ * the same pace, so the list is nearly in order already from the last frame and this is about one pass.
+ */
+function sortLowestFirst(falling: FallingTile[]): void {
+  for (let next = 1; next < falling.length; next += 1) {
+    const tile = falling[next]
+    let at = next
+    while (at > 0 && falling[at - 1].y < tile.y) {
+      falling[at] = falling[at - 1]
+      at -= 1
+    }
+    falling[at] = tile
+  }
 }
 
 /** A piece of the reinforced frame that comes loose is wrecked by the fall: it lands as ordinary rubble. */
@@ -155,8 +196,8 @@ function dropTile(world: World, tile: FallingTile, dt: number): boolean {
   const box = { x: tile.x, y: tile.y, w: 1, h: 1 }
 
   if (tile.vy > CRUSH_SPEED) {
-    const guard = world.guards.find((other) => other.state !== 'dead' && touches(box, other))
-    if (guard) {
+    for (const guard of world.guards) {
+      if (guard.state === 'dead' || !touches(box, guard)) continue
       hurtGuard(world, guard, CRUSH_DAMAGE, box)
       return shatter(world, tile)
     }
@@ -211,12 +252,21 @@ function shatter(world: World, tile: FallingTile): boolean {
 
 function occupied(world: World, cell: Rect): boolean {
   if (touches(cell, world.player) || (!world.loot.taken && touches(cell, world.loot))) return true
-  if (world.pickups.some((pickup) => !pickup.taken && touches(cell, pickup))) return true
-  if ([...world.hazards.grenades, ...world.frags, ...world.charges].some((thrown) => touches(cell, thrown))) return true
-  if (propsAt(world, cell.x, cell.y).some((id) => standsIn(world, propById(world, id), cell))) return true
-  return world.guards.some((guard) => guard.ragdoll
-    ? guard.ragdoll.points.some((point) => point.x >= cell.x && point.x < cell.x + 1 && point.y >= cell.y && point.y < cell.y + 1)
-    : touches(cell, guard))
+  for (const pickup of world.pickups) if (!pickup.taken && touches(cell, pickup)) return true
+  for (const thrown of world.hazards.grenades) if (touches(cell, thrown)) return true
+  for (const thrown of world.frags) if (touches(cell, thrown)) return true
+  for (const thrown of world.charges) if (touches(cell, thrown)) return true
+  for (const id of propsAt(world, cell.x, cell.y)) if (standsIn(world, propById(world, id), cell)) return true
+  for (const guard of world.guards) {
+    if (!guard.ragdoll) {
+      if (touches(cell, guard)) return true
+      continue
+    }
+    for (const point of guard.ragdoll.points) {
+      if (point.x >= cell.x && point.x < cell.x + 1 && point.y >= cell.y && point.y < cell.y + 1) return true
+    }
+  }
+  return false
 }
 
 /** Floor furniture, or anything the player has knocked loose (an extinguisher thrown off its wall), in the cell. */
