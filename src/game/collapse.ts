@@ -14,6 +14,8 @@ const CRUSH_SPEED = 6
 const CRUSH_DAMAGE = 60
 const PLAYER_CRUSH_DAMAGE = 25
 const MAX_FALL_SPEED = 30
+/** A duct floor sits this many rows under the slab it hangs from (one row of crawl space between). */
+const HANGER_ROWS = 2
 
 /**
  * Finds solid tiles that are no longer held up. A tile is supported when a chain of
@@ -33,10 +35,12 @@ export function findUnsupported(grid: Grid): number[] {
       queue.push(index)
     }
   }
+  // Ducts hang on rods from the slab two rows up, over their crawl space, not from the doors they pass over.
+  const hangsBelow = (index: number) => index + HANGER_ROWS * width < supported.length && TILE_KINDS[grid.kinds[index + HANGER_ROWS * width]] === 'duct'
   while (queue.length > 0) {
     const index = queue.pop()!
     const x = index % width
-    const neighbours = [index - width, index + width, x > 0 ? index - 1 : -1, x < width - 1 ? index + 1 : -1]
+    const neighbours = [index - width, index + width, x > 0 ? index - 1 : -1, x < width - 1 ? index + 1 : -1, hangsBelow(index) ? index + HANGER_ROWS * width : -1]
     for (const next of neighbours) {
       if (next < 0 || next >= supported.length || supported[next] || !carries(next)) continue
       supported[next] = 1
