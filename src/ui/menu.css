@@ -108,15 +108,16 @@ kbd {
 
 /* Controls: groups flow in columns. */
 .sg-controls { columns: 3 17em; column-gap: 2.2em; }
-.sg-group { break-inside: avoid; margin: 0 0 1.1em; }
+/* Long names (a dossier card) wrap inside their column instead of running into the next. */
+.sg-group { break-inside: avoid; margin: 0 0 1.1em; overflow-wrap: anywhere; min-width: 0; }
 .sg-ui h3 {
   margin: 0 0 0.5em; font-size: 0.8em; letter-spacing: 0.25em; text-transform: uppercase; color: var(--sg-amber);
   border-bottom: 1px solid var(--sg-line); padding-bottom: 0.3em;
 }
-.sg-group dl { display: grid; grid-template-columns: auto 1fr; gap: 0.4em 0.8em; margin: 0; align-items: baseline; }
+.sg-group dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.4em 0.8em; margin: 0; align-items: baseline; }
 .sg-group dt { display: flex; align-items: center; gap: 0.25em; justify-content: flex-end; }
 .sg-group dt i { color: var(--sg-dim); font-style: normal; font-size: 0.8em; }
-.sg-group dd { margin: 0; font-size: 0.88em; line-height: 1.35; }
+.sg-group dd { margin: 0; font-size: 0.88em; line-height: 1.35; overflow-wrap: anywhere; }
 
 /* Help: tabs over a short page. */
 .sg-help { display: flex; flex-direction: column; padding-top: 0.8em; overflow: hidden; }
