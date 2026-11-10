@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { actionIndex, HOTKEYS, toolForKey, toolIndex, TOOLS } from './toolDefs'
+import { actionIndex, HOTKEYS, toolForKey, toolForSelection, toolIndex, TOOLS, wheelSelection } from './toolDefs'
 
 describe('tool keys', () => {
   it('keeps the first ten tools on keys 1-9 and 0', () => {
@@ -19,8 +19,16 @@ describe('tool keys', () => {
     expect(toolForKey(2, 2)).toBe(2)
   })
 
-  it('reads a number past the hotkeys as the key it wraps onto', () => {
-    expect(toolForKey(10, 4)).toBe(0)
-    expect(toolForKey(11, 4)).toBe(1)
+  it('steps the wheel through every tool, second page included, and wraps round', () => {
+    expect(toolForSelection(wheelSelection(1), 9)).toBe(actionIndex('frag'))
+    expect(toolForSelection(wheelSelection(1), actionIndex('frag'))).toBe(actionIndex('rope'))
+    expect(toolForSelection(wheelSelection(1), actionIndex('rope'))).toBe(0)
+    expect(toolForSelection(wheelSelection(-1), 0)).toBe(TOOLS.length - 1)
+    expect(toolForSelection(wheelSelection(2), 3)).toBe(5)
+  })
+
+  it('never reads a wheel step as a hotkey', () => {
+    for (let steps = -TOOLS.length; steps <= TOOLS.length; steps += 1) expect(wheelSelection(steps)).toBeGreaterThanOrEqual(HOTKEYS)
+    expect(toolForSelection(4, 0)).toBe(4)
   })
 })

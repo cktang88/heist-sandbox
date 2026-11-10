@@ -11,7 +11,7 @@ import { fireShot } from './projectiles'
 import { anchorRope } from './rope/rope'
 import { playSound, type SoundKind } from './sounds'
 import { isSolidAt } from './tiles'
-import { toolForKey, TOOLS } from './toolDefs'
+import { toolForSelection, TOOLS } from './toolDefs'
 import type { Vec } from './types'
 import { castRay, normalize } from './vision'
 import type { World } from './world'
@@ -29,8 +29,8 @@ export function handOf(world: World): Vec {
 /** Uses the tool in the player's hands when the trigger is pulled. Guns fire from a magazine and must reload. */
 export function useTool(world: World, input: Input, dt: number): void {
   const player = world.player
-  if (input.selectTool !== null && input.selectTool >= 0 && input.selectTool < TOOLS.length) {
-    const chosen = toolForKey(input.selectTool, player.tool)
+  if (input.selectTool !== null && input.selectTool >= 0) {
+    const chosen = toolForSelection(input.selectTool, player.tool)
     if (chosen !== player.tool) {
       player.tool = chosen
       player.reload = 0
