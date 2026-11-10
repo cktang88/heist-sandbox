@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from '../input'
 import { stepWorld } from '../step'
+import { feetOf, setMode } from '../security/model'
 import { createWorld, type World } from '../world'
 
 const FRAME = 1 / 60
@@ -81,6 +82,28 @@ describe('playing in the complex', () => {
     expect(nearA && nearB).toBe(true)
     expect(guard.mode).toBe('calm')
     expect(Math.abs(guard.y + guard.h - floor) < 0.1 || guard.detour !== null || guard.stairs !== null).toBe(true)
+  })
+
+  // The watchtower by the gate stands on steel legs that the side view draws across the street: they stand at the
+  // front and back of the street (gaps/aside.ts), so people walk between them to the gatehouse.
+  it.each([1, 4])('seed %i lets a guard walk from the yard between the watchtower legs into the gatehouse', (seed) => {
+    const world = createWorld(seed, 'complex')
+    const gatehouse = world.rooms.find((room) => room.kind === 'gatehouse')!
+    const yard = world.rooms.find((room) => room.kind === 'yard' && Math.abs(room.x - gatehouse.x) < 20)!
+    const guard = world.guards.find((other) => other.role === 'patrol' && Math.abs(feetOf(other).y - world.groundY) < 0.3 && Math.abs(feetOf(other).x - gatehouse.x) < 60)!
+    world.guards = [guard]
+    Object.assign(guard, { x: yard.x + yard.w / 2 - guard.w / 2 })
+    const goal = { x: gatehouse.x + gatehouse.w / 2, y: gatehouse.floorY }
+    setMode(guard, 'investigating')
+    guard.interest = { at: goal, kind: 'noise', priority: 4, reached: false }
+    guard.target = goal
+    Object.assign(world.player, { x: 5, y: 2, hp: 1e6 })
+    let inside = false
+    run(world, 25, {}, () => {
+      Object.assign(world.player, { x: 5, y: 2, vx: 0, vy: 0 })
+      inside ||= Math.abs(feetOf(guard).x - goal.x) < 2 && Math.abs(feetOf(guard).y - goal.y) < 0.3
+    })
+    expect(inside).toBe(true)
   })
 
   it('runs thirty seconds of the whole guarded site quickly and stays finite', () => {
