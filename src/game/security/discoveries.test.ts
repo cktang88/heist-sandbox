@@ -9,6 +9,7 @@ import type { World } from '../world'
 import { feetOf, setMode } from './model'
 import { addDevice, addGuard, addLamp, addRoom, arena, GROUND, putPlayer, run, runListening } from './testArena'
 import { DISCOVERY } from './tuning'
+import { CASE_CONFIRM_SECONDS } from './caseCheck'
 
 const saidAny = (lines: string[], words: string[]) => lines.some((line) => words.some((word) => line.includes(word)))
 
@@ -62,15 +63,42 @@ describe('things out of place', () => {
     expect(spare.interest?.kind).toBe('order')
   })
 
-  it('finding the gold gone is radioed in at once and confirms an intruder', () => {
+  it('the guard posted over the case, looking at its empty stand, radios it in: a serious report (level 2), confirmed later if it stays gone', () => {
     const world = arena()
     putPlayer(world, 140)
     addLamp(world, 40)
+    const room = addRoom(world, { kind: 'vault', building: 'b', x: 30, w: 20, floorY: GROUND })
     Object.assign(world.loot, { x: 40, y: GROUND - 0.8, taken: true })
-    addGuard(world, 34, 1)
-    const lines = runListening(world, 5)
+    const guard = addGuard(world, 34, 1)
+    guard.roomId = room.id
+    const lines = runListening(world, 6)
     expect(saidAny(lines, ['vault', 'gold', 'Vault'])).toBe(true)
+    expect(world.security.level).toBe(2)
+    run(world, CASE_CONFIRM_SECONDS)
     expect(world.security.level).toBeGreaterThanOrEqual(3)
+  })
+
+  it('a patrol passing the empty stand thinks nothing of it: only someone who knows the case belongs there notices', () => {
+    const world = arena()
+    putPlayer(world, 140)
+    addLamp(world, 40)
+    addRoom(world, { kind: 'storage', building: 'b', x: 30, w: 20, floorY: GROUND })
+    Object.assign(world.loot, { x: 40, y: GROUND - 0.8, taken: true })
+    const patrol = addGuard(world, 34, 1, 'patrol')
+    patrol.route = [{ x: 32.5, y: GROUND }, { x: 48.5, y: GROUND }]
+    run(world, 30)
+    expect(world.security.level).toBe(0)
+  })
+
+  it('an officer on his round who stops in the room with a clear view of the empty stand notices', () => {
+    const world = arena()
+    putPlayer(world, 140)
+    addLamp(world, 40)
+    addRoom(world, { kind: 'storage', building: 'b', x: 30, w: 20, floorY: GROUND })
+    Object.assign(world.loot, { x: 40, y: GROUND - 0.8, taken: true })
+    addGuard(world, 34, 1, 'officer')
+    run(world, 6)
+    expect(world.security.level).toBe(2)
   })
 
   it('a parachute coming down is seen from far off, even at night, and reported', () => {

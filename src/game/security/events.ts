@@ -111,6 +111,8 @@ export type SecurityState = {
   camerasDeadSince: Map<number, number>
   camerasReported: Set<number>
   vaultReported: boolean
+  /** Clock time the case was reported missing (Infinity until then). */
+  caseMissingAt: number
   /** Shot-out lamps and ropes a guard has already gone to look at. */
   lampsNoticed: Set<Lamp>
   ropesNoticed: Set<Rope>
@@ -140,7 +142,7 @@ export function createSecurity(): SecurityState {
     reportedBodies: new Set(), shooters: [], campSpot: null, campSeconds: 0,
     confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
     deaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), openDoorsFound: 0, camerasDeadSince: new Map(), camerasReported: new Set(),
-    vaultReported: false, lampsNoticed: new Set(), ropesNoticed: new Set(), chuteReportedAt: -Infinity, recentLines: [],
+    vaultReported: false, caseMissingAt: Infinity, lampsNoticed: new Set(), ropesNoticed: new Set(), chuteReportedAt: -Infinity, recentLines: [],
     killZones: [], shieldTeams: 0, shieldTeamAt: -Infinity, guardFrags: [],
     lineNoticed: false, panesNoticed: new Set(), chargesSeen: new Set(), tiedNoticed: new Set(), caseAskedAt: -Infinity,
   }

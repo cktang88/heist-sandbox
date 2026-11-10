@@ -12,6 +12,7 @@ import { forgetSpentFrags } from './guardFrags'
 import { indexPanes } from './intrusions'
 import { rememberOrigins } from './oddities'
 import { considerShieldTeam } from './shieldTeam'
+import { confirmMissingCase } from './caseCheck'
 import { assignStations } from './stations'
 import { FEAR, LEVELS, RESPONSE } from './tuning'
 
@@ -50,6 +51,7 @@ export function stepSecurity(world: World, dt: number): void {
     noticeShotLamps(world)
     forgetOldTrouble(world)
     considerShieldTeam(world)
+    confirmMissingCase(world)
   }
   watchIncomingFire(world, dt, shotAt)
   stepCameras(world, dt)

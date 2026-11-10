@@ -4,6 +4,8 @@ import { addDevice, addGuard, arena, GROUND, putPlayer, run } from '../security/
 import { fillTiles, tileAt } from '../tiles'
 import type { World } from '../world'
 import { openedDoors } from './doors'
+import { doorColumn } from '../elevators'
+import { createWorld } from '../world'
 
 /**
  * Doors the player opens by hand can be shut again, and a shut door shows nothing. A patrol that finds one standing
@@ -108,5 +110,23 @@ describe('doors by hand', () => {
     pickIt(world)
     run(world, 0.1)
     expect(world.prompt).toBe('E: close door')
+  })
+
+  it('an elevator called to a floor, standing with its doors open, is never reported as a forced lock', () => {
+    const world = createWorld(1, 'complex')
+    world.guards = []
+    const shaft = world.elevators[0]
+    const car = world.elevatorCars[0]
+    const door = doorColumn(shaft)
+    putPlayer(world, door + 0.5 + shaft.doorSide * 1.5, world.groundY)
+    run(world, 0.1)
+    expect(world.prompt).toBe('E: call elevator')
+    run(world, 1 / 60, { interact: true, interactPressed: true })
+    run(world, 6)
+    expect(car.doorsOpen).toBe(true)
+    putPlayer(world, 10, world.groundY)
+    addGuard(world, door + 0.5 + shaft.doorSide * 5, -shaft.doorSide as 1 | -1, 'post', world.groundY)
+    run(world, 20)
+    expect(world.security.log.some((line) => line.includes('forced lock'))).toBe(false)
   })
 })

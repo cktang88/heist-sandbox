@@ -9,13 +9,14 @@ import { watcherFor } from './cameras'
 import { markFireReported } from './danger'
 import type { SecurityEvent, Tamper } from './events'
 import { eyeOf, feetOf, isActive, setMode, type Guard, type InterestKind } from './model'
-import { clearView, zoneOf } from './perception'
+import { clearView } from './perception'
 import { deviceBuilding, deviceFeet, floorBelow, roomOf } from './places'
 import { reportEvent } from './report'
 import { lineLeftHanging, paneMissing, tiedColleague } from './intrusions'
 import { DISCOVERY } from './tuning'
 import { bloodSeen } from './traces'
 import { furnitureMoved } from './oddities'
+import { caseMissing } from './caseCheck'
 
 /**
  * Things out of place that a guard notices on his rounds: a door standing open that should be shut (or a lock
@@ -29,7 +30,6 @@ export type Finding = { at: Vec; kind: InterestKind; priority: number; line: Lin
 
 const CHUTE_REPORT_AGAIN = 30
 const CHUTE_BEHIND = 2
-const VAULT_SIGHT = 12
 const SMOKE_SAMPLES = [3, 6, 9]
 const ROPE_SIGHT = 14
 /** A guard this close to a shot-out lamp, on its floor, notices the dark. */
@@ -37,7 +37,7 @@ const LAMP_WITNESS = 9
 
 /** The first thing out of place this guard can see right now, if any. Cheap: a few tiles and a handful of doors. */
 export function lookForTrouble(world: World, guard: Guard): Finding | null {
-  return vaultEmpty(world, guard) ?? tiedColleague(world, guard) ?? chuteInSky(world, guard) ?? ropeOnWall(world, guard)
+  return caseMissing(world, guard) ?? tiedColleague(world, guard) ?? chuteInSky(world, guard) ?? ropeOnWall(world, guard)
     ?? lineLeftHanging(world, guard) ?? doorTampered(world, guard) ?? paneMissing(world, guard) ?? bloodSeen(world, guard) ?? smokeAhead(world, guard) ?? furnitureMoved(world, guard)
 }
 
@@ -120,17 +120,6 @@ function smokeAhead(world: World, guard: Guard): Finding | null {
 /** Is a smoke grenade's screen what he is looking at (rather than smoke from a fire)? */
 function smokeGrenadeNear(world: World, at: Vec): boolean {
   return world.hazards.grenades.some((grenade) => grenade.kind === 'smoke' && grenade.popped && distance(centerOf(grenade), at) < DISCOVERY.smokeSight + 3)
-}
-
-/** The gold gone from where it sat: the one discovery that confirms an intruder outright. */
-function vaultEmpty(world: World, guard: Guard): Finding | null {
-  if (world.security.vaultReported || !world.loot.taken) return null
-  const spot = centerOf(world.loot)
-  const eye = eyeOf(guard)
-  if (distance(eye, spot) > VAULT_SIGHT || zoneOf(guard, eye, spot) !== 'central' || !clearView(world, eye, spot)) return null
-  world.security.vaultReported = true
-  const at = floorBelow(world, spot)
-  return { at, kind: 'tamper', priority: 6, line: 'vaultOpen', tamper: 'lock', report: { kind: 'vault', at, by: world.guards.indexOf(guard) } }
 }
 
 /** A canopy against the sky is seen from far off, light or dark, by anyone looking that way. */

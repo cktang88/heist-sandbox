@@ -144,10 +144,12 @@ export function reportEvent(world: World, event: SecurityEvent): void {
       raiseLevel(world, event.what === 'door' || event.what === 'moved' ? 1 : event.what === 'charge' || event.what === 'hostage' ? 3 : 2)
       return
     case 'vault':
+      // Serious, but nobody has seen him yet: lock the exits and search (caseCheck.ts confirms it later).
       security.focus = floorBelow(world, event.at)
-      log(world, `${unitName(event.by)}: The vault's been hit!`)
-      raiseLevel(world, 3)
-      security.lockdownAt = Math.min(security.lockdownAt, world.clock + RESPONSE.lockdownDelay)
+      log(world, `${unitName(event.by)}: The case is gone!`)
+      security.caseMissingAt = Math.min(security.caseMissingAt, world.clock)
+      raiseLevel(world, 2)
+      sendPair(world, floorBelow(world, event.at))
       return
     case 'parachute':
       contact(world, event.at)
