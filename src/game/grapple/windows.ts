@@ -211,6 +211,7 @@ export function climbThrough(world: World, spot: WindowSpot): void {
   player.mantle.duration = VAULT_SECONDS
   player.crouching = spot.landing.h < STAND_HEIGHT
   grapple.vault = VAULT_SECONDS
+  player.cooldown = Math.max(player.cooldown, VAULT_SECONDS)
   grapple.vaultToLine = toLine
 }
 
