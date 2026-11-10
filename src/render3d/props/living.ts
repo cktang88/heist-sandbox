@@ -665,7 +665,12 @@ function barCounter(materials: SurfaceMaterials): Group {
   // Back bar: a shelf against the wall carrying bottles.
   box(g, DARK_WOOD, -1.9, 0, 3.8, 1.0, 0.4, against(0.4))
   scan(g, 'wine_bottles_01', { x: -1.0, z: against(0.12), lift: 1.0, scale: 1.3 })
-  scan(g, 'wine_bottles_01', { x: 0.7, z: against(0.12), lift: 1.0, scale: 1.3, turn: Math.PI })
+  // The scan is heavy (many parts), so the rest of the shelf is spirits drawn as one batch per glass colour.
+  const z0 = against(0.15)
+  for (const [colour, offset] of [[0x2a4a22, 0], [0x6a3a14, 1]] as const) {
+    const glass = matte(colour, 0.15, 0.2)
+    repeated(g, CYLINDER, glass, [0, 1, 2, 3].map((i) => [0.2 + (i * 2 + offset) * 0.18, 1.15, z0, 0.045, 0.3, 0.045]))
+  }
   // Front counter.
   box(g, materials.wood, -2, 0.1, 4, 0.8, 0.75, z)
   noShadow(box(g, BLACK_PLASTIC, -1.98, 0, 3.96, 0.1, 0.7, z - 0.02))
