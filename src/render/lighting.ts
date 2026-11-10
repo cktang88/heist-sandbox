@@ -60,8 +60,15 @@ export function createLighting(): Lighting {
       lc.globalCompositeOperation = 'lighter'
       lc.setTransform(scale, 0, 0, scale, width / 2 - camera.x * scale, height / 2 - camera.y * scale)
 
+      // Moonlight falls on everything outdoors, but not inside the building.
       lc.fillStyle = MOONLIGHT
-      lc.fillRect(0, 0, world.grid.width, GROUND)
+      const room = world.interiors.find((area) => area.kind === 'room')
+      if (!room) lc.fillRect(0, 0, world.grid.width, GROUND)
+      else {
+        lc.fillRect(0, 0, room.x, GROUND)
+        lc.fillRect(room.x + room.w, 0, world.grid.width - room.x - room.w, GROUND)
+        lc.fillRect(room.x, 0, room.w, room.y)
+      }
 
       const halfWide = camera.width / camera.scale / 2
       const halfTall = camera.height / camera.scale / 2
