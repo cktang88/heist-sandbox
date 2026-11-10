@@ -1,4 +1,5 @@
 import type { Stairwell } from '../site'
+import { canWalkAcross } from '../gaps/gaps'
 import { landingX } from '../stairs'
 import type { Vec } from '../types'
 import type { World } from '../world'
@@ -19,6 +20,8 @@ const STOREY = 6
 const BEYOND = 4
 /** Long enough to walk a route over two storeys; after that he just goes for the man. */
 const FLANK_SECONDS = 30
+/** How far along his floor from above the man a flanker looks for a hole to drop through. */
+const HOLE_REACH = 12
 
 type Option = { points: Vec[]; cost: number }
 
@@ -74,6 +77,26 @@ function downOnHim(world: World, wells: Stairwell[], feet: Vec, threat: Vec, pin
     const behind = side !== pinSide || inRoomWith(world, exit, threat)
     const cost = Math.abs(start.x - feet.x) + Math.abs(exit.x - threat.x) + (behind ? 0 : 40)
     options.push({ points: [start, exit, end], cost })
+  }
+  return [...options, ...throughHoles(world, feet, threat, pinSide)]
+}
+
+/**
+ * A hole blown in his floor near the man (beyond him, or in his room): drop through it on top of him. The way down is
+ * the man's own work, and the squad never expects to use it.
+ */
+function throughHoles(world: World, feet: Vec, threat: Vec, pinSide: number): Option[] {
+  if (threat.y <= feet.y) return []
+  const floorY = Math.round(feet.y)
+  const options: Option[] = []
+  for (let x = Math.floor(threat.x) - HOLE_REACH; x <= Math.floor(threat.x) + HOLE_REACH; x += 1) {
+    if (!canWalkAcross(world, x, floorY)) continue
+    const below = floorBelow(world, { x: x + 0.5, y: floorY + 1 })
+    if (!sameFloor(below, threat) || zoneAt(world, below)) continue
+    const side = Math.sign(x + 0.5 - threat.x) || -pinSide
+    if (side === pinSide && !inRoomWith(world, below, threat)) continue
+    const hole = { x: x + 0.5, y: feet.y }
+    options.push({ points: [hole, below, { x: threat.x + side * BEYOND, y: threat.y }], cost: Math.abs(hole.x - feet.x) + Math.abs(hole.x - threat.x) })
   }
   return options
 }
