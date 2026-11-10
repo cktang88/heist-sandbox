@@ -30,8 +30,6 @@ const QUIET_DOOR_NOISE = 2
 const KICKED_DOOR_NOISE = 16
 /** Feet this close to the middle of a hole he means to drop through are at its edge (closer and he is over it). */
 const DROP_EDGE = 1.4
-/** Feet may sink this far into a ladder hole in one frame and still be stepped round it. */
-const MAX_SINK = 0.9
 /** How far, and in what steps, a body stuck in solid tiles is looked round for a free spot. */
 const UNSTICK_STEP = 0.2
 const UNSTICK_REACH = 4
@@ -126,36 +124,13 @@ export function freeOfSolid(world: World, body: Body): void {
 function walk(world: World, guard: Guard, speed: number, dt: number): boolean {
   guard.vx += (speed - guard.vx) * Math.min(1, dt * 12)
   guard.vy += GRAVITY * dt
-  const floor = guard.onGround ? Math.round(guard.y + guard.h) : null
   const blocked = moveBody(world.grid, guard, dt)
-  if (floor !== null) stepOverLadderHole(world, guard, floor)
   return blocked && speed !== 0
-}
-
-/**
- * A ladder hole (an open hatch or manhole) is one tile at the front of the slab: walking past it, he steps round it
- * on the floor beside it, as he would a walk-past hole, instead of falling down the shaft. Going down a ladder is
- * done by climbing it (startLadder), never by walking in.
- */
-function stepOverLadderHole(world: World, guard: Guard, floor: number): void {
-  const feet = guard.y + guard.h
-  if (feet <= floor || feet - floor > MAX_SINK || !ladderHoleAt(world, guard.x + guard.w / 2, floor)) return
-  guard.y = floor - guard.h - 0.001
-  guard.vy = 0
-  guard.onGround = true
-}
-
-/** The column at x in slab row `floorY` is an opening onto a ladder going down (an open hatch, or the ladder's own top). */
-function ladderHoleAt(world: World, x: number, floorY: number): boolean {
-  const column = Math.floor(x)
-  const top = tileAt(world.grid, column, floorY)
-  return top === 'ladder' || (top === 'air' && tileAt(world.grid, column, floorY + 1) === 'ladder')
 }
 
 function ledgeAhead(world: World, guard: Guard): boolean {
   const feet = feetOf(guard)
   const front = feet.x + guard.facing * 0.7
-  if (ladderHoleAt(world, front, Math.round(feet.y))) return false
   return !isSolidAt(world.grid, front, feet.y + 0.5) && !isSolidAt(world.grid, front, feet.y + 1.5)
 }
 

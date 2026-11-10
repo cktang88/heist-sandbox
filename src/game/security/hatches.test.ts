@@ -45,6 +45,8 @@ describe('guards and floor hatches', () => {
 
   it('a patrol walks past an open manhole: it is not a ledge, and he does not fall in', () => {
     const world = manhole()
+    // Opened after the site was built, as the player would.
+    run(world, 0.1)
     setTile(world.grid, SHAFT, GROUND, 'air')
     const guard = addGuard(world, 30, 1, 'patrol')
     guard.route = [{ x: 30, y: GROUND }, { x: 52, y: GROUND }]
