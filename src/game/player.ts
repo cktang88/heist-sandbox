@@ -239,9 +239,13 @@ function takeStairs(grid: Grid, player: Player, input: Input, dt: number, stairw
   return true
 }
 
-/** Focus drains in real time while held and refills when released. */
+/**
+ * Focus drains in real time while held and refills only once released: holding the key on an empty meter keeps it
+ * empty, rather than refilling a sliver each frame and flickering slow motion on and off.
+ */
 export function updateFocus(player: Player, held: boolean, realDt: number): boolean {
   const active = held && player.focus > 0
-  player.focus = active ? Math.max(0, player.focus - realDt) : Math.min(MAX_FOCUS_SECONDS, player.focus + realDt * 0.4)
+  if (active) player.focus = Math.max(0, player.focus - realDt)
+  else if (!held) player.focus = Math.min(MAX_FOCUS_SECONDS, player.focus + realDt * 0.4)
   return active
 }
