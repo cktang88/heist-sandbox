@@ -8,7 +8,8 @@ import { attachInput } from './inputDevice'
 import { createCamera, followFocus } from './render/camera'
 import { drawHud } from './render/drawHud'
 import { drawOverlay } from './render/overlay'
-import { createRenderer3d } from './render3d/renderer3d'
+import { createSceneRenderer, type SceneRenderer } from './render/drawScene'
+import { createRenderer3d, type Renderer3d } from './render3d/renderer3d'
 
 const MAX_FRAME_SECONDS = 1 / 30
 
@@ -16,7 +17,23 @@ const stage = document.querySelector<HTMLCanvasElement>('#stage')!
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const context = canvas.getContext('2d')!
 const input = attachInput(canvas, TOOLS.length)
-const scene = createRenderer3d(stage)
+/**
+ * The flat 2D view remains as a fallback: add `?render=2d` to the address, or it is used if 3D cannot start.
+ * `?quality=low` keeps 3D but drops shadows and sharpness.
+ */
+function createScene(): { draw3d: Renderer3d | null; draw2d: SceneRenderer | null } {
+  const options = new URLSearchParams(location.search)
+  if (options.get('render') !== '2d') {
+    try {
+      return { draw3d: createRenderer3d(stage, options.get('quality') === 'low'), draw2d: null }
+    } catch (error) {
+      console.warn('3D view unavailable, using the 2D view instead', error)
+    }
+  }
+  stage.style.display = 'none'
+  return { draw3d: null, draw2d: createSceneRenderer() }
+}
+const scene = createScene()
 const audio = createAudio()
 
 function newSeed(): number {
@@ -34,7 +51,7 @@ function resize(): void {
   const density = Math.min(2, window.devicePixelRatio || 1)
   canvas.width = Math.round(window.innerWidth * density)
   canvas.height = Math.round(window.innerHeight * density)
-  scene.resize(canvas.width, canvas.height)
+  scene.draw3d?.resize(canvas.width, canvas.height)
 }
 window.addEventListener('resize', resize)
 resize()
@@ -58,9 +75,11 @@ function frame(now: number): void {
 
   stepWorld(world, frameInput, realDt)
   audio.update(world)
-  scene.draw(world, camera, frameInput.aim)
-  context.clearRect(0, 0, canvas.width, canvas.height)
-  drawOverlay(context, world, camera)
+  if (scene.draw3d) {
+    scene.draw3d.draw(world, camera, frameInput.aim)
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    drawOverlay(context, world, camera)
+  } else scene.draw2d?.draw(context, world, camera, frameInput.aim)
   drawHud(context, world, camera, frameInput.aim)
   // Debug hook: lets tests and the console inspect the heist and fast-forward it.
   ;(globalThis as { __game?: unknown }).__game = { world, advance: (seconds: number, held: Partial<Input> = {}) => fastForward(world, seconds, { ...frameInput, ...held }) }

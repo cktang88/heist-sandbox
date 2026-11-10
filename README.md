@@ -79,9 +79,23 @@ The crosshair ring widens as a gun gets less accurate, so spread is never a surp
 - Even-numbered seeds flip the level, so the van and the building swap sides.
 - Sound is built in, and drops in pitch during slow motion. It starts after your first click or key press.
 
+## Graphics and sound
+
+- The game is drawn in real 3D, viewed from the side: photo-scanned wall textures, moonlight, lamps and torches that cast shadows, glow around bright things, film-style tone mapping and a little lens grain.
+- Gunfire and explosions are real recordings. Everything else is generated.
+- All third-party assets are public domain (CC0). Sources are listed in `public/textures/LICENSE.md`.
+
+If it runs slowly, add one of these to the address:
+
+| Add | Effect |
+|---|---|
+| `?quality=low` | Keeps 3D, drops shadows and sharpness |
+| `?render=2d` | The earlier flat view, which needs no graphics card |
+
 ## Code layout
 
 - `src/game/` is the whole game with no browser code: tiles, physics, guards, tools, explosions. `step.ts` advances one frame; `world.ts` holds the state.
-- `src/render/` only draws the world: cached textured tiles (`tileCache.ts`), night lighting (`lighting.ts`), and code-drawn people (`human/`).
+- `src/render3d/` draws the world in 3D: level geometry (`levelMesh.ts`), lights (`lights.ts`), people (`people3d.ts`), effects (`fx3d.ts`), lens effects (`post.ts`).
+- `src/render/` holds the 2D pieces: the HUD, the markers drawn over the 3D view (`overlay.ts`), the skeleton poses both views share (`human/pose.ts`), and the fallback flat renderer.
 - `src/inputDevice.ts` turns keyboard and mouse into the `Input` the game reads; `src/audio.ts` plays the sound events the game records.
 - Add `?seed=1` to the URL to replay the same level.

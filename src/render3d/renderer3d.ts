@@ -25,12 +25,13 @@ const NIGHT_SKY_STRENGTH = 2.2
 
 export type Renderer3d = { draw(world: World, camera: Camera, aim: Vec): void; resize(width: number, height: number): void }
 
-export function createRenderer3d(canvas: HTMLCanvasElement): Renderer3d {
-  const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
+/** `lowDetail` turns off shadows and draws at reduced sharpness, for machines that struggle. */
+export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): Renderer3d {
+  const renderer = new WebGLRenderer({ canvas, antialias: !lowDetail, powerPreference: 'high-performance' })
   renderer.outputColorSpace = SRGBColorSpace
   renderer.toneMapping = ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.15
-  renderer.shadowMap.enabled = true
+  renderer.shadowMap.enabled = !lowDetail
   renderer.shadowMap.type = PCFShadowMap
 
   const scene = new Scene()
@@ -91,9 +92,10 @@ export function createRenderer3d(canvas: HTMLCanvasElement): Renderer3d {
       post.render(performance.now() / 1000, 1 - world.time.scale)
     },
     resize(width, height) {
+      const sharpness = lowDetail ? 0.6 : 1
       renderer.setPixelRatio(1)
-      renderer.setSize(width, height, false)
-      post.setSize(width, height)
+      renderer.setSize(Math.round(width * sharpness), Math.round(height * sharpness), false)
+      post.setSize(Math.round(width * sharpness), Math.round(height * sharpness))
       camera.aspect = width / height
       camera.updateProjectionMatrix()
     },
