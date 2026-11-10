@@ -17,6 +17,7 @@ export type { AlertLevel, Bark, SecurityEvent, SecurityState } from './events'
 export { createSecurity } from './events'
 export { reportEvent } from './report'
 export { cameraView, type CameraView } from './cameras'
+export { elevatorsRecalled, isLockedDown } from './levels'
 
 const SLOW_CHECKS_PER_SECOND = 2
 const RESTATION_SECONDS = 20
@@ -66,9 +67,4 @@ function stepLevel(world: World): void {
 export function levelFloor(peak: AlertLevel): AlertLevel {
   if (peak >= 3) return 2
   return peak >= 1 ? 1 : 0
-}
-
-/** At level 4 the site is locked down: the elevator system should freeze its cars. */
-export function isLockedDown(world: World): boolean {
-  return world.security.level >= 4
 }

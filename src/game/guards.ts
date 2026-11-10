@@ -38,10 +38,15 @@ export function updateGuard(world: World, guard: Guard, dt: number): void {
   thinkGuard(world, guard, dt)
 }
 
-/** Hurts a guard. Guards who have not spotted the player take far more, so stealth kills are quick. Returns true if killed. */
-export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec): boolean {
+/**
+ * Hurts a guard. An attack (a shot, a blast, a blow) on a guard who has not spotted the player does far more,
+ * so stealth kills are quick, and tells him roughly where it came from. Hazards (fire, smoke, a flash) hurt
+ * at face value and say nothing about the player. Returns true if killed.
+ */
+export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec, cause: 'attack' | 'hazard' = 'attack'): boolean {
   if (guard.mode === 'dead') return false
-  guard.hp -= damage * (guard.state === 'alert' ? 1 : UNAWARE_DAMAGE_BONUS)
+  const bonus = cause === 'attack' && guard.state !== 'alert' ? UNAWARE_DAMAGE_BONUS : 1
+  guard.hp -= damage * bonus
   guard.hitFlash = 0.1
   world.security.lastCasualtyAt = world.clock
   burst(world.effects, world.rng, centerOf(guard), 6, '#b3202a', 6)
@@ -54,8 +59,7 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec)
     playSound(world, 'kill', guard)
     return true
   }
-  // Being hit tells him roughly where it came from.
-  enterCombat(world, guard, from)
+  if (cause === 'attack') enterCombat(world, guard, from)
   return false
 }
 

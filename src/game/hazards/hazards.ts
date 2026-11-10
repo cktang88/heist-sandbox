@@ -7,7 +7,7 @@ import { igniteGasNear, listenForShots, stepLeaks } from './gas'
 import { stepFlashes, stepGrenades } from './grenades'
 import { harmPeople } from './harm'
 import { propsAt, propsNear } from './props'
-import { blastReachesProps, stepBlasts } from './reactions'
+import { stepBlasts } from './reactions'
 import { stepSmoke } from './smoke'
 import { runSprinklers, soak, stepSprays } from './sprays'
 import type { HazardState } from './state'
@@ -75,7 +75,10 @@ function fireTick(world: World): void {
   runSprinklers(world, burningRooms, FIRE_TICK)
 }
 
-/** Starts or feeds a fire at a spot. `heat` is 0..1; 1 means an explosion, which also lights gas and breaks props nearby. */
+/**
+ * Starts or feeds a fire at a spot. `heat` is 0..1; 1 means an explosion, which also lights gas and sets burnable
+ * props alight. Breaking props in a blast is the explosion's job (explosions.ts through cover.ts), not this.
+ */
 export function igniteAt(world: World, at: Vec, heat: number): void {
   if (heat >= 1) {
     explosionFire(world, at)
@@ -92,7 +95,6 @@ export function igniteAt(world: World, at: Vec, heat: number): void {
 /** An explosion leaves a burst of flame, lights gas and catches burnable things close by. */
 function explosionFire(world: World, at: Vec): void {
   igniteGasNear(world, at, BLAST_GAS_RADIUS)
-  blastReachesProps(world, at)
   const reach = Math.ceil(BLAST_CATCH_RADIUS)
   for (let y = Math.floor(at.y) - reach; y <= Math.floor(at.y) + reach; y += 1) {
     for (let x = Math.floor(at.x) - reach; x <= Math.floor(at.x) + reach; x += 1) {

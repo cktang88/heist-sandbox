@@ -1,7 +1,6 @@
-import type { Guard } from '../game/guards'
+import { visionOf, type Guard } from '../game/guards'
 import { isOpaqueAt, type Grid } from '../game/tiles'
 import type { Vec } from '../game/types'
-import { normalize } from '../game/vision'
 import type { World } from '../game/world'
 
 /** How far a ray of light or sight travels before an opaque tile stops it. */
@@ -16,13 +15,14 @@ export function eyeOf(guard: Guard): Vec {
   return { x: guard.x + guard.w / 2, y: guard.y + 0.35 }
 }
 
-/** Outline of what a guard can see, clipped by walls. Doubles as the guard's torch beam. */
+/** Outline of what a guard can see, clipped by walls: exactly his central cone. Doubles as the guard's torch beam. */
 export function visionCone(world: World, guard: Guard): Vec[] {
   const eye = eyeOf(guard)
-  const range = guard.state === 'alert' ? 10 : 13
+  const { angle, halfAngle, range } = visionOf(guard)
   const points: Vec[] = [eye]
   for (let index = 0; index <= 12; index += 1) {
-    const direction = normalize(guard.facing, -0.8 + (index / 12) * 1.6)
+    const turn = angle - halfAngle + (index / 12) * halfAngle * 2
+    const direction = { x: Math.cos(turn), y: Math.sin(turn) }
     const distance = Math.min(range, reach(world.grid, eye, direction, range) + 0.7)
     points.push({ x: eye.x + direction.x * distance, y: eye.y + direction.y * distance })
   }

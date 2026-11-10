@@ -156,7 +156,7 @@ function openSprinklers(world: World, room: number): void {
   }
   const first = propCenter(heads[0])
   playSound(world, 'spray', first)
-  reportEvent(world, { kind: 'alarmButton', at: first })
+  reportEvent(world, { kind: 'fire', at: first, alarm: true })
 }
 
 export function isWetAt(world: World, at: Vec): boolean {

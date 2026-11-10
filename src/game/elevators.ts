@@ -2,6 +2,7 @@ import { hurtGuard, type Guard } from './guards'
 import type { Input } from './input'
 import { boxHitsSolid } from './physics'
 import type { Player } from './player'
+import { elevatorsRecalled, isLockedDown } from './security/levels'
 import type { ElevatorShaft } from './site'
 import { playSound } from './sounds'
 import { setTile, tileAt, type TileKind } from './tiles'
@@ -52,9 +53,6 @@ const CALL_REACH = 2
 const PUSH_DAMAGE_PER_SECOND = 15
 const CRUSH_DAMAGE = 1000
 const EPSILON = 0.001
-/** Site alert levels at which the dispatcher recalls cars to the ground, and freezes them. */
-const RECALL_LEVEL = 2
-const FREEZE_LEVEL = 4
 
 export function createElevators(shafts: readonly ElevatorShaft[]): ElevatorCar[] {
   return shafts.map((shaft) => ({
@@ -83,12 +81,12 @@ export function groundStop(world: World, shaft: ElevatorShaft): number {
 
 /**
  * What the security dispatcher wants from a car: nothing, a recall to the ground stop, or a freeze.
- * Reads the alert level directly so this module does not depend on the security AI.
+ * The meaning of each alert level comes from security/levels.ts, the one place it is decided.
  */
 function dispatcherOrder(world: World, car: ElevatorCar, shaft: ElevatorShaft): 'freeze' | number | null {
   if (car.released) return null
-  if (world.security.level >= FREEZE_LEVEL) return 'freeze'
-  if (world.security.level >= RECALL_LEVEL) return groundStop(world, shaft)
+  if (isLockedDown(world)) return 'freeze'
+  if (elevatorsRecalled(world)) return groundStop(world, shaft)
   return null
 }
 
@@ -302,7 +300,7 @@ function sweep(world: World, car: ElevatorCar, shaft: ElevatorShaft, before: num
 }
 
 function hurt(world: World, body: Person, damage: number, from: Vec): void {
-  if ('state' in body) hurtGuard(world, body, damage, from)
+  if ('state' in body) hurtGuard(world, body, damage, from, 'hazard')
   else body.hp -= damage
 }
 
