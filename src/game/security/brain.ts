@@ -304,7 +304,7 @@ function runToAlarm(world: World, guard: Guard, dt: number): void {
   startSearch(world, guard, lead ? floorBelow(world, lead) : feetOf(guard))
 }
 
-export function nearestAlarmButton(world: World, feet: Vec): Device | null {
+function nearestAlarmButton(world: World, feet: Vec): Device | null {
   const building = buildingAt(world, feet)
   let best: Device | null = null
   let bestCost = Infinity

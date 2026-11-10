@@ -147,10 +147,6 @@ export function eyeOf(guard: Body): Vec {
   return { x: guard.x + guard.w / 2, y: guard.y + 0.35 }
 }
 
-export function isAlive(guard: Guard): boolean {
-  return guard.mode !== 'dead'
-}
-
 /** Can this guard act right now (alive, not stunned)? */
 export function isActive(guard: Guard): boolean {
   return guard.mode !== 'dead' && guard.stunSeconds <= 0

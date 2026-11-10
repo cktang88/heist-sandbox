@@ -49,11 +49,12 @@ export function organiseSquad(world: World, dt: number): void {
   }
 }
 
+/** Changes a guard's role, but not more often than every couple of seconds (except to fall back), so nobody dithers. */
 function setRole(world: World, guard: Guard, role: CombatRole): void {
-  if (guard.combatRole === role) return
+  if (guard.combatRole === role || (guard.replan > 0 && role !== 'fallback')) return
   guard.combatRole = role
   guard.cover = null
-  guard.replan = 0
+  guard.replan = COMBAT.replanSeconds
   if (role !== 'flank') guard.search = null
   const line = ROLE_LINES[role]
   if (line) barkLine(world, guard, line, role === 'fallback')
