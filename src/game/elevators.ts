@@ -18,6 +18,7 @@ import { playSound } from './sounds'
 import { setTile, TILE_DEFS, tileAt, type TileKind } from './tiles'
 import type { Body, Rect, Vec } from './types'
 import { castRay } from './vision'
+import { JOINT, type Ragdoll } from './ragdoll'
 import type { World } from './world'
 
 type Person = Player | Guard
@@ -58,7 +59,13 @@ export type ElevatorCar = {
   cableHits?: number
   /** Ids of loose furniture standing on the car floor while it travels, carried along like the riders. */
   cargo?: number[]
+  /** Small things lying on the car floor (the case, pickups, charges, grenades), held to it while it travels. */
+  freight?: Body[]
+  /** Bodies (dead, out cold, tied) lying in the car, each joint held at its height above the car floor. */
+  bodies?: CarriedBody[]
 }
+
+type CarriedBody = { ragdoll: Ragdoll; offsets: number[] }
 
 /** Tiles per second. */
 const CAR_SPEED = 5
@@ -224,13 +231,16 @@ function nearestStop(shaft: ElevatorShaft, y: number): number {
   return best
 }
 
+/** Everyone on his feet; men lying limp (dead or out cold) ride as bodies, held by their joints. */
 function people(world: World): Person[] {
-  return [world.player, ...world.guards.filter((guard) => guard.state !== 'dead')]
+  return [world.player, ...world.guards.filter((guard) => guard.state !== 'dead' && !(guard.out && guard.ragdoll))]
 }
 
 function depart(world: World, car: ElevatorCar, shaft: ElevatorShaft, target: number): void {
   car.riders = people(world).filter((body) => insideShaft(shaft, body) && body.y + body.h > car.y - CAB_HEIGHT && body.y + body.h < car.y + 0.3)
   car.cargo = cargoOn(world, car, shaft)
+  car.freight = freightOn(world, car, shaft)
+  car.bodies = bodiesIn(world, car, shaft)
   closeDoors(world, car, shaft)
   removeFloor(world, car)
   car.moving = true
@@ -250,6 +260,7 @@ function travel(world: World, car: ElevatorCar, shaft: ElevatorShaft, input: Inp
   sweep(world, car, shaft, before, dt)
   carryRiders(car, shaft)
   carryCargo(world, car)
+  carryFreight(car, shaft)
   if (car.y !== goal) return
   if (keepGoing(world, car, shaft, input)) return
   arrive(world, car, shaft)
@@ -274,6 +285,7 @@ function arrive(world: World, car: ElevatorCar, shaft: ElevatorShaft): void {
   placeFloor(world, car, shaft)
   releaseRiders(car)
   car.cargo = []
+  setDown(car)
   openDoors(world, car, shaft)
   playSound(world, 'elevatorDing', carCenter(shaft, car.y))
 }
@@ -283,6 +295,7 @@ function stall(world: World, car: ElevatorCar, shaft: ElevatorShaft): void {
   car.y = Math.round(car.y)
   carryRiders(car, shaft)
   carryCargo(world, car)
+  carryFreight(car, shaft)
   car.cargo = []
   car.moving = false
   car.targetStop = null
@@ -290,6 +303,58 @@ function stall(world: World, car: ElevatorCar, shaft: ElevatorShaft): void {
   car.stop = stop >= 0 ? stop : null
   placeFloor(world, car, shaft)
   releaseRiders(car)
+  setDown(car)
+}
+
+/** Small loose things lying on the car floor: the case nobody carries, pickups, charges, grenades. */
+function freightOn(world: World, car: ElevatorCar, shaft: ElevatorShaft): Body[] {
+  const loose: Body[] = [...world.pickups.filter((pickup) => !pickup.taken), ...world.charges, ...world.frags, ...world.hazards.grenades]
+  if (!world.loot.taken) loose.push(world.loot)
+  return loose.filter((body) => insideShaft(shaft, body) && Math.abs(body.y + body.h - car.y) < 0.3)
+}
+
+/** Limp bodies lying in the car: dead, out cold or tied, unless someone is carrying or has hidden them. */
+function bodiesIn(world: World, car: ElevatorCar, shaft: ElevatorShaft): CarriedBody[] {
+  const found: CarriedBody[] = []
+  world.guards.forEach((guard, index) => {
+    const ragdoll = guard.ragdoll
+    if (!ragdoll || (guard.state !== 'dead' && !guard.out) || guard.hiddenIn !== null || world.stealth.carried === index) return
+    const hip = ragdoll.points[JOINT.hip]
+    const inCab = ragdoll.points.every((point) => point.y > car.y - CAB_HEIGHT && point.y < car.y + 0.3)
+    if (hip.x >= shaft.x && hip.x < shaft.x + shaft.w && inCab) found.push({ ragdoll, offsets: ragdoll.points.map((point) => point.y - car.y) })
+  })
+  return found
+}
+
+/** Holds the small things and the bodies to the car floor as it moves. */
+function carryFreight(car: ElevatorCar, shaft: ElevatorShaft): void {
+  for (const body of car.freight ?? []) {
+    body.y = car.y - body.h - EPSILON
+    body.x = Math.max(shaft.x + EPSILON, Math.min(shaft.x + shaft.w - body.w - EPSILON, body.x))
+    body.vx = 0
+    body.vy = 0
+    body.onGround = true
+    // A charge stuck to the car floor stays stuck to it, not to the shaft wall it passes.
+    if ('stuck' in body && body.stuck !== 'backWall') body.stuck = null
+  }
+  for (const { ragdoll, offsets } of car.bodies ?? []) {
+    ragdoll.points.forEach((point, joint) => {
+      point.y = car.y + offsets[joint]
+      point.vx = 0
+      point.vy = 0
+    })
+    ragdoll.sleep = null
+    ragdoll.still = 0
+  }
+}
+
+/** The car has stopped and has its floor again: a charge sticks to it, and gravity takes everything else from here. */
+function setDown(car: ElevatorCar): void {
+  for (const body of car.freight ?? []) {
+    if ('stuck' in body && body.stuck === null) body.stuck = { x: Math.floor(body.x + body.w / 2), y: Math.round(car.y) }
+  }
+  car.freight = []
+  car.bodies = []
 }
 
 /** Loose furniture standing on the car floor, its middle over the shaft. */
