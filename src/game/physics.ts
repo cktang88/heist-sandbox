@@ -19,8 +19,18 @@ export function boxHitsSolid(grid: Grid, box: Rect): boolean {
   return false
 }
 
-/** Moves a body by its velocity, stopping at solid tiles. Returns true if it was blocked sideways. */
-export function moveBody(grid: Grid, body: Body, dt: number): boolean {
+/**
+ * How high a person climbs onto a ledge or heap in their way without jumping: one tile (about 1.1 m, waist high on
+ * someone 1.75 m tall), the most anyone gets a knee onto while walking. Two tiles needs a jump and a ledge grab.
+ * Things that are not people (furniture, a rolling grenade) do not climb at all: pass 0.
+ */
+export const PERSON_STEP_UP = 1
+
+/**
+ * Moves a body by its velocity, stopping at solid tiles. A body on the ground walks up a ledge of up to `stepUp`
+ * whole tiles in its way (see `PERSON_STEP_UP`). Returns true if it was blocked sideways.
+ */
+export function moveBody(grid: Grid, body: Body, dt: number, stepUp = PERSON_STEP_UP): boolean {
   body.vx = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, body.vx))
   body.vy = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, body.vy))
   const steps = Math.max(1, Math.ceil((Math.max(Math.abs(body.vx), Math.abs(body.vy)) * dt) / MAX_STEP))
@@ -29,7 +39,7 @@ export function moveBody(grid: Grid, body: Body, dt: number): boolean {
   body.onGround = false
   let blocked = false
   for (let index = 0; index < steps; index += 1) {
-    if (moveX(grid, body, body.vx * stepDt, wasOnGround || body.onGround)) blocked = true
+    if (moveX(grid, body, body.vx * stepDt, wasOnGround || body.onGround ? stepUp : 0)) blocked = true
     moveY(grid, body, body.vy * stepDt)
   }
   return blocked
@@ -56,22 +66,42 @@ export function slipPastCorner(grid: Grid, body: Body, preferred: number): void 
   }
 }
 
-function moveX(grid: Grid, body: Body, dx: number, canStepUp: boolean): boolean {
+function moveX(grid: Grid, body: Body, dx: number, stepUp: number): boolean {
   if (dx === 0) return false
   body.x += dx
   if (!boxHitsSolid(grid, body)) return false
-  // Walk up a one-tile ledge so rubble does not stop a run.
-  if (canStepUp) {
-    const lifted = { ...body, y: Math.floor(body.y + body.h - EPSILON) - body.h }
-    if (!boxHitsSolid(grid, lifted)) {
-      body.y = lifted.y
-      return false
-    }
+  const lifted = steppedUp(grid, body, stepUp)
+  if (lifted !== null) {
+    body.y = lifted
+    return false
   }
   body.x = dx > 0 ? Math.floor(body.x + body.w) - body.w - EPSILON : Math.floor(body.x) + 1 + EPSILON
   body.vx = 0
   return true
 }
+
+/** The top of the body standing on whatever is in its way, if that is at most `stepUp` tiles up with room above. */
+function steppedUp(grid: Grid, body: Body, stepUp: number): number | null {
+  const feetRow = Math.floor(body.y + body.h - EPSILON)
+  for (let rise = 1; rise <= stepUp; rise += 1) {
+    const y = feetRow - (rise - 1) - body.h
+    if (!boxHitsSolid(grid, { ...body, y })) return y
+  }
+  return null
+}
+
+/**
+ * True when a person walking toward `side` would step up onto what is in front of them without a jump. Shared by
+ * the player's movement (through `moveBody`) and route choices, so everyone climbs the same heaps.
+ */
+export function canStepUpAhead(grid: Grid, body: Body, side: 1 | -1): boolean {
+  const ahead = { ...body, x: body.x + side * STEP_PROBE }
+  if (!boxHitsSolid(grid, ahead)) return false
+  return steppedUp(grid, ahead, PERSON_STEP_UP) !== null
+}
+
+/** How far ahead of a person `canStepUpAhead` looks. */
+const STEP_PROBE = 0.3
 
 function moveY(grid: Grid, body: Body, dy: number): void {
   if (dy === 0) return

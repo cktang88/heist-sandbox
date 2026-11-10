@@ -109,7 +109,8 @@ function fall(world: World, prop: PropState, loose: LooseProp, dt: number): void
   const start = footingOf(propBox(prop))
   const body: Body = { ...start, vx: loose.vx, vy: loose.vy + GRAVITY * dt, onGround: false }
   const speed = body.vy
-  moveBody(world.grid, body, dt)
+  // Furniture does not climb: a shove into a step stops it there.
+  moveBody(world.grid, body, dt, 0)
   const box = propBox(prop)
   let dy = body.y - start.y
   let dx = body.x - start.x
