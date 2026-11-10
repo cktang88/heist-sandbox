@@ -140,8 +140,8 @@ export function reportEvent(world: World, event: SecurityEvent): void {
     case 'tamper':
       security.focus = floorBelow(world, event.at)
       log(world, `Control: Copy, ${TAMPER_NAMES[event.what]} on ${floorName(world, event.at)}.`)
-      // A charge on a wall or a man tied up leaves no doubt there is an intruder.
-      raiseLevel(world, event.what === 'door' || event.what === 'moved' ? 1 : event.what === 'charge' || event.what === 'hostage' ? 3 : 2)
+      // A charge on a wall leaves no doubt there is an intruder; a man found tied up is like a man found down (level 2).
+      raiseLevel(world, event.what === 'door' || event.what === 'moved' ? 1 : event.what === 'charge' ? 3 : 2)
       return
     case 'vault':
       // Serious, but nobody has seen him yet: lock the exits and search (caseCheck.ts confirms it later).

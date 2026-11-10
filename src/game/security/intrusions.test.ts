@@ -78,7 +78,7 @@ describe('windows', () => {
     addWall(world, 50)
     fillTiles(world.grid, 50, GROUND - 4, 50, GROUND - 2, 'glass')
     putPlayer(world, 120)
-    const guard = addGuard(world, 44, -1, 'post')
+    const guard = addGuard(world, 46, -1, 'post')
     guard.wait = 1e9
     run(world, 0.2)
     fillTiles(world.grid, 50, GROUND - 4, 50, GROUND - 2, 'air')
