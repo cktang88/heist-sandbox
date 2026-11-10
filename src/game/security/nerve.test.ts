@@ -58,7 +58,7 @@ describe('nerve and experience', () => {
       hurtGuard(world, victim, 1000, feetOf(victim))
     }
     expect(alone.nerve).toBeLessThan(TIERS.regular.nerve - NERVE.colleagueKilled + 0.01)
-    expect(lonely.security.barks.some((line) => line.text.includes('Reyes'))).toBe(true)
+    expect(lonely.security.barks.some((line) => line.text.includes(lonely.people?.nameOf(victimA) ?? 'Reyes'))).toBe(true)
     run(lonely, 2)
     run(crowded, 2)
     expect(withFriends.nerve).toBeGreaterThan(alone.nerve + 0.15)

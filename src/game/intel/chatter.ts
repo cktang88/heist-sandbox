@@ -62,7 +62,7 @@ function overhear(world: World, pair: [Guard, Guard], key: string): void {
   world.intel.chatter = null
   const [speaker, listener] = rank(pair)
   const index = world.guards.indexOf(speaker)
-  const clue = recordClue(world, { source: 'chatter', origin: `${nameOf(index)} (overheard)`, sourceKey: `guard:${index}`, detail: detailKnownBy(world, speaker), truth: truthOf(world, speaker) })
+  const clue = recordClue(world, { source: 'chatter', origin: `${world.people?.nameOf(speaker) ?? nameOf(index)} (overheard)`, sourceKey: `guard:${index}`, detail: detailKnownBy(world, speaker), truth: truthOf(world, speaker) })
   bark(world, listener, 'Hear where they put the package?', true)
   bark(world, speaker, `Word is... ${spokenLine(clue.filter, 'plain')}`, true)
 }

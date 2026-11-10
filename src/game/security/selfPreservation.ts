@@ -73,7 +73,7 @@ export function dragWounded(world: World, guard: Guard, threat: Vec, dt: number)
     if (!casualty) return false
     casualty.draggedBy = index
     casualty.dragSeconds = UNDER_FIRE.dragSeconds
-    barkLine(world, guard, 'drag', true, nameOf(world.guards.indexOf(casualty)))
+    barkLine(world, guard, 'drag', true, world.people?.nameOf(casualty) ?? nameOf(world.guards.indexOf(casualty)))
   }
   const away = Math.sign(feet.x - threat.x) || -guard.facing
   goTo(world, guard, { x: feet.x + away * DRAG_STEP, y: feet.y }, PATROL.walkSpeed, dt, false)

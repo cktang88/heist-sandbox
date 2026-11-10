@@ -21,6 +21,7 @@ import { onLookChange, randomSeed, writeSeed } from './ui/address'
 import { loadingScreen, nextPaint } from './ui/loading'
 import { enableStepTimings, stepTimings } from './game/stepTimings'
 import { createMenus } from './ui/menus'
+import { rememberNemeses, withNemeses } from './ui/nemesisStore'
 // Director, briefing, weather and debrief (src/game/director, src/game/chronicle, src/ui/debrief.ts).
 import { startDirector } from './game/director/director'
 import { debriefOf } from './game/chronicle/chronicle'
@@ -69,7 +70,8 @@ const scene = measured('create renderer', createScene)
 loading.show(0.06, 'Generating the complex')
 await nextPaint()
 let heistSeed = newSeed()
-let world: World = measured('create world', () => createWorld(heistSeed, siteKind))
+// Guards who met the player on earlier heists come back (kept in the browser's storage).
+let world: World = measured('create world', () => withNemeses(createWorld(heistSeed, siteKind)))
 startDirector(world)
 let lastTime = performance.now()
 let view = centerOf(world.player)
@@ -122,7 +124,7 @@ function updateLoading(now: number): void {
 function startHeist(seed: number): void {
   writeSeed(seed)
   loading.show(0.06, 'Generating the complex')
-  world = createWorld(seed, siteKind)
+  world = withNemeses(createWorld(seed, siteKind))
   heistSeed = seed
   startDirector(world)
   closeDebrief()
@@ -186,6 +188,7 @@ function frame(now: number): void {
   if (!menus.paused() && !starting) {
     timed('simulation', () => {
       stepWorld(world, frameInput, realDt)
+      rememberNemeses(world)
       menus.afterStep(world)
     })
     debriefIfOver()

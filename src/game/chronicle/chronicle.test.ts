@@ -34,11 +34,14 @@ describe('the chronicle', () => {
   })
 
   it('turns each run into a debrief that matches its style', () => {
-    const quiet = debriefOf(quietRun())
+    const quietWorld = quietRun()
+    const quiet = debriefOf(quietWorld)
     const loud = debriefOf(loudRun())
+    // The story names whoever the takedown really was.
+    const victim = quietWorld.chronicle.beats.find((beat) => beat.kind === 'down')?.who ?? 'heavy'
     expect(quiet.verdict.style).toBe('quiet')
     expect(loud.verdict.style).toMatch(/loud|catastrophe/)
-    expect(quiet.story.join(' ')).toMatch(/Lindqvist|heavy/)
+    expect(quiet.story.join(' ')).toContain(victim)
     expect(quiet.story.join(' ')).not.toMatch(/alarm went up|explosion/)
     expect(loud.story.join(' ')).toMatch(/explosion|blast/)
     expect(debriefText(loud)).toContain(loud.headline.toUpperCase())

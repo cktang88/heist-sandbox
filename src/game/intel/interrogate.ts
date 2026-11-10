@@ -73,7 +73,7 @@ function holdSeconds(guard: Guard): number {
 export function interrogate(world: World, guard: Guard): Clue {
   world.intel.questioned.add(guard)
   const index = world.guards.indexOf(guard)
-  const clue = recordClue(world, { source: 'interrogation', origin: nameOf(index), sourceKey: `guard:${index}`, detail: detailKnownBy(world, guard), truth: truthOf(world, guard) })
+  const clue = recordClue(world, { source: 'interrogation', origin: world.people?.nameOf(guard) ?? nameOf(index), sourceKey: `guard:${index}`, detail: detailKnownBy(world, guard), truth: truthOf(world, guard) })
   bark(world, guard, spokenLine(clue.filter, voiceOf(world, guard)), true)
   emitNoise(world, centerOf(guard), TALK_RADIUS)
   return clue

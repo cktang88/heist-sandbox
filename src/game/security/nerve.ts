@@ -123,7 +123,7 @@ export function onKilled(world: World, victim: Guard): void {
       callerGap = gap
     }
   }
-  if (caller) barkLine(world, caller, 'colleagueDown', true, nameOf(index))
+  if (caller) barkLine(world, caller, 'colleagueDown', true, world.people?.nameOf(victim) ?? nameOf(index))
 }
 
 /** A blast heard close by: the nearer, the worse. */

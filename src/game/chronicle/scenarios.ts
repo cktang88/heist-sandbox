@@ -69,6 +69,9 @@ export function loudRun(seed = 1): World {
   const room = world.rooms.filter((candidate) => candidate.building === 'tower' && candidate.storey === 4 && candidate.kind !== 'stairwell').sort((a, b) => b.w - a.w)[0]
   placePlayer(world, room.x + 2, room.floorY)
   play(world, 1)
+  // One guard is standing in the room when it goes up, whatever tonight's patrols are doing.
+  const unlucky = world.guards.find((guard) => guard.role !== 'heavy')!
+  Object.assign(unlucky, { x: room.x + room.w / 2 - 4 - unlucky.w / 2, y: room.floorY - unlucky.h - 0.01, vx: 0, vy: 0 })
   for (let blast = 0; blast < 4; blast += 1) {
     explode(world, { x: room.x + room.w / 2 + blast * 3 - 4, y: room.floorY - 2 }, C4_BLAST)
     play(world, 3)

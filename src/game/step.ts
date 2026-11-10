@@ -24,6 +24,7 @@ import { stepIntel } from './intel/intel'
 import { stepPhysProps } from './physprops/physprops'
 import { stepGaps } from './gaps/gaps'
 import { stepStealth } from './stealth/stealth'
+import { stepPeople } from './people/tick'
 import { forgetSeenChanges } from './tiles'
 import { useTool } from './tools'
 import { beginStepTiming, endStepTiming, lapStepTiming as lap } from './stepTimings'
@@ -89,6 +90,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   for (const guard of world.guards) updateGuard(world, guard, dt)
   stepStealth(world)
   lap('guards')
+  stepPeople(world, dt)
   stepGaps(world, input)
   lap('gaps')
   if (!alarmBefore && world.alarm) raiseAlarm(world)

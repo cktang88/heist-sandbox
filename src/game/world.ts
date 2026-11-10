@@ -33,6 +33,8 @@ import { createGaps, type GapState } from './gaps/state'
 import { createDirector, type DirectorState } from './director/state'
 import { createChronicle, type ChronicleState } from './chronicle/types'
 import { createStealth, type StealthState } from './stealth/state'
+import { createPeople } from './people/people'
+import type { PeopleState } from './people/types'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -109,6 +111,8 @@ export type World = {
   chronicle: ChronicleState
   /** The quiet toolkit: bodies carried and hidden, chokes, hiding places, disguises, lifted radios and keycards. */
   stealth: StealthState
+  /** Who the guards are: names, ranks, traits, bonds and what happened to them tonight (people/). */
+  people?: PeopleState
 }
 
 export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
@@ -166,5 +170,6 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
   }
   setupIntel(world)
   prepareWorld(world)
+  world.people = createPeople(world, seed)
   return world
 }
