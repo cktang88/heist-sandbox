@@ -92,6 +92,8 @@ export type DirectorState = {
   lightningAt: number
   /** What the reactive events watch for, updated at each pacing look (see `watch.ts`). */
   signals: Signals
+  /** Guards the rival crew knocked cold tonight, so the story and the rating do not put them down to the player. */
+  rivalVictims: Set<Guard>
 }
 
 export type Signals = {

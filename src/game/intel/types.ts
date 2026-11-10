@@ -68,9 +68,9 @@ export type IntelState = {
   chatterTick: number
   /**
    * The guards' plan to move the case once the site is on alert: seconds of alarm so far, whether the move
-   * has been called out, the place it is going to, and how many times it has moved.
+   * has been called out, the place it is going to, how many times it has moved, and when it last did.
    */
-  move: { alertSeconds: number; ordered: boolean; to: number | null; moves: number }
+  move: { alertSeconds: number; ordered: boolean; to: number | null; moves: number; movedAt: number }
   /** Bumped whenever the clues change, so the search area is only worked out again then. */
   version: number
 }
@@ -78,6 +78,6 @@ export type IntelState = {
 export function createIntel(): IntelState {
   return {
     places: [], real: 0, clues: [], questioned: new Set(), used: new Set(), documents: new Set(),
-    chatter: null, chatterTick: 0, move: { alertSeconds: 0, ordered: false, to: null, moves: 0 }, version: 0,
+    chatter: null, chatterTick: 0, move: { alertSeconds: 0, ordered: false, to: null, moves: 0, movedAt: -Infinity }, version: 0,
   }
 }

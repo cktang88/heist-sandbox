@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { recordOf } from '../chronicle/story/record'
+import { hurtGuard } from '../guards'
+import { reportEvent } from '../security/report'
 import { addProp } from '../hazards/testWorld'
-import { addLamp, arena, GROUND, putPlayer, run } from '../security/testArena'
+import { addGuard, addLamp, arena, GROUND, putPlayer, run } from '../security/testArena'
 import { stealthCues } from './cues'
 import { stealthRating } from './rating'
 
@@ -25,6 +28,23 @@ describe('stealth cues on the HUD', () => {
     expect(texts(world)).toEqual(['HIDDEN IN LOCKER'])
   })
 
+  it('says IN COVER only where the cover rules really protect him: not behind a burning desk, yes standing behind a tipped table', () => {
+    const world = arena()
+    const desk = addProp(world, 'desk', 21, GROUND)
+    world.hazards.burningProps.set(desk.id, 1)
+    putPlayer(world, 20)
+    run(world, 0.3, { crouch: true })
+    expect(texts(world)).not.toContain('IN COVER')
+    const table = addProp(world, 'desk', 41, GROUND)
+    putPlayer(world, 39.9)
+    run(world, 0.2)
+    run(world, 1 / 60, { kickPressed: true, aim: { x: 45, y: GROUND - 1 } })
+    putPlayer(world, 40)
+    run(world, 0.3)
+    expect(world.physProps.loose.get(table.id)?.tipped).toBeTruthy()
+    expect(texts(world)).toContain('IN COVER')
+  })
+
   it('says why a disguise is not working', () => {
     const world = arena()
     world.stealth.disguise = { officer: false }
@@ -46,5 +66,30 @@ describe('the end-of-heist rating', () => {
     expect(stealthRating(world).name).toBe('SILENT')
     world.stats.alarms = 1
     expect(stealthRating(world).name).toBe('LOUD')
+  })
+
+  it('stays Ghost when the only body found is a guard the rival crew knocked cold', () => {
+    const world = arena()
+    const victim = addGuard(world, 30, 1)
+    world.director.rivalVictims.add(victim)
+    world.stealth.found.add(world.guards.indexOf(victim))
+    world.stats.bodiesFound = 1
+    expect(stealthRating(world).name).toBe('GHOST')
+  })
+
+  it('is not Ghost once anyone is dead, even by a fall or a fire rather than a bullet', () => {
+    const world = arena()
+    const guard = addGuard(world, 30, 1)
+    hurtGuard(world, guard, 1000, { x: 30, y: GROUND }, 'hazard')
+    expect(world.stats.kills).toBe(0)
+    expect(stealthRating(world).name).toBe('SILENT')
+  })
+
+  it('is not Ghost once a camera has caught the player, even if no guard ever saw him', () => {
+    const world = arena()
+    reportEvent(world, { kind: 'camera', at: { x: 20, y: GROUND - 1 }, device: 0 })
+    expect(world.stats.timesSpotted).toBe(0)
+    expect(stealthRating(world).name).toBe('SILENT')
+    expect(recordOf(world).numbers.seen).toBe(1)
   })
 })

@@ -32,6 +32,8 @@ export function startErrand(world: World, guard: Guard, spot: Vec): Errand {
 export function stepErrand(world: World, errand: Errand, plan: ErrandPlan, dt: number): boolean {
   if (errand.state === 'done' || errand.state === 'interrupted') return true
   if (!onErrand(errand.guard, errand.spot)) {
+    // Knocked down or stunned on the way, he keeps no errand to walk back to once he is up again.
+    release(errand.guard, errand.spot)
     errand.state = 'interrupted'
     return true
   }

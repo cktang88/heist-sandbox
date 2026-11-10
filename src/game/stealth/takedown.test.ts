@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Guard } from '../guards'
 import { addGuard, addLamp, arena, GROUND, putPlayer, run } from '../security/testArena'
 import type { World } from '../world'
+import { toolIndex } from '../toolDefs'
 import { TAKEDOWN } from './tuning'
 
 /** The player just behind a calm guard who faces away (right), in the dark arena. */
@@ -37,6 +38,21 @@ describe('silent takedowns', () => {
     expect(world.stats.knockouts).toBe(1)
     expect(other.mode).toBe('calm')
     expect(world.security.level).toBe(0)
+  })
+
+  it('mid-choke the player can neither walk off with him nor fire a gun', () => {
+    const { world, guard } = behind()
+    const other = addGuard(world, 40, -1)
+    run(world, 0.1, { crouch: true })
+    run(world, 1 / 60, { crouch: true, interact: true, interactPressed: true })
+    const x = world.player.x
+    run(world, 1, { crouch: true, interact: true, right: true })
+    expect(world.player.x).toBeCloseTo(x, 5)
+    world.player.tool = toolIndex('pistol')
+    run(world, 1 / 60, { crouch: true, interact: true, fire: true, firePressed: true, aim: { x: 40, y: other.y + 0.5 } })
+    expect(world.projectiles).toHaveLength(0)
+    run(world, TAKEDOWN.chokeSeconds, { crouch: true, interact: true })
+    expect(guard.out).toBe(true)
   })
 
   it('letting go of E mid-choke lets him break free and fight', () => {

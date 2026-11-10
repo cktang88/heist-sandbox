@@ -8,9 +8,9 @@ import { DISGUISE } from './tuning'
 
 /**
  * Wearing a guard's uniform. From a distance, in passing, the player reads as one of them; up close a guard looks at
- * his face and sees through it after a moment. Officers know every face. Running, carrying a body, choking someone,
- * holding a big gun or walking into a room his rank has no business in gives him away whatever the distance. Once a
- * stripped body has been found, everyone looks harder for a while.
+ * his face and sees through it after a moment. Officers know every face. Running, carrying a body, choking a man or
+ * holding one as a shield, holding a big gun or walking into a room his rank has no business in gives him away
+ * whatever the distance. Once a stripped body has been found, everyone looks harder for a while.
  */
 
 const BIG_GUNS = new Set(['rifle', 'shotgun', 'sniper', 'rocket'])
@@ -24,6 +24,7 @@ export function disguiseBlown(world: World): string | null {
   if (Math.abs(player.vx) > 5) return 'running'
   if (world.stealth.carried !== null) return 'carrying a body'
   if (world.stealth.choke) return 'choking a man'
+  if (world.melee.shield) return 'holding a hostage'
   if (BIG_GUNS.has(TOOLS[player.tool].id) && !TOOLS[player.tool].action) return 'big gun out'
   const at = centerOf(player)
   const room = roomAt(world.rooms, at.x, at.y)

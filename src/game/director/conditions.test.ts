@@ -113,6 +113,20 @@ describe('tonight\'s conditions', () => {
     expect(world.chronicle.beats.some((beat) => beat.kind === 'event' && beat.detail === 'shiftChange')).toBe(true)
   })
 
+  it('a shift change that runs out of time sends nobody on walking to a post or the quarters all night', () => {
+    const world = directedWorld(3, 'complex', [])
+    const change = CONDITIONS.find((condition) => condition.id === 'shiftChange')!.start(world, () => 0)
+    const at = Number(change.line.match(/at (\d+):(\d\d)/)!.slice(1).reduce((minutes, seconds) => String(Number(minutes) * 60 + Number(seconds))))
+    for (const clock of [at - 39, at, at + 1]) {
+      world.clock = clock
+      change.step!(world, 1)
+    }
+    expect(world.guards.filter((guard) => guard.station !== null).length).toBeGreaterThan(0)
+    world.clock = at + 151
+    change.step!(world, 1)
+    expect(world.guards.filter((guard) => guard.station !== null)).toEqual([])
+  })
+
   it('a delivery opens the depot and keeps guards busy at the loading dock', () => {
     const world = directedWorld(8, 'complex', ['delivery'])
     const [minutes, seconds] = nightConditions(world)[0].match(/at (\d+):(\d\d)/)!.slice(1).map(Number)
@@ -120,7 +134,9 @@ describe('tonight\'s conditions', () => {
     idle(world, minutes * 60 + seconds + 2)
     const dock = world.rooms.find((room) => room.kind === 'loadingDock' && room.building === 'depot')!
     expect(world.guards.filter((guard) => guard.station && Math.abs(guard.station.y - dock.floorY) < 1 && guard.station.x >= dock.x && guard.station.x <= dock.x + dock.w).length).toBeGreaterThan(0)
-    expect(deviceState(world).unlockedDoors.size).toBeGreaterThanOrEqual(unlockedBefore)
+    expect(deviceState(world).unlockedDoors.size).toBeGreaterThan(unlockedBefore)
+    idle(world, 60)
+    expect(deviceState(world).unlockedDoors.size).toBe(unlockedBefore)
   })
 
   it('maintenance puts a climbable scaffold up the tower and parks a lift', () => {
@@ -164,5 +180,18 @@ describe('tonight\'s conditions', () => {
     const strikes = world.chronicle.beats.filter((beat) => beat.kind === 'event' && beat.detail === 'rivalCrew')
     expect(strikes.length).toBeGreaterThanOrEqual(1)
     expect(strikes[0].outcome).toBeTruthy()
+  })
+
+  it('a guard the rival crew knocks cold drops like a body, and is not put down to the player', () => {
+    const world = directedWorld(13, 'complex', [])
+    const rival = CONDITIONS.find((condition) => condition.id === 'rivalCrew')!.start(world, () => 0.7)
+    world.director.conditions.push(rival)
+    rival.step!(world, 200)
+    const victim = world.guards.find((guard) => guard.out)!
+    expect(victim.ragdoll).not.toBeNull()
+    idle(world, 1)
+    expect(world.stats.knockouts).toBe(0)
+    expect(world.chronicle.tally.knockedOut).toBe(0)
+    expect(world.chronicle.beats.some((beat) => beat.kind === 'down')).toBe(false)
   })
 })

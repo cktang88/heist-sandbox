@@ -6,8 +6,11 @@ import type { Vec } from '../types'
  * Guard indices point into `world.guards`; prop ids into `world.props`.
  */
 
-/** A choke or a struggle in progress. `need` is the seconds it takes; a `struggle` (from the front, or on a man who knows) is loud. */
-export type Choke = { guard: number; t: number; need: number; struggle: boolean; noiseIn: number; side: 1 | -1 }
+/**
+ * A choke or a struggle in progress. `need` is the seconds it takes; a `struggle` (from the front, or on a man who knows)
+ * is loud. `x` is where the player stands for it: he cannot walk off with the man in his arms.
+ */
+export type Choke = { guard: number; t: number; need: number; struggle: boolean; noiseIn: number; side: 1 | -1; x: number }
 
 /** Where the player is hiding: inside a locker or stall, or flat under a desk or bed. */
 export type Hiding = { prop: number; how: 'inside' | 'under' }
@@ -29,6 +32,8 @@ export type Lure = Vec & { clock: number }
 
 export type StealthState = {
   carried: number | null
+  /** Tied men who were carried while awake: limp on the shoulder, they kneel up again once set down and still. */
+  awakeTied: Set<number>
   /** Whether grab was held last frame: picking up and dropping are on the press, not the hold. */
   grabWas: boolean
   choke: Choke | null
@@ -68,7 +73,7 @@ export type StealthState = {
 
 export function createStealth(): StealthState {
   return {
-    carried: null, grabWas: false, choke: null, hiding: null, watched: new Map(), opened: new Map(), found: new Set(), blood: [], bleeding: new Map(), lastDrop: null,
+    carried: null, awakeTied: new Set(), grabWas: false, choke: null, hiding: null, watched: new Map(), opened: new Map(), found: new Set(), blood: [], bleeding: new Map(), lastDrop: null,
     radios: new Set(), uniforms: new Set(), keycards: new Set(), checkIn: null, bluffs: 0, disguise: null, uniformKnownAt: -Infinity,
     darts: [], noisemakers: [], noisemakerUses: new Map(), lures: [], rigged: [], looped: new Map(), hint: null,
   }

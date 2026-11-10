@@ -36,9 +36,12 @@ export function stepIntel(world: World, dt: number): void {
   stepLootMove(world, dt)
 }
 
-/** Living people who could still be made to talk: everyone not dead and not yet questioned. */
+/**
+ * Living people who could still be made to talk: everyone not dead and not yet questioned, except a man tied up out
+ * cold, who never comes round.
+ */
 export function talkersLeft(world: World): number {
-  return world.guards.filter((guard) => guard.mode !== 'dead' && !world.intel.questioned.has(guard)).length
+  return world.guards.filter((guard) => guard.mode !== 'dead' && !(guard.out && guard.restrained) && !world.intel.questioned.has(guard)).length
 }
 
 /** The objective line for the HUD, which says only what the player has learned. */
