@@ -1,17 +1,24 @@
 import { flash } from './effects'
-import { investigate } from './guards'
-import { centerOf, distance, type Vec } from './types'
+import { hearNoise } from './security/brain'
+import { loudnessAt, type NoiseSource } from './security/hearing'
+import { eyeOf } from './security/model'
+import type { Vec } from './types'
 import type { World } from './world'
 
 export const LOUD_RADIUS = 20
 
-/** Makes a sound at a spot. Guards in earshot who are not already fighting go and look. */
-export function emitNoise(world: World, at: Vec, radius: number): void {
+/**
+ * Makes a sound at a spot. `radius` is how far it carries in open air, in tiles; walls, doors and floors
+ * on the way muffle it. Guards who hear it react according to how loud it was when it reached them.
+ * `source` is 'guard' for the guards' own gunfire and doors, which colleagues treat differently.
+ */
+export function emitNoise(world: World, at: Vec, radius: number, source: NoiseSource = 'player'): void {
   if (radius >= 3) flash(world.effects, at, radius, 0.5, 'noise')
   for (const guard of world.guards) {
-    if (guard.state === 'dead' || guard.state === 'alert') continue
-    if (distance(centerOf(guard), at) > radius) continue
-    investigate(guard, at)
-    if (radius >= LOUD_RADIUS) guard.awareness = Math.max(guard.awareness, 0.5)
+    if (guard.mode === 'dead' || guard.deafSeconds > 0 || guard.stunSeconds > 0) continue
+    const ear = eyeOf(guard)
+    if (Math.abs(ear.x - at.x) > radius || Math.abs(ear.y - at.y) > radius) continue
+    if (loudnessAt(world, at, ear, radius) <= 0) continue
+    hearNoise(world, guard, at, radius, source)
   }
 }
