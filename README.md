@@ -107,9 +107,11 @@ The crosshair ring widens as a gun gets less accurate, so spread is never a surp
 - Push a desk against a door to block it, or under a hole in the ceiling to climb up.
 - Kick a table over for cover. Kick a guard off a ledge or through a window.
 - Blow up a stair flight or cut an elevator cable to stop guards following.
-- Destroy a floor and whatever stood on it falls. Cars catch fire and explode.
+- Destroy the whole floor under something and it falls. Cars catch fire and explode.
 - Shoot fuel drums and gas cylinders. Fire spreads, smoke fills rooms, sprinklers answer.
-- Walk past a hole blown in a floor, drop through it, or jump up through it. Floors are held up from behind, so a slab between two holes stays.
+- Rooms have depth even though the view is side-on. You walk past holes in the floor, elevator shafts, hatches and low rubble; hold S to drop into one.
+- A blast only removes what it destroys: the floor and ceiling around the hole stay. A storey comes down, in one piece, only when nothing is left holding it.
+- Blow the legs off a watchtower and it falls.
 - Swing on the grapple and crash through a window.
 
 ## The guards
