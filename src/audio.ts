@@ -2,7 +2,7 @@ import type { SoundKind } from './game/sounds'
 import { SOUNDS } from './render3d/assetManifest'
 import { centerOf } from './game/types'
 import { hasLineOfSight } from './game/vision'
-import { heardAt } from './soundFalloff'
+import { chooseVoices, heardAt, MAX_VOICES } from './soundFalloff'
 import type { World } from './game/world'
 
 /**
@@ -33,6 +33,10 @@ const VOICES: Partial<Record<SoundKind, Voice>> = {
   reload: { seconds: 0.04, gain: 0.25, lowpass: 6000, highpass: 1800, thump: 0, thumpGain: 0 },
   collapse: { seconds: 0.3, gain: 0.45, lowpass: 600, highpass: 30, thump: 60, thumpGain: 0.6 },
   pickup: { seconds: 0.05, gain: 0.1, lowpass: 8000, highpass: 3000, thump: 0, thumpGain: 0 },
+  // These had no voice and played the neutral click: a flashbang as a tick, a shout as a tick.
+  flashbang: { seconds: 0.5, gain: 0.9, lowpass: 7000, highpass: 200, thump: 90, thumpGain: 0.8 },
+  fire: { seconds: 0.35, gain: 0.25, lowpass: 2200, highpass: 300, thump: 0, thumpGain: 0 },
+  shout: { seconds: 0.18, gain: 0.2, lowpass: 1600, highpass: 500, thump: 220, thumpGain: 0.15 },
 }
 
 /** Recorded sounds, by the game event they play for. Several files for one event are picked from at random. */
@@ -70,6 +74,7 @@ export function createAudio(): GameAudio {
   let siren: { tone: OscillatorNode; gain: GainNode } | null = null
   let volume: GainNode | null = null
   let volumeLevel = 1
+  let voices = 0
   const samples = new Map<SoundKind, AudioBuffer[]>()
 
   // Browsers only allow sound after the player has clicked or pressed a key.
@@ -81,7 +86,11 @@ export function createAudio(): GameAudio {
     master.frequency.value = 20000
     volume = context.createGain()
     volume.gain.value = volumeLevel
-    master.connect(volume).connect(context.destination)
+    // Catches the peaks when several loud sounds land together, instead of letting them clip.
+    const limiter = context.createDynamicsCompressor()
+    limiter.threshold.value = -10
+    limiter.ratio.value = 12
+    master.connect(volume).connect(limiter).connect(context.destination)
     noise = context.createBuffer(1, context.sampleRate, context.sampleRate)
     const hiss = noise.getChannelData(0)
     for (let index = 0; index < hiss.length; index += 1) hiss[index] = Math.random() * 2 - 1
@@ -122,6 +131,7 @@ export function createAudio(): GameAudio {
       const side = context.createStereoPanner()
       side.pan.value = pan
       source.connect(level).connect(side).connect(exit)
+      count(source)
       source.start()
       return
     }
@@ -146,6 +156,7 @@ export function createAudio(): GameAudio {
     level.gain.setValueAtTime(voice.gain * loudness, now)
     level.gain.exponentialRampToValueAtTime(0.0008, now + length)
     hiss.connect(low).connect(high).connect(level).connect(out)
+    count(hiss)
     hiss.start(now, Math.random() * 0.5, length)
 
     if (voice.thump > 0) {
@@ -159,6 +170,12 @@ export function createAudio(): GameAudio {
       tone.start(now)
       tone.stop(now + length)
     }
+  }
+
+  /** Keeps the number of sounds playing, so a burst of events cannot stack up more than `MAX_VOICES`. */
+  function count(source: AudioScheduledSourceNode): void {
+    voices += 1
+    source.onended = () => (voices -= 1)
   }
 
   function setSiren(on: boolean, pitch: number): void {
@@ -187,11 +204,13 @@ export function createAudio(): GameAudio {
       const pitch = 0.45 + world.time.scale * 0.55
       master.frequency.value = 500 + world.time.scale * world.time.scale * 19500
       const ear = centerOf(world.drone ?? world.player)
+      const audible = []
       for (const event of events) {
         // Only what is near is heard; a wall or floor in between dulls it.
         const heard = heardAt(event.kind, Math.hypot(event.x - ear.x, event.y - ear.y), !hasLineOfSight(world.grid, ear, event))
-        if (heard) play(event.kind, heard.loudness, Math.max(-1, Math.min(1, (event.x - ear.x) / PAN_TILES)), pitch, heard.muffled)
+        if (heard) audible.push({ ...heard, kind: event.kind, pan: Math.max(-1, Math.min(1, (event.x - ear.x) / PAN_TILES)) })
       }
+      for (const sound of chooseVoices(audible, MAX_VOICES - voices)) play(sound.kind, sound.loudness, sound.pan, pitch, sound.muffled)
       setSiren(world.alarm && world.status === 'playing', pitch)
     },
     setVolume(level) {
