@@ -296,3 +296,25 @@ describe('an open terminal with a guard walking up', () => {
     expect(world.prompt).toBe('E: take down')
   })
 })
+
+describe('menus and switches that cannot do what they say', () => {
+  it('a terminal menu longer than the number keys is cut to ten, and the prompt names keys 1 to 0', () => {
+    const world = arena()
+    const computer = addArenaDevice(world, { kind: 'computer', x: 18, y: ARENA_GROUND - 1, hacked: true })
+    putPlayer(world, 18.5)
+    world.terminal = { device: computer.id, title: 'Test', options: Array.from({ length: 12 }, (_, index) => `Option ${index}`) }
+    runArena(world, FRAME)
+    expect(world.terminal.options).toHaveLength(10)
+    expect(world.prompt).toBe('1-0: choose, E: close')
+  })
+
+  it('a light switch on a circuit whose fuse box is wrecked does not offer to put the lights on', () => {
+    const world = arena()
+    addArenaDevice(world, { kind: 'fusebox', x: 40, y: ARENA_GROUND - 2, circuit: 1, disabled: true })
+    addArenaDevice(world, { kind: 'lightSwitch', x: 18, y: ARENA_GROUND - 2, circuit: 1 })
+    world.deadCircuits.add(1)
+    putPlayer(world, 18.5)
+    runArena(world, FRAME)
+    expect(world.prompt).not.toBe('E: lights on')
+  })
+})

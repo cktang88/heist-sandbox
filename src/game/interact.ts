@@ -1,6 +1,6 @@
 import { closeTerminal, chooseOption, openTerminal, switchOff } from './devices/terminal'
 import { lockSeconds, keypadFor } from './devices/locks'
-import { deviceCenter, flipPower } from './devices/power'
+import { circuitWrecked, deviceCenter, flipPower } from './devices/power'
 import { deviceState } from './devices/state'
 import { callElevator, carUnderPlayer, doorColumn, elevatorRefuses, shaftDoorAt, shaftOf } from './elevators'
 import { canClose, closeDoor, doorCentre, openDoor as openDoorTiles, openDoorBy, openedDoors, type DoorHow } from './doors/doors'
@@ -229,9 +229,16 @@ function useTerminal(world: World, input: Input): void {
   world.prompt = terminalPrompt(world)
 }
 
+/** The number keys reach ten options: 1-9, then 0 for the tenth. */
+const MENU_KEYS = 10
+
 function terminalPrompt(world: World): string {
-  const count = world.terminal?.options.length ?? 0
-  return count > 0 ? `1-${count}: choose, E: close` : 'Access denied. E: close'
+  const terminal = world.terminal
+  // A longer menu is cut to what the keys can reach, so every option shown can be picked.
+  if (terminal && terminal.options.length > MENU_KEYS) terminal.options = terminal.options.slice(0, MENU_KEYS)
+  const count = terminal?.options.length ?? 0
+  if (count === 0) return 'Access denied. E: close'
+  return `1-${count % MENU_KEYS}: choose, E: close`
 }
 
 /**
@@ -276,6 +283,8 @@ function actionFor(world: World, device: Device): Action | null {
     case 'lightSwitch': {
       if (device.circuit === undefined || device.disabled) return null
       const dark = world.deadCircuits.has(device.circuit)
+      // A wrecked fuse box keeps its circuit dead: no switch on it can bring the lights back.
+      if (dark && circuitWrecked(world, device.circuit)) return null
       // Crouched at a live fuse box: rig the breaker to trip later, while the player is somewhere else.
       if (device.kind === 'fusebox' && !dark && world.player.crouching) return rigAction(world, device, key)
       const prompt = device.kind === 'fusebox' ? (dark ? 'E: restore power' : 'E: cut power') : dark ? 'E: lights on' : 'E: lights off'
