@@ -3,9 +3,7 @@ import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import { createBackdrop } from './backdrop'
 import type { Camera } from './camera'
-import { drawStealthScreen, drawStealthWorld } from './stealthOverlay'
-import { hudUnit } from './drawHud'
-import { drawEffects, drawFalling, drawGoggles, drawGuard, drawGuardMarks, drawLamps, drawPlayer, drawProjectiles, drawSignals, drawThings } from './drawActors'
+import { drawEffects, drawFalling, drawGoggles, drawGuard, drawLamps, drawPlayer, drawProjectiles, drawThings } from './drawActors'
 import { drawPickups, drawProps } from './drawProps'
 import { createLighting } from './lighting'
 import { drawRain } from './rain'
@@ -58,13 +56,10 @@ export function createSceneRenderer(): SceneRenderer {
       toWorld()
       lighting.drawGlows(context, world)
       drawGoggles(context, world)
-      drawGuardMarks(context, world)
-      drawSignals(context, world)
       drawProjectiles(context, world)
       drawEffects(context, world)
-      drawStealthWorld(context, world, camera)
+      // Markers, names, barks and arrows are the same over both views: main.ts draws `overlay.ts` on top.
       context.setTransform(1, 0, 0, 1, 0, 0)
-      drawStealthScreen(context, world, camera, hudUnit(camera.height))
     },
   }
 }

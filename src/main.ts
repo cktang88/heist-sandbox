@@ -199,8 +199,8 @@ function frame(now: number): void {
     if (scene.draw3d) {
       scene.draw3d.draw(world, camera, frameInput.aim)
       context.clearRect(0, 0, canvas.width, canvas.height)
-      drawOverlay(context, world, camera)
     } else scene.draw2d?.draw(context, world, camera, frameInput.aim)
+    drawOverlay(context, world, camera)
   })
   timed('hud', () => {
     drawFlashOverlay(context, world, canvas.width, canvas.height)
