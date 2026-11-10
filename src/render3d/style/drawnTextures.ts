@@ -8,39 +8,57 @@ import { cellHash, fractalNoise } from '../noise'
 
 const HATCH_SIZE = 512
 
-type Stroke = { count: number; angle: number; jitter: number; width: number; alpha: number; length: [number, number] }
+/**
+ * One layer of hatching: parallel pencil lines across the tile, broken into strokes of varying length and
+ * pressure with small gaps, the way an artist hatches a tone. Lines run at 45 degrees (or flat), with a spacing
+ * that divides the tile, so the pattern repeats without a seam.
+ */
+type Layer = { direction: 1 | -1 | 0; spacing: number; offset: number; width: number; alpha: number }
 
 /**
- * Four tones of pencil hatching, each one drawn over the previous (a "tonal art map"), so moving from one tone
- * to the next only adds strokes and never makes existing ones jump. Light tones are long, sparse diagonal
- * strokes; darker tones add more of them, then a cross-hatch, then dense short scribble.
+ * Four tones of hatching, each drawn over the previous (a "tonal art map"), so moving from one tone to the
+ * next only adds lines and never makes existing ones jump: single diagonal hatch, denser hatch, cross-hatch,
+ * then a third flat direction for near black.
  */
-const TONES: Stroke[][] = [
-  [{ count: 140, angle: -0.95, jitter: 0.06, width: 1.1, alpha: 0.5, length: [50, 130] }],
-  [{ count: 260, angle: -0.95, jitter: 0.07, width: 1.2, alpha: 0.6, length: [40, 120] }],
-  [{ count: 330, angle: 0.62, jitter: 0.08, width: 1.2, alpha: 0.62, length: [40, 110] }],
+const TONES: Layer[][] = [
+  [{ direction: 1, spacing: 16, offset: 0, width: 1.6, alpha: 0.85 }],
+  [{ direction: 1, spacing: 16, offset: 8, width: 1.5, alpha: 0.8 }],
+  [{ direction: -1, spacing: 16, offset: 3, width: 1.5, alpha: 0.8 }],
   [
-    { count: 520, angle: -0.95, jitter: 0.1, width: 1.5, alpha: 0.75, length: [25, 80] },
-    { count: 380, angle: 0.15, jitter: 0.12, width: 1.4, alpha: 0.7, length: [20, 60] },
+    { direction: -1, spacing: 16, offset: 11, width: 1.6, alpha: 0.85 },
+    { direction: 0, spacing: 8, offset: 2, width: 1.4, alpha: 0.75 },
   ],
 ]
 
-function drawStroke(c: CanvasRenderingContext2D, x: number, y: number, stroke: Stroke, seed: number): void {
-  const angle = stroke.angle + (cellHash(seed, 1, 31) - 0.5) * 2 * stroke.jitter
-  const length = stroke.length[0] + cellHash(seed, 2, 31) * (stroke.length[1] - stroke.length[0])
-  const dx = Math.cos(angle) * length
-  const dy = Math.sin(angle) * length
-  // A slight bow, as a wrist makes, and pressure that varies stroke to stroke.
-  const bow = (cellHash(seed, 3, 31) - 0.5) * length * 0.08
-  c.globalAlpha = stroke.alpha * (0.6 + 0.4 * cellHash(seed, 4, 31))
-  c.lineWidth = stroke.width * (0.75 + 0.5 * cellHash(seed, 5, 31))
-  // Drawn at every wrap-around offset, so the texture tiles.
-  for (const ox of [-HATCH_SIZE, 0, HATCH_SIZE]) {
-    for (const oy of [-HATCH_SIZE, 0, HATCH_SIZE]) {
-      c.beginPath()
-      c.moveTo(x + ox, y + oy)
-      c.quadraticCurveTo(x + ox + dx / 2 - dy / length * bow, y + oy + dy / 2 + dx / length * bow, x + ox + dx, y + oy + dy)
-      c.stroke()
+function drawLayer(c: CanvasRenderingContext2D, layer: Layer, seed: number): void {
+  const lines = HATCH_SIZE / layer.spacing
+  // Along a 45-degree line the tile repeats every HATCH_SIZE * sqrt(2); flat lines repeat every HATCH_SIZE.
+  const along = layer.direction === 0 ? HATCH_SIZE : HATCH_SIZE * Math.SQRT2
+  const unit = layer.direction === 0 ? [1, 0] : [Math.SQRT1_2, layer.direction * Math.SQRT1_2]
+  for (let line = 0; line < lines; line += 1) {
+    const offset = line * layer.spacing + layer.offset
+    // Start of the line: on the left edge for flat lines, on the top or bottom edge for diagonals.
+    const start = layer.direction === 0 ? [0, offset] : [offset, layer.direction === 1 ? 0 : HATCH_SIZE]
+    let t = cellHash(line, seed, 9) * 30
+    for (let stroke = 0; t < along; stroke += 1) {
+      const hash = (k: number) => cellHash(line * 131 + stroke, seed, k)
+      const length = 30 + hash(1) * 110
+      const wander = (hash(2) - 0.5) * 2.2
+      c.globalAlpha = layer.alpha * (0.55 + 0.45 * hash(3))
+      c.lineWidth = layer.width * (0.8 + 0.4 * hash(4))
+      const x0 = start[0] + unit[0] * t
+      const y0 = start[1] + unit[1] * t
+      const x1 = x0 + unit[0] * length - unit[1] * wander
+      const y1 = y0 + unit[1] * length + unit[0] * wander
+      for (const ox of [-HATCH_SIZE, 0, HATCH_SIZE]) {
+        for (const oy of [-HATCH_SIZE, 0, HATCH_SIZE]) {
+          c.beginPath()
+          c.moveTo(x0 + ox, y0 + oy)
+          c.lineTo(x1 + ox, y1 + oy)
+          c.stroke()
+        }
+      }
+      t += length + 3 + hash(5) * 22
     }
   }
 }
@@ -54,14 +72,8 @@ export function hatchTexture(): DataTexture {
   c.strokeStyle = '#000'
   c.lineCap = 'round'
   const data = new Uint8Array(HATCH_SIZE * HATCH_SIZE * 4)
-  let seed = 0
-  TONES.forEach((strokes, tone) => {
-    for (const stroke of strokes) {
-      for (let index = 0; index < stroke.count; index += 1) {
-        seed += 1
-        drawStroke(c, cellHash(seed, 7, 3) * HATCH_SIZE, cellHash(seed, 8, 3) * HATCH_SIZE, stroke, seed)
-      }
-    }
+  TONES.forEach((layers, tone) => {
+    layers.forEach((layer, index) => drawLayer(c, layer, tone * 7 + index + 1))
     const pixels = c.getImageData(0, 0, HATCH_SIZE, HATCH_SIZE).data
     for (let at = 0; at < HATCH_SIZE * HATCH_SIZE; at += 1) data[at * 4 + tone] = 255 - pixels[at * 4]
   })

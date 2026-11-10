@@ -1,7 +1,7 @@
 import { Data3DTexture, LinearSRGBColorSpace, NearestFilter, RGBAFormat, UnsignedByteType } from 'three'
 
 /**
- * The fixed palette of the pixel look: 42 hand-picked display (sRGB) colours in hue-shifted ramps, where
+ * The fixed palette of the pixel look: 45 hand-picked display (sRGB) colours in hue-shifted ramps, where
  * shadows lean cool and highlights lean warm, as pixel artists build them. Chosen for a grungy cyberpunk
  * night (deep blue-blacks, sodium amber, magenta and cyan neon) that still covers an overcast day (warm
  * concrete greys, muted greens, pale sky).
@@ -11,6 +11,8 @@ export const PALETTE: readonly string[] = [
   '#06070b', '#0d1017', '#141923', '#1d2330', '#283041', '#364055', '#4a556c', '#636f87', '#828da3', '#a6aec0', '#cdd2dc', '#eef0f3',
   // Warm greys and browns: concrete, brick, wood, rust under lamplight and daylight.
   '#191311', '#2a201b', '#3e3029', '#56443a', '#71594b', '#907462', '#b2957d', '#d4bc9f', '#f1e3c8',
+  // Olive greys: warm light on cool walls, so lamp pools fade out without jumping to green or blue.
+  '#2c2922', '#47402f', '#6a6047',
   // Sodium and amber light.
   '#4b2513', '#7d3c16', '#b5591b', '#e2892b', '#f7b955', '#ffe29a',
   // Magenta neon.

@@ -44,35 +44,36 @@ const fragmentShader = /* glsl */ `
     vec3 scene = texture2D(tDiffuse, vUv + wobble * 0.6 / resolution).rgb;
     vec2 edges = texture2D(tEdges, vUv + wobble * lineWidth * s / resolution).rg;
 
-    // Only real highlights stay bare paper; ordinary lit walls take a light hatch, shadow a cross-hatch.
-    float tone = pow(clamp(luma(scene) * 1.1, 0.0, 1.0), 0.8);
-    float dark = 1.0 - tone;
-    vec4 strokes = texture2D(tHatch, (px + jump) / (420.0 * s));
-    float hatch = strokes.r * smoothstep(0.32, 0.44, dark);
+    // Tone on a log scale, as the eye sees it: lit rooms stay near paper, shadow is cross-hatched, and only
+    // near black goes solid charcoal. This keeps light against dark readable.
+    float dark = 1.0 - clamp(log2(max(luma(scene), 1e-4) / 0.03) / log2(0.65 / 0.03), 0.0, 1.0);
+    vec4 strokes = texture2D(tHatch, (px + jump) / (512.0 * s));
+    float hatch = strokes.r * smoothstep(0.3, 0.42, dark);
     hatch = mix(hatch, strokes.g, smoothstep(0.46, 0.58, dark));
     hatch = mix(hatch, strokes.b, smoothstep(0.6, 0.72, dark));
     hatch = mix(hatch, strokes.a, smoothstep(0.74, 0.86, dark));
-    hatch = max(hatch, smoothstep(0.9, 0.99, dark));
 
-    float tooth = texture2D(tPaper, px / (512.0 * s)).r;
-    vec3 sheet = paper * (0.93 + 0.14 * (tooth - 0.5));
-    // A charcoal wash under the strokes, so shadow is a soft mass and not only lines; pencil catches on the paper's tooth.
-    vec3 wash = mix(sheet, sheet * vec3(0.5, 0.49, 0.5), smoothstep(0.15, 1.0, dark) * 0.75);
-    float line = max(edges.r * 0.95, edges.g * 0.5);
-    float pencil = clamp(max(hatch * (0.75 + 0.35 * (1.0 - tooth)), line), 0.0, 1.0);
-    vec3 colour = mix(wash, ink, pencil);
-
-    // Selective colour.
+    // Selective colour, measured on the scene before it becomes pencil.
     float high = max(scene.r, max(scene.g, scene.b));
     float low = min(scene.r, min(scene.g, scene.b));
     float saturation = (high - low) / max(high, 1e-3);
     vec3 hue = scene / max(high, 1e-3);
-    float lit = smoothstep(0.18, 0.5, saturation) * smoothstep(0.12, 0.5, high);
+    float lit = smoothstep(0.25, 0.6, saturation) * smoothstep(0.2, 0.6, high);
     float red = smoothstep(0.35, 0.6, (scene.r - max(scene.g, scene.b)) / max(scene.r, 1e-3)) * smoothstep(0.08, 0.25, scene.r);
     float keep = max(lit, red) * keepColour;
-    colour *= mix(vec3(1.0), hue * 1.15, keep * 0.85);
-    float glow = smoothstep(0.55, 0.95, high) * smoothstep(0.2, 0.5, saturation);
-    colour = mix(colour, scene * 1.1, glow * keepColour * (1.0 - pencil * 0.6));
+
+    float tooth = texture2D(tPaper, px / (512.0 * s)).r;
+    vec3 sheet = paper * (0.93 + 0.14 * (tooth - 0.5));
+    // A continuous charcoal wash carries the shapes (small things such as people are smaller than the hatch
+    // spacing); the hatching on top gives it the hand-drawn texture. Light tints the paper it falls on.
+    vec3 wash = sheet * mix(1.0, 0.3, pow(dark, 1.3));
+    wash *= mix(vec3(1.0), hue * 1.1, keep * 0.7);
+    float line = max(smoothstep(0.2, 0.6, edges.r), edges.g * 0.55);
+    float pencil = clamp(max(hatch * (0.6 + 0.35 * (1.0 - tooth)), line * 0.92), 0.0, 1.0);
+    vec3 colour = mix(wash, ink, pencil);
+    // Light sources themselves glow through the drawing in their own colour.
+    float glow = smoothstep(0.75, 1.0, high) * smoothstep(0.25, 0.55, saturation) * (1.0 - line);
+    colour = mix(colour, scene, glow * keepColour);
 
     vec2 fromCentre = vUv - 0.5;
     colour *= 1.0 - smoothstep(0.3, 0.85, length(fromCentre * vec2(1.0, 0.8))) * 0.55;

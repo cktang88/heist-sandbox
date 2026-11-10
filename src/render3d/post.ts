@@ -147,7 +147,7 @@ export function createPost(renderer: WebGLRenderer, scene: Scene, cameras: Camer
   const composer = new EffectComposer(renderer, target)
   composer.addPass(style.camera === 'ortho' ? new LayeredRenderPass(scene, cameras.perspective, cameras.orthographic) : new RenderPass(scene, camera))
 
-  const edges = style.finish.kind === 'real' ? null : new EdgePass(camera, TILES_TALL / 720, CAMERA_DISTANCE)
+  const edges = style.finish.kind === 'real' ? null : new EdgePass(camera, TILES_TALL / 720, CAMERA_DISTANCE, pixel ? [0.6, 1.0] : [0.18, 0.4])
   if (edges) composer.addPass(edges)
 
   // Built with its own G-buffer (which it needs to exist internally), then switched to depth only:

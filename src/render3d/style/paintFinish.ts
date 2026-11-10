@@ -148,6 +148,8 @@ const compositeShader = /* glsl */ `
     vec3 colour = texture2D(tPaint, vUv).rgb;
     float grey = luma(colour);
     colour *= mix(shadowTint, highlightTint, smoothstep(0.08, 0.7, grey));
+    // A little more contrast than the photographic grade: paint states its darks and lights plainly.
+    colour = (colour - 0.4) * 1.12 + 0.4;
     vec2 edges = texture2D(tEdges, vUv).rg;
     colour *= 1.0 - edgeDarken * max(edges.r, edges.g * 0.5);
     float s = resolution.y / 1080.0;

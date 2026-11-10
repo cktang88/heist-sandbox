@@ -1,4 +1,4 @@
-import { OrthographicCamera, PerspectiveCamera } from 'three'
+import { Matrix4, OrthographicCamera, PerspectiveCamera } from 'three'
 import type { Vec } from '../../game/types'
 import { snapToGrid, type PixelGrid, type Snap } from './pixelGrid'
 
@@ -12,6 +12,13 @@ export const CAMERA_DISTANCE = TILES_TALL / 2 / Math.tan((FIELD_OF_VIEW * Math.P
  */
 const LAYER_SPLIT = CAMERA_DISTANCE + 4
 const FAR = 400
+/**
+ * A straight-on orthographic view sees floors and ceilings exactly edge-on, so rooms read as flat boxes.
+ * This leans the orthographic view a little (an oblique projection: the further back a point, the higher it
+ * is drawn), which shows the tops of floors and desks like a pixel artist's three-quarter view. Points on the
+ * walking lane (z = 0) do not move, so aiming stays exact. Tiles of height per tile of depth.
+ */
+const OBLIQUE = 0.2
 
 /**
  * Both cameras look straight down the z axis at the walking lane from the same point. The perspective one
@@ -53,6 +60,10 @@ export function createCameraRig(): CameraRig {
         const halfHeight = (grid.height * grid.unit) / 2
         Object.assign(orthographic, { left: -halfWidth, right: halfWidth, top: halfHeight, bottom: -halfHeight })
         orthographic.updateProjectionMatrix()
+        // In view space the lane is at z = -CAMERA_DISTANCE: y' = y - OBLIQUE * (z + CAMERA_DISTANCE).
+        const lean = new Matrix4().set(1, 0, 0, 0, 0, 1, -OBLIQUE, -OBLIQUE * CAMERA_DISTANCE, 0, 0, 1, 0, 0, 0, 0, 1)
+        orthographic.projectionMatrix.multiply(lean)
+        orthographic.projectionMatrixInverse.copy(orthographic.projectionMatrix).invert()
         // The backdrop camera covers the same margin, so the two layers line up at the edges too.
         Object.assign(perspective, { aspect: grid.width / grid.height, fov: (2 * Math.atan(halfHeight / CAMERA_DISTANCE) * 180) / Math.PI, near: LAYER_SPLIT })
       } else Object.assign(perspective, { aspect, fov: FIELD_OF_VIEW, near: 1 })

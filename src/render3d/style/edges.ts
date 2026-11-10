@@ -29,6 +29,8 @@ const EdgeShader = {
     uniform float laneDistance;
     /** Neighbour distance in pixels: wider lines sample further out. */
     uniform float reach;
+    /** Depth jump (world units) where a silhouette line starts and where it is fully inked. */
+    uniform vec2 jumpRange;
     varying vec2 vUv;
 
     float distanceAt(vec2 uv) {
@@ -47,7 +49,7 @@ const EdgeShader = {
       for (int i = 0; i < 8; i++) {
         float jump = distanceAt(vUv + offsets[i] * texel * reach) - centre;
         // Diagonals count a little less, which rounds the corners of the line.
-        silhouette = max(silhouette, smoothstep(0.18, 0.4, jump) * (i < 4 ? 1.0 : 0.7));
+        silhouette = max(silhouette, smoothstep(jumpRange.x, jumpRange.y, jump) * (i < 4 ? 1.0 : 0.7));
       }
       float left = distanceAt(vUv - vec2(texel.x, 0.0));
       float right = distanceAt(vUv + vec2(texel.x, 0.0));
@@ -68,7 +70,11 @@ export class EdgePass extends Pass {
   private readonly material: ShaderMaterial
   private readonly quad: FullScreenQuad
 
-  constructor(camera: Camera & { near: number; far: number }, pixelWorld: number, laneDistance: number, reach = 1) {
+  /**
+   * `jumpRange`: a leaning (oblique) view sees floor tops recede by a fair depth per pixel, so it needs a
+   * higher threshold than a straight-on view, or whole floors would be inked.
+   */
+  constructor(camera: Camera & { near: number; far: number }, pixelWorld: number, laneDistance: number, jumpRange: [number, number]) {
     super()
     this.needsSwap = false
     this.material = new ShaderMaterial({
@@ -81,7 +87,8 @@ export class EdgePass extends Pass {
         orthographic: { value: (camera as { isOrthographicCamera?: boolean }).isOrthographicCamera ? 1 : 0 },
         pixelWorld: { value: pixelWorld },
         laneDistance: { value: laneDistance },
-        reach: { value: reach },
+        reach: { value: 1 },
+        jumpRange: { value: new Vector2(...jumpRange) },
       },
       depthTest: false,
       depthWrite: false,
