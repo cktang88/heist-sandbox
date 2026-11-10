@@ -367,7 +367,8 @@ function meter(context: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 /** A soft dark backing so text reads over both bright and dark scenes. */
 export function panel(context: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
-  context.fillStyle = 'rgba(6,8,12,0.55)'
+  // Dark enough for the dim grey lines to read over the pale skies of the pixel and sketch looks.
+  context.fillStyle = 'rgba(6,8,12,0.7)'
   context.fillRect(x, y, w, h)
   context.fillStyle = 'rgba(255,255,255,0.07)'
   context.fillRect(x, y, w, 1)
