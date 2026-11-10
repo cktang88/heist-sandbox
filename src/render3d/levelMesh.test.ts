@@ -36,6 +36,7 @@ describe('level mesh', () => {
     const grid = createGrid(32, 32)
     fillTiles(grid, 0, 10, 31, 11, 'concrete')
     const level = createLevelMesh(grid, [], 31, materials)
+    level.buildAll()
     setTile(grid, 4, 10, 'air')
     level.refresh({ x: 16, y: 16 })
     const concrete = meshes(level.group).filter((mesh) => mesh.material === materials.concrete)
@@ -51,6 +52,7 @@ describe('level mesh', () => {
     const grid = createGrid(160, 32)
     fillTiles(grid, 0, 20, 159, 31, 'dirt')
     const level = createLevelMesh(grid, [], 20, materials)
+    level.buildAll()
     level.refresh({ x: 8, y: 20 })
     for (const mesh of meshes(level.group)) expect(mesh.geometry.boundingSphere).not.toBeNull()
     const chunks = level.group.children.filter((child) => child.children.length > 0 && !(child as Mesh).isMesh)
@@ -62,6 +64,7 @@ describe('level mesh', () => {
     const grid = createGrid(32, 32)
     fillTiles(grid, 0, 10, 31, 12, 'concrete')
     const level = createLevelMesh(grid, [], 31, materials)
+    level.buildAll()
     setTile(grid, 8, 11, 'air')
     level.refresh({ x: 16, y: 16 })
     const core = meshes(level.group).filter((mesh) => mesh.material === coreMaterial())
@@ -86,6 +89,7 @@ describe('level mesh', () => {
     fillTiles(grid, 4, 4, 4, 10, 'brick')
     fillTiles(grid, 12, 4, 12, 10, 'brick')
     const level = createLevelMesh(grid, [{ kind: 'room', x: 4, y: 4, w: 17, h: 7 }], 31, materials)
+    level.buildAll()
     const backFacesAt = (x: number, y: number, material: unknown) => meshes(level.group).filter((mesh) => mesh.material === material).some((mesh) => {
       const position = mesh.geometry.getAttribute('position')
       const normal = mesh.geometry.getAttribute('normal')
@@ -111,6 +115,7 @@ describe('level mesh', () => {
     setTile(grid, 6, 19, 'concrete')
     setLaneFlags(grid, 6, 19, CLEAR_OF_LANE)
     const level = createLevelMesh(grid, [], 31, materials)
+    level.buildAll()
     const frontmost = Math.max(...meshes(level.group).flatMap((mesh) => {
       const position = mesh.geometry.getAttribute('position')
       const found: number[] = []

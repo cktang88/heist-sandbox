@@ -4,9 +4,9 @@ import type { TileKind } from '../game/tiles'
 import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import { guardMotion, playerMotion } from '../render/human/motion'
-import { clearBuildJobs, runBuildJobs } from './core/buildQueue'
-import { noteFramePart } from './core/frameProbe'
-import { createGpuProbe } from './core/gpu'
+import { runBuildJobs } from './core/buildQueue'
+import { lastFrameMs, noteFramePart } from './core/frameProbe'
+import { createGpuProbe, uploadSpread } from './core/gpu'
 import { measured } from './core/timing'
 import { createEffects3d } from './fx3d'
 import { BACK, FRONT, type SurfaceMaterials, type SurfaceName } from './levelMesh'
@@ -35,6 +35,16 @@ export type Actors = {
   dispose(): void
 }
 
+/** The build queue works toward where the view will be this far ahead, in seconds, capped at `LEAD_REACH` tiles. */
+const LEAD_SECONDS = 0.8
+const LEAD_REACH = 40
+
+function leadOf(world: World, view: Vec): Vec {
+  const body = world.drone ?? world.player
+  const ahead = (speed: number) => Math.max(-LEAD_REACH, Math.min(LEAD_REACH, speed * LEAD_SECONDS))
+  return { x: view.x + ahead(body.vx), y: view.y + ahead(body.vy) }
+}
+
 /** People on a staircase are drawn further back, on the stairs behind the walking lane. */
 const STAIR_LANE = -1.5
 
@@ -53,8 +63,6 @@ const FALLING_SURFACE: Partial<Record<TileKind, SurfaceName>> = {
 
 export function createActors(world: World, materials: SurfaceMaterials): Actors {
   const group = new Group()
-  // Jobs left over from an earlier level would build into a scene that is gone.
-  clearBuildJobs()
   const effects = createEffects3d()
   group.add(effects.group, createGpuProbe())
   // Each layer owns one slice of the scene. They are independent, so they can be worked on separately.
@@ -101,7 +109,11 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       const [name, create] = next
       const layer = measured(`build layer ${name}`, () => create(world, materials))
       layers.push({ name: `layer ${name}`, layer })
+      // Named so the `?debug=1` draw-call breakdown can say which layer a draw belongs to.
+      layer.group.name = name
       group.add(layer.group)
+      // What the layer built at once goes to the GPU over the coming frames, nearest the view first.
+      uploadSpread(layer.group, `upload ${name}`)
       return layers.length === factories.length
     },
     update(now, aim, view) {
@@ -200,7 +212,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
         layer.update(now, { dt, view, aim })
         noteFramePart(name, performance.now() - start)
       }
-      runBuildJobs(view)
+      runBuildJobs(view, lastFrameMs(), leadOf(now, view))
       lastClock = now.clock
     },
     dispose() {},

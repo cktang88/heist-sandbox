@@ -50,12 +50,15 @@ export function showcaseJob(props: readonly PropState[], placedOf: (index: numbe
         return 'more'
       }
       if (!region) {
-        region = new Region(chosen)
+        region = new Region(chosen, { x: at.x, y: at.y, cause: 'prepare prop showcase' })
         region.start(() => false)
       }
       const result = region.step(placedOf)
-      if (result === 'done') region.dispose()
-      return result
+      if (result !== 'done') return result
+      // Its batches are thrown away once uploaded and compiled: that is all they were for.
+      if (!region.ready) return 'waiting'
+      region.dispose()
+      return 'done'
     },
   }
 }

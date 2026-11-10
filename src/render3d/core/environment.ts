@@ -1,6 +1,5 @@
 import { FogExp2, PMREMGenerator, type Scene, type Texture, type WebGLRenderer } from 'three'
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { SKIES } from '../assetManifest'
 import type { Look } from './looks'
 
@@ -16,8 +15,6 @@ export type Environment = {
 
 export function createEnvironment(renderer: WebGLRenderer, scene: Scene): Environment {
   const filter = new PMREMGenerator(renderer)
-  // A plain studio surround stands in until the first sky arrives, so metal never reflects pure black.
-  const placeholder = filter.fromScene(new RoomEnvironment(), 0.04).texture
   const filtered = new Map<string, Texture>()
   const loading = new Map<string, Promise<void>>()
   const fog = new FogExp2(0x000000, 0)
@@ -25,11 +22,13 @@ export function createEnvironment(renderer: WebGLRenderer, scene: Scene): Enviro
   let wanted = ''
   let current: Promise<void> = Promise.resolve()
 
+  /**
+   * Play never starts before the sky has arrived (or failed to), so nothing stands in for it: rendering a studio
+   * surround for the meantime took seconds of GPU time at start-up on slow machines and was never seen.
+   */
   function show(look: Look): void {
-    const ready = filtered.get(look.sky)
-    scene.environment = ready ?? placeholder
-    // The stand-in is much brighter than a night sky, so it is kept faint.
-    scene.environmentIntensity = ready ? look.skyStrength : look.skyStrength * 0.05
+    scene.environment = filtered.get(look.sky) ?? null
+    scene.environmentIntensity = look.skyStrength
   }
 
   function load(look: Look): Promise<void> {

@@ -85,7 +85,7 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
     for (const index of area.region.props) regionOf[index] = area.region
     area.region.start(isHidden)
     addBuildJob({
-      x: area.x + REGION_W / 2, y: area.y + REGION_H / 2,
+      x: area.x + REGION_W / 2, y: area.y + REGION_H / 2, halfW: REGION_W / 2, halfH: REGION_H / 2,
       get cause() {
         return `props ${area.x},${area.y} ${area.region.phase}`
       },
@@ -133,7 +133,7 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
       // Regions are built by the build queue (nearest first, a few milliseconds a frame); here they are only shown.
       for (const area of areas) {
         const { region } = area
-        region.group.visible = region.built && overlaps(area, frame, DRAW_DISTANCE, DRAW_DISTANCE * 0.62)
+        region.group.visible = region.ready && overlaps(area, frame, DRAW_DISTANCE, DRAW_DISTANCE * 0.62)
         if (region.group.visible) syncRegion(region)
       }
       placeLoose(now, frame)
@@ -150,5 +150,8 @@ function regionsOf(props: readonly PropState[]): Area[] {
     const entry = byKey.get(key) ?? byKey.set(key, { x, y, members: [] }).get(key)!
     entry.members.push(index)
   })
-  return [...byKey.values()].map(({ x, y, members }) => ({ region: new Region(members), x, y }))
+  return [...byKey.values()].map(({ x, y, members }) => {
+    const area = { x: x + REGION_W / 2, y: y + REGION_H / 2, halfW: REGION_W / 2, halfH: REGION_H / 2, cause: `prepare props ${x},${y}` }
+    return { region: new Region(members, area), x, y }
+  })
 }

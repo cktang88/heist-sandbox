@@ -2,6 +2,8 @@ import { Group, Mesh, type Material } from 'three'
 import type { Interior } from '../game/level'
 import { CHUNK_TILES, chunkIndex, CLEAR_OF_LANE, RUBBLE, TILE_DEFS, TILE_KINDS, tileAt, type Grid, type TileKind } from '../game/tiles'
 import type { Vec } from '../game/types'
+import { addBuildJob } from './core/buildQueue'
+import { prepareJob } from './core/gpu'
 import { addChips, addRebar, coreMaterial, coreTint, type BreakSpec, type Side } from './breaks'
 import { MeshBuilder, type P3, type Rgb } from './meshBuilder'
 import { cellHash, tileNoise } from './noise'
@@ -41,7 +43,13 @@ const BEHIND_DIRT = 2
 const BEHIND_EDGE = 4
 
 /** The level as 3D geometry, split into chunks so only damaged areas are rebuilt. */
-export type LevelMesh = { group: Group; refresh(view: Vec): void; dispose(): void }
+export type LevelMesh = {
+  group: Group
+  /** Builds every chunk not built yet at once, skipping the build queue (for tests and tools without a renderer). */
+  buildAll(): void
+  refresh(view: Vec): void
+  dispose(): void
+}
 
 export function createLevelMesh(grid: Grid, interiors: Interior[], groundY: number, materials: SurfaceMaterials): LevelMesh {
   const group = new Group()
@@ -56,13 +64,8 @@ export function createLevelMesh(grid: Grid, interiors: Interior[], groundY: numb
   }
   const materialOf = (name: MeshName) => (name === 'core' ? coreMaterial() : materials[name])
 
-  function rebuild(chunkX: number, chunkY: number): void {
-    const index = chunkIndex(grid, chunkX, chunkY)
-    const old = chunks.get(index)
-    if (old) {
-      group.remove(old)
-      for (const mesh of old.children as Mesh[]) mesh.geometry.dispose()
-    }
+  /** Builds one chunk's meshes from the grid as it is now; the caller decides when it joins the scene. */
+  function build(chunkX: number, chunkY: number): Group {
     const builders = new Map<MeshName, MeshBuilder>()
     const builder = (name: MeshName) => builders.get(name) ?? builders.set(name, new MeshBuilder()).get(name)!
     const [x0, x1] = [chunkX * CHUNK_TILES, Math.min(grid.width, (chunkX + 1) * CHUNK_TILES)]
@@ -81,17 +84,60 @@ export function createLevelMesh(grid: Grid, interiors: Interior[], groundY: numb
       mesh.receiveShadow = true
       chunk.add(mesh)
     }
-    group.add(chunk)
-    chunks.set(index, chunk)
+    return chunk
   }
 
-  for (let chunkY = 0; chunkY < down; chunkY += 1) for (let chunkX = 0; chunkX < across; chunkX += 1) rebuild(chunkX, chunkY)
-  grid.dirtyChunks.clear()
+  function place(index: number, chunk: Group): void {
+    const old = chunks.get(index)
+    if (old) {
+      group.remove(old)
+      for (const mesh of old.children as Mesh[]) mesh.geometry.dispose()
+    }
+    chunks.set(index, chunk)
+    group.add(chunk)
+  }
+
+  group.add(materialShowcase(materialOf))
+  // Chunks are built by the build queue, nearest the view first, and join the scene once uploaded to the GPU. A chunk
+  // damaged before its turn is simply built as it is by then.
+  const queued = new Set<number>()
+  /** Queued chunks damaged after they were built but before they joined the scene. */
+  const stale = new Set<number>()
+  for (let chunkY = 0; chunkY < down; chunkY += 1) {
+    for (let chunkX = 0; chunkX < across; chunkX += 1) {
+      const index = chunkIndex(grid, chunkX, chunkY)
+      const area = { x: (chunkX + 0.5) * CHUNK_TILES, y: (chunkY + 0.5) * CHUNK_TILES, halfW: CHUNK_TILES / 2, halfH: CHUNK_TILES / 2 }
+      queued.add(index)
+      addBuildJob({
+        ...area,
+        cause: 'wall chunk',
+        step() {
+          if (!queued.has(index)) return 'done'
+          stale.delete(index)
+          const chunk = build(chunkX, chunkY)
+          prepareJob(chunk, { ...area, cause: 'prepare wall chunk' }, () => {
+            place(index, stale.has(index) ? build(chunkX, chunkY) : chunk)
+            stale.delete(index)
+            queued.delete(index)
+          })
+          return 'done'
+        },
+      })
+    }
+  }
 
   return {
     group,
+    buildAll() {
+      for (const index of queued) place(index, build(index % across, Math.floor(index / across)))
+      queued.clear()
+      stale.clear()
+    },
     refresh(view) {
-      for (const index of grid.dirtyChunks) rebuild(index % across, Math.floor(index / across))
+      for (const index of grid.dirtyChunks) {
+        if (queued.has(index)) stale.add(index)
+        else place(index, build(index % across, Math.floor(index / across)))
+      }
       grid.dirtyChunks.clear()
       for (const chunk of chunks.values()) {
         const centre = chunk.userData.centre as Vec
@@ -102,6 +148,23 @@ export function createLevelMesh(grid: Grid, interiors: Interior[], groundY: numb
       for (const chunk of chunks.values()) for (const mesh of chunk.children as Mesh[]) mesh.geometry.dispose()
     },
   }
+}
+
+const SURFACES: readonly MeshName[] = ['brick', 'concrete', 'reinforced', 'steel', 'dirt', 'wood', 'rock', 'asphalt', 'plaster', 'glass', 'water', 'door', 'fence', 'core']
+
+/**
+ * One hidden quad per material, built like a chunk's meshes. The level's shader warm-up compiles whatever is in the
+ * scene, hidden or not, and chunks are only built later: this way their shaders are ready before play all the same.
+ */
+function materialShowcase(materialOf: (name: MeshName) => Material): Group {
+  const showcase = new Group()
+  showcase.visible = false
+  for (const name of SURFACES) {
+    const quad = new MeshBuilder()
+    quad.quad([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], [0, 0, 1], [[0, 0], [UV, 0], [UV, UV], [0, UV]], 1)
+    showcase.add(new Mesh(quad.build(), materialOf(name)))
+  }
+  return showcase
 }
 
 /** For every tile, what back wall sits behind it: plaster inside buildings, packed earth underground. */

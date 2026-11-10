@@ -2,7 +2,7 @@ import { Group } from 'three'
 import { isCircuitLive } from '../game/devices/devices'
 import type { Device, World } from '../game/world'
 import { addBuildJob } from './core/buildQueue'
-import { prepare } from './core/gpu'
+import { prepareJob } from './core/gpu'
 import { cameraAim, cameraLens, cameraReach } from './devices/cameraAim'
 import { buildDevice, type DeviceModel, type DeviceState } from './devices/models'
 import { inView, type LayerFactory } from './layer'
@@ -58,7 +58,7 @@ export const createDevicesLayer: LayerFactory = (world) => {
     const entry: Placed = { model, key: '', ready: false }
     placed.set(device, entry)
     // It joins the scene (when near the view) only once its shaders and textures are ready.
-    prepare(model.root, () => {
+    prepareJob(model.root, { x: device.x, y: device.y, cause: 'prepare device' }, () => {
       entry.ready = true
     })
     return entry

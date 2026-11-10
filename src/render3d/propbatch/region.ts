@@ -1,7 +1,7 @@
 import { Group, Matrix4, type BufferGeometry, type Material } from 'three'
 import { loadShared } from '../assets'
 import type { StepResult } from '../core/buildQueue'
-import { prepare } from '../core/gpu'
+import { prepareJob, type JobArea } from '../core/gpu'
 import { BatchPlan, MIRROR, showInstances, type BatchedProps } from './batchPlan'
 import { mergePieces, type BatchLook } from './merge'
 import { mirrorGeometry } from './mirror'
@@ -48,10 +48,16 @@ export class Region {
   private work: Work | null = null
   /** True once every built prop is in a batch (scanned models may still be on their way). */
   built = false
+  /** Batches made but still being uploaded and compiled. */
+  private preparing = 0
   /** What the last step did, for the frame probe. */
   phase: 'prop' | 'batch' | 'scan' | 'idle' = 'idle'
 
-  constructor(readonly props: readonly number[]) {
+  /**
+   * `area` places the region for the build queue: each batch is uploaded and compiled there, nearest the view first,
+   * and shown once ready. Without one (a region built away from any renderer) batches are shown at once.
+   */
+  constructor(readonly props: readonly number[], private readonly area?: JobArea) {
     this.group.matrixAutoUpdate = false
   }
 
@@ -107,6 +113,14 @@ export class Region {
     return 'done'
   }
 
+  /**
+   * True once the whole region is built, scanned models included, and every batch is on the GPU: the props layer
+   * shows a region only then, so nothing in it ever appears piece by piece.
+   */
+  get ready(): boolean {
+    return this.built && this.work === null && this.preparing === 0
+  }
+
   isHidden(prop: number): boolean {
     return this.hidden.has(prop)
   }
@@ -124,6 +138,7 @@ export class Region {
       mesh.dispose()
     }
     this.batches = []
+    this.preparing = 0
     this.built = false
     this.work = null
   }
@@ -144,9 +159,14 @@ export class Region {
     for (const prop of this.hidden) showInstances(batch, prop, false)
     this.batches.push(batch)
     const generation = this.generation
-    prepare(batch.mesh, () => {
-      if (generation === this.generation && this.batches.includes(batch)) this.group.add(batch.mesh)
-    })
+    const show = () => {
+      if (generation !== this.generation || !this.batches.includes(batch)) return
+      this.preparing -= 1
+      this.group.add(batch.mesh)
+    }
+    this.preparing += 1
+    if (this.area) prepareJob(batch.mesh, this.area, show)
+    else show()
   }
 }
 

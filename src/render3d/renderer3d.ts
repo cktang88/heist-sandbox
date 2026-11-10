@@ -6,10 +6,9 @@ import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import type { Camera } from '../render/camera'
 import { createActors, type Actors } from './actors'
-import { isLoading } from './core/buildQueue'
+import { clearBuildJobs, isLoading } from './core/buildQueue'
 import { holdBackFarChunks } from './core/chunkBudget'
-import { drawEverything } from './core/drawEverything'
-import { asSceneDraw } from './core/gpu'
+import { compileScene, uploadTextures } from './core/gpu'
 import { createEnvironment } from './core/environment'
 import { lookFor } from './core/looks'
 import { createQualityController, LADDER, LOW_DETAIL } from './core/quality'
@@ -60,6 +59,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   const environment = createEnvironment(renderer, scene)
   const cameras = createCameraRig()
   const lights = createLights()
+  lights.group.name = 'lights'
   scene.add(lights.group)
   const materials = createSurfaceMaterials(renderer.capabilities.getMaxAnisotropy())
   let style: Style = styleFromQuery(location.search)
@@ -73,7 +73,6 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   let warming: Promise<unknown> | null = null
   let building: Generator<void, void> | null = null
   let drawnThisLevel = false
-  let loadedSinceDrawn = false
   let screen = { width: 1, height: 1 }
   let appliedLevel = -1
   let lastFrame = performance.now()
@@ -137,6 +136,8 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       stage.backdrop.userData.dispose?.()
       stage = null
     }
+    // Jobs left over from an earlier level would build into a scene that is gone.
+    clearBuildJobs()
     const group = new Group()
     const sky = measured('build sky shading', () => createSkyShading(world.grid))
     yield
@@ -145,6 +146,9 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     const actors = createActors(world, materials)
     while (!actors.buildNext()) yield
     const backdrop = createSky(world.grid.width, world.groundY, world.timeOfDay, world.lamps.length)
+    level.group.name = 'level'
+    actors.group.name = 'actors'
+    backdrop.name = 'backdrop'
     group.add(level.group, actors.group, backdrop)
     // The building is drawn cut open, so invisible sheets stand in for its missing front and keep moonlight out.
     const blocker = new MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: DoubleSide })
@@ -156,6 +160,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     }
     scene.add(group)
     stage = { level, actors, group, sky, backdrop }
+    uploadTextures(group, world.player)
 
     const look = lookFor(world.timeOfDay, world.lamps.length)
     environment.apply(look)
@@ -169,7 +174,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     const limit = new Promise((resolve) => setTimeout(resolve, WARM_UP_LIMIT_MS))
     const work = skyReady.then(() => {
       placeCamera(world, world.player)
-      return measured('compile shaders', () => asSceneDraw(renderer, () => renderer.compileAsync(scene, cameras.perspective)))
+      return measured('compile shaders', () => compileScene(renderer, scene, cameras.perspective, post.materials()))
     })
     const done = Promise.race([work, limit])
     void done.then(() => {
@@ -209,14 +214,8 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
 
       // Behind the loading screen one frame is drawn (it compiles what exists and hands layers the renderer); after
       // that, frames only build, which is far quicker than building and drawing a scene nobody can see.
-      if (isLoading() && drawnThisLevel) {
-        loadedSinceDrawn = true
-        return
-      }
+      if (isLoading() && drawnThisLevel) return
       drawnThisLevel = true
-      // The first frame after loading also draws the whole site once, so nothing uploads or compiles during play.
-      if (loadedSinceDrawn) measured('upload the whole scene', () => drawEverything(renderer, scene, cameras.perspective, stage!.group))
-      loadedSinceDrawn = false
       renderer.info.reset()
       timedPart('draw (three.js and WebGL calls)', () => post.render(now / 1000))
       info.publish(now, LADDER[quality.level].scale, quality.level, quality.averageMs)

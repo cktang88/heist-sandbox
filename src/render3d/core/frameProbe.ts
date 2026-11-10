@@ -14,6 +14,7 @@ let parts: { cause: string; ms: number }[] = []
 let worst: WorstFrame[] = []
 let counting = false
 let playStartedAt = 0
+let lastMs = 0
 
 function round(ms: number): number {
   return Math.round(ms * 10) / 10
@@ -28,6 +29,7 @@ export function noteFramePart(cause: string, ms: number): void {
 
 /** Closes the current frame. Before the game starts (`counting` off) frames are timed but not kept. */
 export function endFrame(ms: number): void {
+  lastMs = ms
   if (counting && (worst.length < KEPT || ms > worst[worst.length - 1].ms)) {
     const cause = parts.filter((part) => part.ms >= NOTEWORTHY_MS).sort((a, b) => b.ms - a.ms).map((part) => `${part.cause} ${round(part.ms)} ms`).join(', ')
     worst.push({ ms: round(ms), cause: cause || 'other' })
@@ -47,6 +49,11 @@ export function startCountingFrames(): void {
 /** When play last started, in ms since the page opened: how long loading took. */
 export function playStartedMs(): number {
   return Math.round(playStartedAt)
+}
+
+/** Script time of the last finished frame, which sets how much building the next one can afford. */
+export function lastFrameMs(): number {
+  return lastMs
 }
 
 export function worstFrames(): readonly WorstFrame[] {

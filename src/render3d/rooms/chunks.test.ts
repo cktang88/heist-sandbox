@@ -19,7 +19,7 @@ function setup() {
     batch.level(column, column + 1, -12, -2, 0.5, true, 1, WHITE)
     finishes.restOn(6, 10, material, mark, [[column, 12]])
   }
-  finishes.build(true)
+  finishes.build({ shadowed: true })
   const mesh = finishes.group.children[0] as Mesh
   return { grid, finishes, mesh }
 }
