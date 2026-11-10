@@ -59,6 +59,10 @@ export function attachInput(canvas: HTMLCanvasElement, toolCount: number): Input
         reloadPressed: pressed.has('KeyR'),
         focus: held.has('ShiftLeft') || held.has('ShiftRight'),
         crouch: held.has('KeyC') || held.has('ControlLeft'),
+        punchPressed: pressed.has('KeyF'),
+        kickPressed: pressed.has('KeyV'),
+        grab: held.has('KeyG'),
+        throwPressed: pressed.has('KeyT'),
         aim: screenToWorld(camera, mouse.x * scaleX, mouse.y * scaleY),
         selectTool,
       }
