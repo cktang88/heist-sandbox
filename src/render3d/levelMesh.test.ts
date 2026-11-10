@@ -1,6 +1,6 @@
 import { MeshBasicMaterial, type BufferGeometry, type Group, type Mesh } from 'three'
 import { describe, expect, it } from 'vitest'
-import { createGrid, fillTiles, setTile } from '../game/tiles'
+import { CLEAR_OF_LANE, createGrid, fillTiles, setLaneFlags, setTile } from '../game/tiles'
 import { coreMaterial } from './breaks'
 import { createLevelMesh, type SurfaceMaterials, type SurfaceName } from './levelMesh'
 
@@ -103,5 +103,22 @@ describe('level mesh', () => {
     expect(backFacesAt(4, 6, materials.plaster) || backFacesAt(4, 6, coreMaterial())).toBe(false)
     expect(backFacesAt(12, 6, coreMaterial())).toBe(true)
     expect(backFacesAt(8, 6, materials.plaster)).toBe(true)
+  })
+
+  it('draws a tile that stands aside from the walking lane pushed back, clear of the lane', () => {
+    const grid = createGrid(32, 32)
+    fillTiles(grid, 0, 20, 31, 20, 'concrete')
+    setTile(grid, 6, 19, 'concrete')
+    setLaneFlags(grid, 6, 19, CLEAR_OF_LANE)
+    const level = createLevelMesh(grid, [], 31, materials)
+    const frontmost = Math.max(...meshes(level.group).flatMap((mesh) => {
+      const position = mesh.geometry.getAttribute('position')
+      const found: number[] = []
+      for (let index = 0; index < position.count; index += 1) {
+        if (position.getY(index) > -19 - 1e-6 && position.getX(index) > 6.3 && position.getX(index) < 6.7) found.push(position.getZ(index))
+      }
+      return found
+    }))
+    expect(frontmost).toBeLessThan(0)
   })
 })
