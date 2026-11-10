@@ -2,7 +2,7 @@ import { createRng, randomInt } from '../rng'
 import { LIGHT, roomAt, type Level, type Room, type RoomKind } from '../site'
 import { createGrid, setTile, tileAt } from '../tiles'
 import { furnishSite } from '../furnish/furnish'
-import { buildBlock } from './block'
+import { buildBlock, staff } from './block'
 import { addDucts } from './ducts'
 import { addRoom, chance, circuitOf, createDraft, fill, pick, ROOM_HEIGHT, STOREY, type SiteDraft } from './kit'
 
@@ -82,6 +82,7 @@ export function createComplex(seed: number): Level {
   buildPerimeter(site)
   outdoorAreas(site, storeys)
 
+  ensureSecurityRoom(site)
   const vault = placeVault(site)
   roamingPatrols(site)
   assignGuardRooms(site)
@@ -178,6 +179,7 @@ function buildPerimeter(site: SiteDraft): void {
   site.guards.push({ x: 39, y: ground, facing: -1, role: 'post', roomId: gatehouse.id })
   site.devices.push({ kind: 'alarmButton', x: 41, y: ground - 2, roomId: gatehouse.id })
   site.devices.push({ kind: 'camera', x: 36, y: ground - 5, roomId: gatehouse.id, facing: -1 })
+  site.devices.push({ kind: 'computer', x: 38, y: ground, roomId: gatehouse.id })
 
   for (const [x, facing] of [[46, -1], [267, 1]] as const) buildWatchtower(site, x, facing)
   for (const x of [8, 24, 44, 82, 190, 236, 280]) {
@@ -227,6 +229,27 @@ function outdoorAreas(site: SiteDraft, storeys: number): void {
   site.guards.push({ x: 190, y: ground, facing: -1, role: 'patrol', route: [{ x: 188, y: ground }, { x: 225, y: ground }] })
 }
 
+/**
+ * Cameras only report while someone watches the monitors, so the tower always has a security room: if its
+ * room plan happened to make none, an ordinary room on the ground floor becomes one.
+ */
+function ensureSecurityRoom(site: SiteDraft): void {
+  if (site.rooms.some((room) => room.kind === 'security')) return
+  const candidates = site.rooms.filter((room) => room.building === 'tower' && room.storey === 0 && room.security < 2 && room.kind !== 'stairwell')
+  const room = pick(site.rng, candidates)
+  site.devices = site.devices.filter((device) => device.roomId !== room.id)
+  site.guards = site.guards.filter((guard) => guard.roomId !== room.id)
+  room.kind = 'security'
+  room.security = 2
+  staff(site, room)
+}
+
+/** A floor with a terminal outside this room, which can switch off the camera a vault here would get. */
+function terminalElsewhereOnFloor(site: SiteDraft, room: Room): boolean {
+  return site.devices.some((device) => device.kind === 'computer' && device.roomId !== room.id
+    && site.rooms.some((other) => other.id === device.roomId && other.building === room.building && other.storey === room.storey))
+}
+
 /** The walls of a room that open onto a neighbouring room on the same floor (not the outer wall, a shaft or a void). */
 function innerWalls(site: SiteDraft, room: Room): number[] {
   return [room.x - 1, room.x + room.w].filter((wall) => {
@@ -254,7 +277,7 @@ function armour(site: SiteDraft, x0: number, y0: number, x1: number, y1: number)
 function placeVault(site: SiteDraft): Room {
   const candidates = site.rooms.filter((room) => room.building === 'tower' && room.h === ROOM_HEIGHT && room.w >= 10 && room.w <= 22
     && (room.storey === -3 || room.storey >= 14) && room.kind !== 'stairwell' && room.kind !== 'rooftop' && innerWalls(site, room).length > 0
-    && !besideShaft(site, room))
+    && !besideShaft(site, room) && terminalElsewhereOnFloor(site, room))
   const room = pick(site.rng, candidates)
   const doors = innerWalls(site, room)
   room.kind = 'vault'

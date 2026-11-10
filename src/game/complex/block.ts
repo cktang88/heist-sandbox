@@ -211,7 +211,7 @@ export function partition(site: SiteDraft, x: number, floorY: number, style: 'do
  * operator at the monitors (cameras only report when someone is watching); other secure rooms get a post,
  * and ordinary rooms sometimes a guard walking the room end to end.
  */
-function staff(site: SiteDraft, room: Room): void {
+export function staff(site: SiteDraft, room: Room): void {
   const { rng } = site
   const facing = chance(rng, 0.5) ? 1 : -1
   if (room.kind === 'security') site.guards.push({ x: room.x + 2, y: room.floorY, facing: 1, role: 'operator', roomId: room.id })
@@ -224,7 +224,8 @@ function staff(site: SiteDraft, room: Room): void {
   if (room.security >= 2 || room.kind === 'lobby') {
     site.devices.push({ kind: 'camera', x: room.x + 1, y: room.floorY - 4, roomId: room.id, facing: 1 })
   }
-  if (['office', 'executive', 'security', 'server', 'lab', 'archive'].includes(room.kind)) {
+  // Every room with a camera has a terminal on its floor that can switch it off: the guarded rooms keep one of their own.
+  if (['office', 'executive', 'security', 'server', 'lab', 'archive', 'lobby', 'armory', 'cells', 'penthouse'].includes(room.kind)) {
     site.devices.push({ kind: 'computer', x: randomInt(rng, room.x + 2, room.x + room.w - 3), y: room.floorY, roomId: room.id })
   }
   if (room.kind === 'security' || room.kind === 'lobby') {
