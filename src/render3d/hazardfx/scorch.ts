@@ -44,7 +44,7 @@ const wallSoot = (x: number, y: number, grain: number) => {
 }
 
 function decals(texture: CanvasTexture): InstancedMesh {
-  const material = new MeshBasicMaterial({ color: 0xffffff, alphaMap: texture, transparent: true, opacity: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
+  const material = new MeshBasicMaterial({ color: 0xffffff, alphaMap: texture, transparent: true, opacity: 0.45, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
   const mesh = new InstancedMesh(new PlaneGeometry(1, 1), material, MAX_SCORCH)
   mesh.frustumCulled = false
   for (let index = 0; index < MAX_SCORCH; index += 1) mesh.setMatrixAt(index, HIDDEN)

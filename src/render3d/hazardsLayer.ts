@@ -72,7 +72,7 @@ export const createHazardsLayer: LayerFactory = (world) => {
       for (const flash of now.effects.flashes) {
         if (flash.kind !== 'explosion' || blasts.has(flash)) continue
         blasts.add(flash)
-        scorch.burn(now, flash.x, flash.y, Math.min(5, 1.5 + flash.radius * 0.7))
+        scorch.burn(now, flash.x, flash.y, Math.min(2.5, 1 + flash.radius * 0.4))
       }
 
       const clouds = smokeCells(now)
