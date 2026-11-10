@@ -7,13 +7,16 @@ import { addGuard, addLamp, arena, GROUND, putPlayer, run } from './testArena'
 
 /** Where men have been cut down, the next ones do not walk in after them: they clear it first, or wait. */
 
-/** A wall at x 40 with a doorway in it, the player covering it from x 50, and two guards already dead in the doorway. */
+/** A wall at x 40 with a doorway in it, the player covering it from x 50, and two guards already shot dead in the doorway in a fight. */
 function deadlyDoorway() {
   const world = arena()
   fillTiles(world.grid, 40, GROUND - 6, 40, GROUND - 4, 'brick')
   putPlayer(world, 50)
   addLamp(world, 50)
   world.player.hp = 1e6
+  // A fight is on and a colleague further back sees them fall: these are deaths the force knows about.
+  world.security.level = 3
+  addGuard(world, 27, 1)
   for (const x of [39.6, 40.6]) {
     const victim = addGuard(world, x, 1)
     hurtGuard(world, victim, 1e4, { x: 50, y: GROUND - 1 })

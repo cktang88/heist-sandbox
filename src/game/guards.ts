@@ -76,6 +76,8 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec,
   burst(world.effects, world.rng, centerOf(guard), 6, '#b3202a', 6)
   if (cause === 'attack') witnessHit(world, guard)
   if (guard.hp <= 0) {
+    // In a fight: he was fighting, or the whole site was (a takedown on a man who had no idea is not).
+    const inFight = guard.mode === 'combat' || world.security.level >= 3
     setMode(guard, 'dead')
     guard.announced = 'dead'
     guard.radio = null
@@ -86,7 +88,7 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec,
     if (cause === 'attack') world.stats.kills += 1
     addBloodPool(world, guard)
     playSound(world, 'kill', guard)
-    onKilled(world, guard)
+    onKilled(world, guard, inFight)
     return true
   }
   onHurt(guard)

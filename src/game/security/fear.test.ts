@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { hurtGuard, restrainGuard } from '../guards'
+import { deathFound } from './nerve'
 import { enterCombat } from './combat'
 import { feetOf, isActive, type Guard } from './model'
 import { addGuard, addLamp, addRoom, addWall, arena, GROUND, putPlayer, run, runListening } from './testArena'
@@ -88,6 +89,8 @@ describe('low nerve on the way to trouble', () => {
     const victim = addGuard(world, 50, 1)
     const guard = addGuard(world, 25, 1)
     hurtGuard(world, victim, 1000, feetOf(victim))
+    // The body was found and called in: that is how he knows to go there.
+    deathFound(world, 0)
     guard.interest = { at: { x: 50, y: GROUND }, kind: 'body', priority: 5, reached: false, body: 0 }
     guard.mode = 'investigating'
     let waitedAt = -1

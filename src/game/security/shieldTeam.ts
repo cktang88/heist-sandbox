@@ -28,7 +28,7 @@ export function considerShieldTeam(world: World): void {
   const security = world.security
   if (security.shieldTeams >= SHIELD.maxTeams || world.clock - security.shieldTeamAt < SHIELD.every || world.status !== 'playing') return
   const choke = liveKillZones(world).filter((zone) => zone.deaths >= SHIELD.zoneDeaths).sort((a, b) => b.deaths - a.deaths)[0]
-  const losing = security.deaths.filter((death) => world.clock - death.clock < SHIELD.lossWindow).length >= SHIELD.losses
+  const losing = security.deaths.filter((death) => death.inFight && world.clock - death.clock < SHIELD.lossWindow).length >= SHIELD.losses
   if (!choke && !losing) return
   const target = security.lastKnown ?? (choke ? { x: choke.at.x, y: choke.at.y - 1 } : null)
   if (target) sendShieldTeam(world, target)

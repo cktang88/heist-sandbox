@@ -10,6 +10,7 @@ import { eyeOf, feetOf, isActive, type Guard } from './model'
 import { clearView } from './perception'
 import { markKillZone } from './killZones'
 import { roomOf } from './places'
+import type { Death } from './events'
 import { NERVE, TIERS, UNDER_FIRE, VISION } from './tuning'
 
 /**
@@ -100,14 +101,15 @@ export function onHurt(guard: Guard): void {
 }
 
 /**
- * A guard died. The control room's memory of where (so colleagues think twice before walking in), and fright for
- * everyone who saw it or was right beside it. The nearest one who saw it says so.
+ * A guard died. Fright for everyone who saw it or was right beside it, and the nearest one who saw it says so. The
+ * force remembers deaths it knows about (seen, heard, or later the body found): a death in a fight also marks a kill
+ * zone and counts toward the shield team; a silent takedown never does, and nothing counts before it is known.
  */
-export function onKilled(world: World, victim: Guard): void {
+export function onKilled(world: World, victim: Guard, inFight: boolean): void {
   const at = centerOf(victim)
   const index = world.guards.indexOf(victim)
-  world.security.deaths.push({ at, room: roomOf(world, feetOf(victim))?.id ?? -1, clock: world.clock, victim: index })
-  markKillZone(world, victim)
+  const death: Death = { at, feet: feetOf(victim), room: roomOf(world, feetOf(victim))?.id ?? -1, clock: world.clock, victim: index, inFight }
+  let known = false
   let caller: Guard | null = null
   let callerGap = Infinity
   for (const other of world.guards) {
@@ -118,12 +120,31 @@ export function onKilled(world: World, victim: Guard): void {
     const saw = clearView(world, eye, at)
     if (!saw && gap > WITNESS_HEARD) continue
     frighten(other, NERVE.colleagueKilled + (gap < 4 ? NERVE.colleagueKilledClose : 0))
+    known = true
     if (saw && gap < callerGap) {
       caller = other
       callerGap = gap
     }
   }
   if (caller) barkLine(world, caller, 'colleagueDown', true, world.people?.nameOf(victim) ?? nameOf(index))
+  // A death nobody saw or heard waits for its body to be found.
+  if (known) countDeath(world, death)
+  else world.security.unseenDeaths.push(death)
+}
+
+/** A colleague's death the force now knows about: remembered (fear.ts), and if he fell fighting, a kill zone. */
+function countDeath(world: World, death: Death): void {
+  world.security.deaths.push(death)
+  if (death.inFight) markKillZone(world, death.feet)
+}
+
+/** A body found (brain.ts): a death nobody knew of counts from now on. */
+export function deathFound(world: World, victim: number): void {
+  const unseen = world.security.unseenDeaths
+  const found = unseen.findIndex((death) => death.victim === victim)
+  if (found < 0) return
+  countDeath(world, { ...unseen[found], clock: world.clock })
+  unseen.splice(found, 1)
 }
 
 /** A blast heard close by: the nearer, the worse. */

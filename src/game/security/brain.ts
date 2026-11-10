@@ -17,7 +17,7 @@ import { isGuardBlast } from './guardFrags'
 import { noiseKind, type NoiseSource } from './hearing'
 import { eyeOf, feetOf, isActive, setMode, type Guard, type GuardMode, type InterestKind } from './model'
 import { goTo, hold } from './movement'
-import { frighten, isBreaking, isShaken, onBlast, updateNerve } from './nerve'
+import { deathFound, frighten, isBreaking, isShaken, onBlast, updateNerve } from './nerve'
 import { startSearch } from './orders'
 import { patrolBehaviour } from './patrol'
 import { bodyAt } from '../stealth/bodies'
@@ -162,6 +162,7 @@ function perceive(world: World, guard: Guard, dt: number): void {
  */
 export function noticeBody(world: World, guard: Guard, body: number): void {
   guard.bodiesSeen.push(body)
+  deathFound(world, body)
   world.stealth.found.add(body)
   world.stats.bodiesFound = world.stealth.found.size
   const other = world.guards[body]

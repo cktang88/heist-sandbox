@@ -6,6 +6,8 @@ import { fillTiles } from '../tiles'
 import type { World } from '../world'
 import { feetOf, type Guard } from './model'
 import { sendShieldTeam, shieldBlocks } from './shieldTeam'
+import { deathFound } from './nerve'
+import { quickKill } from '../stealth/takedown'
 import { addGuard, addLamp, arena, GROUND, putPlayer, run } from './testArena'
 
 /** "Eventually call in a shield-heavy SWAT team to prevent getting mowed down at choke points." */
@@ -54,12 +56,40 @@ function chokePoint(): World {
   world.extraction.x = 150
   world.security.lastKnown = { x: 52, y: GROUND - 1 }
   world.security.lastContactAt = 0
+  world.security.level = 3
   return world
 }
+
+describe('what counts toward kill zones and the shield team', () => {
+  it('silent takedowns nobody saw count for nothing: no kill zone, no shield team, the site still at level 0', () => {
+    const world = arena()
+    putPlayer(world, 140)
+    for (const x of [20, 60, 100]) {
+      const victim = addGuard(world, x, 1)
+      quickKill(world, victim)
+    }
+    run(world, 3)
+    expect(world.security.killZones).toEqual([])
+    expect(world.security.deaths).toEqual([])
+    expect(team(world)).toEqual([])
+    expect(world.security.level).toBe(0)
+  })
+
+  it('a man shot in a fight with nobody to see it counts once his body is found', () => {
+    const world = chokePoint()
+    const victim = addGuard(world, 40, 1)
+    hurtGuard(world, victim, 1e4, { x: 52, y: GROUND - 1 })
+    expect(world.security.killZones).toEqual([])
+    deathFound(world, world.guards.indexOf(victim))
+    expect(world.security.killZones.length).toBe(1)
+  })
+})
 
 describe('escalation at a choke point', () => {
   it('after men keep dying in the same doorway the control room sends a four-man shield team', () => {
     const world = chokePoint()
+    // A colleague further back sees each of them fall.
+    addGuard(world, 27, 1)
     for (const x of [39.6, 40.4, 40.8]) hurtGuard(world, addGuard(world, x, 1), 1e4, { x: 52, y: GROUND - 1 })
     run(world, 1)
     const members = team(world)

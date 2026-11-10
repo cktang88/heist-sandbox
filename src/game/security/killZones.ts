@@ -18,8 +18,7 @@ import { KILL_ZONES } from './tuning'
  */
 
 /** A guard died here: start a kill zone, or add to the one he died in. */
-export function markKillZone(world: World, victim: Guard): void {
-  const at = feetOf(victim)
+export function markKillZone(world: World, at: Vec): void {
   const zone = zoneAt(world, at)
   if (zone) {
     zone.deaths += 1
