@@ -62,7 +62,8 @@ export function stepFallingProps(world: World, dt: number): void {
     }
   }
   if (state.falling.length === 0) return
-  state.falling = state.falling.filter((item) => !dropProp(world, item, dt))
+  // A prop shoved or grabbed on its way down is the furniture physics' to drop from then on, not both at once.
+  state.falling = state.falling.filter((item) => !world.physProps.loose.has(item.id) && !dropProp(world, item, dt))
 }
 
 /** Takes the copy of the grid and files the floor props now, during loading, rather than on the first step. */
@@ -234,7 +235,8 @@ function land(world: World, prop: PropState, row: number, speed: number): void {
   if (isVehicle(prop)) vehicleLanded(world, prop, speed)
 }
 
-function crush(world: World, box: Rect, damage: number): void {
+/** Hurts everyone inside a box something heavy just came down on. */
+export function crush(world: World, box: Rect, damage: number): void {
   for (const guard of world.guards) {
     if (guard.state !== 'dead' && overlaps(box, guard)) hurtGuard(world, guard, damage, { x: box.x + box.w / 2, y: box.y }, 'hazard')
   }

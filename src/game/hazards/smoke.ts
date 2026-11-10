@@ -21,6 +21,12 @@ const HOT_RISE = 0.3
 /** A cell below a smoky one keeps rising into it until it is this fraction as dense: smoke layers from the top. */
 const LAYERING = 0.8
 const GAS_SHARE = 0.11
+/**
+ * Mains gas is lighter than air: like hot smoke it rises until the tile above is nearly as full, so it collects under
+ * ceilings and drifts up through holes and stairwells, and a kitchen leak reaches the floor above.
+ */
+const GAS_RISE = 0.2
+const GAS_SINK = 0.03
 /** Per second, the fraction of each kind that thins away. Fire smoke lingers; foam is gone in a second or two. */
 const FADE = { screen: 0.13, toxic: 0.035, foam: 1.6, gas: 0.03 }
 const EMPTY = 0.0005
@@ -183,6 +189,27 @@ export function thinSmoke(world: World, x: number, y: number, keep: number): voi
   smoke.foam[key] *= keep
 }
 
+/**
+ * A fan pushing air: moves `share` of the smoke and gas at one tile into the tile beside it (or, with `to` -1,
+ * vents it out of the building). Used by ventilation fans.
+ */
+export function pushAir(world: World, from: number, to: number, share: number): void {
+  const smoke = world.hazards.smoke
+  if (!smoke || !smoke.live[from] || solidKey(world, from)) return
+  if (to >= 0 && (solidKey(world, to) || !activate(smoke, to))) return
+  for (const layer of [smoke.screen, smoke.toxic, smoke.foam, smoke.gas]) {
+    const moved = layer[from] * share
+    layer[from] -= moved
+    if (to >= 0) layer[to] = Math.min(MAX_PRESSURE, layer[to] + moved)
+  }
+}
+
+/** Hot fire smoke at a tile, counting pressure (values above 1 mean the room is packed with it). */
+export function toxicPressureAt(world: World, key: number): number {
+  const smoke = world.hazards.smoke
+  return smoke && key >= 0 && key < smoke.toxic.length ? smoke.toxic[key] : 0
+}
+
 /** Sight through smoke along a segment: 0 is clear, 1 is impossible to see through. */
 export function smokeBetween(world: World, from: Vec, to: Vec): number {
   const smoke = world.hazards.smoke
@@ -238,10 +265,11 @@ function spreadFrom(world: World, smoke: SmokeField, key: number): void {
     if (down >= 0) moveSmoke(smoke, key, down, DOWN)
   }
   if (smoke.gas[key] <= EMPTY) return
-  if (up >= 0) moveGas(smoke, key, up)
-  if (left >= 0) moveGas(smoke, key, left)
-  if (right >= 0) moveGas(smoke, key, right)
-  if (down >= 0) moveGas(smoke, key, down)
+  const gas = smoke.gas[key]
+  if (up >= 0) moveGas(smoke, key, up, GAS_RISE * (gas - LAYERING * smoke.gas[up]))
+  if (left >= 0) moveGas(smoke, key, left, GAS_SHARE * (gas - smoke.gas[left]))
+  if (right >= 0) moveGas(smoke, key, right, GAS_SHARE * (gas - smoke.gas[right]))
+  if (down >= 0) moveGas(smoke, key, down, GAS_SINK * (gas - smoke.gas[down]))
 }
 
 /** Adds a tile to this tick's list, unless it is new and the field is full. */
@@ -286,8 +314,7 @@ function moveSmoke(smoke: SmokeField, from: number, to: number, side: number): v
   foam[to] += movedFoam
 }
 
-function moveGas(smoke: SmokeField, from: number, to: number): void {
-  const amount = GAS_SHARE * (smoke.gas[from] - smoke.gas[to])
+function moveGas(smoke: SmokeField, from: number, to: number, amount: number): void {
   if (amount <= 0 || !touch(smoke, to)) return
   smoke.flow[3][from] -= amount
   smoke.flow[3][to] += amount
