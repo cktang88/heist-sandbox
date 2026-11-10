@@ -5,6 +5,7 @@ All models in this folder come by way of [sand3d-objaverse](https://huggingface.
 Two kinds of file, and what was changed:
 
 - **Sketchfab originals** (Objaverse rows): the attribution is the dataset's, which says the sand3d row was "rewritten as a sand3d program". The file here is not that program: it is the original textured model the row was derived from, downloaded from [allenai/objaverse](https://huggingface.co/datasets/allenai/objaverse) (`glbs/000-NNN/<uid>.glb`), and **modified by us**: rescaled to real-world size and recentred, animations removed, spec-gloss materials converted to metal-rough, textures resized to 512 px and re-encoded as WebP, tangents dropped, and meshes over about 20,000 triangles simplified (meshoptimizer).
+- **Light copies** in `lite/` (the files the game actually loads): made from the files here by `scripts/liteModels.mjs`, **further modified by us**: meshes simplified much harder (meshoptimizer), textures resized to 256 or 512 px, normal maps dropped on small models, roughness/metalness/occlusion maps replaced by their average values, and glass, clear-coat and specular extensions replaced by plain surfaces. Each `lite/<name>.glb` carries the same attribution as `<name>.glb` below.
 - **sand3d SimReady** (NVIDIA SimReady rows): the sand3d program's own USD file, converted from USDA to GLB with the owner's `scripts/usda_to_glb.py` (Z-up to Y-up, base at the origin). Not otherwise changed.
 
 ## Sketchfab originals (via sand3d-objaverse)

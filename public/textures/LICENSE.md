@@ -19,7 +19,7 @@ Recordings were trimmed to the shot, levelled and converted to mono MP3. Texture
 
 ## Models, extra textures, skies, character and sounds
 
-Every item below is CC0 1.0 (public domain); no attribution is required. Sources are listed so they can be checked. Models and textures were downscaled (models to 512 px textures, PBR sets to 1024/512 px) and audio was re-encoded to mono OGG.
+Every item below is CC0 1.0 (public domain); no attribution is required. Sources are listed so they can be checked. Models and textures were downscaled (models to 512 px textures, PBR sets to 1024/512 px) and audio was re-encoded to mono OGG. `public/models/lite/` holds light copies of the models the props use, made by `scripts/liteModels.mjs` (simplified meshes, 256/512 px colour maps, fewer maps, plain materials); each `lite/<id>.glb` comes from `models/<id>` listed below.
 
 | Asset or group | Original source page | Licence | Author |
 |---|---|---|---|
