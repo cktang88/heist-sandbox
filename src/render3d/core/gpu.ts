@@ -1,4 +1,4 @@
-import { BufferGeometry, Mesh, MeshBasicMaterial, type Camera, type Object3D, type Scene, type Texture, type WebGLRenderer } from 'three'
+import { BufferGeometry, HalfFloatType, Mesh, MeshBasicMaterial, WebGLRenderTarget, type Camera, type Object3D, type Scene, type Texture, type WebGLRenderer } from 'three'
 
 /**
  * Lets layers prepare what they build before it is first drawn: shaders compiled and textures uploaded while the
@@ -11,6 +11,22 @@ type Target = { renderer: WebGLRenderer; scene: Scene; camera: Camera }
 
 let target: Target | null = null
 let pending = 0
+/**
+ * The scene is always drawn into the post chain's linear half-float buffer, never straight to the canvas, and a shader
+ * built for the canvas (tone mapped, sRGB output) is a different program. So warm-up compiles and draws go here.
+ */
+const sceneLikeTarget = new WebGLRenderTarget(1, 1, { type: HalfFloatType })
+
+/** Runs `work` with the renderer pointed at a buffer like the post chain's, so the shaders it builds are the real ones. */
+export function asSceneDraw<T>(renderer: WebGLRenderer, work: () => T): T {
+  const previous = renderer.getRenderTarget()
+  renderer.setRenderTarget(sceneLikeTarget)
+  try {
+    return work()
+  } finally {
+    renderer.setRenderTarget(previous)
+  }
+}
 
 /** One per level: until the new level's first frame is drawn, nothing counts as ready. */
 export function createGpuProbe(): Mesh {
@@ -51,7 +67,7 @@ export function prepare(object: Object3D, done: () => void): void {
     pending -= 1
     done()
   }
-  void renderer.compileAsync(object, camera, scene).then(finish, finish)
+  void asSceneDraw(renderer, () => renderer.compileAsync(object, camera, scene)).then(finish, finish)
 }
 
 /** Objects still waiting for their shaders: the loading screen stays up until there are none. */

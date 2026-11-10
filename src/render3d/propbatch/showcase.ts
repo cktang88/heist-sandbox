@@ -1,6 +1,7 @@
 import type { PropState } from '../../game/cover'
 import type { Vec } from '../../game/types'
 import type { BuildJob, StepResult } from '../core/buildQueue'
+import { gpuReady } from '../core/gpu'
 import { Region, type PlacedProp } from './region'
 
 /**
@@ -32,6 +33,8 @@ export function showcaseJob(props: readonly PropState[], placedOf: (index: numbe
       return `prop showcase ${region ? region.phase : 'prop'}`
     },
     step(): StepResult {
+      // Compiling needs the renderer, which layers only get once the first frame has been drawn.
+      if (!gpuReady()) return 'waiting'
       const kind = candidates[candidates.length - 1]
       if (kind) {
         const index = kind.shift()

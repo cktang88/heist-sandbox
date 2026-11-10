@@ -1,4 +1,5 @@
 import type { Camera, Object3D, Scene, WebGLRenderer } from 'three'
+import { asSceneDraw } from './gpu'
 
 /**
  * Draws every object of `root` once, hidden and off-screen ones included, so that the first time any of them comes
@@ -17,7 +18,7 @@ export function drawEverything(renderer: WebGLRenderer, scene: Scene, camera: Ca
     object.visible = true
     object.frustumCulled = false
   })
-  renderer.render(scene, camera)
+  asSceneDraw(renderer, () => renderer.render(scene, camera))
   for (const { object, visible, culled } of changed) {
     object.visible = visible
     object.frustumCulled = culled

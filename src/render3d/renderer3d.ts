@@ -9,6 +9,7 @@ import { createActors, type Actors } from './actors'
 import { isLoading } from './core/buildQueue'
 import { holdBackFarChunks } from './core/chunkBudget'
 import { drawEverything } from './core/drawEverything'
+import { asSceneDraw } from './core/gpu'
 import { createEnvironment } from './core/environment'
 import { lookFor } from './core/looks'
 import { createQualityController, LADDER, LOW_DETAIL } from './core/quality'
@@ -165,7 +166,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     const limit = new Promise((resolve) => setTimeout(resolve, WARM_UP_LIMIT_MS))
     const work = skyReady.then(() => {
       placeCamera(world, world.player)
-      return measured('compile shaders', () => renderer.compileAsync(scene, cameras.perspective))
+      return measured('compile shaders', () => asSceneDraw(renderer, () => renderer.compileAsync(scene, cameras.perspective)))
     })
     const done = Promise.race([work, limit])
     void done.then(() => {

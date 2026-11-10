@@ -68,6 +68,7 @@ let aim = view
 let starting = true
 const dropJobs = { value: 0 }
 let finalFrameDrawn = false
+let countFramesNext = false
 loading.show(0.12, 'Building the city')
 await nextPaint()
 
@@ -83,7 +84,8 @@ function finishLoading(now: number): void {
   finalFrameDrawn = false
   setLoading(false)
   loading.hide()
-  startCountingFrames()
+  // This frame still carries the last of the loading work, so worst frames are counted from the next one.
+  countFramesNext = true
   if (new URLSearchParams(location.search).get('debug') === '1') console.info(`[perf] building during loading: ${buildMsSpent()} ms of script`)
   // The time spent loading is not game time.
   lastTime = now
@@ -172,6 +174,8 @@ function frame(now: number): void {
   // Debug hook: lets tests and the console inspect the heist and fast-forward it.
   ;(globalThis as { __game?: unknown }).__game = { world, advance: (seconds: number, held: Partial<Input> = {}) => fastForward(world, seconds, { ...frameInput, ...held }) }
   endFrame(performance.now() - frameStart)
+  if (countFramesNext) startCountingFrames()
+  countFramesNext = false
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
