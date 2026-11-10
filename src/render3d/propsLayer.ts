@@ -3,14 +3,14 @@ import type { PropState } from '../game/cover'
 import { propSpec, type PropSpec } from '../game/propCatalog'
 import type { World } from '../game/world'
 import { loadShared } from './assets'
-import { addBuildJob } from './core/buildQueue'
+import { addBuildJob, jobCount } from './core/buildQueue'
 import { LITE_MODELS } from './liteModels'
 import { BACK } from './levelMesh'
 import { DRAW_DISTANCE, inView, type Frame, type LayerFactory } from './layer'
 import { placeLooseProp } from './meleeLayer'
 import { modelFromRecipe } from './propbatch/looseModel'
 import { recipeOf, signatureOf } from './propbatch/recipe'
-import { cardViewVersion } from './propbatch/cardAtlas'
+import { cardViewVersion, releaseBakeTextures } from './propbatch/cardAtlas'
 import { Region, type PlacedProp } from './propbatch/region'
 import { showcaseJob } from './propbatch/showcase'
 import { buildProp } from './props'
@@ -153,6 +153,8 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
         if (region.group.visible) syncRegion(region)
       }
       placeLoose(now, frame)
+      // Once everything is built, the textures furniture cards were baked from are no longer needed on the GPU.
+      if (jobCount() === 0) releaseBakeTextures()
     },
   }
 }

@@ -58,7 +58,13 @@ const uploadScene = new Scene()
 uploadScene.overrideMaterial = UPLOADER
 const uploadedTextures = new WeakSet<Texture>()
 
-function texturesOf(material: Material): Texture[] {
+/** Frees a texture's GPU copy; three sends it again if anything draws with it later, and so does the next upload job. */
+export function releaseTexture(texture: Texture): void {
+  uploadedTextures.delete(texture)
+  texture.dispose()
+}
+
+export function texturesOf(material: Material): Texture[] {
   return Object.values(material).filter((value): value is Texture => (value as Texture | null)?.isTexture === true)
 }
 

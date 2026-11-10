@@ -1,5 +1,6 @@
-import { CanvasTexture, Color, DoubleSide, ImageLoader, MeshPhysicalMaterial, MeshStandardMaterial, RepeatWrapping, SRGBColorSpace, TextureLoader, Vector2, type Texture } from 'three'
+import { CanvasTexture, Color, DoubleSide, ImageLoader, MeshPhysicalMaterial, MeshStandardMaterial, RepeatWrapping, SRGBColorSpace, Vector2, type Texture } from 'three'
 import type { SurfaceMaterials } from './levelMesh'
+import { photoTexture, setPhotoAnisotropy } from './core/photos'
 import { rock } from './surfaces'
 import { bakeMaterial } from './textures'
 
@@ -22,12 +23,10 @@ const FOLDER: Partial<Record<keyof typeof PHOTO, string>> = { reinforced: 'concr
 /** The photo normal maps are soft at this viewing distance; a little extra depth keeps surfaces gritty. */
 const NORMAL_DEPTH = 1.35
 
-function photoMaterial(name: keyof typeof PHOTO, loader: TextureLoader, anisotropy: number): MeshStandardMaterial {
+function photoMaterial(name: keyof typeof PHOTO, anisotropy: number): MeshStandardMaterial {
   const spec = PHOTO[name]
-  const load = (file: string, isColor: boolean): Texture => {
-    const map = loader.load(`${import.meta.env.BASE_URL}textures/${FOLDER[name] ?? name}/${file}.jpg`)
-    return repeat(map, spec.tilesAcross, anisotropy, isColor)
-  }
+  const load = (file: string, isColor: boolean): Texture =>
+    photoTexture(`textures/${FOLDER[name] ?? name}/${file}.jpg`, UV_TILES / spec.tilesAcross, UV_TILES / spec.tilesAcross, isColor)
   return new MeshStandardMaterial({
     map: name === 'reinforced' ? formwork(anisotropy) : load('color', true),
     normalMap: load('normal', false),
@@ -121,18 +120,18 @@ function chainLink(): MeshStandardMaterial {
 
 /** Builds every wall and floor material once, at start-up. */
 export function createSurfaceMaterials(anisotropy: number): SurfaceMaterials {
-  const loader = new TextureLoader()
-  const door = photoMaterial('wood', loader, anisotropy)
+  setPhotoAnisotropy(anisotropy)
+  const door = photoMaterial('wood', anisotropy)
   door.color = new Color(0.42, 0.36, 0.32)
   return {
-    brick: photoMaterial('brick', loader, anisotropy),
-    concrete: photoMaterial('concrete', loader, anisotropy),
-    reinforced: photoMaterial('reinforced', loader, anisotropy),
-    steel: photoMaterial('steel', loader, anisotropy),
-    dirt: photoMaterial('dirt', loader, anisotropy),
-    wood: photoMaterial('wood', loader, anisotropy),
-    asphalt: photoMaterial('asphalt', loader, anisotropy),
-    plaster: photoMaterial('plaster', loader, anisotropy),
+    brick: photoMaterial('brick', anisotropy),
+    concrete: photoMaterial('concrete', anisotropy),
+    reinforced: photoMaterial('reinforced', anisotropy),
+    steel: photoMaterial('steel', anisotropy),
+    dirt: photoMaterial('dirt', anisotropy),
+    wood: photoMaterial('wood', anisotropy),
+    asphalt: photoMaterial('asphalt', anisotropy),
+    plaster: photoMaterial('plaster', anisotropy),
     // No photo set for bedrock, so that one is generated.
     rock: bakeMaterial(rock, anisotropy),
     door,

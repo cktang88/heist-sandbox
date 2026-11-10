@@ -3,7 +3,7 @@ import { loadShared } from '../assets'
 import type { StepResult } from '../core/buildQueue'
 import { currentRenderer, prepareJob, type JobArea } from '../core/gpu'
 import { BatchPlan, MIRROR, showInstances, type BatchedProps } from './batchPlan'
-import { bakeCard, canBake, cardView, piecesBounds, type CardPiece, type CardView } from './cardAtlas'
+import { bakeCard, canBake, cardView, keepTexturesOf, piecesBounds, type CardPiece, type CardView } from './cardAtlas'
 import { buildCards, type CardSet, type CardUse } from './cardBatch'
 import { mergePieces, type BatchLook } from './merge'
 import { mirrorGeometry } from './mirror'
@@ -225,6 +225,11 @@ export class Region {
   private addModel(work: Work, prop: number, entry: PlacedProp): void {
     addParts(work.sorted, prop, entry)
     for (const [url, scene] of work.scenes) addScanUses(work.sorted, prop, entry, url, scanPieces(scene))
+    for (const part of entry.recipe.parts) keepTexturesOf(part.material)
+    for (const scan of entry.recipe.scans) {
+      const scene = work.scenes.get(scan.url)
+      if (scene) for (const piece of scanPieces(scene)) keepTexturesOf(piece.material)
+    }
   }
 
   /** A batch joins the region once its shaders are compiled and its textures uploaded, so drawing it never stalls. */

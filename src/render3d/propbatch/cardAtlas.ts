@@ -3,6 +3,7 @@ import {
   OrthographicCamera, Scene, ShaderMaterial, SRGBColorSpace, Vector3, WebGLRenderTarget, BufferGeometry, type Material, type Texture,
   type WebGLRenderer,
 } from 'three'
+import { releaseTexture, texturesOf } from '../core/gpu'
 import { OBLIQUE } from '../style/cameraRig'
 
 /**
@@ -226,6 +227,30 @@ export function piecesBounds(pieces: readonly CardPiece[]): Box3 {
   return bounds
 }
 
+/**
+ * Textures that only cards were drawn from: prop posters, screens and photo surfaces of furniture that is all cards now.
+ * Once the site's cards are baked their GPU copies are freed; anything 3D that draws with one later gets it sent again.
+ */
+const bakedFrom = new Set<Texture>()
+const neededBy3d = new WeakSet<Texture>()
+
+/** Textures of a material that something 3D draws with: never freed. */
+export function keepTexturesOf(material: Material): void {
+  for (const texture of texturesOf(material)) neededBy3d.add(texture)
+}
+
+/** Frees the GPU copies of textures used only for baking cards (call when no bakes are pending). Returns how many. */
+export function releaseBakeTextures(): number {
+  let released = 0
+  for (const texture of bakedFrom) {
+    if (neededBy3d.has(texture)) continue
+    releaseTexture(texture)
+    released += 1
+  }
+  bakedFrom.clear()
+  return released
+}
+
 const pages: CardPage[] = []
 const cards = new Map<string, Card | null>()
 const bakeScene = new Scene()
@@ -328,6 +353,7 @@ function draw(renderer: WebGLRenderer, pieces: readonly CardPiece[], card: Card,
   frame.span.value = card.depth
 
   for (const piece of pieces) {
+    for (const texture of texturesOf(piece.material)) bakedFrom.add(texture)
     const mesh = new Mesh(rangeOf(piece), bakeMaterialFor(piece.material))
     mesh.matrixAutoUpdate = false
     mesh.matrix.copy(piece.matrix)

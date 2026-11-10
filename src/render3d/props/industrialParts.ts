@@ -1,8 +1,9 @@
 import {
   BufferGeometry, CanvasTexture, CylinderGeometry, DoubleSide, Group, Mesh, MeshStandardMaterial, RepeatWrapping, SRGBColorSpace,
-  TextureLoader, type Material, type Texture,
+  type Material, type Texture,
 } from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { photoTexture as sharedPhoto } from '../core/photos'
 import { BOX, CYLINDER, box, matte } from './kit'
 
 /**
@@ -27,16 +28,8 @@ export function pick<T>(options: readonly T[]): T {
 
 // ---------- Materials ----------
 
-const loader = new TextureLoader()
 function photoTexture(dir: string, file: string, repeatX: number, repeatY: number, isColor: boolean): Texture {
-  return once(`tex:${dir}:${file}:${repeatX}:${repeatY}`, () => {
-    const map = loader.load(`${import.meta.env.BASE_URL}${dir}/${file}.jpg`)
-    map.wrapS = RepeatWrapping
-    map.wrapT = RepeatWrapping
-    map.repeat.set(repeatX, repeatY)
-    if (isColor) map.colorSpace = SRGBColorSpace
-    return map
-  })
+  return once(`tex:${dir}:${file}:${repeatX}:${repeatY}`, () => sharedPhoto(`${dir}/${file}.jpg`, repeatX, repeatY, isColor))
 }
 
 /** Photo sets in `public/` that make good worn surfaces once tinted. */
