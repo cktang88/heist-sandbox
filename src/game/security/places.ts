@@ -7,6 +7,7 @@ import type { Device, World } from '../world'
 /** Where things are, in the terms guards and the control room talk in: buildings, floors, rooms, landings. */
 
 const STOREY_ROWS = 6
+const FLOORS_TO_LOOK_DOWN = 4
 
 export function roomOf(world: World, feet: Vec): Room | undefined {
   return roomAt(world.rooms, feet.x, feet.y - 0.5)
@@ -66,9 +67,13 @@ export function deviceFeet(world: World, device: Device): Vec {
   return { x, y: device.y + 2 }
 }
 
-/** The feet position under a point: the first solid row at or below it (a body's hip, a sound, a sighting). */
+/**
+ * The feet position under a point: the first solid row at or below it (a body's hip, a sound, a sighting).
+ * Looks down through a few storeys, since a blast often takes the floor out from under the spot it marks;
+ * a point that is not on any floor would leave guards walking back and forth over the hole.
+ */
 export function floorBelow(world: World, at: Vec): Vec {
-  for (let y = Math.floor(at.y); y < at.y + STOREY_ROWS; y += 1) if (isSolidAt(world.grid, at.x, y)) return { x: at.x, y }
+  for (let y = Math.floor(at.y); y < at.y + STOREY_ROWS * FLOORS_TO_LOOK_DOWN; y += 1) if (isSolidAt(world.grid, at.x, y)) return { x: at.x, y }
   return { x: at.x, y: Math.ceil(at.y) }
 }
 

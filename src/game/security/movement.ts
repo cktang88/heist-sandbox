@@ -67,7 +67,8 @@ export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: num
     return level ? 'arrived' : 'moving'
   }
   guard.facing = dx > 0 ? 1 : -1
-  if (careful && ledgeAhead(world, guard)) {
+  // A hole in the floor between him and a goal on this floor stops him: dropping in would only send him back up the stairs to try again.
+  if ((careful || level) && ledgeAhead(world, guard)) {
     walk(world, guard, 0, dt)
     return 'blocked'
   }
