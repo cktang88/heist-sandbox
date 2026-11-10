@@ -98,13 +98,7 @@ function carveShaft(site: SiteDraft, spec: BlockSpec, shaft: ShaftSpec, floorY: 
 
 /** Splits one storey into rooms. Returns the spans left open above any double-height rooms it made. */
 function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: number, voidsHere: Span[]): Span[] {
-  let left = spec.x0 + 1
-  let right = spec.x1 - 1
-  for (const shaft of spec.shafts) {
-    if (storey < shaft.from || storey > shaft.to) continue
-    if (shaft.doorSide === 1) left = Math.max(left, shaft.x + shaft.w + 1)
-    else right = Math.min(right, shaft.x - 2)
-  }
+  const { from: left, to: right } = storeySpan(spec, storey)
 
   const zones: Zone[] = [
     ...spec.stairs.filter((stair) => storey >= stair.from && storey <= stair.to).map((stair) => ({ from: stair.x, to: stair.x + stair.w - 1, kind: 'stairs' as const })),
@@ -116,6 +110,7 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
   const kinds = spec.plan(storey)
   const canGoTall = (span: Span) => storey + 1 < spec.storeys && storey >= 0
     && !spec.stairs.some((stair) => storey + 1 >= stair.from && storey + 1 <= stair.to && stair.x <= span.to + 1 && stair.x + stair.w - 1 >= span.from - 1)
+    && upperFloorStaysConnected(spec, storey + 1, span)
 
   const furnish = (span: Span): void => {
     const rooms = splitSpan(site, span)
@@ -156,6 +151,33 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
   else if (right >= cursor) fill(site, cursor, floorY - ROOM_HEIGHT, right, floorY - 1, spec.facade)
 
   return voidsAbove
+}
+
+/** The columns a storey's rooms and stair lobbies take up: inside the outer walls and clear of any elevator shaft. */
+function storeySpan(spec: BlockSpec, storey: number): Span {
+  let from = spec.x0 + 1
+  let to = spec.x1 - 1
+  for (const shaft of spec.shafts) {
+    if (storey < shaft.from || storey > shaft.to) continue
+    if (shaft.doorSide === 1) from = Math.max(from, shaft.x + shaft.w + 1)
+    else to = Math.min(to, shaft.x - 2)
+  }
+  return { from, to }
+}
+
+/**
+ * A double-height room leaves a void in the storey above that splits it in two. Each side must still have a
+ * staircase, or be too narrow for a room (and so be walled off); and an elevator stopping there must open onto
+ * a side with a staircase, not onto the void or that wall. Otherwise the side is a pocket nobody can walk to.
+ */
+function upperFloorStaysConnected(spec: BlockSpec, above: number, span: Span): boolean {
+  const { from: left, to: right } = storeySpan(spec, above)
+  const stairs = spec.stairs.filter((stair) => above >= stair.from && above <= stair.to)
+  const stairsLeft = stairs.some((stair) => stair.x + stair.w - 1 < span.from)
+  const stairsRight = stairs.some((stair) => stair.x > span.to)
+  if (!stairsLeft && span.from - left > MIN_LEFTOVER) return false
+  if (!stairsRight && right - span.to > MIN_LEFTOVER) return false
+  return spec.shafts.every((shaft) => above < shaft.from || above > shaft.to || (shaft.doorSide === 1 ? stairsLeft : stairsRight))
 }
 
 /** Cuts a run of floor into rooms of varied width, with a wall and doorway between each pair. */
