@@ -151,7 +151,7 @@ function buildSilo(site: SiteDraft, x0: number, x1: number): void {
   fill(site, x0, top, x0, ground - 1, 'steel')
   fill(site, x1, top, x1, ground - 1, 'steel')
   fill(site, x0, top, x1, top, 'steel')
-  fill(site, x0, ground, x1, ground, 'reinforced')
+  fill(site, x0, ground, x1, ground, 'concrete')
   for (let level = 1; level <= 3; level += 1) {
     const y = ground - level * 7
     const fromLeft = level % 2 === 1
