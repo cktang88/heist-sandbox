@@ -17,7 +17,7 @@ import { kickProp } from './physprops/tip'
 import { fireShot } from './projectiles'
 import { propSpec } from './propCatalog'
 import { stepWorld } from './step'
-import { isSolidAt, TILE_KINDS } from './tiles'
+import { isSolidAt } from './tiles'
 import { centerOf, type Rect } from './types'
 import { createWorld, type SiteKind, type World } from './world'
 
@@ -40,19 +40,7 @@ const WORST_SECOND_BUDGET = 300
 
 const inner = (box: Rect, margin: number): Rect => ({ x: box.x + margin, y: box.y + margin, w: box.w - 2 * margin, h: box.h - 2 * margin })
 
-function frameReinforced(world: World): number[] {
-  const reinforced = TILE_KINDS.indexOf('reinforced')
-  const width = world.grid.width
-  const found: number[] = []
-  // Elevator car floors are reinforced and move with the car.
-  world.grid.kinds.forEach((kind, index) => {
-    const x = index % width
-    if (kind === reinforced && !world.elevators.some((shaft) => x >= shaft.x && x < shaft.x + shaft.w)) found.push(index)
-  })
-  return found
-}
-
-function problems(world: World, frame: number[]): string[] {
+function problems(world: World): string[] {
   const found: string[] = []
   const { width, height } = world.grid
   const check = (what: string, x: number, y: number, ...rest: number[]) => {
@@ -95,8 +83,6 @@ function problems(world: World, frame: number[]): string[] {
     const loose = findUnsupported(world.grid, slabRows(world))
     if (loose.length > 0) found.push(`${loose.length} tiles floating, e.g. ${loose[0] % width},${Math.floor(loose[0] / width)}`)
   }
-  const lost = frame.find((index) => TILE_KINDS[world.grid.kinds[index]] !== 'reinforced')
-  if (lost !== undefined) found.push(`reinforced tile gone at ${lost % width},${Math.floor(lost / width)}`)
   return found
 }
 
@@ -166,7 +152,6 @@ function bigDamage(world: World): void {
 
 function soak(seed: number, site: SiteKind, seconds: number): void {
   const world = createWorld(seed, site)
-  const frame = frameReinforced(world)
   // Cost is counted in "reference units". The reference is timed again every second, right next to the
   // frames it is compared with, so a busy machine slows both alike and does not fail the test.
   let total = 0
@@ -188,7 +173,7 @@ function soak(seed: number, site: SiteKind, seconds: number): void {
     const units = thisSecond / 60 / fastestPerCall(referenceWork, 6, 3)
     total += units
     worstSecond = Math.max(worstSecond, units)
-    const found = problems(world, frame)
+    const found = problems(world)
     if (found.length > 0) throw new Error(`seed ${seed} ${site}, second ${second}: ${found.slice(0, 6).join('; ')}`)
   }
   const meanFrame = total / seconds

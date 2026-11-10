@@ -6,7 +6,7 @@ import { GROUND } from './level'
 import { createRng } from './rng'
 import { reportEvent } from './security/dispatch'
 import { stepWorld } from './step'
-import { tileAt } from './tiles'
+import { setTile, tileAt } from './tiles'
 import { centerOf } from './types'
 import { createWorld, type World } from './world'
 
@@ -51,6 +51,13 @@ describe('heist', () => {
     explode(world, { x: 30.5, y: GROUND + 0.5 }, C4_BLAST)
     expect(tileAt(world.grid, 30, GROUND)).toBe('air')
     expect(world.stats.tilesDestroyed).toBeGreaterThan(10)
+  })
+
+  it('cannot blast through the reinforced frame, however many charges', () => {
+    const world = createWorld(1)
+    setTile(world.grid, 30, GROUND - 1, 'reinforced')
+    for (let blast = 0; blast < 5; blast += 1) explode(world, { x: 30.5, y: GROUND - 0.5 }, C4_BLAST)
+    expect(tileAt(world.grid, 30, GROUND - 1)).toBe('reinforced')
   })
 
   it('picks the front door open by holding interact', () => {
