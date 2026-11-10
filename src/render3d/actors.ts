@@ -5,10 +5,10 @@ import { TOOLS } from '../game/toolDefs'
 import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
-import { poseHuman, type Motion } from '../render/human/pose'
+import type { Motion } from '../render/human/pose'
 import { createEffects3d } from './fx3d'
 import type { SurfaceMaterials, SurfaceName } from './levelMesh'
-import { Figure } from './people3d'
+import { Figure, outfitFor, weaponFor } from './people3d'
 import { BOX, buildDrone, buildLoot, buildParachute, buildPickup, buildVan, CHARGE_LIGHT, CHARGE_MATERIAL } from './props3d'
 import { createDevicesLayer } from './devicesLayer'
 import { createFixturesLayer } from './fixturesLayer'
@@ -73,8 +73,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
         mode: hero.chute ? 'chute' : hero.stairs ? 'stairs' : hero.onLadder ? 'ladder' : hero.crouching ? 'crouch' : 'normal',
         aim: Math.atan2(aim.y - hand.y, aim.x - hand.x), kick: hero.kick,
       }
-      const body = poseHuman(motion)
-      player.pose(body, hero.facing, now.drone ? 'drone' : TOOLS[hero.tool].id)
+      const body = player.animate({ ...motion, clock: now.clock }, now.drone ? 'drone' : TOOLS[hero.tool].id)
       player.group.position.z = hero.stairs ? STAIR_LANE : 0
       parachute.visible = hero.chute
       parachute.position.set(body.shoulder.x, -body.shoulder.y, 0)
@@ -87,7 +86,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
           continue
         }
         if (!figure) {
-          figure = new Figure(guard.armored ? 'responder' : 'guard')
+          figure = new Figure(outfitFor(guard.role, guard.armored))
           guards.set(guard, figure)
           group.add(figure.group)
         }
@@ -99,11 +98,12 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
         const base = { x: guard.x + guard.w / 2, y: guard.y + guard.h }
         const target = centerOf(hero)
         const relaxed = guard.facing > 0 ? 0.35 : Math.PI - 0.35
-        figure.pose(poseHuman({
+        const alert = guard.state !== 'patrol'
+        figure.animate({
           x: base.x, feetY: base.y, facing: guard.facing, vx: guard.vx, vy: guard.vy, onGround: guard.onGround,
           mode: guard.stairs ? 'stairs' : guard.climbing ? 'ladder' : 'normal',
-          aim: guard.state === 'alert' ? Math.atan2(target.y - (guard.y + 0.5), target.x - base.x) : relaxed, kick: guard.kick,
-        }), guard.facing, guard.armored ? 'rifle' : 'pistol', guard.hitFlash > 0)
+          aim: guard.state === 'alert' ? Math.atan2(target.y - (guard.y + 0.5), target.x - base.x) : relaxed, kick: guard.kick, clock: now.clock, alert,
+        }, weaponFor(guard.role, guard.armored, alert), guard.hitFlash > 0)
         figure.group.position.z = guard.stairs ? STAIR_LANE : 0
       }
 
