@@ -1,7 +1,7 @@
 import { circuitOf } from '../complex/kit'
 import type { PropState } from '../cover'
 import { burst } from '../effects'
-import { explode, type Blast } from '../explosions'
+import { currentBlastCause, explode, type Blast } from '../explosions'
 import { propSpec, type PropKind } from '../propCatalog'
 import { roomAt } from '../site'
 import { playSound } from '../sounds'
@@ -59,7 +59,7 @@ export function propBroke(world: World, prop: PropState): void {
 }
 
 function primeBlast(world: World, prop: PropState, center: Vec): void {
-  world.hazards.blasts.push({ ...center, fuse: MIN_FUSE + world.rng() * FUSE_SPREAD, blast: BLASTS[prop.kind] ?? DEFAULT_BLAST, prop: prop.id })
+  world.hazards.blasts.push({ ...center, fuse: MIN_FUSE + world.rng() * FUSE_SPREAD, blast: BLASTS[prop.kind] ?? DEFAULT_BLAST, prop: prop.id, cause: currentBlastCause() })
 }
 
 /** Sets off primed props whose fuse has run out. The explosion itself damages the props around it (cover.ts), which is how chains ripple. */
@@ -72,7 +72,7 @@ export function stepBlasts(world: World, dt: number): void {
   for (const pending of due) {
     const at = { x: pending.x, y: pending.y }
     if (propById(world, pending.prop)?.kind === 'gasCylinder') flameJet(world, at)
-    explode(world, at, pending.blast)
+    explode(world, at, pending.blast, pending.cause)
   }
 }
 

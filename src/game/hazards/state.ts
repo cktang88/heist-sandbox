@@ -1,4 +1,4 @@
-import type { Blast } from '../explosions'
+import type { Blast, BlastCause } from '../explosions'
 import type { NoiseSource } from '../security/hearing'
 import type { Body, Vec } from '../types'
 import type { World } from '../world'
@@ -32,7 +32,7 @@ export type Spray = Vec & { angle: number; spread: number; reach: number; kind: 
 export type GasLeak = Vec & { life: number }
 
 /** A reactive prop that has been set off and goes bang after a very short fuse, so chains ripple. */
-export type PendingBlast = Vec & { fuse: number; blast: Blast; prop: number }
+export type PendingBlast = Vec & { fuse: number; blast: Blast; prop: number; cause: BlastCause }
 
 export type FlashState = Vec & { life: number }
 

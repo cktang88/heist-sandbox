@@ -1,3 +1,4 @@
+import { withBlastCause } from '../explosions'
 import { TILE_DEFS, tileAt } from '../tiles'
 import type { Vec } from '../types'
 import type { World } from '../world'
@@ -48,15 +49,21 @@ export function stepHazards(world: World, dt: number): void {
     hazards.smokeClock = 0
     return
   }
+  // Whatever fire, gas and smoke set off is a chain, someone's or no one's: not the player's own act.
+  const chain = (work: () => void) => withBlastCause('playerChain', work)
   stepGrenades(world, dt)
-  stepLeaks(world, dt)
+  chain(() => stepLeaks(world, dt))
   stepBlasts(world, dt)
-  stepSprays(world, dt)
-  stepFlashes(world, dt)
+  chain(() => {
+    stepSprays(world, dt)
+    stepFlashes(world, dt)
+  })
   listenForShots(world)
-  hazards.fireClock = runTicks(hazards.fireClock + dt, FIRE_TICK, () => fireTick(world))
-  hazards.smokeClock = runTicks(hazards.smokeClock + dt, SMOKE_TICK, () => stepSmoke(world, SMOKE_TICK))
-  hazards.harmClock = runTicks(hazards.harmClock + dt, HARM_TICK, () => harmPeople(world, HARM_TICK))
+  chain(() => {
+    hazards.fireClock = runTicks(hazards.fireClock + dt, FIRE_TICK, () => fireTick(world))
+    hazards.smokeClock = runTicks(hazards.smokeClock + dt, SMOKE_TICK, () => stepSmoke(world, SMOKE_TICK))
+    hazards.harmClock = runTicks(hazards.harmClock + dt, HARM_TICK, () => harmPeople(world, HARM_TICK))
+  })
 }
 
 /** The player's flash and foam blindness and deafness fade with time (guards.ts does the same for guards). */

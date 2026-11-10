@@ -4,6 +4,7 @@ import { burst, flash } from './effects'
 import { hurtGuard } from './guards'
 import { igniteAt } from './hazards/hazards'
 import { emitNoise } from './noise'
+import { reportEvent } from './security/report'
 import { pushRagdoll } from './ragdoll'
 import { playSound } from './sounds'
 import { triggerSlowmo } from './time'
@@ -19,9 +20,45 @@ export const DRONE_BLAST: Blast = { radius: 2.6, tileDamage: 180, bodyDamage: 14
 const PLAYER_DAMAGE_SHARE = 0.35
 const KNOCK_SPEED = 16
 const CHAIN_FUSE_SECONDS = 0.08
+const BLAST_NOISE = 45
+
+/**
+ * Who set a blast off, so the security force reads it right: the player's own weapon or charge, a chain the player
+ * started (a barrel his rocket caught, a fire he lit reaching a tank), an accident with no player involved (a storm
+ * strike, a seeded fault), or the guards' own ordnance.
+ */
+export type BlastCause = 'player' | 'playerChain' | 'accident' | 'guard'
+
+/** The cause of whatever goes off while a system or a blast is running; null outside them, which is the player acting. */
+let acting: BlastCause | null = null
+
+/** Runs work under a cause: anything it sets off (a barrel, a gas cloud, a cook-off) carries that cause. */
+export function withBlastCause<T>(cause: BlastCause, work: () => T): T {
+  const before = acting
+  acting = cause
+  try {
+    return work()
+  } finally {
+    acting = before
+  }
+}
+
+/** What a blast set off right now is caused by: outside any system or blast, the player's own act. */
+export function currentBlastCause(): BlastCause {
+  return acting ?? 'player'
+}
+
+/** What a blast passes on to whatever it sets off: the player's blast starts his chain; the others stay what they were. */
+function chainOf(cause: BlastCause): BlastCause {
+  return cause === 'player' ? 'playerChain' : cause
+}
 
 /** Blows a hole in the world: breaks tiles, hurts and throws bodies, sets off nearby charges. */
-export function explode(world: World, at: Vec, blast: Blast): void {
+export function explode(world: World, at: Vec, blast: Blast, cause: BlastCause = currentBlastCause()): void {
+  withBlastCause(chainOf(cause), () => blowUp(world, at, blast, cause))
+}
+
+function blowUp(world: World, at: Vec, blast: Blast, cause: BlastCause): void {
   const reach = Math.ceil(blast.radius)
   for (let tileY = Math.floor(at.y) - reach; tileY <= Math.floor(at.y) + reach; tileY += 1) {
     for (let tileX = Math.floor(at.x) - reach; tileX <= Math.floor(at.x) + reach; tileX += 1) {
@@ -58,10 +95,25 @@ export function explode(world: World, at: Vec, blast: Blast): void {
   burst(world.effects, world.rng, at, 26, '#ffb347', 14)
   burst(world.effects, world.rng, at, 14, '#55504a', 9)
   world.shake = Math.min(1, world.shake + blast.radius * 0.2)
-  emitNoise(world, at, 45)
+  reportBlast(world, at, cause)
   igniteAt(world, at, 1)
   playSound(world, 'explosion', at)
   if (killed > 0) triggerSlowmo(world.time, 0.45, 0.18)
+}
+
+/**
+ * Guards hear every blast, but only the intruder's is a bomb: anything else sounds like their own side's bang and
+ * rings the fire alarm, so it is looked into as an accident or a fire (security/report.ts), never as an intruder.
+ * A chain the player started is his only if someone sees him or the site already suspects an intruder.
+ */
+function reportBlast(world: World, at: Vec, cause: BlastCause): void {
+  const intruder = cause === 'player' || (cause === 'playerChain' && intruderEvident(world))
+  emitNoise(world, at, BLAST_NOISE, intruder ? 'player' : 'guard')
+  if (!intruder) reportEvent(world, { kind: 'fire', at: { ...at }, alarm: true })
+}
+
+function intruderEvident(world: World): boolean {
+  return world.security.level >= 2 || world.guards.some((guard) => guard.mode !== 'dead' && guard.seesPlayer)
 }
 
 function falloff(at: Vec, body: Body, radius: number): number {
