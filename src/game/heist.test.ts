@@ -144,6 +144,19 @@ describe('heist', () => {
     expect(world.player.ammo[0]).toBeLessThan(spare)
   })
 
+  it('heals with a medkit and restocks with an ammo box', () => {
+    const world = createWorld(1)
+    world.guards = []
+    onStreet(world, 30)
+    world.player.hp = 30
+    const spare = world.player.ammo[1]
+    for (const pickup of world.pickups) Object.assign(pickup, { x: world.player.x, y: world.player.y + 0.8 })
+    run(world, 0.1)
+    expect(world.player.hp).toBe(100)
+    expect(world.player.ammo[1]).toBeGreaterThan(spare)
+    expect(world.pickups.every((pickup) => pickup.taken)).toBe(true)
+  })
+
   it('allows one extra jump in mid-air', () => {
     const world = createWorld(1)
     world.guards = []

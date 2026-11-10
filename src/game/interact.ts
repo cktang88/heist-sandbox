@@ -3,6 +3,7 @@ import type { Input } from './input'
 import { emitNoise } from './noise'
 import { playSound } from './sounds'
 import { setTile, tileAt, type Grid } from './tiles'
+import { TOOLS } from './toolDefs'
 import { centerOf, distance, overlaps, type Vec } from './types'
 import type { World } from './world'
 
@@ -10,6 +11,8 @@ const PICK_SECONDS = 1.3
 const PICK_REACH = 2
 const TAKEDOWN_REACH = 1.6
 const MAX_DOOR_TILES = 8
+const MEDKIT_HEAL = 50
+const AMMO_REFILL_SHARE = 0.5
 
 /** The hands-on actions: grab the loot, take down an unaware guard, pick a lock. */
 export function interact(world: World, input: Input, dt: number): void {
@@ -20,6 +23,16 @@ export function interact(world: World, input: Input, dt: number): void {
     world.loot.taken = true
     playSound(world, 'pickup', center)
     player.hasLoot = true
+  }
+
+  for (const pickup of world.pickups) {
+    if (pickup.taken || !overlaps(player, pickup)) continue
+    pickup.taken = true
+    playSound(world, 'pickup', center)
+    if (pickup.kind === 'medkit') player.hp = Math.min(100, player.hp + MEDKIT_HEAL)
+    else TOOLS.forEach((tool, index) => {
+      if (Number.isFinite(tool.ammo)) player.ammo[index] += Math.ceil(tool.ammo * AMMO_REFILL_SHARE)
+    })
   }
 
   if (input.interactPressed) {

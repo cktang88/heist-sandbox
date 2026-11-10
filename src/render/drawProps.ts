@@ -62,6 +62,21 @@ const PAINTERS: Record<Prop['kind'], (c: Ctx) => void> = {
   },
 }
 
+/** Medkits and ammo boxes waiting to be picked up. */
+export function drawPickups(context: CanvasRenderingContext2D, world: World): void {
+  for (const pickup of world.pickups) {
+    if (pickup.taken) continue
+    if (pickup.kind === 'medkit') {
+      box(context, '#e9edf2', pickup.x, pickup.y, pickup.w, pickup.h, 0.08)
+      box(context, '#e0353f', pickup.x + pickup.w / 2 - 0.06, pickup.y + 0.12, 0.12, 0.36, 0.01)
+      box(context, '#e0353f', pickup.x + pickup.w / 2 - 0.18, pickup.y + 0.24, 0.36, 0.12, 0.01)
+    } else {
+      box(context, '#4b5a3c', pickup.x, pickup.y, pickup.w, pickup.h, 0.05)
+      box(context, '#e0b95a', pickup.x + 0.1, pickup.y + 0.18, pickup.w - 0.2, 0.1, 0.01)
+    }
+  }
+}
+
 /** Room dressing. A prop vanishes once the floor under it has been blown away. */
 export function drawProps(context: CanvasRenderingContext2D, world: World): void {
   for (const prop of world.props) {

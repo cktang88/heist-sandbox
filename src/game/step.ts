@@ -40,6 +40,12 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   for (const guard of world.guards) updateGuard(world, guard, dt)
   if (!alarmBefore && world.alarm) raiseAlarm(world)
 
+  for (const pickup of world.pickups) {
+    if (pickup.taken) continue
+    pickup.vy += GRAVITY * dt
+    moveBody(world.grid, pickup, dt)
+  }
+
   if (!world.loot.taken) {
     world.loot.vy += GRAVITY * dt
     moveBody(world.grid, world.loot, dt)

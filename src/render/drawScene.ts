@@ -4,7 +4,7 @@ import type { World } from '../game/world'
 import { createBackdrop } from './backdrop'
 import type { Camera } from './camera'
 import { drawEffects, drawFalling, drawGoggles, drawGuard, drawGuardMarks, drawLamps, drawPlayer, drawProjectiles, drawSignals, drawThings } from './drawActors'
-import { drawProps } from './drawProps'
+import { drawPickups, drawProps } from './drawProps'
 import { createLighting } from './lighting'
 import { drawRain } from './rain'
 import { createTileCache, type TileCache } from './tileCache'
@@ -43,6 +43,7 @@ export function createSceneRenderer(): SceneRenderer {
       toWorld()
       tiles.draw(context, camera, 'back')
       drawProps(context, world)
+      drawPickups(context, world)
       drawThings(context, world)
       drawLamps(context, world)
       for (const guard of world.guards) drawGuard(context, world, guard)

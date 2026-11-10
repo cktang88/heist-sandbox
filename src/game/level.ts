@@ -15,7 +15,9 @@ export type Interior = Rect & { kind: 'room' | 'earth' }
 export type Lamp = Vec & { radius: number; color: 'warm' | 'cold' | 'green'; hung: boolean }
 /** Furniture and clutter. Purely for looks; `y` is the floor row it stands on. */
 export type Prop = Vec & { kind: 'desk' | 'cabinet' | 'crate' | 'plant' | 'server' | 'gold' }
-export type Level = { grid: Grid; playerStart: Vec; extraction: Rect; loot: Vec; guards: GuardSpawn[]; interiors: Interior[]; lamps: Lamp[]; props: Prop[] }
+/** Supplies lying around the site. `y` is the floor row it sits on. */
+export type PickupSpawn = Vec & { kind: 'medkit' | 'ammo' }
+export type Level = { grid: Grid; playerStart: Vec; extraction: Rect; loot: Vec; guards: GuardSpawn[]; interiors: Interior[]; lamps: Lamp[]; props: Prop[]; pickups: PickupSpawn[] }
 
 const BUILDING = { left: 70, right: 118 }
 const BASEMENT = { left: 74, right: 94, top: 43, bottom: 47 }
@@ -53,6 +55,12 @@ export function createLevel(seed: number): Level {
     guards,
     lamps: [...lamps, ...fixedLamps()],
     props: [...props, ...fixedProps()],
+    pickups: [
+      { x: 86, y: BASEMENT.bottom + 1, kind: 'medkit' },
+      { x: 92, y: BASEMENT.bottom + 1, kind: 'ammo' },
+      { x: 40, y: SEWER.bottom + 1, kind: 'ammo' },
+      { x: randomInt(rng, BUILDING.left + 3, BUILDING.right - 3), y: roof, kind: 'medkit' },
+    ],
     interiors: [
       { kind: 'room', x: BUILDING.left, y: roof, w: BUILDING.right - BUILDING.left + 1, h: GROUND - roof },
       { kind: 'earth', x: 0, y: GROUND, w: WORLD_WIDTH, h: WORLD_HEIGHT - GROUND },
