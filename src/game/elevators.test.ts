@@ -14,6 +14,9 @@ import { isSolidAt, tileAt } from './tiles'
 import { createWorld, type World } from './world'
 import { DRONE_PROMPT } from './drone'
 import { toolIndex } from './toolDefs'
+import { propBox } from './hazards/props'
+import { isPushable } from './physprops/kinds'
+import { loosen, shiftProp } from './physprops/state'
 
 const FRAME = 1 / 60
 
@@ -196,6 +199,22 @@ describe('elevators', () => {
     expect(car.moving).toBe(false)
     run(world, 1, { up: true })
     expect(car.moving).toBe(true)
+  })
+
+  it('carries loose furniture standing on the car instead of dropping it down the shaft', () => {
+    const { world, shaft, car } = setUp()
+    const prop = world.props.find((candidate) => isPushable(candidate.kind) && propBox(candidate).w < shaft.w - 0.5)!
+    const box = propBox(prop)
+    shiftProp(prop, shaft.x + 0.3 - box.x, car.y - (box.y + box.h))
+    loosen(world, prop)
+    run(world, 0.3)
+    expect(propBox(prop).y + propBox(prop).h).toBeCloseTo(car.y, 1)
+    const target = car.stop! + 2
+    car.targetStop = target
+    run(world, 6)
+    expect(car.stop).toBe(target)
+    expect(car.moving).toBe(false)
+    expect(propBox(prop).y + propBox(prop).h).toBeCloseTo(car.y, 1)
   })
 
   it('carries a guard standing in the car and crushes one underneath it', () => {

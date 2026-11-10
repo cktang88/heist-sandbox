@@ -7,6 +7,8 @@ import { bodyControl } from './movement/control'
 import { currentHoles } from './gaps/state'
 import { heldUpByHoles } from './gaps/walk'
 import { emitNoise } from './noise'
+import { propBox, propById } from './hazards/props'
+import { looseProps, rekeyIfMoved, shiftProp } from './physprops/state'
 import { boxHitsSolid, GRAVITY } from './physics'
 import type { Player } from './player'
 import type { Projectile } from './projectiles'
@@ -54,6 +56,8 @@ export type ElevatorCar = {
   fallSpeed?: number
   /** Bullets that have hit the winding gear at the head of the shaft. */
   cableHits?: number
+  /** Ids of loose furniture standing on the car floor while it travels, carried along like the riders. */
+  cargo?: number[]
 }
 
 /** Tiles per second. */
@@ -226,6 +230,7 @@ function people(world: World): Person[] {
 
 function depart(world: World, car: ElevatorCar, shaft: ElevatorShaft, target: number): void {
   car.riders = people(world).filter((body) => insideShaft(shaft, body) && body.y + body.h > car.y - CAB_HEIGHT && body.y + body.h < car.y + 0.3)
+  car.cargo = cargoOn(world, car, shaft)
   closeDoors(world, car, shaft)
   removeFloor(world, car)
   car.moving = true
@@ -244,6 +249,7 @@ function travel(world: World, car: ElevatorCar, shaft: ElevatorShaft, input: Inp
   car.y = Math.abs(goal - car.y) <= step ? goal : car.y + Math.sign(goal - car.y) * step
   sweep(world, car, shaft, before, dt)
   carryRiders(car, shaft)
+  carryCargo(world, car)
   if (car.y !== goal) return
   if (keepGoing(world, car, shaft, input)) return
   arrive(world, car, shaft)
@@ -267,6 +273,7 @@ function arrive(world: World, car: ElevatorCar, shaft: ElevatorShaft): void {
   car.targetStop = null
   placeFloor(world, car, shaft)
   releaseRiders(car)
+  car.cargo = []
   openDoors(world, car, shaft)
   playSound(world, 'elevatorDing', carCenter(shaft, car.y))
 }
@@ -275,12 +282,37 @@ function arrive(world: World, car: ElevatorCar, shaft: ElevatorShaft): void {
 function stall(world: World, car: ElevatorCar, shaft: ElevatorShaft): void {
   car.y = Math.round(car.y)
   carryRiders(car, shaft)
+  carryCargo(world, car)
+  car.cargo = []
   car.moving = false
   car.targetStop = null
   const stop = shaft.stops.indexOf(car.y)
   car.stop = stop >= 0 ? stop : null
   placeFloor(world, car, shaft)
   releaseRiders(car)
+}
+
+/** Loose furniture standing on the car floor, its middle over the shaft. */
+function cargoOn(world: World, car: ElevatorCar, shaft: ElevatorShaft): number[] {
+  return looseProps(world).filter(({ prop, loose }) => {
+    const box = propBox(prop)
+    const middle = box.x + box.w / 2
+    return !loose.flying && middle >= shaft.x && middle < shaft.x + shaft.w && Math.abs(box.y + box.h - car.y) < 0.3
+  }).map(({ prop }) => prop.id)
+}
+
+/** Keeps the furniture on the car standing on its floor as it moves. */
+function carryCargo(world: World, car: ElevatorCar): void {
+  for (const id of car.cargo ?? []) {
+    const prop = propById(world, id)
+    const loose = world.physProps.loose.get(id)
+    if (!prop || prop.broken || !loose) continue
+    const box = propBox(prop)
+    shiftProp(prop, 0, car.y - (box.y + box.h))
+    loose.vx = 0
+    loose.vy = 0
+    rekeyIfMoved(world, prop, loose, false)
+  }
 }
 
 function carryRiders(car: ElevatorCar, shaft: ElevatorShaft): void {
@@ -428,6 +460,7 @@ export function cutCable(world: World, car: ElevatorCar): void {
   playSound(world, 'spark', head)
   if (car.moving || car.y >= shaft.stops[0]) return
   car.riders = people(world).filter((body) => insideShaft(shaft, body) && body.y + body.h > car.y - CAB_HEIGHT && body.y + body.h < car.y + 0.3)
+  car.cargo = cargoOn(world, car, shaft)
   removeFloor(world, car)
   car.moving = true
   car.stop = null
@@ -495,6 +528,7 @@ function freeFall(world: World, car: ElevatorCar, shaft: ElevatorShaft, dt: numb
   car.y = Math.min(bottom, car.y + car.fallSpeed * dt)
   sweep(world, car, shaft, before, dt)
   carryRiders(car, shaft)
+  carryCargo(world, car)
   if (car.y === bottom) crash(world, car, shaft)
 }
 
@@ -507,6 +541,7 @@ function crash(world: World, car: ElevatorCar, shaft: ElevatorShaft): void {
   car.stop = 0
   placeFloor(world, car, shaft)
   releaseRiders(car)
+  car.cargo = []
   world.shake = Math.min(1, world.shake + CRASH_SHAKE)
   burst(world.effects, world.rng, { x: at.x, y: car.y - 0.5 }, 24, '#ffd36b', 10)
   burst(world.effects, world.rng, { x: at.x, y: car.y - 0.5 }, 18, '#55504a', 8)
