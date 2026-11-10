@@ -1,5 +1,5 @@
 import { AdditiveBlending, BufferGeometry, DoubleSide, Float32BufferAttribute, Mesh, MeshBasicMaterial, SpotLight, type Group } from 'three'
-import type { Guard } from '../../game/guards'
+import { guardMood, type Guard } from '../../game/guards'
 import type { Vec } from '../../game/types'
 import type { World } from '../../game/world'
 import { visionCone } from '../../render/cone'
@@ -54,7 +54,8 @@ export function createGuardLights(group: Group): GuardLights {
     gap.length = 0
     for (const guard of world.guards) {
       const distance = Math.hypot(guard.x - view.x, (guard.y - view.y) * 1.4)
-      if (guard.state === 'dead' || distance > RANGE) continue
+      // A man out cold keeps his old state, and one stuffed in a locker is out of sight: neither shines a torch.
+      if (guardMood(guard) === 'dead' || guard.hiddenIn !== null || distance > RANGE) continue
       if (nearest.length === SIGHT_BEAMS && distance >= gap[SIGHT_BEAMS - 1]) continue
       let at = Math.min(nearest.length, SIGHT_BEAMS - 1)
       if (nearest.length < SIGHT_BEAMS) {
