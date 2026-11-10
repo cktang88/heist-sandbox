@@ -12,9 +12,10 @@ import { createLampLights } from './lighting/lampLights'
  * every material. So the scene has a fixed set, handed each frame to whatever matters most near the view, and every
  * other lit lamp is faked with its glowing fitting and a soft pool of light on the wall behind it.
  *
- * The whole set: the sun or moon and a sky fill; 6 lamp spots (2 with shadow maps) and 6 lamp points
- * (lamp lights); 3 guard torches; 4 points for flashes, explosions, fires and flashbangs; a faint fill at the
- * player. That is 9 spots and 11 points, about what the original 17 punctual lights cost, spent more wisely.
+ * The whole set: the sun or moon and a sky fill; 4 lamp spots (1 with a shadow map) and 3 lamp points for the lamps
+ * nearest the player (lamp lights); 3 guard torches; 4 points for flashes, explosions, fires and flashbangs; a faint
+ * fill at the player. That is 7 spots and 8 points: every lit pixel pays for each one, so the pool covers the
+ * player's own room and neighbours, and lamps further out are drawn with their glowing fitting and wall pool only.
  */
 export type LightRig = { group: Group; update(world: World, view: Vec): void }
 
