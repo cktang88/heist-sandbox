@@ -37,6 +37,8 @@ export function findUnsupportedNear(grid: Grid, slabs: readonly SlabRow[], chang
     }
     piece += 1
   }
+  // Past its budget the answers above were cut short: the whole-site check is the cheaper way now.
+  if (walked > budget) return null
   loose.sort((a, b) => a - b)
   return loose
 }
@@ -77,9 +79,12 @@ const hangerEnds: number[] = []
 /** Pieces whose hold is being worked out, so a ring of pieces hanging from each other is noticed. */
 const asked: boolean[] = []
 let slabState = new Uint8Array(0)
-/** Each slab's band (see `bandOf`) as x0, x1, y0, y1; and each piece's bounding box the same way, to rule slabs out fast. */
+/** Each slab's band (see `bandOf`) as x0, x1, y0, y1. */
 let bands = new Int32Array(0)
-const pieceBoxes: number[] = []
+/** For each row of the grid: the slabs whose row it is, and the slabs whose band takes it in. */
+type Rows = { slabsOnRow: number[][]; bandsOnRow: number[][] }
+let rows: Rows = { slabsOnRow: [], bandsOnRow: [] }
+const rowsBySlabs = new WeakMap<readonly SlabRow[], Rows>()
 
 function begin(grid: Grid, slabs: readonly SlabRow[]): void {
   const size = grid.width * grid.height
@@ -91,6 +96,8 @@ function begin(grid: Grid, slabs: readonly SlabRow[]): void {
     stamp = 0
   }
   stamp += 1
+  walked = 0
+  budget = Math.max(MIN_BUDGET, Math.floor(size * BUDGET_SHARE))
   if (slabState.length < slabs.length) slabState = new Uint8Array(slabs.length)
   slabState.fill(SLAB_UNKNOWN)
   if (bands.length < slabs.length * 4) bands = new Int32Array(slabs.length * 4)
@@ -101,7 +108,7 @@ function begin(grid: Grid, slabs: readonly SlabRow[]): void {
     bands[entry * 4 + 2] = band.y0
     bands[entry * 4 + 3] = band.y1
   }
-  pieceBoxes.length = 0
+  rows = rowsFor(grid, slabs)
   candidates.length = 0
   recheck.length = 0
   members.length = 0
@@ -111,6 +118,24 @@ function begin(grid: Grid, slabs: readonly SlabRow[]): void {
   hangerStarts.length = 0
   hangerEnds.length = 0
   asked.length = 0
+}
+
+/** The slabs filed by row (see `Rows`), made once per list of slabs. */
+function rowsFor(grid: Grid, slabs: readonly SlabRow[]): Rows {
+  const known = rowsBySlabs.get(slabs)
+  if (known && known.slabsOnRow.length === grid.height) return known
+  const made: Rows = { slabsOnRow: [], bandsOnRow: [] }
+  for (let y = 0; y < grid.height; y += 1) {
+    made.slabsOnRow.push([])
+    made.bandsOnRow.push([])
+  }
+  slabs.forEach((slab, entry) => {
+    if (slab.y >= 0 && slab.y < grid.height) made.slabsOnRow[slab.y].push(entry)
+    const band = bandOf(grid, slab)
+    for (let y = band.y0; y <= band.y1; y += 1) made.bandsOnRow[y].push(entry)
+  })
+  rowsBySlabs.set(slabs, made)
+  return made
 }
 
 /**
@@ -137,9 +162,9 @@ function queueAroundChanges(grid: Grid, slabs: readonly SlabRow[], changed: read
     if (index + hanger < size && kinds[index + hanger] === DUCT) queue(index + hanger)
     if (SOLID[kinds[index]]) continue
     const y = (index - x) / width
-    for (let entry = 0; entry < slabs.length; entry += 1) {
+    for (const entry of rows.slabsOnRow[y]) {
       const slab = slabs[entry]
-      if (slab.y === y && x >= slab.x0 && x <= slab.x1) recheck.push(entry)
+      if (x >= slab.x0 && x <= slab.x1) recheck.push(entry)
     }
   }
   return true
@@ -154,6 +179,8 @@ function queueAroundChanges(grid: Grid, slabs: readonly SlabRow[], changed: read
  */
 function search(grid: Grid, slabs: readonly SlabRow[], start: number): number {
   if (seen[start] === stamp) return found[start]
+  // Over budget, nothing found from here on counts (see `findUnsupportedNear`): stop walking.
+  if (walked > budget) return GROUNDED
   const { width, kinds } = grid
   const size = kinds.length
   const bottom = size - width
@@ -205,25 +232,25 @@ function search(grid: Grid, slabs: readonly SlabRow[], start: number): number {
   hangerStarts.push(firstHanger)
   hangerEnds.push(hangers.length)
   asked.push(false)
-  let [x0, x1, y0, y1] = [width, -1, grid.height, -1]
   for (let at = first; at < members.length; at += 1) {
-    const index = members[at]
-    found[index] = CUT_OFF
-    pieceOf[index] = piece
-    const x = index % width
-    const y = (index - x) / width
-    x0 = Math.min(x0, x)
-    x1 = Math.max(x1, x)
-    y0 = Math.min(y0, y)
-    y1 = Math.max(y1, y)
+    found[members[at]] = CUT_OFF
+    pieceOf[members[at]] = piece
   }
-  pieceBoxes.push(x0, x1, y0, y1)
   queueSlabsInRow(grid, slabs, piece)
   return CUT_OFF
 }
 
 /** The search stack's height, and whether it has stepped next to a tile known to be held; shared with `visit`. */
 let stackTop = 0
+/**
+ * Tiles walked by this call, and how many it may walk. The whole-site check walks every tile in about the time this
+ * walks an eighth of them, so past that share (a site so wrecked that whole storeys hang on one another) it gives up.
+ */
+let walked = 0
+let budget = 0
+const BUDGET_SHARE = 1 / 8
+/** On a small grid either check is quick; the local one keeps going. */
+const MIN_BUDGET = 1024
 let touchedGround = false
 
 function visit(kinds: Uint8Array, index: number): void {
@@ -235,6 +262,7 @@ function visit(kinds: Uint8Array, index: number): void {
   seen[index] = stamp
   found[index] = WALKING
   stack[stackTop++] = index
+  walked += 1
 }
 
 /** A cut-off piece with tiles in a slab's row may have been what kept that slab standing: check it again. */
@@ -244,9 +272,9 @@ function queueSlabsInRow(grid: Grid, slabs: readonly SlabRow[], piece: number): 
     if (!SOLID[grid.kinds[index]]) continue
     const x = index % grid.width
     const y = (index - x) / grid.width
-    for (let entry = 0; entry < slabs.length; entry += 1) {
+    for (const entry of rows.slabsOnRow[y]) {
       const slab = slabs[entry]
-      if (slab.y === y && x >= slab.x0 && x <= slab.x1 && slabState[entry] === SLAB_UNKNOWN) recheck.push(entry)
+      if (x >= slab.x0 && x <= slab.x1 && slabState[entry] === SLAB_UNKNOWN) recheck.push(entry)
     }
   }
 }
@@ -327,29 +355,20 @@ function pieceHeld(grid: Grid, slabs: readonly SlabRow[], piece: number, asking:
 
 function heldBySlab(grid: Grid, slabs: readonly SlabRow[], piece: number, asking: number): Answer {
   let unsure = false
-  const box = piece * 4
-  for (let entry = 0; entry < slabs.length; entry += 1) {
-    const band = entry * 4
-    if (entry === asking || bands[band] > pieceBoxes[box + 1] || bands[band + 1] < pieceBoxes[box]
-      || bands[band + 2] > pieceBoxes[box + 3] || bands[band + 3] < pieceBoxes[box + 2]) continue
-    if (!inBand(grid, piece, band)) continue
-    const stands = slabStands(grid, slabs, entry)
-    if (stands === YES) return YES
-    if (stands === UNSURE) unsure = true
-  }
-  return unsure ? UNSURE : NO
-}
-
-/** Whether a solid tile of the piece lies in the band whose bounds start at `bands[band]`. */
-function inBand(grid: Grid, piece: number, band: number): boolean {
   for (let at = pieceStarts[piece]; at < pieceEnds[piece]; at += 1) {
     const index = members[at]
     if (!SOLID[grid.kinds[index]]) continue
     const x = index % grid.width
     const y = (index - x) / grid.width
-    if (x >= bands[band] && x <= bands[band + 1] && y >= bands[band + 2] && y <= bands[band + 3]) return true
+    for (const entry of rows.bandsOnRow[y]) {
+      if (entry === asking || x < bands[entry * 4] || x > bands[entry * 4 + 1]) continue
+      // Asked again for each tile, but a slab is worked out once a call: after that this is a lookup.
+      const stands = slabStands(grid, slabs, entry)
+      if (stands === YES) return YES
+      if (stands === UNSURE) unsure = true
+    }
   }
-  return false
+  return unsure ? UNSURE : NO
 }
 
 /** True if a loose piece holds up a duct that is not part of it, which would then hang from nothing. */
