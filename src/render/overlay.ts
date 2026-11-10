@@ -39,6 +39,8 @@ export function drawOverlay(context: CanvasRenderingContext2D, world: World, cam
   }
   drawBarks(context, world, camera, unit)
   if (world.status !== 'playing') return
+  const roof = dropTarget(world)
+  if (roof) drawEdgeArrow(context, world, camera, unit, roof, 'TARGET', '#6fd0ff')
   if (world.player.hasLoot) drawEdgeArrow(context, world, camera, unit, centerOf(world.extraction), 'VAN', '#39ff6a')
   else if (area?.region) drawEdgeArrow(context, world, camera, unit, centerOf(area.region), 'INTEL', '#f0c060')
 }
@@ -191,6 +193,17 @@ function drawLastKnown(context: CanvasRenderingContext2D, world: World, camera: 
   context.lineTo(point.x, point.y + unit * 0.3)
   context.stroke()
   caption(context, 'LAST SEEN', point.x, point.y - radius - unit * 0.4, 'rgba(255,150,90,0.95)', unit * 0.7, 'center')
+}
+
+/** While dropping in, the roof of the biggest building on the site, so the player can steer for it. */
+function dropTarget(world: World): Vec | null {
+  const player = world.player
+  if (player.onGround || player.hasLoot) return null
+  let main: World['interiors'][number] | null = null
+  for (const interior of world.interiors) if (interior.kind === 'room' && (!main || interior.w * interior.h > main.w * main.h)) main = interior
+  // Only on the way down from the plane: once he is below the roofline the arrow would only be noise.
+  if (!main || player.y + player.h > main.y) return null
+  return { x: main.x + main.w / 2, y: main.y }
 }
 
 /**
