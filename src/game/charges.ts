@@ -89,7 +89,7 @@ export function stepCharges(world: World, detonate: boolean, dt: number): void {
 function fly(grid: Grid, charge: Charge, dt: number): void {
   charge.vy += GRAVITY * dt
   const heading = { x: charge.vx, y: charge.vy }
-  moveBody(grid, charge, dt)
+  moveBody(grid, charge, dt, 0)
   const touched = touching(grid, charge, heading)
   if (!touched) return
   charge.stuck = touched.tile
