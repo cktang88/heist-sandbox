@@ -1,11 +1,9 @@
 import { Group } from 'three'
 import type { Flash } from '../game/effects'
 import { fireCells, flashViews, grenadeViews, smokeCells, sprayViews } from '../game/hazards/hazards'
-import { lightLevelAt } from '../game/light'
-import type { Vec } from '../game/types'
-import type { World } from '../game/world'
 import { createFire, MAX_FLAMES } from './hazardfx/fire'
 import { createGrenades } from './hazardfx/grenades'
+import { createLightCache } from './hazardfx/lightCache'
 import { nearestCells } from './hazardfx/quads'
 import { createScorch } from './hazardfx/scorch'
 import { createSmoke, MAX_SMOKE_QUADS } from './hazardfx/smoke'
@@ -17,33 +15,6 @@ const MAX_FIRE_CELLS = Math.floor(MAX_FLAMES / 3)
 const MAX_SMOKE_CELLS = Math.floor(MAX_SMOKE_QUADS / 3)
 /** Smoke and fire just off screen still matter: a cloud drifting in should already be there. */
 const REACH = { x: DRAW_DISTANCE * 0.75, y: DRAW_DISTANCE * 0.5 }
-/** How often a smoky tile re-reads the room's light, and how many tiles may do so per frame. */
-const LIGHT_REFRESH_SECONDS = 0.75
-const LIGHT_READS_PER_FRAME = 40
-
-/** Remembers how lit each smoky tile is, so smoke darkens with the room without re-tracing every lamp each frame. */
-function createLightCache(world: World): { begin(clock: number): void; at(spot: Vec): number } {
-  const cache = new Map<number, { level: number; stamp: number }>()
-  let clock = 0
-  let reads = 0
-  return {
-    begin(now) {
-      clock = now
-      reads = 0
-      if (cache.size > 4000) cache.clear()
-    },
-    at(spot) {
-      const key = Math.floor(spot.y) * world.grid.width + Math.floor(spot.x)
-      const known = cache.get(key)
-      if (known && (clock - known.stamp < LIGHT_REFRESH_SECONDS || reads >= LIGHT_READS_PER_FRAME)) return known.level
-      if (!known && reads >= LIGHT_READS_PER_FRAME) return 0.4
-      reads += 1
-      const level = lightLevelAt(world, spot)
-      cache.set(key, { level, stamp: clock })
-      return level
-    },
-  }
-}
 
 /** Fire, smoke, sprays, grenades, flashbang pops and the soot they leave behind. */
 export const createHazardsLayer: LayerFactory = (world) => {

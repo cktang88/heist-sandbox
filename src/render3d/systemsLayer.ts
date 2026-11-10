@@ -1,5 +1,7 @@
 import { AdditiveBlending, Group, NormalBlending, ShaderMaterial } from 'three'
 import { eachLiveTile, eachPuddle, eachStream, fallingFittings, wireViews } from '../game/systems/views'
+import { tileAt } from '../game/tiles'
+import { createLightCache } from './hazardfx/lightCache'
 import { cellSeed, createQuadPool, put4, type QuadPool } from './hazardfx/quads'
 import { DRAW_DISTANCE, type Frame, type LayerFactory } from './layer'
 
@@ -18,23 +20,35 @@ const SHEET_Z = 0.42
 const STREAM_Z = 0.1
 const MIN_SHEET = 0.07
 
-/** The scene is lit in high range and exposed down afterwards: plain unlit colours need lifting to read as bright. */
-const LIQUID_GAIN = 2.4
+/**
+ * The scene is lit in high range and exposed down afterwards: plain unlit colours need lifting to read as bright. Each
+ * panel is also scaled by the room's light where it lies, so water in a dark basement is dark too, not glowing.
+ */
+const LIQUID_GAIN = 1.5
+/** Light a panel keeps in the dark, so a puddle by torchlight is still faintly there. */
+const LIGHT_FLOOR = 0.12
 
-const KIND = { water: 0, fuel: 1, waterStream: 2, fuelStream: 3, cable: 4, fitting: 5 } as const
+const KIND = { water: 0, fuel: 1, waterStream: 2, fuelStream: 3, cable: 4, fitting: 5, hotDoor: 6 } as const
+/** A door too hot to touch glows on its cut face, just in front of the wall section. */
+const HOT_DOOR_Z = 0.51
+/** A hot door fades out over its last seconds. */
+const HOT_FADE_SECONDS = 6
 
 const panelMaterial = () => new ShaderMaterial({
   uniforms: { uTime: { value: 0 }, uGain: { value: LIQUID_GAIN } },
   vertexShader: /* glsl */ `
     attribute vec4 aRect;
     attribute vec4 aLook;
+    attribute float aLight;
     varying vec2 vUv;
     varying vec4 vLook;
     varying vec2 vSize;
+    varying float vLight;
     void main() {
       vec3 p = vec3(aRect.xy + position.xy * aRect.zw, aLook.w);
       vUv = uv;
       vLook = aLook;
+      vLight = aLight;
       vSize = aRect.zw;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
     }`,
@@ -44,6 +58,7 @@ const panelMaterial = () => new ShaderMaterial({
     varying vec2 vUv;
     varying vec4 vLook;
     varying vec2 vSize;
+    varying float vLight;
     void main() {
       float kind = vLook.x;
       float seed = vLook.y;
@@ -64,12 +79,17 @@ const panelMaterial = () => new ShaderMaterial({
         colour = vec4(tint * uGain * (0.8 + 0.6 * streak), (0.3 + 0.45 * smoothstep(0.3, 1.0, streak)) * edge * vLook.z);
       } else if (kind < 4.5) {
         colour = vec4(0.08, 0.08, 0.09, vLook.z);
-      } else {
+      } else if (kind < 5.5) {
         float border = step(0.08, min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y)));
         vec3 tint = seed > 0.5 ? vec3(0.85, 0.7, 0.35) : vec3(0.32, 0.33, 0.35);
         colour = vec4(tint * (0.6 + 0.4 * border), vLook.z);
+      } else {
+        // A door heated by the fire beside it: a dull red glow, brightest in the middle, slowly breathing.
+        float centre = 1.0 - smoothstep(0.15, 0.75, length(vUv - 0.5) * 1.4);
+        float breathe = 0.75 + 0.25 * sin(uTime * 2.5 + seed * 6.0);
+        colour = vec4(vec3(1.0, 0.3, 0.06) * 2.2 * breathe, (0.25 + 0.45 * centre) * vLook.z);
       }
-      gl_FragColor = colour;
+      gl_FragColor = vec4(colour.rgb * vLight, colour.a);
     }`,
   blending: NormalBlending,
   transparent: true,
@@ -96,12 +116,13 @@ const arcMaterial = () => new ShaderMaterial({
     varying float vSeed;
     float hash(float n) { return fract(sin(n) * 43758.5453); }
     void main() {
-      // A jagged bolt that jumps to a new shape many times a second, and blinks out now and then.
+      // A jagged bolt that jumps to a new shape many times a second. Only some of the live tiles crackle at any moment:
+      // a bolt on every one at once lit the whole floor up like a lamp.
       float frame = floor(uTime * 18.0 + vSeed * 50.0);
-      float on = step(0.35, hash(frame + vSeed * 13.0));
+      float on = step(0.7, hash(frame + vSeed * 13.0));
       float bend = (hash(frame + floor(vUv.x * 6.0)) - 0.5) * 0.5;
       float line = 1.0 - smoothstep(0.04, 0.16, abs(vUv.y - 0.5 - bend * sin(vUv.x * 3.14159)));
-      float glow = (1.0 - smoothstep(0.0, 0.5, abs(vUv.y - 0.5))) * 0.45;
+      float glow = (1.0 - smoothstep(0.0, 0.5, abs(vUv.y - 0.5))) * 0.15;
       gl_FragColor = vec4(vec3(2.2, 2.8, 3.6) * (line + glow) * on, 1.0);
     }`,
   blending: AdditiveBlending,
@@ -114,49 +135,59 @@ function near(frame: Frame, x: number, y: number): boolean {
 }
 
 /** Fills the panel pool: one rectangle per call, given in game tiles (y down) and turned into 3D (y up) here. */
-function panelWriter(pool: QuadPool): { count: number; add(x: number, top: number, w: number, h: number, kind: number, seed: number, alpha: number, z: number): void } {
+function panelWriter(pool: QuadPool): { count: number; add(x: number, top: number, w: number, h: number, kind: number, seed: number, alpha: number, z: number, light: number): void } {
   const writer = {
     count: 0,
-    add(x: number, top: number, w: number, h: number, kind: number, seed: number, alpha: number, z: number) {
+    add(x: number, top: number, w: number, h: number, kind: number, seed: number, alpha: number, z: number, light: number) {
       if (writer.count >= pool.cap) return
       put4(pool.data.aRect, writer.count, x + w / 2, -(top + h / 2), w, h)
       put4(pool.data.aLook, writer.count, kind, seed, alpha, z)
+      pool.data.aLight[writer.count] = LIGHT_FLOOR + (1 - LIGHT_FLOOR) * light
       writer.count += 1
     },
   }
   return writer
 }
 
-export const createSystemsLayer: LayerFactory = () => {
+export const createSystemsLayer: LayerFactory = (world) => {
   const group = new Group()
-  const panels = createQuadPool(MAX_PANELS, { aRect: 4, aLook: 4 }, panelMaterial())
+  const panels = createQuadPool(MAX_PANELS, { aRect: 4, aLook: 4, aLight: 1 }, panelMaterial())
   const arcs = createQuadPool(MAX_ARCS, { aPos: 4, aSize: 2 }, arcMaterial())
   panels.mesh.renderOrder = 2
   arcs.mesh.renderOrder = 4
   group.add(panels.mesh, arcs.mesh)
   const writer = panelWriter(panels)
+  const light = createLightCache(world)
+  const lightAt = (x: number, y: number) => light.at({ x: x + 0.5, y: y + 0.5 })
 
   return {
     group,
     update(world, frame) {
       const time = world.clock
       writer.count = 0
+      light.begin(time)
       eachPuddle(world, (x, y, depth, kind) => {
         if (!near(frame, x, y)) return
         const h = Math.max(MIN_SHEET, Math.min(5, depth))
-        writer.add(x, y + 1 - h, 1, h, kind === 'water' ? KIND.water : KIND.fuel, cellSeed(x, y), Math.min(1, 0.5 + depth * 2), SHEET_Z)
+        writer.add(x, y + 1 - h, 1, h, kind === 'water' ? KIND.water : KIND.fuel, cellSeed(x, y), Math.min(1, 0.5 + depth * 2), SHEET_Z, lightAt(x, y))
       })
       eachStream(world, (fall) => {
         if (!near(frame, fall.x, fall.top)) return
         const w = Math.min(0.9, 0.2 + fall.amount * 1.5)
-        writer.add(fall.x + 0.5 - w / 2, fall.top + 0.5, w, Math.max(0.5, fall.bottom - fall.top + 0.5), fall.kind === 'water' ? KIND.waterStream : KIND.fuelStream, cellSeed(fall.x, fall.top), 1, STREAM_Z)
+        writer.add(fall.x + 0.5 - w / 2, fall.top + 0.5, w, Math.max(0.5, fall.bottom - fall.top + 0.5), fall.kind === 'water' ? KIND.waterStream : KIND.fuelStream, cellSeed(fall.x, fall.top), 1, STREAM_Z, lightAt(fall.x, fall.top))
       })
       const wires = wireViews(world)
       for (const wire of wires) {
-        if (near(frame, wire.x, wire.top)) writer.add(wire.x - 0.03, wire.top, 0.06, wire.bottom - wire.top - 0.1, KIND.cable, 0, 1, STREAM_Z)
+        if (near(frame, wire.x, wire.top)) writer.add(wire.x - 0.03, wire.top, 0.06, wire.bottom - wire.top - 0.1, KIND.cable, 0, 1, STREAM_Z, 1)
       }
+      world.systems.hotDoors.forEach((seconds, key) => {
+        const x = key % world.grid.width
+        const y = Math.floor(key / world.grid.width)
+        if (!near(frame, x, y) || tileAt(world.grid, x, y) !== 'door') return
+        writer.add(x, y, 1, 1, KIND.hotDoor, cellSeed(x, y), Math.min(1, seconds / HOT_FADE_SECONDS), HOT_DOOR_Z, 1)
+      })
       for (const item of fallingFittings(world)) {
-        if (near(frame, item.x, item.y)) writer.add(item.x, item.y, item.w, item.h, KIND.fitting, item.lamp ? 1 : 0, 1, -0.6)
+        if (near(frame, item.x, item.y)) writer.add(item.x, item.y, item.w, item.h, KIND.fitting, item.lamp ? 1 : 0, 1, -0.6, lightAt(item.x, item.y))
       }
       panels.commit(writer.count)
 
