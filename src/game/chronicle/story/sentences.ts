@@ -1,6 +1,6 @@
 import type { Beat } from '../types'
 import { capitalise, count, type Chooser } from './choose'
-import { CAUSE_WORDS, downWords, EVENT_WORDS, VEHICLE_WORDS } from './phrases'
+import { CAUSE_WORDS, claimWords, downWords, EVENT_WORDS, sourceWords, VEHICLE_WORDS } from './phrases'
 import type { HeistRecord } from './record'
 
 /**
@@ -65,8 +65,8 @@ function alertLine(beat: Beat, choose: Chooser): string {
 }
 
 function clueLine(beat: Beat, choose: Chooser): string {
-  const said = beat.detail ?? 'somewhere on site'
-  const from = beat.who ?? 'a source'
+  const said = beat.detail ? claimWords(beat.detail) : 'somewhere on site'
+  const from = sourceWords(beat.who ?? 'source')
   const base = choose(`clue-${beat.n}`, [`A tip from ${from} put the case in ${said}`, `${capitalise(from)} gave the case away: ${said}`])
   return beat.truth === false ? `${base}, but the tip was wrong.` : `${base}.`
 }

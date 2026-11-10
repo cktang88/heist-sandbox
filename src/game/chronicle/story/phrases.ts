@@ -67,3 +67,23 @@ export const EVENT_WORDS: Record<EventId | 'lightning' | 'shiftChange' | 'delive
 
 /** Vehicle prop kinds in plain words. */
 export const VEHICLE_WORDS: Record<string, string> = { van: 'van', car: 'car', forklift: 'forklift' }
+
+/** Where a clue came from, as a reader would say it: "a whiteboard", "Reyes", "Reyes, overheard,". */
+export function sourceWords(origin: string): string {
+  const overheard = origin.match(/^(.+) \(overheard\)$/)
+  if (overheard) return `${overheard[1]}, overheard,`
+  return /^[a-z]/.test(origin) ? `a ${origin}` : origin
+}
+
+/**
+ * A clue's claim in prose. The intel log writes it as "the tower · floors 18-22 · east wing · a lab"; the story says
+ * "a lab in the tower's east wing, floors 18-22".
+ */
+export function claimWords(detail: string): string {
+  const [building, ...parts] = detail.split(' · ')
+  const side = parts.find((part) => part.endsWith(' wing'))
+  const storeys = parts.find((part) => /floor|basement/.test(part))
+  const kind = parts.find((part) => part !== side && part !== storeys)
+  const where = side ? `${building}'s ${side}` : building
+  return `${kind ?? 'somewhere'} in ${where}${storeys ? `, ${storeys}` : ''}`
+}
