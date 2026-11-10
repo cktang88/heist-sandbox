@@ -79,6 +79,7 @@ function tryHatch(site: SiteDraft, upper: Room, lower: Room, clearing: boolean):
 function addHatch(site: SiteDraft, room: Room): boolean {
   const usable = (other: Room) => other.building === room.building && !NO_LADDER_ROOMS.has(other.kind)
   const lower = site.rooms.filter((other) => usable(other) && other.y === room.floorY + 1)
-  const upper = site.rooms.filter((other) => usable(other) && other.floorY === room.y - 1)
+  // A hatch in the roof needs no ladder up on the roof, so a room on the top storey can be got into from up there.
+  const upper = site.rooms.filter((other) => (usable(other) || (other.kind === 'rooftop' && other.building === room.building)) && other.floorY === room.y - 1)
   return [false, true].some((clearing) => lower.some((other) => tryHatch(site, room, other, clearing)) || upper.some((other) => tryHatch(site, other, room, clearing)))
 }
