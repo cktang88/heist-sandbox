@@ -71,6 +71,8 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   function setStyle(name: StyleName): void {
     post.dispose()
     style = STYLES[name]
+    // The cameras' clip planes depend on the look, and the new passes read them when built.
+    fitCameras()
     post = createPost(renderer, scene, cameras, style)
     setSurfaceStyle(style.surface)
     post.setQuality(LADDER[appliedLevel])
@@ -86,23 +88,26 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     applySize(level.scale)
   }
 
+  function fitCameras(): void {
+    artGrid = style.finish.kind === 'pixel' ? pixelGrid(screen.width, screen.height, style.finish.artHeight, TILES_TALL) : null
+    cameras.resize(screen.width / screen.height, artGrid)
+  }
+
   function applySize(scale: number): void {
     renderer.setPixelRatio(1)
-    if (style.finish.kind === 'pixel') {
+    fitCameras()
+    if (artGrid) {
       // The art pixels are drawn small anyway; the canvas itself stays at the screen's own size, so the
       // upscale lands each art pixel on an exact block of screen pixels and nothing is stretched again.
-      artGrid = pixelGrid(screen.width, screen.height, style.finish.artHeight, TILES_TALL)
       renderer.setSize(screen.width, screen.height, false)
       post.setSize(screen.width, screen.height, artGrid)
     } else {
-      artGrid = null
       const fit = Math.min(1, Math.sqrt(MAX_PIXELS / (screen.width * screen.height)))
       const width = Math.max(1, Math.round(screen.width * fit * scale))
       const height = Math.max(1, Math.round(screen.height * fit * scale))
       renderer.setSize(width, height, false)
       post.setSize(width, height, null)
     }
-    cameras.resize(screen.width / screen.height, artGrid)
   }
 
   function buildStage(world: World): void {

@@ -74,7 +74,7 @@ export class EdgePass extends Pass {
    * `jumpRange`: a leaning (oblique) view sees floor tops recede by a fair depth per pixel, so it needs a
    * higher threshold than a straight-on view, or whole floors would be inked.
    */
-  constructor(camera: Camera & { near: number; far: number }, pixelWorld: number, laneDistance: number, jumpRange: [number, number]) {
+  constructor(private readonly camera: Camera & { near: number; far: number }, pixelWorld: number, laneDistance: number, jumpRange: [number, number]) {
     super()
     this.needsSwap = false
     this.material = new ShaderMaterial({
@@ -111,6 +111,9 @@ export class EdgePass extends Pass {
   }
 
   render(renderer: WebGLRenderer): void {
+    // Clip planes change with the look (the backdrop camera of the pixel look starts far out), so read them now.
+    this.material.uniforms.cameraNear.value = this.camera.near
+    this.material.uniforms.cameraFar.value = this.camera.far
     renderer.setRenderTarget(this.target)
     this.quad.render(renderer)
   }

@@ -105,9 +105,10 @@ const PIXEL_SURFACE: SurfaceStyle = {
   valueMin: 0.03,
   valueMax: 0.62,
   saturationMax: 0.5,
-  rampPull: 0.18,
-  rampDark: new Color(0.05, 0.06, 0.09),
-  rampLight: new Color(0.62, 0.56, 0.5),
+  // Cool slate walls, so warm lamplight reads as orange against blue-violet shade, as in the reference street.
+  rampPull: 0.3,
+  rampDark: new Color(0.05, 0.055, 0.1),
+  rampLight: new Color(0.5, 0.52, 0.58),
   normalDetail: 0.3,
   roughnessMin: 0.55,
   roughnessMax: 1,

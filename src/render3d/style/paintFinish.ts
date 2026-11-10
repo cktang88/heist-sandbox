@@ -148,8 +148,6 @@ const compositeShader = /* glsl */ `
     vec3 colour = texture2D(tPaint, vUv).rgb;
     float grey = luma(colour);
     colour *= mix(shadowTint, highlightTint, smoothstep(0.08, 0.7, grey));
-    // A little more contrast than the photographic grade: paint states its darks and lights plainly.
-    colour = (colour - 0.4) * 1.12 + 0.4;
     vec2 edges = texture2D(tEdges, vUv).rg;
     colour *= 1.0 - edgeDarken * max(edges.r, edges.g * 0.5);
     float s = resolution.y / 1080.0;
@@ -181,7 +179,7 @@ export class PaintPass extends Pass {
   private readonly kuwahara = material(kuwaharaShader, { tDiffuse: { value: null }, tTensor: { value: null }, texel: { value: new Vector2() }, radius: { value: 4 } })
   private readonly composite: ShaderMaterial
   private readonly quad = new FullScreenQuad()
-  private smallSize = new Vector2(1, 1)
+  private readonly texel = new Vector2(1, 1)
 
   constructor(private readonly finish: PaintFinish, edges: Texture) {
     super()
@@ -200,7 +198,7 @@ export class PaintPass extends Pass {
   setSize(width: number, height: number): void {
     const w = Math.max(1, Math.round(width * this.finish.scale))
     const h = Math.max(1, Math.round(height * this.finish.scale))
-    this.smallSize.set(w, h)
+    this.texel.set(1 / w, 1 / h)
     for (const buffer of [this.small, this.tensor, this.spare, this.painted]) buffer.setSize(w, h)
     this.composite.uniforms.resolution.value.set(width, height)
     // Strokes keep the same size on screen at any resolution: the radius is set for a 360-row working image.
@@ -214,7 +212,7 @@ export class PaintPass extends Pass {
   }
 
   render(renderer: WebGLRenderer, writeBuffer: WebGLRenderTarget, readBuffer: WebGLRenderTarget): void {
-    const texel = new Vector2(1 / this.smallSize.x, 1 / this.smallSize.y)
+    const texel = this.texel
     this.copy.uniforms.tDiffuse.value = readBuffer.texture
     this.draw(renderer, this.copy, this.small)
     this.structure.uniforms.tDiffuse.value = this.small.texture
