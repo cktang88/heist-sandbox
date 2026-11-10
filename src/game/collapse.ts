@@ -289,6 +289,8 @@ function occupied(world: World, cell: Rect): boolean {
   for (const thrown of world.frags) if (touches(cell, thrown)) return true
   for (const thrown of world.charges) if (touches(cell, thrown)) return true
   for (const id of propsAt(world, cell.x, cell.y)) if (standsIn(world, propById(world, id), cell)) return true
+  // The index files a moving prop where it last settled (see `rekeyIfMoved`), so the few loose ones are asked directly.
+  for (const loose of world.physProps.loose.values()) if (standsIn(world, propById(world, loose.id), cell)) return true
   for (const guard of world.guards) {
     if (!guard.ragdoll) {
       if (touches(cell, guard)) return true
