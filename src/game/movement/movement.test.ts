@@ -247,3 +247,38 @@ describe('footstep noise', () => {
     expect(player.footfalls).toEqual([])
   })
 })
+
+describe('the parachute', () => {
+  /** Falling from high over open ground. */
+  function falling(): { grid: Grid; player: Player } {
+    const grid = createGrid(60, 200)
+    fillTiles(grid, 0, 190, 59, 199, 'concrete')
+    return { grid, player: createPlayer({ x: 30, y: 5 }) }
+  }
+
+  it('opens while Space is held in a fast fall, slows the fall, and is packed away on landing', () => {
+    const { grid, player } = falling()
+    run(grid, player, 0.5)
+    expect(player.chute).toBe(false)
+    run(grid, player, 0.5, () => ({ jumpHeld: true }))
+    expect(player.chute).toBe(true)
+    expect(player.vy).toBeLessThanOrEqual(3.5)
+    run(grid, player, 60, () => ({ jumpHeld: true }))
+    expect(player.onGround).toBe(true)
+    expect(player.chute).toBe(false)
+    expect(player.hp).toBe(100)
+  })
+
+  it('folds away on a double jump out of it rather than staying open on the way up', () => {
+    const { grid, player } = falling()
+    run(grid, player, 0.5)
+    run(grid, player, 0.3, () => ({ jumpHeld: true }))
+    expect(player.chute).toBe(true)
+    run(grid, player, FRAME, () => ({ jumpHeld: true, jumpPressed: true }))
+    expect(player.vy).toBeLessThan(0)
+    expect(player.chute).toBe(false)
+    run(grid, player, 0.2, () => ({ jumpHeld: true }))
+    expect(player.vy).toBeLessThan(0)
+    expect(player.chute).toBe(false)
+  })
+})

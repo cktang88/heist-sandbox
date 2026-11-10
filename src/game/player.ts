@@ -135,7 +135,8 @@ export function movePlayer(grid: Grid, player: Player, input: Input, dt: number,
     }
     player.vy += GRAVITY * dt
     jump(player, input, dt)
-    player.chute = input.jumpHeld && !player.onGround && (player.chute || player.vy > CHUTE_OPENS_AT_SPEED)
+    // It holds him up only while he comes down: a double jump out of it folds it away until he falls fast again.
+    player.chute = input.jumpHeld && !player.onGround && player.vy > 0 && (player.chute || player.vy > CHUTE_OPENS_AT_SPEED)
     if (player.chute) player.vy = Math.min(player.vy, CHUTE_FALL_SPEED)
     slipPastCorner(grid, player, move)
   }
