@@ -88,8 +88,11 @@ function workAct(world: World, feet: Vec): Act | null {
   if (!key) return null
   const [what, first, second] = key.split(':')
   if (what === 'intel' && first === 'ask') {
+    // Kneeling over a man who is tied and kneeling; a hand in the collar of one who stands with his hands up.
     const guard = world.guards[Number(second)]
-    return guard ? { kind: 'work', how: 'kneel', at: { x: feetOf(guard).x, y: feetOf(guard).y - 0.9 } } : null
+    if (!guard) return null
+    const his = feetOf(guard)
+    return guard.restrained ? { kind: 'work', how: 'kneel', at: { x: his.x, y: his.y - 0.9 } } : { kind: 'work', how: 'reach', at: { x: his.x, y: his.y - 1.25 } }
   }
   if (what === 'intel' && first === 'read') {
     const prop = propById(world, Number(second))

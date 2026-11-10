@@ -170,7 +170,7 @@ function vault(_body: Skeleton, m: Motion, act: Of<'vault'>): Skeleton {
   const hip = { x: m.x - 0.05 * facing, y: m.feetY - STAND_HIP * lerp(0.8, 0.7, p) }
   return assemble({
     facing, hip, lean: facing * lerp(0.35, 0.8, p), pelvis: facing * lerp(0.3, 0.6, p),
-    ankles: [add(hip, 0.32 * facing, lerp(0.58, 0.32, p)), add(hip, -0.18 * facing, 0.68)], feet: [0.4, 0.9],
+    ankles: [add(hip, 0.32 * facing, lerp(0.58, 0.32, p)), { x: hip.x - 0.18 * facing, y: Math.min(hip.y + 0.68, floorAt(m)) }], feet: [0.4, 0.9],
     hands: [add(act.edge, 0.06 * facing, -0.02), add(act.edge, -0.06 * facing, -0.02)], armed: false, lookPitch: 0.5,
   })
 }
@@ -194,7 +194,8 @@ function kick(body: Skeleton, m: Motion, act: Of<'kick'>): Skeleton {
   const lift = envelope(act.t, 0, 0.06, 0.2, KICK_SECONDS)
   const out = envelope(act.t, 0.03, 0.11, 0.15, 0.25)
   let rig = rigOf(body, facing)
-  rig = shiftHips(rig, 0.1 * facing * out, -0.03 * lift)
+  // The hips drive forward and sink a little onto the standing leg, so its foot stays planted.
+  rig = shiftHips(rig, 0.1 * facing * out, 0.06 * lift)
   rig = tiltUpper(rig, rig.lean - facing * 0.32 * out)
   rig = tuckGun(rig)
   const hip = rig.hip
@@ -383,7 +384,7 @@ function dive(_body: Skeleton, m: Motion, act: Of<'dive'>): Skeleton {
   const rise = smooth(clamp01((t - DIVE_RISE) / (1 - DIVE_RISE)))
   const prone: Rig = {
     facing, hip: { x: m.x - 0.3 * facing, y: m.feetY - 0.16 - flight * 0.25 }, lean: facing * (1.45 - flight * 0.4), pelvis: facing * 1.4,
-    ankles: [{ x: m.x - 1.06 * facing, y: floor - 0.04 - flight * 0.3 }, { x: m.x - 1.0 * facing, y: floor - 0.07 - flight * 0.35 }], feet: [1.5, 1.5],
+    ankles: [{ x: m.x - 1.12 * facing, y: floor - 0.04 - flight * 0.3 }, { x: m.x - 1.08 * facing, y: floor - 0.07 - flight * 0.35 }], feet: [1.5, 1.5],
     hands: [{ x: 0, y: 0 }, { x: 0, y: 0 }], armed: false, nod: -0.4, lookPitch: 0.2,
   }
   const kneel = { ...prone, ...kneeling(m, false), lean: facing * 0.5 }
@@ -395,7 +396,9 @@ function dive(_body: Skeleton, m: Motion, act: Of<'dive'>): Skeleton {
   const shoulder = shoulderOf(blend.hip, blend.lean)
   const ahead = (flight > 0.2 ? 0.5 : 0.3) * facing
   const down = lerp(0.1, 0.4, rise)
-  return assemble({ ...blend, hands: [add(shoulder, ahead, down), add(shoulder, ahead - 0.06 * facing, down + 0.04)] })
+  // Flat on the floor the elbows ride up rather than through it.
+  const flat = flight < 0.3 && rise < 0.5
+  return assemble({ ...blend, hands: [add(shoulder, ahead, down), add(shoulder, ahead - 0.06 * facing, down + 0.04)], elbows: flat ? [-1, -1] : undefined })
 }
 
 /** Flashed: an arm across the eyes, a stagger with hands groping, or the gun swinging wild. */
@@ -438,7 +441,7 @@ function dragged(_body: Skeleton, m: Motion, act: Of<'dragged'>): Skeleton {
   const floor = floorAt(m)
   return assemble({
     facing: m.facing, hip, lean, pelvis: toward * 1.3,
-    ankles: [{ x: hip.x - toward * 0.76, y: floor - 0.06 }, { x: hip.x - toward * 0.7, y: floor - 0.1 }], feet: [-1.3, -1.3],
+    ankles: [{ x: hip.x - toward * 0.84, y: floor - 0.06 }, { x: hip.x - toward * 0.8, y: floor - 0.1 }], feet: [-1.3, -1.3],
     hands: [add(shoulder, 0.34 * toward, -0.18), add(shoulder, 0.3 * toward, -0.06)], armed: false, nod: -0.5, lookPitch: 0.4,
   })
 }
@@ -446,7 +449,7 @@ function dragged(_body: Skeleton, m: Motion, act: Of<'dragged'>): Skeleton {
 /** Bent over, both hands in a colleague's collar, backing off with him. */
 function dragging(body: Skeleton, m: Motion, act: Of<'dragging'>): Skeleton {
   const toward = sideOf(m.x, act.at.x, m.facing)
-  const rig = tiltUpper(shiftHips(rigOf(body, m.facing), 0, 0.16), toward * 0.75)
+  const rig = tiltUpper(shiftHips(rigOf(body, m.facing), 0, 0.3), toward * 0.9)
   return assemble({ ...rig, hands: [add(act.at, 0, -0.02), add(act.at, 0.05 * toward, 0.04)], handAngles: undefined, armed: false, lookPitch: lookAt(rig, act.at) })
 }
 
@@ -464,11 +467,12 @@ function shield(body: Skeleton, m: Motion): Skeleton {
 
 /** Where a man in a shield column puts his hand on the one in front: about that man's shoulder, crouched. */
 export function stackShoulder(feet: Vec, facing: 1 | -1): Vec {
-  return { x: feet.x + 0.22 * facing, y: feet.y - 1.12 }
+  return { x: feet.x + 0.06 * facing, y: feet.y - 1.12 }
 }
 
 function stack(body: Skeleton, m: Motion, act: Of<'stack'>): Skeleton {
-  const rig = rigOf(body, m.facing)
+  // He leans in to keep the hand on; the column is spaced so that it only just reaches.
+  const rig = tiltUpper(rigOf(body, m.facing), body.lean + m.facing * 0.2)
   return assemble({ ...rig, hands: [rig.hands[0], act.at], handAngles: [rig.handAngles?.[0] ?? 0, fromPitch(0.4, m.facing)] })
 }
 
