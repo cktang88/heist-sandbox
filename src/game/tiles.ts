@@ -93,10 +93,16 @@ export function chunkIndex(grid: Grid, chunkX: number, chunkY: number): number {
 /** Flags the tile's chunk, and its neighbours' when the tile sits on a chunk edge, since edges shade each other. */
 function markDirty(grid: Grid, x: number, y: number): void {
   grid.version += 1
-  for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    if (!inBounds(grid, x + dx, y + dy)) continue
-    grid.dirtyChunks.add(chunkIndex(grid, Math.floor((x + dx) / CHUNK_TILES), Math.floor((y + dy) / CHUNK_TILES)))
-  }
+  const chunkX = Math.floor(x / CHUNK_TILES)
+  const chunkY = Math.floor(y / CHUNK_TILES)
+  grid.dirtyChunks.add(chunkIndex(grid, chunkX, chunkY))
+  // Only a tile on the edge of its chunk has a neighbour in another chunk; inside, the one chunk is all there is.
+  const column = x - chunkX * CHUNK_TILES
+  const row = y - chunkY * CHUNK_TILES
+  if (column === 0 && x > 0) grid.dirtyChunks.add(chunkIndex(grid, chunkX - 1, chunkY))
+  if (column === CHUNK_TILES - 1 && x + 1 < grid.width) grid.dirtyChunks.add(chunkIndex(grid, chunkX + 1, chunkY))
+  if (row === 0 && y > 0) grid.dirtyChunks.add(chunkIndex(grid, chunkX, chunkY - 1))
+  if (row === CHUNK_TILES - 1 && y + 1 < grid.height) grid.dirtyChunks.add(chunkIndex(grid, chunkX, chunkY + 1))
 }
 
 export function fillTiles(grid: Grid, x0: number, y0: number, x1: number, y1: number, kind: TileKind): void {
