@@ -59,11 +59,16 @@ describe('the generated complex', () => {
     expect(level.rooms.filter((room) => !reachedRoom(level, seen, room)).map((room) => roomName(level, room.id))).toEqual([])
   })
 
-  it.each(SEEDS)('seed %i lets an alerted guard reach every room and every post from the tower stairs, without elevators', (seed) => {
+  it.each(SEEDS)('seed %i lets an alerted guard reach every room, post, patrol point and device from the tower stairs, without elevators', (seed) => {
     const level = site(seed)
     const seen = reachable(level, towerStairs(level), 'guard')
     expect(level.rooms.filter((room) => !reachedRoom(level, seen, room)).map((room) => roomName(level, room.id))).toEqual([])
-    expect(level.guards.filter((guard) => !reachedSpot(level, seen, guard.x, guard.y)).map((guard) => `${guard.role} at ${guard.x},${guard.y}`)).toEqual([])
+    const spots = level.guards.flatMap((guard) => [guard, ...(guard.route ?? [])])
+    expect(spots.filter((spot) => !reachedSpot(level, seen, spot.x, spot.y)).map((spot) => `${spot.x},${spot.y}`)).toEqual([])
+    // Restoring power, raising the alarm, working a terminal or a keypad: each from the floor of its room.
+    const floorOf = (device: Level['devices'][number]) => level.rooms[device.roomId!].floorY
+    const devices = level.devices.filter((device) => device.kind !== 'camera' && !reachedSpot(level, seen, device.x, floorOf(device)))
+    expect(devices.map((device) => `${device.kind} at ${device.x},${device.y}`)).toEqual([])
   })
 
   it.each(SEEDS)('seed %i can be won: from the drop to the loot, and from the loot to the van', (seed) => {
