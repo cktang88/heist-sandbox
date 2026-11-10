@@ -70,10 +70,11 @@ export function createEffects3d(): Effects3d {
     group.add(mesh)
   }
 
-  // A soft glowing ball that writes no depth: a solid sphere drew as a flat white disc with an ink outline round it.
-  const fireball = softDisc('rgba(255,255,255,1)', 'rgba(255,255,255,0)')
+  const puff = softDisc('rgba(120,120,125,0.8)', 'rgba(60,60,65,0)')
+  // A soft glowing ball that writes no depth (a solid sphere drew as a flat white disc with an ink outline round it).
+  // It shares the smoke puff's soft disc; its colour makes up for the puff's grey.
   const blasts = Array.from({ length: MAX_BLASTS }, () => {
-    const sprite = new Sprite(new SpriteMaterial({ map: fireball, color: new Color(8, 3.5, 0.9), blending: AdditiveBlending, depthWrite: false, toneMapped: false }))
+    const sprite = new Sprite(new SpriteMaterial({ map: puff, color: new Color(17, 7.5, 1.9), blending: AdditiveBlending, depthWrite: false, toneMapped: false }))
     sprite.visible = false
     group.add(sprite)
     return sprite
@@ -87,7 +88,6 @@ export function createEffects3d(): Effects3d {
     return sprite
   })
 
-  const puff = softDisc('rgba(120,120,125,0.8)', 'rgba(60,60,65,0)')
   const smoke: Smoke[] = []
   const smokePool = Array.from({ length: MAX_SMOKE }, () => {
     const sprite = new Sprite(new SpriteMaterial({ map: puff, color: 0x55524f, transparent: true, depthWrite: false }))
