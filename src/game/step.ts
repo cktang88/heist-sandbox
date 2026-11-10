@@ -14,6 +14,8 @@ import { emitMovementNoise } from './movement/footsteps'
 import { movePlayer, updateFocus } from './player'
 import { stepProjectiles } from './projectiles'
 import { stepTime } from './time'
+import { stepMelee } from './melee/melee'
+import { stepPhysProps } from './physprops/physprops'
 import { useTool } from './tools'
 import { overlaps } from './types'
 import type { World } from './world'
@@ -41,6 +43,8 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
     // While a hacking menu is open, the number keys choose its options and not a weapon.
     useTool(world, terminalConsumesInput(world) ? { ...input, selectTool: null } : input, dt)
   }
+  stepMelee(world, input, dt)
+  stepPhysProps(world, input, dt)
   stepProjectiles(world, dt)
   stepCharges(world, input.detonatePressed, dt)
   stepCollapse(world, dt)
