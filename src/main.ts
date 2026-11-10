@@ -12,8 +12,12 @@ import { drawHud } from './render/drawHud'
 import { drawFlashOverlay } from './render/flashOverlay'
 import { drawOverlay } from './render/overlay'
 import { createSceneRenderer, type SceneRenderer } from './render/drawScene'
+import { setLoading } from './render3d/core/buildQueue'
+import { endFrame, noteFramePart, startCountingFrames } from './render3d/core/frameProbe'
+import { sceneReadiness } from './render3d/core/readiness'
 import { createRenderer3d, type Renderer3d } from './render3d/renderer3d'
 import { randomSeed, writeSeed } from './ui/address'
+import { loadingScreen, nextPaint } from './ui/loading'
 import { createMenus } from './ui/menus'
 
 const MAX_FRAME_SECONDS = 1 / 30
@@ -22,6 +26,7 @@ const stage = document.querySelector<HTMLCanvasElement>('#stage')!
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const context = canvas.getContext('2d')!
 const input = attachInput(canvas, HOTKEYS)
+const loading = loadingScreen()
 /**
  * The flat 2D view remains as a fallback: add `?render=2d` to the address, or it is used if 3D cannot start.
  * `?quality=low` keeps 3D but drops shadows and sharpness.
@@ -38,7 +43,6 @@ function createScene(): { draw3d: Renderer3d | null; draw2d: SceneRenderer | nul
   stage.style.display = 'none'
   return { draw3d: null, draw2d: createSceneRenderer() }
 }
-const scene = createScene()
 const audio = createAudio()
 
 function newSeed(): number {
@@ -48,16 +52,56 @@ function newSeed(): number {
 
 /** The full complex by default; add `?site=outpost` for the small single building. */
 const siteKind: SiteKind = new URLSearchParams(location.search).get('site') === 'outpost' ? 'outpost' : 'complex'
+
+// --- Start-up: each step paints the loading screen first, so the page shows progress instead of freezing. ---
+loading.show(0.02, 'Starting the renderer')
+await nextPaint()
+const scene = createScene()
+loading.show(0.06, 'Generating the complex')
+await nextPaint()
 let world: World = createWorld(newSeed(), siteKind)
 let lastTime = performance.now()
 let view = centerOf(world.player)
 let aim = view
+/** Until the scene near the player is built the heist does not step; see `render3d/core/readiness.ts`. */
+let starting = true
+const dropJobs = { value: 0 }
+loading.show(0.12, 'Building the city')
+await nextPaint()
+
+function beginLoading(): void {
+  starting = true
+  dropJobs.value = 0
+  setLoading(true)
+}
+
+function finishLoading(now: number): void {
+  starting = false
+  setLoading(false)
+  loading.hide()
+  startCountingFrames()
+  // The time spent loading is not game time.
+  lastTime = now
+}
+
+/** Moves the bar while the scene is being built; starts play once the drop path is ready. */
+function updateLoading(now: number): void {
+  if (!scene.draw3d) {
+    finishLoading(now)
+    return
+  }
+  const state = sceneReadiness(world, dropJobs)
+  loading.show(0.2 + state.share * 0.8, state.step)
+  if (state.ready) finishLoading(now)
+}
 
 // Menus (src/ui): pause, controls, help and settings. While one is open the heist does not step.
 function startHeist(seed: number): void {
   writeSeed(seed)
+  loading.show(0.06, 'Generating the complex')
   world = createWorld(seed, siteKind)
   view = centerOf(world.player)
+  beginLoading()
 }
 const menus = createMenus({ audio, site: siteKind, newHeist: startHeist })
 
@@ -75,7 +119,15 @@ function fastForward(target: World, seconds: number, held: Input): void {
   for (let elapsed = 0; elapsed < seconds; elapsed += 1 / 60) stepWorld(target, { ...held, firePressed: held.fire, jumpPressed: false, interactPressed: false, detonatePressed: false, reloadPressed: false, selectTool: null }, 1 / 60)
 }
 
+/** Times one part of the frame for the frame probe (`?debug=1`, `__renderInfo.worstFrames`). */
+function timed(cause: string, work: () => void): void {
+  const start = performance.now()
+  work()
+  noteFramePart(cause, performance.now() - start)
+}
+
 function frame(now: number): void {
+  const frameStart = performance.now()
   const realDt = Math.min(MAX_FRAME_SECONDS, (now - lastTime) / 1000)
   lastTime = now
 
@@ -87,20 +139,28 @@ function frame(now: number): void {
     startHeist(randomSeed())
   } else input.consumeRestart()
 
-  if (!menus.paused()) {
-    stepWorld(world, frameInput, realDt)
-    menus.afterStep(world)
+  if (!menus.paused() && !starting) {
+    timed('simulation', () => {
+      stepWorld(world, frameInput, realDt)
+      menus.afterStep(world)
+    })
   }
   audio.update(world)
-  if (scene.draw3d) {
-    scene.draw3d.draw(world, camera, frameInput.aim)
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    drawOverlay(context, world, camera)
-  } else scene.draw2d?.draw(context, world, camera, frameInput.aim)
-  drawFlashOverlay(context, world, canvas.width, canvas.height)
-  drawHud(context, world, camera, frameInput.aim)
+  timed('scene', () => {
+    if (scene.draw3d) {
+      scene.draw3d.draw(world, camera, frameInput.aim)
+      context.clearRect(0, 0, canvas.width, canvas.height)
+      drawOverlay(context, world, camera)
+    } else scene.draw2d?.draw(context, world, camera, frameInput.aim)
+  })
+  timed('hud', () => {
+    drawFlashOverlay(context, world, canvas.width, canvas.height)
+    drawHud(context, world, camera, frameInput.aim)
+  })
+  if (starting) updateLoading(now)
   // Debug hook: lets tests and the console inspect the heist and fast-forward it.
   ;(globalThis as { __game?: unknown }).__game = { world, advance: (seconds: number, held: Partial<Input> = {}) => fastForward(world, seconds, { ...frameInput, ...held }) }
+  endFrame(performance.now() - frameStart)
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)

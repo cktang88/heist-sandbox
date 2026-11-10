@@ -6,6 +6,8 @@ import { handOf } from '../game/tools'
 import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import type { Motion } from '../render/human/pose'
+import { clearBuildJobs, runBuildJobs } from './core/buildQueue'
+import { createGpuProbe } from './core/gpu'
 import { createEffects3d } from './fx3d'
 import type { SurfaceMaterials, SurfaceName } from './levelMesh'
 import { Figure, outfitFor, weaponFor } from './people3d'
@@ -35,8 +37,10 @@ const FALLING_SURFACE: Partial<Record<TileKind, SurfaceName>> = {
 
 export function createActors(world: World, materials: SurfaceMaterials): Actors {
   const group = new Group()
+  // Jobs left over from an earlier level would build into a scene that is gone.
+  clearBuildJobs()
   const effects = createEffects3d()
-  group.add(effects.group)
+  group.add(effects.group, createGpuProbe())
   // Each layer owns one slice of the scene. They are independent, so they can be worked on separately.
   const layers: Layer[] = [createRoomsLayer, createPropsLayer, createFixturesLayer, createDevicesLayer, createStructureLayer, createHazardsLayer, createSandboxLayer, createGapsLayer, createGrappleLayer].map((create) => create(world, materials))
   for (const layer of layers) group.add(layer.group)
@@ -154,6 +158,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       const dt = Math.max(0, now.clock - lastClock)
       effects.update(now, dt)
       for (const layer of layers) layer.update(now, { dt, view, aim })
+      runBuildJobs(view)
       lastClock = now.clock
     },
     dispose() {},

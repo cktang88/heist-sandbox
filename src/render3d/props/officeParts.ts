@@ -9,11 +9,24 @@ import { BOX, box, cylinder, glow, matte } from './kit'
  */
 
 const counters = new Map<string, number>()
-/** Picks one of `count` variants for a kind. Deterministic: the n-th prop of a kind always gets the same one. */
+let salt = 0
+
+/**
+ * Makes the variants picked from now on depend only on `seed` (a prop's id), not on how many props were built
+ * before: props are built region by region as the camera nears them, in no fixed order.
+ */
+export function pickFor(seed: number): void {
+  counters.clear()
+  salt = Math.imul(seed + 1, 0x9e3779b1) >>> 0
+}
+
+/** Picks one of `count` variants for a kind. Deterministic: the same prop always gets the same one. */
 export function pick(kind: string, count: number): number {
   const n = counters.get(kind) ?? 0
   counters.set(kind, n + 1)
-  return (Math.imul(n + 7, 2654435761) >>> 16) % count
+  let hash = salt
+  for (let i = 0; i < kind.length; i += 1) hash = Math.imul(hash ^ kind.charCodeAt(i), 16777619) >>> 0
+  return (Math.imul(n + 7 + hash, 2654435761) >>> 16) % count
 }
 
 /** A small seeded generator so painted textures look hand-made but come out the same every run. */

@@ -63,7 +63,8 @@ export function createSkyLights(group: Group): SkyLights {
   const fill = new HemisphereLight(NIGHT.skyColor, NIGHT.groundColor, NIGHT.skyIntensity)
   const sun = new DirectionalLight(NIGHT.sunColor, NIGHT.sunIntensity)
   sun.castShadow = true
-  sun.shadow.mapSize.set(2048, 2048)
+  // The map covers about one screen; 1024 texels is still finer than a pixel per texel at this zoom, at a quarter of the cost.
+  sun.shadow.mapSize.set(1024, 1024)
   sun.shadow.camera.left = -34
   sun.shadow.camera.right = 34
   sun.shadow.camera.top = 26
