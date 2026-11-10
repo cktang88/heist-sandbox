@@ -32,6 +32,9 @@ export { ignitionSourceAt, lightCigarette } from './ignition'
 export { fanAction, setFan } from './fans'
 export { doorTooHot, touchHotDoor } from './heat'
 export { handbrakeAction, releaseHandbrake } from './rolling'
+export { dangerAt, hazardKindAt, type HazardKind } from './danger'
+export { safeFooting, footingAt, type Footing } from './footing'
+export { rollSlip } from './wading'
 export { systemsAction, valveAction, gasFittingAction, fuelTapAction, cableAction, timerAction, rigDoorAction, shutValves } from './actions'
 
 const LIQUID_TICK = 0.25

@@ -2,7 +2,7 @@ import { burst } from '../effects'
 import { hurtGuard, stunGuard } from '../guards'
 import { emitNoise } from '../noise'
 import { playSound } from '../sounds'
-import type { Body } from '../types'
+import type { Body, Vec } from '../types'
 import type { World } from '../world'
 import { circuitLive } from './circuits'
 import { feetTile } from './footing'
@@ -37,9 +37,18 @@ export function stepShocks(world: World): void {
 export function isLive(world: World, body: Body): boolean {
   const feet = feetTile(body)
   if (world.systems.energized.has(feet.y * world.grid.width + feet.x)) return true
+  return touchesLiveWire(world, body.x - WIRE_REACH, body.x + body.w + WIRE_REACH, body.y, body.y + body.h)
+}
+
+/** Would someone standing at this spot (a point in the tile they stand in) be shocked? */
+export function isLiveSpot(world: World, at: Vec): boolean {
+  if (world.systems.energized.has(Math.floor(at.y) * world.grid.width + Math.floor(at.x))) return true
+  return touchesLiveWire(world, at.x - 0.35 - WIRE_REACH, at.x + 0.35 + WIRE_REACH, at.y - 1.5, at.y + 0.5)
+}
+
+function touchesLiveWire(world: World, left: number, right: number, top: number, bottom: number): boolean {
   for (const wire of world.systems.wires) {
-    if (!circuitLive(world, wire.circuit)) continue
-    if (wire.x > body.x - WIRE_REACH && wire.x < body.x + body.w + WIRE_REACH && body.y + body.h > wire.top && body.y < wire.y + 1) return true
+    if (circuitLive(world, wire.circuit) && wire.x > left && wire.x < right && bottom > wire.top && top < wire.y + 1) return true
   }
   return false
 }
