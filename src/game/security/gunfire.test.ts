@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { fillTiles } from '../tiles'
 import { createWorld, type World } from '../world'
+import { floorHoleSpot } from './fightSpots'
 import { exposedTo } from './lineOfFire'
 import { feetOf, type Guard } from './model'
 import { addGuard, addUpperFloor, arena, GROUND, playerFires, playerHand, putPlayer, run } from './testArena'
@@ -11,6 +12,8 @@ import { addGuard, addUpperFloor, arena, GROUND, playerFires, playerHand, putPla
  */
 
 const HOLE = { from: 40, to: 42 }
+const STOREY = 6
+const VARIANTS: [number, number][] = [[1, 0], [1, 3], [2, 0], [2, 4], [3, 1], [3, 5]]
 
 /** Two storeys, a hole blasted in the slab between them, and the player upstairs at its edge in the dark. */
 function holeAbove(): { world: World; upper: number } {
@@ -60,16 +63,19 @@ describe('gunfire through a hole in the floor', () => {
     expect(seen.exposedIdle).toBeLessThan(1)
   })
 
-  it('on the real complex: an office guard fired on through a hole in his ceiling does the same', () => {
-    const world = createWorld(1, 'complex')
-    // Floor 104 of the tower is an office (x 143..159); the server room above it has its floor at row 98.
-    fillTiles(world.grid, 149, 98, 151, 98, 'air')
+  // Several seeds, each with a few extra random draws first, so the result never hangs on one lucky sequence.
+  it.each(VARIANTS)('on the real complex (seed %i, %i extra draws): an office guard fired on through a hole in his ceiling does the same', (seed, burn) => {
+    const world = createWorld(seed, 'complex')
+    for (let draw = 0; draw < burn; draw += 1) world.rng()
+    // A hole in a middle storey's office floor, found from the site; the player upstairs at its edge, the guard below beside it.
+    const { hole } = floorHoleSpot(world)
+    fillTiles(world.grid, hole.x0, hole.y, hole.x1, hole.y, 'air')
     world.structureChanged = true
-    putPlayer(world, 152.6, 98)
+    putPlayer(world, hole.x1 + 1.6, hole.y)
     world.player.hp = 1e6
-    const target = world.guards[14]
-    Object.assign(target, { x: 146 - target.w / 2, y: 104 - target.h - 0.01, vx: 0, vy: 0, hp: 1e5, maxHp: 1e5 })
-    const seen = fireDownAt(world, target, 98, 10)
+    const target = addGuard(world, hole.x0 - 2, -1, 'post', hole.y + STOREY)
+    target.hp = target.maxHp = 1e5
+    const seen = fireDownAt(world, target, hole.y, 10)
     expect(target.mode).toBe('combat')
     expect(seen.aimedUp).toBe(true)
     expect(seen.shotsUp).toBeGreaterThan(0)

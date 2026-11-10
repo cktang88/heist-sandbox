@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { fillTiles } from '../tiles'
 import type { Vec } from '../types'
 import { createWorld, type World } from '../world'
-import { scriptedFight } from './fightScript'
+import { perturb, PERTURBATIONS, scriptedFight } from './fightScript'
 import { outsideWindowSpot, roofSpot, stairDoorSpot, stairLandingSpot } from './fightSpots'
 
 /**
@@ -32,23 +32,27 @@ const SCENARIOS: Scenario[] = [
   { name: 'from a rope outside a window', place: outsideWindowSpot },
 ]
 
-function fight(scenario: Scenario) {
-  const world = createWorld(1, 'complex')
+/** Each scenario on two seeds (even seeds mirror the site), each after a few different numbers of extra random draws. */
+const SEEDS = [1, 2]
+
+function fight(scenario: Scenario, seed: number, draws: number) {
+  const world = createWorld(seed, 'complex')
+  perturb(world, draws)
   const spot = scenario.place(world)
   world.structureChanged = true
   return scriptedFight(world, spot, 30)
 }
 
+const CASES = SCENARIOS.flatMap((scenario) => SEEDS.flatMap((seed) => PERTURBATIONS.map((draws) => ({ scenario, seed, draws }))))
+
 describe('scripted fights on the complex', () => {
-  for (const scenario of SCENARIOS) {
-    it(`nobody aware of the fight stands idle: player ${scenario.name}`, () => {
-      const report = fight(scenario)
-      expect(report.engaged).toBeGreaterThan(0)
-      expect(report.idle).toEqual([])
-    })
-  }
+  it.each(CASES)('nobody aware of the fight stands idle: player $scenario.name (seed $seed, $draws extra draws)', ({ scenario, seed, draws }) => {
+    const report = fight(scenario, seed, draws)
+    expect(report.engaged).toBeGreaterThan(0)
+    expect(report.idle).toEqual([])
+  })
 
   it('guards return fire in the stairwell and rooftop fights', () => {
-    for (const scenario of [SCENARIOS[0], SCENARIOS[2]]) expect(fight(scenario).guardShots).toBeGreaterThan(5)
+    for (const scenario of [SCENARIOS[0], SCENARIOS[2]]) for (const draws of PERTURBATIONS) expect(fight(scenario, 1, draws).guardShots).toBeGreaterThan(5)
   })
 })

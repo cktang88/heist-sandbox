@@ -3,10 +3,11 @@ import { stepWorld } from '../step'
 import { centerOf, distance, type Vec } from '../types'
 import type { World } from '../world'
 import { liveKillZones } from './killZones'
-import { roundReaches } from './lineOfFire'
+import { GUARD_PISTOL, GUARD_RIFLE, roundReaches } from './lineOfFire'
 import { sameFloor } from './places'
-import { KILL_ZONES } from './tuning'
-import { feetOf, isActive, type Guard } from './model'
+import { COMBAT, KILL_ZONES } from './tuning'
+import { eyeOf, feetOf, isActive, type Guard } from './model'
+import { colleagueInLine } from './combat'
 import { FRAME, playerFires, playerHand } from './testArena'
 
 /**
@@ -15,8 +16,8 @@ import { FRAME, playerFires, playerHand } from './testArena'
  * standing about doing nothing. Only tests import this.
  */
 
-/** Seconds a guard who knows there is a fight may go without moving, firing or sheltering. */
-const IDLE_LIMIT = 2
+/** Seconds a guard who knows there is a fight may go without moving, firing or sheltering (covering fire comes every 1.8 s). */
+const IDLE_LIMIT = 3
 const WATCH_REACH = 35
 /** A short burst every second and a half, aimed roughly: a player under fire, not an aimbot. */
 const BURST_EVERY = 1.5
@@ -24,6 +25,16 @@ const BURST = 2
 const AIM_ERROR = 1.6
 
 type Watch = { at: Vec; rounds: number; since: number }
+
+/**
+ * Extra draws from the world's random stream before a scenario starts. A behaviour test runs on each, so it passes on
+ * what the guards do, never on one lucky sequence of numbers.
+ */
+export const PERTURBATIONS = [0, 2, 5]
+
+export function perturb(world: World, draws: number): void {
+  for (let draw = 0; draw < draws; draw += 1) world.rng()
+}
 
 export type FightReport = { idle: string[]; engaged: number; guardShots: number; log: string[] }
 
@@ -98,13 +109,32 @@ function aware(world: World, guard: Guard): boolean {
   return isActive(guard) && guard.mode === 'combat' && distance(feetOf(guard), centerOf(world.player)) < WATCH_REACH
 }
 
-/** Moving, firing, reloading, sheltering, stunned or blinded: anything but standing about. */
+/**
+ * Moving, firing, reloading, stunned or blinded: anything but standing about. Holding still is a choice, not idling,
+ * when it has a reason: raising his gun, holding the choke point he was given, sheltering out of a line of fire, or
+ * waiting short of a kill zone. None of those excuse a man who can see the intruder, with a clear shot, and does not take it.
+ */
 function busy(world: World, guard: Guard, watch: Watch): boolean {
   const feet = feetOf(guard)
   const moved = Math.abs(feet.x - watch.at.x) + Math.abs(feet.y - watch.at.y) > 0.5
-  return moved || guard.rounds !== watch.rounds || guard.reloadSeconds > 0 || guard.blindSeconds > 0 || guard.stairs !== null
-    || guard.flashWindup > 0 || (guard.shelter !== null && guard.shelter.hidden && guard.shelter.peek !== null) || world.clock - guard.clearedAt < 3
-    || waitingAtKillZone(world, guard)
+  if (moved || guard.rounds !== watch.rounds || guard.reloadSeconds > 0 || guard.blindSeconds > 0 || guard.stairs !== null) return true
+  if (guard.flashWindup > 0 || world.clock - guard.clearedAt < 3 || guard.drawSeconds > 0) return true
+  // Down behind cover between peeks, out of the line of fire.
+  if (guard.shelter !== null && guard.shelter.hidden && !guard.peeking) return true
+  if (hasClearShot(world, guard)) return false
+  // Holding his spot, or waiting a moment for the man to show again where he just lost him (combat.ts moves him up after that).
+  // A man falling back who has reached the spot he fell back to is out of the fight on purpose.
+  const atSpot = guard.cover !== null && sameFloor(feet, guard.cover) && Math.abs(feet.x - guard.cover.x) < 1.5
+  const holding = (guard.combatRole === 'hold' && (atSpot || guard.lostSeconds <= COMBAT.holdPatience)) || (guard.combatRole === 'fallback' && atSpot)
+  return holding || waitingAtKillZone(world, guard)
+}
+
+/** He sees the man, and a round of his would get there with no colleague in the way. */
+function hasClearShot(world: World, guard: Guard): boolean {
+  if (!guard.seesPlayer) return false
+  const eye = eyeOf(guard)
+  const body = centerOf(world.player)
+  return roundReaches(world, eye, body, guard.armored ? GUARD_RIFLE : GUARD_PISTOL) && !colleagueInLine(world, guard, eye, body)
 }
 
 /** Holding short of a doorway where colleagues died is a choice the owner asked for ("or wait"), not idling. */

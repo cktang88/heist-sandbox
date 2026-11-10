@@ -4,7 +4,7 @@ import { fillTiles } from '../tiles'
 import type { Vec } from '../types'
 import { createWorld, type World } from '../world'
 import { enterCombat } from './combat'
-import { scriptedFight } from './fightScript'
+import { perturb, PERTURBATIONS, scriptedFight } from './fightScript'
 import { floorHoleSpot, outsideWindowSpot, roofSpot, sewerHatchSpot, stairDoorSpot, stairLandingSpot } from './fightSpots'
 import { addGuard } from './testArena'
 
@@ -54,19 +54,21 @@ const HUNTS: Hunt[] = [
   { name: 'from a stair landing', seed: 2, place: stairLandingSpot },
   { name: 'through a stairwell door', seed: 2, place: stairDoorSpot },
   { name: 'firing down through a hole in a tower floor', seed: 2, place: floorHole },
-  { name: 'from the roof beside a skylight', seed: 3, place: roof },
+  // (Seed 3's top executive room has nobody within reach of the roof, so there is no fight to watch there.)
+  { name: 'from the roof beside a skylight', seed: 4, place: roof },
   { name: 'in the sewer under the yard manhole', seed: 3, place: sewer },
 ]
 
+const CASES = HUNTS.flatMap((hunt) => PERTURBATIONS.map((draws) => ({ hunt, draws })))
+
 describe('the idle hunt on more spots and seeds', () => {
-  for (const hunt of HUNTS) {
-    it(`nobody aware of the fight stands idle: player ${hunt.name} (seed ${hunt.seed})`, () => {
-      const world = createWorld(hunt.seed, 'complex')
-      const spot = hunt.place(world)
-      world.structureChanged = true
-      const report = scriptedFight(world, spot, 30)
-      expect(report.engaged).toBeGreaterThan(0)
-      expect(report.idle).toEqual([])
-    })
-  }
+  it.each(CASES)('nobody aware of the fight stands idle: player $hunt.name (seed $hunt.seed, $draws extra draws)', ({ hunt, draws }) => {
+    const world = createWorld(hunt.seed, 'complex')
+    perturb(world, draws)
+    const spot = hunt.place(world)
+    world.structureChanged = true
+    const report = scriptedFight(world, spot, 30)
+    expect(report.engaged).toBeGreaterThan(0)
+    expect(report.idle).toEqual([])
+  })
 })
