@@ -81,7 +81,11 @@ const VARIANTS: Record<TimeOfDay, (keyof typeof SKIES)[]> = {
   day: ['day_overcast', 'day_overcast', 'golden_hour'],
 }
 
-export function lookFor(timeOfDay: TimeOfDay, variantSeed: number): Look {
+/** Skies photographed after rain; the streets under them are drawn wet. */
+const WET_SKIES = new Set<string>(['city_night_wet'])
+
+export function lookFor(timeOfDay: TimeOfDay, variantSeed: number): Look & { wet: boolean } {
   const options = VARIANTS[timeOfDay]
-  return { ...LOOKS[timeOfDay], sky: options[Math.abs(Math.floor(variantSeed)) % options.length] }
+  const sky = options[Math.abs(Math.floor(variantSeed)) % options.length]
+  return { ...LOOKS[timeOfDay], sky, wet: WET_SKIES.has(sky) }
 }

@@ -11,7 +11,7 @@ import { createRenderInfo } from './core/renderInfo'
 import { createSkyShading, type SkyShading } from './core/skyShading'
 import { createLevelMesh, FRONT, type LevelMesh } from './levelMesh'
 import { createLights } from './lights'
-import { createSurfaceMaterials } from './materials'
+import { createSurfaceMaterials, setWetness } from './materials'
 import { createPost } from './post'
 import { createSky } from './sky'
 
@@ -107,6 +107,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     const look = lookFor(world.timeOfDay, world.lamps.length)
     environment.apply(look)
     sky.setIndoor(look.indoorDiffuse, look.indoorSpecular)
+    setWetness(materials, look.wet ? 1 : 0)
     warming = warmUp(world, environment.ready())
   }
 

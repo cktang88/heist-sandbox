@@ -141,3 +141,17 @@ export function createSurfaceMaterials(anisotropy: number): SurfaceMaterials {
     water: new MeshStandardMaterial({ color: 0x1d4a55, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.72 }),
   }
 }
+
+/** How much rain smooths each outdoor ground surface: wet tarmac turns nearly glossy, earth much less. */
+const SOAKS: Partial<Record<keyof SurfaceMaterials, number>> = { asphalt: 0.6, dirt: 0.3 }
+
+/**
+ * Rain-soaked ground (0 dry to 1 soaked): lower roughness so lamps and sky streak across the street.
+ * Only a number on the material changes, so no shader is rebuilt.
+ */
+export function setWetness(materials: SurfaceMaterials, wetness: number): void {
+  for (const [name, soak] of Object.entries(SOAKS)) {
+    const material = materials[name as keyof SurfaceMaterials]
+    if (material instanceof MeshStandardMaterial) material.roughness = 1 - wetness * (soak ?? 0)
+  }
+}

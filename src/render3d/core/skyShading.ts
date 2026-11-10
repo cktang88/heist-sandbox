@@ -36,7 +36,11 @@ float skyOpenness() {
 }
 `
 
-function patch(shader: WebGLProgramParametersWithUniforms): void {
+/**
+ * The shader change itself. A standard material that sets its own `onBeforeCompile` replaces the shared one,
+ * so it should call this first to keep sky occlusion.
+ */
+export function applySkyShading(shader: WebGLProgramParametersWithUniforms): void {
   Object.assign(shader.uniforms, uniforms)
   shader.fragmentShader = shader.fragmentShader
     .replace('#include <common>', `#include <common>\n${FRAGMENT_HEADER}`)
@@ -54,7 +58,7 @@ let installed = false
 function install(): void {
   if (installed) return
   installed = true
-  MeshStandardMaterial.prototype.onBeforeCompile = patch
+  MeshStandardMaterial.prototype.onBeforeCompile = applySkyShading
 }
 
 export type SkyShading = {
