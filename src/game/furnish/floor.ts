@@ -3,7 +3,7 @@ import type { Rng } from '../rng'
 import type { Prop, Room } from '../site'
 import { between, extent, hasCover, pickFrom, shuffled, snap } from './pick'
 import type { Span } from './space'
-import type { Cluster, RoomStyle } from './styles'
+import { ROOM_STYLES, type Cluster, type RoomStyle } from './styles'
 
 type Placed = { kind: PropKind; x: number; flip: boolean }
 
@@ -144,9 +144,18 @@ function addInGap(rng: Rng, room: Room, spans: Span[], props: Prop[], kind: Prop
   return true
 }
 
+/**
+ * The last of a fitting the room is for (a kitchen's stove, a washroom's sink, a garage's car), listed on its own among
+ * its must-haves: never cleared or swapped away to make space. The chairs of a must-have desk group may go.
+ */
+export function mustStay(room: Room, prop: Prop, props: readonly Prop[]): boolean {
+  const fitting = ROOM_STYLES[room.kind].must?.some((cluster) => cluster.length === 1 && cluster[0] === prop.kind) ?? false
+  return fitting && !props.some((other) => other !== prop && other.kind === prop.kind)
+}
+
 /** When the floor is already full, clears away one piece of light furniture to make space for cover. */
 function makeRoom(rng: Rng, room: Room, spans: Span[], props: Prop[], kinds: PropKind[]): boolean {
-  const light = props.filter((prop) => !hasCover(prop)).sort((a, b) => propSpec(b.kind).w - propSpec(a.kind).w)
+  const light = props.filter((prop) => !hasCover(prop) && !mustStay(room, prop, props)).sort((a, b) => propSpec(b.kind).w - propSpec(a.kind).w)
   for (const prop of light) {
     const index = props.indexOf(prop)
     props.splice(index, 1)

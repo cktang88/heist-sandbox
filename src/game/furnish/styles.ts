@@ -71,6 +71,8 @@ export const ROOM_STYLES: Record<RoomKind, RoomStyle> = {
     cover: ['filingCabinet', 'printer', 'cardboardBoxes'],
   },
   breakRoom: {
+    // A tap: the water the chain reactions need, and what makes it a break room.
+    must: [['sink']],
     hero: [['fridge', 'kitchenCounter', 'sink'], ['vendingMachine', 'vendingMachine'], ['coffeeMachine', 'kitchenCounter']],
     medium: [['cafeteriaTable'], ['sofa', 'coffeeTable'], ['waterCooler'], ['bin', 'vendingMachine'], ['plant'], ['tvStand'], ['armchair']],
     clutter: ['bin', 'cardboardBoxes', 'paperStack', 'wetFloorSign'],
@@ -79,7 +81,8 @@ export const ROOM_STYLES: Record<RoomKind, RoomStyle> = {
     cover: ['cardboardBoxes', 'crate', 'armchair'],
   },
   cafeteria: {
-    must: [['trayRack', 'servingCounter']],
+    // The counter makes it a canteen; a tray rack beside it is dressing a narrow room can give up for a locker.
+    must: [['servingCounter']],
     hero: [['cafeteriaTable', 'cafeteriaTable'], ['vendingMachine', 'vendingMachine', 'coffeeMachine']],
     medium: [['cafeteriaTable'], ['cafeteriaTable', 'bin'], ['plant'], ['waterCooler'], ['fridge'], ['trayRack']],
     clutter: ['bin', 'wetFloorSign', 'cardboardBoxes'],
@@ -89,6 +92,8 @@ export const ROOM_STYLES: Record<RoomKind, RoomStyle> = {
     cover: ['crate', 'cardboardBoxes', 'barrel'],
   },
   kitchen: {
+    // Gas rings, which the site's faults and the gas fittings on E look for.
+    must: [['stove']],
     hero: [['stove', 'stove', 'kitchenCounter'], ['fridge', 'fridge'], ['kitchenCounter', 'sink', 'stove']],
     medium: [['trayRack'], ['shelvingRack'], ['kitchenCounter'], ['gasCylinder', 'gasCylinder'], ['fridge'], ['sink'], ['barrel'], ['cardboardBoxes', 'crate']],
     clutter: ['bin', 'mopBucket', 'wetFloorSign', 'cardboardBoxes', 'gasCylinder'],
@@ -97,6 +102,8 @@ export const ROOM_STYLES: Record<RoomKind, RoomStyle> = {
     cover: ['crate', 'cardboardBoxes', 'barrel'],
   },
   restroom: {
+    // A stall to hide in and a tap to open, however narrow the room.
+    must: [['toiletStall'], ['sink']],
     hero: [['toiletStall', 'toiletStall', 'toiletStall'], ['toiletStall', 'toiletStall']],
     medium: [['sink', 'sink'], ['sink', 'bin'], ['showerStall'], ['mopBucket'], ['toilet'], ['wallLocker']],
     clutter: ['bin', 'wetFloorSign', 'mopBucket'],
@@ -157,6 +164,7 @@ export const ROOM_STYLES: Record<RoomKind, RoomStyle> = {
     cover: ['centrifuge', 'steelCrate', 'cardboardBoxes'],
   },
   server: {
+    must: [['serverRack']],
     hero: [['serverRack', 'serverRack', 'serverRack'], ['coolingUnit', 'serverRack', 'serverRack']],
     medium: [['serverRack', 'serverRack'], ['coolingUnit'], ['consoleCart'], ['cableReel'], ['serverRack'], ['powerBox']],
     clutter: ['cardboardBoxes', 'cableReel', 'stepLadder'],
@@ -241,6 +249,8 @@ export const ROOM_STYLES: Record<RoomKind, RoomStyle> = {
     cover: ['crate', 'barrel', 'palletStack'],
   },
   garage: {
+    // A car to hide a body in, tap for fuel or set alight (block.ts keeps garages wide enough for one).
+    must: [['car']],
     hero: [['car'], ['van'], ['car', 'tireStack']],
     medium: [['tireStack', 'tireStack'], ['explosiveBarrel'], ['toolChest'], ['car'], ['barrel', 'explosiveBarrel'], ['bollard'], ['dumpster'], ['powerBox']],
     clutter: ['tireStack', 'bollard', 'barrel', 'gasCylinder', 'bin'],
