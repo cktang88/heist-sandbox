@@ -89,3 +89,34 @@ export function outsideWindowSpot(world: World): Vec {
 function gapToDoor(x: number, doors: number[]): number {
   return Math.min(...doors.map((door) => Math.abs(door + 0.5 - x)))
 }
+
+/**
+ * In the sewer at the foot of the yard manhole's ladder (the hatch nearest the tower), with a guard put on the ground
+ * above it, already fighting, if nobody is posted near. The guards have to come down through the hatch.
+ */
+export function sewerHatchSpot(world: World): Vec {
+  const tower = westStairs(world).bounds
+  const hatches: number[] = []
+  for (let x = 0; x < world.grid.width; x += 1) {
+    if (tileAt(world.grid, x, world.groundY) === 'door' && tileAt(world.grid, x, world.groundY + 1) === 'ladder') hatches.push(x)
+  }
+  if (hatches.length === 0) throw new Error('no manhole')
+  const middle = tower ? (tower.x0 + tower.x1) / 2 : world.grid.width / 2
+  const hatch = hatches.reduce((best, x) => (Math.abs(x - middle) < Math.abs(best - middle) ? x : best))
+  // Down the ground to the sewer's air, then on to its floor.
+  let floor = world.groundY + 1
+  while (floor < world.grid.height - 1 && isSolidAt(world.grid, hatch + 2, floor)) floor += 1
+  while (floor < world.grid.height - 1 && !isSolidAt(world.grid, hatch + 2, floor)) floor += 1
+  return { x: hatch + 2.5, y: floor }
+}
+
+/** On a middle storey of the tower, beside a hole blown in an office floor, firing down into the room below. */
+export function floorHoleSpot(world: World): { spot: Vec; hole: { x0: number; x1: number; y: number } } {
+  const well = westStairs(world)
+  const middle = well.stops[middleStop(well)]
+  const offices = world.rooms.filter((room) => room.building === 'tower' && room.kind === 'office' && room.w >= 10 && room.floorY < world.groundY)
+  if (offices.length === 0) throw new Error('no tower office')
+  const room = offices.reduce((best, candidate) => (Math.abs(candidate.floorY - middle) < Math.abs(best.floorY - middle) ? candidate : best))
+  const x0 = Math.floor(room.x + room.w / 2)
+  return { spot: { x: x0 - 1.1, y: room.floorY }, hole: { x0, x1: x0 + 1, y: room.floorY } }
+}

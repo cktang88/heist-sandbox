@@ -54,6 +54,9 @@ const WINDOW_REACH = 10
 /** A falling-back man pulls back at least this much further each time, and at most this far over open floor. */
 const PULL_BACK_MIN = 2
 const PULL_BACK_OPEN = 6
+/** A line of fire blocked by a colleague this long, and he moves up beside him; this close beside him (side by side in depth) his line starts past him. */
+const BLOCKED_SECONDS = 0.6
+const SHOULDER_TO_SHOULDER = 0.05
 /** Blind fire is not wasted on a last known position this far away. */
 const BLIND_REACH = 25
 
@@ -144,7 +147,7 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
     // somewhere (he is not on his way to the door, so there is nothing to wait for).
     const restless = guard.combatRole === 'hold' && !guard.seesPlayer && (guard.lostSeconds > COMBAT.holdPatience || dugIn(world))
     if (restless) moveUp(world, guard, known, dt)
-    else moveForRole(world, guard, known, guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : guard.combatRole, dt)
+    else if (!shoulderUp(world, guard, known, dt)) moveForRole(world, guard, known, guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : guard.combatRole, dt)
   }
   faceThreat(guard, known)
   if (isShielded(world, guard)) {
@@ -232,9 +235,12 @@ function askForBackup(world: World, guard: Guard, alone: boolean, pinned: boolea
   startRadio(world, guard, { kind: 'backup', at: feetOf(guard), by: world.guards.indexOf(guard) })
 }
 
-/** Too shaken (or pinned) to look, with a fresh idea where the man is: fire round the cover at that spot. */
+/**
+ * Too shaken (or pinned) to look, with a fresh idea where the man is: fire round the cover at that spot. A shaken man
+ * does it one-handed while he is on the radio calling for help; a pinned one keeps both down.
+ */
 function mayBlindFire(guard: Guard, pinned: boolean): boolean {
-  if (guard.drawSeconds > 0 || guard.shootCooldown > 0 || guard.radio || !guard.lastKnown) return false
+  if (guard.drawSeconds > 0 || guard.shootCooldown > 0 || !guard.lastKnown || (guard.radio && pinned)) return false
   if (guard.lostSeconds > UNDER_FIRE.blindFreshSeconds) return false
   if (!pinned && (!isShaken(guard) || guard.seesPlayer)) return false
   return Math.abs(guard.lastKnown.x - feetOf(guard).x) < BLIND_REACH
@@ -331,6 +337,20 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
   }
 }
 
+/**
+ * A colleague has stood in his line of fire for a while: he moves up beside him, shoulder to shoulder, where he has a
+ * shot past him. Returns true while he is doing that.
+ */
+function shoulderUp(world: World, guard: Guard, known: Vec, dt: number): boolean {
+  if (!guard.seesPlayer || world.clock - guard.lineBlockedSince < BLOCKED_SECONDS) return false
+  const blocker = blockerInLine(world, guard, eyeOf(guard), known)
+  if (!blocker) return false
+  const at = feetOf(blocker)
+  const side = Math.sign(feetOf(guard).x - at.x) || 1
+  goTo(world, guard, { x: at.x + side * SHOULDER_TO_SHOULDER, y: at.y }, PATROL.hurrySpeed, dt, false)
+  return true
+}
+
 /** The man has stayed put long enough that he is fighting from there, not moving through the building. */
 function dugIn(world: World): boolean {
   return world.security.campSeconds >= COMBAT.campSeconds / 2
@@ -424,8 +444,10 @@ function tryFire(world: World, guard: Guard, known: Vec): void {
   const eye = eyeOf(guard)
   if (colleagueInLine(world, guard, eye, known)) {
     guard.shootCooldown = 0.3
+    guard.lineBlockedSince = Math.min(guard.lineBlockedSince, world.clock)
     return
   }
+  guard.lineBlockedSince = Infinity
   const steadiness = TIERS[guard.tier].spread * (1 + guard.suppression * UNDER_FIRE.suppressionSpread)
   shoot(world, guard, known, (aimed ? SHOT.spread : COMBAT.suppressSpread) * steadiness)
   guard.shootCooldown = aimed ? COMBAT.aimedCooldownMin + world.rng() * (COMBAT.aimedCooldownMax - COMBAT.aimedCooldownMin) : COMBAT.suppressCooldown
@@ -464,14 +486,19 @@ function shoot(world: World, guard: Guard, at: Vec, spread: number): void {
  * and one shoulder to shoulder with the shooter is not in the way.
  */
 export function colleagueInLine(world: World, shooter: Guard, eye: Vec, to: Vec): boolean {
+  return blockerInLine(world, shooter, eye, to) !== undefined
+}
+
+/** The living guard standing in the line of fire, if any (see colleagueInLine). */
+function blockerInLine(world: World, shooter: Guard, eye: Vec, to: Vec): Guard | undefined {
   const reach = Math.hypot(to.x - eye.x, to.y - eye.y)
-  if (reach < SHOULDER) return false
+  if (reach < SHOULDER) return undefined
   const from = { x: eye.x + ((to.x - eye.x) / reach) * SHOULDER, y: eye.y + ((to.y - eye.y) / reach) * SHOULDER }
   const minX = Math.min(from.x, to.x) - 0.2
   const maxX = Math.max(from.x, to.x) + 0.2
   const minY = Math.min(from.y, to.y) - 0.2
   const maxY = Math.max(from.y, to.y) + 0.2
-  return world.guards.some((other) => {
+  return world.guards.find((other) => {
     if (other === shooter || other.mode === 'dead') return false
     // A shield team fires past its own men's shoulders.
     if (shooter.stackLeader !== null && other.stackLeader === shooter.stackLeader) return false

@@ -199,6 +199,8 @@ export type Guard = Body & {
   doorPlan: DoorPlan | null
   /** A barricaded door (tile) a colleague has called him, a heavy, to breach. */
   breachAt: Vec | null
+  /** Since when a colleague has stood in his line of fire at the man he can see (Infinity while his line is clear). */
+  lineBlockedSince: number
 }
 
 /**
@@ -240,7 +242,7 @@ export function createGuard(spawn: GuardSpawn, armored = false): Guard {
     rounds: magazineOf(tough), reloadSeconds: 0, diveSeconds: 0, hesitateSeconds: 0, hesitatedRoom: null, partnerWait: 0, backupAt: -Infinity,
     blindFiring: false, bounding: false, boundSince: 0, draggedBy: null, dragSeconds: 0, blindReaction: null, droppedWeapon: null, unwatchedSeconds: 0, restrained: false,
     aim: { x: spawn.facing, y: 0 }, heardAt: -Infinity, underFireAt: -Infinity, shelter: null, peeking: false, peekSeconds: 0,
-    shield: false, stackLeader: null, stackSlot: 0, clearedAt: -Infinity, dropPrep: null, doorPlan: null, breachAt: null,
+    shield: false, stackLeader: null, stackSlot: 0, clearedAt: -Infinity, dropPrep: null, doorPlan: null, breachAt: null, lineBlockedSince: Infinity,
   }
 }
 

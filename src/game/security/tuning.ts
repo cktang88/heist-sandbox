@@ -371,4 +371,6 @@ export const SHIELD = {
   flashWait: 1.7,
   /** The team keeps pushing on the last report this long without contact before it searches. */
   patience: 60,
+  /** At the reported spot, with nobody seeing him for this long, the team searches round it. */
+  emptySpotSeconds: 3,
 } as const

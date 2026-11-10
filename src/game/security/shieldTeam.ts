@@ -11,6 +11,7 @@ import { liveKillZones } from './killZones'
 import { createGuard, eyeOf, feetOf, isActive, type Guard } from './model'
 import { goTo, hold } from './movement'
 import { floorBelow, isDoorway, sameFloor } from './places'
+import { startSearch } from './orders'
 import { log } from './report'
 import { entryFor } from './response'
 import { PATROL, SHIELD } from './tuning'
@@ -100,6 +101,8 @@ function leadStack(world: World, leader: Guard, known: Vec, dt: number): void {
   }
   const straggler = team.some((other) => !other.stairs && distanceAlong(feetOf(other), feet) > SHIELD.straggle + SHIELD.gap * other.stackSlot)
   const closeEnough = sameFloor(feet, threat) && Math.abs(threat.x - feet.x) <= SHIELD.standOff
+  // At the reported spot with no sign of him: the report is stale, so the column breaks up and searches round it.
+  if (closeEnough && [leader, ...team].every((man) => !man.seesPlayer && man.lostSeconds > SHIELD.emptySpotSeconds)) return searchAround(world, [leader, ...team], threat)
   if (straggler || closeEnough) return holdFacing(world, leader, side, dt)
   goTo(world, leader, threat, SHIELD.speed, dt, false)
   // The shield stays toward the threat, even backing round a corner.
@@ -118,6 +121,15 @@ function followStack(world: World, guard: Guard, leader: Guard, dt: number): voi
   if (Math.abs(spot.x - feet.x) > 0.3) goTo(world, guard, spot, PATROL.hurrySpeed, dt, false)
   else hold(world, guard, dt)
   guard.facing = leader.facing
+}
+
+function searchAround(world: World, team: Guard[], threat: Vec): void {
+  barkLine(world, team[0], 'searching', true)
+  for (const man of team) {
+    man.stackLeader = null
+    man.combatRole = 'assault'
+    startSearch(world, man, threat)
+  }
 }
 
 function holdFacing(world: World, guard: Guard, side: number, dt: number): void {
