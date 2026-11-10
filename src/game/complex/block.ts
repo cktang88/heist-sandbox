@@ -70,14 +70,20 @@ export function buildBlock(site: SiteDraft, spec: BlockSpec): void {
   site.interiors.push({ kind: 'room', x: x0, y: roofY, w: x1 - x0 + 1, h: bottomY - roofY })
 
   for (const shaft of spec.shafts) carveShaft(site, spec, shaft, floorY)
+  // Shared by the building's staircases and filled in as storeys are laid out: where a void cuts a floor in two.
+  const splits: { y: number; from: number; to: number }[] = []
   for (const stair of spec.stairs) {
     const stops: number[] = []
     for (let storey = stair.from; storey <= stair.to; storey += 1) stops.push(floorY(storey))
-    site.stairwells.push({ id: site.stairwells.length, building: spec.name, leftX: stair.x + 1.5, rightX: stair.x + stair.w - 1.5, stops })
+    site.stairwells.push({
+      id: site.stairwells.length, building: spec.name, leftX: stair.x + 1.5, rightX: stair.x + stair.w - 1.5, stops,
+      bounds: { x0, x1, streetY: site.groundY, splits },
+    })
   }
 
   let voids: Span[] = []
   for (let storey = -basements; storey < storeys; storey += 1) {
+    for (const span of voids) splits.push({ y: floorY(storey), from: span.from, to: span.to })
     voids = layOutStorey(site, spec, storey, floorY(storey), voids)
   }
 }
