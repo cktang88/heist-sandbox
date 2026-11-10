@@ -5,6 +5,7 @@ import { aimAtCables, stepElevators } from './elevators'
 import { stepAftermath } from './frag/aftermath'
 import { stepFrags } from './frag/frag'
 import { stepRopes } from './rope/rope'
+import { stepGrapple } from './grapple/grapple'
 import { stepFallingProps } from './vehicles/fallingProps'
 import { stepHazards } from './hazards/hazards'
 import { stepSecurity } from './security/dispatch'
@@ -49,6 +50,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
     // While a hacking menu is open, the number keys choose its options and not a weapon.
     useTool(world, terminalConsumesInput(world) ? { ...input, selectTool: null } : input, dt)
   }
+  stepGrapple(world, input, dt)
   aimAtCables(world)
   // While the drone is flown, the keys steer it: the body does not punch, kick, grab or throw.
   const hands = world.drone ? idleInput(input.aim) : input
