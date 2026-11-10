@@ -106,6 +106,7 @@ The crosshair ring widens as a gun gets less accurate, so spread is never a surp
 
 | Option | How |
 |---|---|
+| Close doors | **E** closes a door you opened (crouched: silently). A picked lock closed again leaves no trace |
 | Kill or choke out | Behind an unaware guard: **E** kills at once (a small sound, blood). Crouched, hold **E** to choke him out silently; he wakes in 3 minutes unless tied |
 | Move bodies | **G** picks up and drops, **T** throws. While carrying, **E** hides the body in a locker, wardrobe, stall, dumpster, or under a desk or bed |
 | Hide yourself | **E** at a locker, wardrobe or bathroom stall; crouch + **E** to crawl under a desk. From inside, **E** grabs a guard walking past |
@@ -133,6 +134,27 @@ The top-left HUD says why you are or are not seen (IN DARKNESS, IN COVER, DISGUI
 - Blow the legs off a watchtower and it falls.
 - Swing on the grapple and crash through a window.
 - Climb floors the loud way: throw C4 up onto the ceiling, set it off, fire the grapple through the hole, reel up with W and let go. You land on the floor above; hold S to drop back.
+
+## Every night is different
+
+- **Tonight's conditions.** Each seed picks two or three, shown at the start and in the pause menu: rain or a storm, backup power, a skeleton crew or a VIP visit, a shift change, a delivery, scaffolding on the tower, a fire drill, a party, an inspection, a rival crew.
+- **Events during the heist.** A smoke break, a blackout, the control-room operator called away, two guards chatting near you, a floor-by-floor fire evacuation, a surrendered guard offering a deal. Each is announced by a radio line or a guard speaking.
+- **Guards are people.** They have names, traits (jumpy, lazy, night-blind, greedy, clumsy), friends and rivals. They remember what you did, and one or two survivors return in later heists. The pause menu's Dossier lists the ones you have met.
+- **The story afterwards.** The game writes up what happened as a short news report with a headline, a verdict and highlights. Past heists are kept in the pause menu.
+
+## Chain reactions
+
+| Cause | What follows |
+|---|---|
+| Shoot a pipe, sink, tank or hydrant | Water pools, pours through holes, puts out fires, shorts electronics, floods basements. Wet floors are slippery and loud |
+| Water reaches a live rack or a dangling cable | The puddle shocks anyone in it, then the breaker trips and the lights go out |
+| A gas leak | Gas rises through holes; a light switch upstairs can set it off |
+| Open a sealed, smoke-filled burning room | Backdraft |
+| Shoot a car or fuel drum | Fuel leaks, flame runs along the trail, the tank cooks off |
+| A long fire | Burns through the floor, cracks glass, leaves doors too hot to touch |
+| Shoot a ceiling fan, sign or chandelier | It falls on whoever is below |
+
+**E** opens taps and valves, loosens gas fittings and releases handbrakes, so you can set these up on purpose.
 
 ## The guards
 
