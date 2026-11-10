@@ -125,7 +125,7 @@ export function blastStairs(world: World, at: Vec, radius: number): void {
 }
 
 /**
- * Destroys one flight. Anyone on it falls; anyone higher up the same staircase is moved onto the upper piece.
+ * Destroys one flight. Anyone (or any frag) on it falls; anyone higher up the same staircase is moved onto the upper piece.
  * The list of staircases is replaced, not changed in place, so whoever drew the old one can tell.
  */
 export function breakFlight(world: World, wellId: number, flight: number): void {
@@ -134,7 +134,8 @@ export function breakFlight(world: World, wellId: number, flight: number): void 
   const newId = Math.max(...world.stairwells.map((other) => other.id)) + 1
   const pieces = splitWell(well, flight, newId)
   const keeps = (id: number) => pieces.some((piece) => piece.id === id)
-  for (const body of [world.player, ...world.guards]) {
+  // A frag rattling down the stairs is on them like a person: it drops, or carries on down the piece left standing.
+  for (const body of [world.player, ...world.guards, ...world.frags]) {
     const on = body.stairs
     if (!on || on.well !== wellId) continue
     if (on.u > flight && on.u < flight + 1) {

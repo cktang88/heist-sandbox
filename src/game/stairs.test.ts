@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { explode } from './explosions'
+import { throwFrag } from './frag/frag'
 import { stepAftermath } from './frag/aftermath'
 import { addGuard, bareWorld } from './hazards/testWorld'
 import { idleInput } from './input'
@@ -86,6 +87,19 @@ describe('destroyed flights', () => {
     expect(nextHop(made.stairwells, { x: 10, y: 100 }, { x: 10, y: 88 })).toMatchObject({ kind: 'stairs', stop: 0 })
     expect(nextHop(made.stairwells, { x: 20, y: 94 }, { x: 10, y: 88 })).toEqual({ kind: 'none' })
     expect(findLanding(made.stairwells, 20, 94)?.well.stops).toEqual([100, 94])
+  })
+
+  it('drops a frag rattling down the broken flight, and moves one further up onto the upper piece', () => {
+    const made = world()
+    throwFrag(made, { x: 15, y: 90 }, { x: 1, y: 0 })
+    throwFrag(made, { x: 15, y: 90 }, { x: 1, y: 0 })
+    const [falling, above] = made.frags
+    falling.stairs = { well: 0, u: 1.4 }
+    above.stairs = { well: 0, u: 2.5 }
+    breakFlight(made, 0, 1)
+    expect(falling.stairs).toBeNull()
+    const upper = made.stairwells.find((piece) => piece.id === above.stairs!.well)!
+    expect(stairPoint(upper, above.stairs!.u)).toEqual(stairPoint(well, 2.5))
   })
 
   it('a player left at the broken end cannot climb on', () => {
