@@ -7,7 +7,7 @@ import { shotHitsProp, type PropState } from './cover'
 import { burst, flash } from './effects'
 import { explode, ROCKET_BLAST } from './explosions'
 import { hurtGuard, type Guard } from './guards'
-import { tileAt, TILE_DEFS } from './tiles'
+import { inBounds, tileAt, TILE_DEFS } from './tiles'
 import { hitPause, triggerSlowmo } from './time'
 import { centerOf, distance, type Rect, type Vec } from './types'
 import type { World } from './world'
@@ -54,9 +54,19 @@ export function fireShot(world: World, from: Vec, direction: Vec, spec: ShotSpec
   world.projectiles.push({
     x: from.x, y: from.y, vx: Math.cos(angle) * spec.speed, vy: Math.sin(angle) * spec.speed,
     kind: spec.kind, fromPlayer: spec.fromPlayer, damage: spec.damage, tileDamage: spec.tileDamage, push: spec.push, life: spec.life ?? 3,
-    power: spec.penetration ?? 0, inTile: -1, inProp: null, struck: null,
+    power: spec.penetration ?? 0, inTile: startingTile(world, from), inProp: null, struck: null,
   })
   flash(world.effects, from, 0.5, 0.07, 'muzzle', angle)
+}
+
+/**
+ * A gun can be inside a solid tile (a body crossing a slab on the stairs overlaps it). The round treats that tile
+ * as one it is already passing through, so it is neither stopped nor set off by it.
+ */
+function startingTile(world: World, from: Vec): number {
+  const x = Math.floor(from.x)
+  const y = Math.floor(from.y)
+  return inBounds(world.grid, x, y) && TILE_DEFS[tileAt(world.grid, x, y)].stopsShots ? y * world.grid.width + x : -1
 }
 
 export function stepProjectiles(world: World, dt: number): void {
@@ -82,7 +92,10 @@ function flyProjectile(world: World, projectile: Projectile, dt: number): boolea
 
 /** A rocket goes off against the first thing it touches. */
 function rocketHits(world: World, rocket: Projectile): boolean {
-  if (TILE_DEFS[tileAt(world.grid, Math.floor(rocket.x), Math.floor(rocket.y))].stopsShots) return true
+  const tileX = Math.floor(rocket.x)
+  const tileY = Math.floor(rocket.y)
+  if (rocket.inTile >= 0 && rocket.inTile !== tileY * world.grid.width + tileX) rocket.inTile = -1
+  if (rocket.inTile < 0 && TILE_DEFS[tileAt(world.grid, tileX, tileY)].stopsShots) return true
   if (shotHitsProp(world, rocket, rocket.damage)) return true
   return rocket.fromPlayer ? guardHit(world, rocket) !== null : contains(world.player, rocket)
 }

@@ -273,3 +273,23 @@ describe('determinism', () => {
     expect(outcome()).toBe(outcome())
   })
 })
+
+describe('shooting from inside a tile', () => {
+  it('a round fired by someone whose gun is inside a slab (crossing it on the stairs) leaves that tile and flies on', () => {
+    const world = bareWorld()
+    wall(world, 8, 'concrete')
+    const guard = addGuard(world, 14, FLOOR, -1)
+    shoot(world, gun('pistol'), CHEST, 8.5)
+    expect(guard.hp).toBeLessThan(100)
+    expect(world.grid.hp[CHEST * world.grid.width + 8]).toBe(120)
+  })
+
+  it('a rocket fired from inside a tile does not go off in the shooter\'s face', () => {
+    const world = bareWorld()
+    wall(world, 8, 'brick')
+    fireShot(world, { x: 8.5, y: CHEST }, { x: 1, y: 0 }, { kind: 'rocket', fromPlayer: true, speed: 25, damage: 100, tileDamage: 100, spread: 0, push: 5 })
+    stepProjectiles(world, FRAME)
+    expect(world.projectiles.length).toBe(1)
+    expect(tileAt(world.grid, 8, CHEST)).toBe('brick')
+  })
+})
