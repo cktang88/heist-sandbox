@@ -3,7 +3,7 @@ import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import { createBackdrop } from './backdrop'
 import type { Camera } from './camera'
-import { drawEffects, drawGoggles, drawGuard, drawGuardMarks, drawLamps, drawPlayer, drawProjectiles, drawSignals, drawThings } from './drawActors'
+import { drawEffects, drawFalling, drawGoggles, drawGuard, drawGuardMarks, drawLamps, drawPlayer, drawProjectiles, drawSignals, drawThings } from './drawActors'
 import { createLighting } from './lighting'
 import { createTileCache, type TileCache } from './tileCache'
 
@@ -43,6 +43,7 @@ export function createSceneRenderer(): SceneRenderer {
       drawLamps(context, world)
       for (const guard of world.guards) drawGuard(context, world, guard)
       tiles.draw(context, camera, 'front')
+      drawFalling(context, world)
       drawPlayer(context, world, aim)
 
       lighting.apply(context, world, camera)

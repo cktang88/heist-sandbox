@@ -7,6 +7,7 @@ import { tracePolygon, visionCone } from './cone'
 import { drawHuman, goggleLights, GUARD, OPERATIVE, type Look } from './human/draw'
 import { poseHuman, type Motion, type Skeleton } from './human/pose'
 import { lampIsLit } from './lighting'
+import { paintTile } from './tileArt'
 
 const CONE_COLORS = { patrol: 'rgba(255,255,255,0.05)', suspicious: 'rgba(255,210,63,0.12)', alert: 'rgba(255,45,61,0.14)' } as const
 const HIT_LOOK: Look = { ...GUARD, suit: '#ffffff', limbs: '#ffffff', vest: '#ffffff', skin: '#ffffff' }
@@ -179,6 +180,11 @@ export function drawThings(context: CanvasRenderingContext2D, world: World): voi
     context.fillRect(center.x - 0.3 - blur / 2, world.drone.y + 0.04, blur, 0.04)
     context.fillRect(center.x + 0.3 - blur / 2, world.drone.y + 0.04, blur, 0.04)
   }
+}
+
+/** Tiles in mid-fall, drawn with the same art as when they were part of a wall. */
+export function drawFalling(context: CanvasRenderingContext2D, world: World): void {
+  for (const tile of world.falling) paintTile(context, tile.kind, tile.x, tile.y, 1, tile.x, Math.floor(tile.y))
 }
 
 /** Markers that must stay readable in the dark: extraction label, C4 and drone status lights. */

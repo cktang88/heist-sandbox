@@ -1,4 +1,5 @@
 import type { Charge } from './charges'
+import type { FallingTile } from './collapse'
 import type { Drone } from './drone'
 import type { Effects } from './effects'
 import type { Guard } from './guards'
@@ -21,6 +22,9 @@ export type World = {
   guards: Guard[]
   projectiles: Projectile[]
   charges: Charge[]
+  falling: FallingTile[]
+  /** Set when a tile is removed, so the next step checks whether anything lost its support. */
+  structureChanged: boolean
   drone: Drone | null
   effects: Effects
   loot: Loot
@@ -44,6 +48,8 @@ export function createWorld(seed: number): World {
     guards: level.guards.map(createGuard),
     projectiles: [],
     charges: [],
+    falling: [],
+    structureChanged: false,
     drone: null,
     effects: { particles: [], flashes: [] },
     loot: { x: level.loot.x, y: level.loot.y - 0.8, w: 0.8, h: 0.8, vx: 0, vy: 0, onGround: false, taken: false },

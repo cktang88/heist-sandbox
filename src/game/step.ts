@@ -1,4 +1,5 @@
 import { stepCharges } from './charges'
+import { stepCollapse } from './collapse'
 import { stepDrone } from './drone'
 import { stepEffects } from './effects'
 import { raiseAlarm, updateGuard } from './guards'
@@ -35,6 +36,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   }
   stepProjectiles(world, dt)
   stepCharges(world, input.detonatePressed, dt)
+  stepCollapse(world, dt)
   for (const guard of world.guards) updateGuard(world, guard, dt)
   if (!alarmBefore && world.alarm) raiseAlarm(world)
 

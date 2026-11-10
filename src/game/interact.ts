@@ -37,6 +37,7 @@ export function interact(world: World, input: Input, dt: number): void {
   if (player.pick < 1) return
   player.pick = 0
   openDoor(world.grid, door)
+  world.structureChanged = true
   emitNoise(world, center, 2)
 }
 
