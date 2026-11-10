@@ -83,9 +83,11 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
 
   const operative = new Figure('operative')
   // In a stolen uniform the player is drawn as a guard: a second figure, swapped in while the disguise is on.
+  // An officer's uniform looks like an officer's, any other like a patrolman's (the game only tells the two apart).
   const disguised = new Figure(outfitFor('patrol', false))
+  const disguisedOfficer = new Figure(outfitFor('officer', false))
   const parachute = buildParachute()
-  group.add(operative.group, disguised.group, parachute)
+  group.add(operative.group, disguised.group, disguisedOfficer.group, parachute)
   const guards = new Map<Guard, Figure>()
 
   const van = buildVan()
@@ -129,9 +131,9 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       const near = (x: number, y: number) => Math.abs(x - view.x) < DRAW_DISTANCE && Math.abs(y - view.y) < DRAW_DISTANCE * 0.62
       const hero = now.player
       const posed = playerMotion(now, aim)
-      const player = now.stealth.disguise ? disguised : operative
-      const spare = player === operative ? disguised : operative
-      spare.group.visible = false
+      const disguise = now.stealth.disguise
+      const player = disguise ? (disguise.officer ? disguisedOfficer : disguised) : operative
+      for (const spare of [operative, disguised, disguisedOfficer]) if (spare !== player) spare.group.visible = false
       // Shut in a locker or under a desk the player is not drawn; the overlay marks where he is.
       player.group.visible = !hero.hidden
       const body = player.animate(posed.motion, posed.held)
