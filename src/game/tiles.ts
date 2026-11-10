@@ -190,8 +190,13 @@ export function fillTiles(grid: Grid, x0: number, y0: number, x1: number, y1: nu
   const code = TILE_KINDS.indexOf(kind)
   const hp = TILE_DEFS[kind].hp
   for (let y = top; y <= bottom; y += 1) {
-    grid.kinds.fill(code, y * grid.width + left, y * grid.width + right + 1)
-    grid.hp.fill(hp, y * grid.width + left, y * grid.width + right + 1)
+    const from = y * grid.width + left
+    const to = y * grid.width + right + 1
+    // Same bookkeeping as setTile: remember which tiles really changed, and drop their depth flags.
+    for (let index = from; index < to; index += 1) if (grid.kinds[index] !== code) grid.changes.tiles.push(index)
+    grid.kinds.fill(code, from, to)
+    grid.hp.fill(hp, from, to)
+    grid.lane.fill(0, from, to)
   }
   grid.version += (right - left + 1) * (bottom - top + 1)
   // The filled tiles plus their four neighbours form a cross: the rectangle widened by one, and heightened by one.
