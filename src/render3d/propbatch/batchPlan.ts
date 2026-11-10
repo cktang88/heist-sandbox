@@ -2,8 +2,8 @@ import { BatchedMesh, Matrix4, type BufferGeometry, type Material } from 'three'
 
 /**
  * Collects everything one material draws in one region, then makes a single `BatchedMesh` of it: each distinct
- * shape is stored once, each prop that uses it is an instance, and three culls instances one by one before
- * drawing whatever is left in one call. Hiding a prop switches its instances off.
+ * shape is stored once, each prop that uses it is an instance, and the whole batch is culled by its bounds before
+ * drawing them all in one call. Hiding a prop switches its instances off.
  */
 
 /** A mirror across x. Mirrored props use a mirrored copy of their shape (see `mirror.ts`) and this undoes it. */
@@ -50,6 +50,10 @@ export class BatchPlan {
     }
     // Opaque instances are drawn in any order; sorting only matters for see-through ones.
     mesh.sortObjects = this.material.transparent
+    // The whole region is culled by its bounds; culling each instance again costs a loop over every instance on the
+    // CPU for every pass (scene and each shadow map), which is more than the few off-screen props it saves on the GPU.
+    // With neither culling nor sorting, three skips its per-frame instance pass altogether.
+    mesh.perObjectFrustumCulled = false
     mesh.castShadow = this.castShadow
     mesh.receiveShadow = true
     mesh.matrixAutoUpdate = false

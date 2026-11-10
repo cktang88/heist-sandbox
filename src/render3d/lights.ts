@@ -42,7 +42,7 @@ export function createLights(): LightRig {
       const dt = Math.min(MAX_FADE_STEP, Math.max(0, world.clock - lastClock))
       lastClock = world.clock
       const alarm = inAlarm(world)
-      const daylight = sky.update(world.timeOfDay, view, alarm)
+      const daylight = sky.update(world.timeOfDay, view, alarm, world.grid.version)
       lamps.update(world, view, dt, alarm, daylight.outdoorGlow)
       guards.update(world, view)
       events.update(world, view)

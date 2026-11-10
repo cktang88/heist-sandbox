@@ -8,6 +8,7 @@ import type { Camera } from '../render/camera'
 import { createActors, type Actors } from './actors'
 import { isLoading } from './core/buildQueue'
 import { holdBackFarChunks } from './core/chunkBudget'
+import { drawEverything } from './core/drawEverything'
 import { createEnvironment } from './core/environment'
 import { lookFor } from './core/looks'
 import { createQualityController, LADDER, LOW_DETAIL } from './core/quality'
@@ -71,6 +72,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   let warming: Promise<unknown> | null = null
   let building: Generator<void, void> | null = null
   let drawnThisLevel = false
+  let loadedSinceDrawn = false
   let screen = { width: 1, height: 1 }
   let appliedLevel = -1
   let lastFrame = performance.now()
@@ -203,8 +205,14 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
 
       // Behind the loading screen one frame is drawn (it compiles what exists and hands layers the renderer); after
       // that, frames only build, which is far quicker than building and drawing a scene nobody can see.
-      if (isLoading() && drawnThisLevel) return
+      if (isLoading() && drawnThisLevel) {
+        loadedSinceDrawn = true
+        return
+      }
       drawnThisLevel = true
+      // The first frame after loading also draws the whole site once, so nothing uploads or compiles during play.
+      if (loadedSinceDrawn) measured('upload the whole scene', () => drawEverything(renderer, scene, cameras.perspective, stage!.group))
+      loadedSinceDrawn = false
       renderer.info.reset()
       timedPart('draw (three.js and WebGL calls)', () => post.render(now / 1000))
       info.publish(now, LADDER[quality.level].scale, quality.level, quality.averageMs)

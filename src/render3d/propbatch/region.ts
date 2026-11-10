@@ -11,8 +11,8 @@ import { scanPieces } from './scanBatch'
 
 /**
  * The props of one large patch of the site, drawn as one batch per material (all plain colours share one), split by
- * whether they throw shadows. Three skips a region whose bounds are outside the view or a shadow camera, and culls
- * the props inside a region one by one, so drawing cost follows what is near the view, not the size of the site.
+ * whether they throw shadows. Three skips a region whose bounds are outside the view or a shadow camera, and the props
+ * layer hides regions away from the view, so drawing cost follows what is near the view, not the size of the site.
  */
 
 /**
