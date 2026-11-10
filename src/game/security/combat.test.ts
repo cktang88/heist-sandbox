@@ -45,7 +45,7 @@ describe('guard combat', () => {
     })
     expect(guards.every((guard) => guard.mode === 'combat')).toBe(true)
     expect(mostShooters).toBe(2)
-    expect(guards.filter((guard) => guard.combatRole === 'assault').length).toBe(2)
+    expect(guards.filter((guard) => guard.combatRole === 'assault').length).toBeLessThanOrEqual(2)
     expect(guards.some((guard) => guard.combatRole === 'suppress' || guard.combatRole === 'hold')).toBe(true)
   })
 

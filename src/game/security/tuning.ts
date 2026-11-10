@@ -128,6 +128,8 @@ export const COMBAT = {
   aimedCooldownMin: 0.55,
   aimedCooldownMax: 1.0,
   suppressCooldown: 1.6,
+  /** A man with a clear shot but no attack token fires this rarely, to keep the intruder's head down. */
+  coverFireCooldown: 1.8,
   suppressSpread: 0.25,
   keepDistance: 5,
   /** The player hiding in one covered spot this long gets a flashbang from a heavy. */

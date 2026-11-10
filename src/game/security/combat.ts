@@ -41,6 +41,8 @@ const WILD_FIRE_PER_SECOND = 0.6
 const CHOKE_SCAN = 15
 /** Line-of-fire checks start this far out from the muzzle. */
 const SHOULDER = 0.6
+/** Colleagues standing this close beside him, on his level, are never in his line. */
+const SIDE_BY_SIDE = 1.1
 /** Share of standing height a kneeling guard takes up. */
 const KNEELING_HEIGHT = 0.45
 /** A partner moving this close makes him wait and cover rather than move at the same time. */
@@ -283,7 +285,10 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
       // On another floor, or out of sight for a while from behind his cover: he moves to get eyes on the man again.
       if (!sameFloor(feet, threat) || (!guard.seesPlayer && guard.lostSeconds > COMBAT.coverPatience)) {
         guard.cover = null
-        goTo(world, guard, threat, PATROL.runSpeed, dt, false)
+        if (goTo(world, guard, threat, PATROL.runSpeed, dt, false) !== 'blocked') return
+        // No way to him from here (down a manhole, across a gap): he holds his own floor over the spot instead.
+        guard.combatRole = 'hold'
+        guard.cover = { x: threat.x, y: feet.y, high: false }
         return
       }
       if (guard.cover && Math.sign(threat.x - guard.cover.x) !== Math.sign(threat.x - feet.x)) guard.cover = null
@@ -437,10 +442,10 @@ function spaced(world: World, guard: Guard, spot: Vec, side: number): Vec {
 
 /** Aimed fire for token holders, slower wild fire for the suppressor, never through a colleague. */
 function tryFire(world: World, guard: Guard, known: Vec): void {
-  if (guard.drawSeconds > 0 || !guard.seesPlayer || guard.shootCooldown > 0 || guard.radio) return
+  // With the man in his sights he fires even while still on the radio (the call carries on over his shoulder mic).
+  if (guard.drawSeconds > 0 || !guard.seesPlayer || guard.shootCooldown > 0) return
   // A man hanging on a grappling line has nowhere to hide: everyone with a shot takes it.
   const aimed = world.security.shooters.includes(world.guards.indexOf(guard)) || onLine(world.grapple)
-  if (!aimed && guard.combatRole !== 'suppress') return
   const eye = eyeOf(guard)
   if (colleagueInLine(world, guard, eye, known)) {
     guard.shootCooldown = 0.3
@@ -448,9 +453,11 @@ function tryFire(world: World, guard: Guard, known: Vec): void {
     return
   }
   guard.lineBlockedSince = Infinity
+  // Without an attack token he still uses a clear shot he has: slow covering fire, never a man watching with his gun up.
+  const covering = !aimed && guard.combatRole !== 'suppress'
   const steadiness = TIERS[guard.tier].spread * (1 + guard.suppression * UNDER_FIRE.suppressionSpread)
   shoot(world, guard, known, (aimed ? SHOT.spread : COMBAT.suppressSpread) * steadiness)
-  guard.shootCooldown = aimed ? COMBAT.aimedCooldownMin + world.rng() * (COMBAT.aimedCooldownMax - COMBAT.aimedCooldownMin) : COMBAT.suppressCooldown
+  guard.shootCooldown = aimed ? COMBAT.aimedCooldownMin + world.rng() * (COMBAT.aimedCooldownMax - COMBAT.aimedCooldownMin) : covering ? COMBAT.coverFireCooldown : COMBAT.suppressCooldown
 }
 
 /**
@@ -502,6 +509,8 @@ function blockerInLine(world: World, shooter: Guard, eye: Vec, to: Vec): Guard |
     if (other === shooter || other.mode === 'dead') return false
     // A shield team fires past its own men's shoulders.
     if (shooter.stackLeader !== null && other.stackLeader === shooter.stackLeader) return false
+    // Shoulder to shoulder (bunched up at a doorway or a wall), he fires past the man beside him.
+    if (Math.abs(other.x - shooter.x) < SIDE_BY_SIDE && Math.abs(other.y - shooter.y) < 0.5) return false
     if (other.x > maxX || other.x + other.w < minX || other.y > maxY || other.y + other.h < minY) return false
     const top = other.crouching ? other.y + other.h * (1 - KNEELING_HEIGHT) : other.y
     return segmentHitsBox(from, to, { x: other.x - 0.1, y: top - 0.1, w: other.w + 0.2, h: other.y + other.h - top + 0.2 })
