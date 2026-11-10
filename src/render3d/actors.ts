@@ -8,9 +8,8 @@ import type { World } from '../game/world'
 import { poseHuman, type Motion } from '../render/human/pose'
 import { createEffects3d } from './fx3d'
 import type { SurfaceMaterials, SurfaceName } from './levelMesh'
-import { lampIsLit } from './lights'
 import { Figure } from './people3d'
-import { BOX, buildDrone, buildLamp, buildLoot, buildParachute, buildPickup, buildVan, CHARGE_LIGHT, CHARGE_MATERIAL, LAMP_OFF, LAMP_ON } from './props3d'
+import { BOX, buildDrone, buildLoot, buildParachute, buildPickup, buildVan, CHARGE_LIGHT, CHARGE_MATERIAL } from './props3d'
 import { createDevicesLayer } from './devicesLayer'
 import { createFixturesLayer } from './fixturesLayer'
 import { createHazardsLayer } from './hazardsLayer'
@@ -42,12 +41,6 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
   group.add(player.group, parachute)
   const guards = new Map<Guard, Figure>()
 
-  const lamps = world.lamps.map((lamp) => {
-    const built = buildLamp(lamp)
-    built.group.position.set(lamp.x, -lamp.y, 0)
-    group.add(built.group)
-    return { lamp, bulb: built.bulb }
-  })
   const van = buildVan()
   const flipped = world.extraction.x > world.grid.width / 2
   van.position.set(world.extraction.x + (flipped ? 7.2 : 0.8), -(world.extraction.y + world.extraction.h), 0)
@@ -77,7 +70,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       const hand = handOf(now)
       const motion: Motion = {
         x: feet.x, feetY: feet.y, facing: hero.facing, vx: hero.vx, vy: hero.vy, onGround: hero.onGround,
-        mode: hero.chute ? 'chute' : hero.onLadder ? 'ladder' : 'normal',
+        mode: hero.chute ? 'chute' : hero.stairs ? 'stairs' : hero.onLadder ? 'ladder' : hero.crouching ? 'crouch' : 'normal',
         aim: Math.atan2(aim.y - hand.y, aim.x - hand.x), kick: hero.kick,
       }
       const body = poseHuman(motion)
@@ -108,13 +101,12 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
         const relaxed = guard.facing > 0 ? 0.35 : Math.PI - 0.35
         figure.pose(poseHuman({
           x: base.x, feetY: base.y, facing: guard.facing, vx: guard.vx, vy: guard.vy, onGround: guard.onGround,
-          mode: guard.climbing ? 'ladder' : 'normal',
+          mode: guard.stairs ? 'stairs' : guard.climbing ? 'ladder' : 'normal',
           aim: guard.state === 'alert' ? Math.atan2(target.y - (guard.y + 0.5), target.x - base.x) : relaxed, kick: guard.kick,
         }), guard.facing, guard.armored ? 'rifle' : 'pistol', guard.hitFlash > 0)
         figure.group.position.z = guard.stairs ? STAIR_LANE : 0
       }
 
-      for (const { lamp, bulb } of lamps) bulb.material = lampIsLit(now, lamp) ? LAMP_ON : LAMP_OFF
 
       loot.visible = !now.loot.taken
       loot.position.set(now.loot.x, -(now.loot.y + now.loot.h), 0)

@@ -4,6 +4,8 @@ import type { World } from './world'
 export type SoundKind =
   | 'pistol' | 'rifle' | 'shotgun' | 'sniper' | 'rocket' | 'guardShot'
   | 'explosion' | 'kill' | 'door' | 'reload' | 'collapse' | 'pickup'
+  | 'footstep' | 'glass' | 'alarm' | 'beep' | 'switch' | 'elevator' | 'elevatorDing' | 'radio' | 'spark'
+  | 'fire' | 'spray' | 'flashbang' | 'smokePop' | 'impact' | 'keyboard' | 'shout'
 
 /** Something audible that happened this frame. The game core only records it; an audio adapter plays it. */
 export type SoundEvent = Vec & { kind: SoundKind }

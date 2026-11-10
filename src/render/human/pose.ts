@@ -21,7 +21,7 @@ export type Motion = {
   vx: number
   vy: number
   onGround: boolean
-  mode: 'normal' | 'ladder' | 'chute'
+  mode: 'normal' | 'ladder' | 'chute' | 'crouch' | 'stairs'
   /** Direction the gun points, in radians. */
   aim: number
   /** 0..1 recoil push, straight after firing. */

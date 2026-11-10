@@ -2,6 +2,9 @@ import type { Input } from '../input'
 import type { Lamp } from '../site'
 import type { World } from '../world'
 
+/** A hacking menu the player has open on a computer: pick an option with the number keys. */
+export type Terminal = { device: number; title: string; options: string[] }
+
 /** Cameras, computers, fuse boxes, keypads and alarm buttons. (Placeholder: they do nothing yet.) */
 export function stepDevices(_world: World, _input: Input, _dt: number): void {}
 

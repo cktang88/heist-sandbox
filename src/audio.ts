@@ -1,4 +1,5 @@
 import type { SoundKind } from './game/sounds'
+import { SOUNDS } from './render3d/assetManifest'
 import { centerOf } from './game/types'
 import type { World } from './game/world'
 
@@ -11,7 +12,9 @@ export type GameAudio = { update(world: World): void }
 
 type Voice = { seconds: number; gain: number; lowpass: number; highpass: number; thump: number; thumpGain: number }
 
-const VOICES: Record<SoundKind, Voice> = {
+/** Fallback synthesised voices. Kinds without one use a short neutral click. */
+const DEFAULT_VOICE: Voice = { seconds: 0.06, gain: 0.2, lowpass: 4000, highpass: 600, thump: 0, thumpGain: 0 }
+const VOICES: Partial<Record<SoundKind, Voice>> = {
   pistol: { seconds: 0.07, gain: 0.25, lowpass: 9000, highpass: 2500, thump: 0, thumpGain: 0 },
   rifle: { seconds: 0.13, gain: 0.5, lowpass: 5200, highpass: 300, thump: 150, thumpGain: 0.5 },
   shotgun: { seconds: 0.28, gain: 0.75, lowpass: 3000, highpass: 80, thump: 90, thumpGain: 0.9 },
@@ -26,13 +29,29 @@ const VOICES: Record<SoundKind, Voice> = {
   pickup: { seconds: 0.05, gain: 0.1, lowpass: 8000, highpass: 3000, thump: 0, thumpGain: 0 },
 }
 
-/** Recordings in `public/audio`, by the sound they replace. */
-const RECORDINGS: Partial<Record<SoundKind, { file: string; gain: number }>> = {
-  rifle: { file: 'rifle', gain: 0.55 },
-  shotgun: { file: 'shotgun', gain: 0.8 },
-  sniper: { file: 'sniper', gain: 0.85 },
-  guardShot: { file: 'guard', gain: 0.5 },
-  explosion: { file: 'explosion', gain: 1 },
+/** Recorded sounds, by the game event they play for. Several files for one event are picked from at random. */
+const RECORDINGS: Partial<Record<SoundKind, { files: string[]; gain: number }>> = {
+  rifle: { files: ['audio/rifle.mp3'], gain: 0.55 },
+  shotgun: { files: ['audio/shotgun.mp3'], gain: 0.8 },
+  sniper: { files: ['audio/sniper.mp3'], gain: 0.85 },
+  guardShot: { files: ['audio/guard.mp3'], gain: 0.5 },
+  explosion: { files: ['audio/explosion.mp3'], gain: 1 },
+  footstep: { files: [1, 2, 3, 4].map((n) => SOUNDS[`footstep_concrete_${n}`]), gain: 0.25 },
+  glass: { files: [SOUNDS.glass_break_1, SOUNDS.glass_break_2], gain: 0.6 },
+  alarm: { files: [SOUNDS.alarm_short], gain: 0.5 },
+  beep: { files: [SOUNDS.button_beep], gain: 0.35 },
+  switch: { files: [SOUNDS.switch_breaker_off, SOUNDS.switch_click_1], gain: 0.5 },
+  elevator: { files: [SOUNDS.elevator_door], gain: 0.5 },
+  elevatorDing: { files: [SOUNDS.elevator_ding], gain: 0.5 },
+  radio: { files: [SOUNDS.radio_squelch], gain: 0.35 },
+  spark: { files: [SOUNDS.spark_1, SOUNDS.electric_buzz], gain: 0.5 },
+  spray: { files: [SOUNDS.steam_hiss_1, SOUNDS.steam_hiss_2], gain: 0.5 },
+  smokePop: { files: [SOUNDS.steam_hiss_2], gain: 0.6 },
+  impact: { files: [SOUNDS.metal_impact_1, SOUNDS.metal_impact_2, SOUNDS.wood_impact_1], gain: 0.5 },
+  keyboard: { files: [SOUNDS.keyboard_typing], gain: 0.4 },
+  door: { files: [SOUNDS.door_open_1, SOUNDS.door_open_2], gain: 0.45 },
+  collapse: { files: [SOUNDS.metal_impact_3, SOUNDS.wood_impact_2], gain: 0.6 },
+  kill: { files: [SOUNDS.body_fall_1, SOUNDS.body_fall_2], gain: 0.5 },
 }
 
 const HEARING_TILES = 14
@@ -43,7 +62,7 @@ export function createAudio(): GameAudio {
   let master: BiquadFilterNode | null = null
   let noise: AudioBuffer | null = null
   let siren: { tone: OscillatorNode; gain: GainNode } | null = null
-  const samples = new Map<SoundKind, AudioBuffer>()
+  const samples = new Map<SoundKind, AudioBuffer[]>()
 
   // Browsers only allow sound after the player has clicked or pressed a key.
   const unlock = () => {
@@ -56,12 +75,15 @@ export function createAudio(): GameAudio {
     noise = context.createBuffer(1, context.sampleRate, context.sampleRate)
     const hiss = noise.getChannelData(0)
     for (let index = 0; index < hiss.length; index += 1) hiss[index] = Math.random() * 2 - 1
-    for (const [kind, recording] of Object.entries(RECORDINGS) as [SoundKind, { file: string }][]) {
-      fetch(`${import.meta.env.BASE_URL}audio/${recording.file}.mp3`)
-        .then((response) => response.arrayBuffer())
-        .then((data) => context!.decodeAudioData(data))
-        .then((buffer) => samples.set(kind, buffer))
-        .catch(() => undefined)
+    for (const [kind, recording] of Object.entries(RECORDINGS) as [SoundKind, { files: string[] }][]) {
+      for (const file of recording.files) {
+        if (!file) continue
+        fetch(`${import.meta.env.BASE_URL}${file}`)
+          .then((response) => response.arrayBuffer())
+          .then((data) => context!.decodeAudioData(data))
+          .then((buffer) => samples.set(kind, [...(samples.get(kind) ?? []), buffer]))
+          .catch(() => undefined)
+      }
     }
   }
   window.addEventListener('pointerdown', unlock)
@@ -69,10 +91,10 @@ export function createAudio(): GameAudio {
 
   function play(kind: SoundKind, loudness: number, pan: number, pitch: number): void {
     if (!context || !master || !noise) return
-    const recorded = samples.get(kind)
-    if (recorded) {
+    const takes = samples.get(kind)
+    if (takes && takes.length > 0) {
       const source = context.createBufferSource()
-      source.buffer = recorded
+      source.buffer = takes[Math.floor(Math.random() * takes.length)]
       source.playbackRate.value = pitch * (0.96 + Math.random() * 0.08)
       const level = context.createGain()
       level.gain.value = (RECORDINGS[kind]?.gain ?? 1) * loudness
@@ -82,7 +104,7 @@ export function createAudio(): GameAudio {
       source.start()
       return
     }
-    const voice = VOICES[kind]
+    const voice = VOICES[kind] ?? DEFAULT_VOICE
     const now = context.currentTime
     const length = voice.seconds / pitch
     const out = context.createStereoPanner()

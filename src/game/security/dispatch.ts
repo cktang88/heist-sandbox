@@ -15,10 +15,13 @@ export type SecurityEvent =
   | { kind: 'alarmButton'; at: Vec }
   | { kind: 'commsDown'; at: Vec }
 
-export type SecurityState = { level: AlertLevel; lastKnown: Vec | null; log: string[] }
+/** A line a guard says out loud, shown above them for a moment. Barks explain what the guards are about to do. */
+export type Bark = Vec & { text: string; life: number }
+
+export type SecurityState = { level: AlertLevel; lastKnown: Vec | null; log: string[]; barks: Bark[] }
 
 export function createSecurity(): SecurityState {
-  return { level: 0, lastKnown: null, log: [] }
+  return { level: 0, lastKnown: null, log: [], barks: [] }
 }
 
 export function stepSecurity(world: World, _dt: number): void {

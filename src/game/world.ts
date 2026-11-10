@@ -6,6 +6,7 @@ import type { Guard } from './guards'
 import { createComplex } from './complex/complex'
 import { createLevel } from './level'
 import { createProps, type PropState } from './cover'
+import type { Terminal } from './devices/devices'
 import { createElevators, type ElevatorCar } from './elevators'
 import { createHazards, type HazardState } from './hazards/hazards'
 import { createSecurity, type SecurityState } from './security/dispatch'
@@ -61,6 +62,10 @@ export type World = {
   elevatorCars: ElevatorCar[]
   /** Lighting circuits whose fuse box has been cut. */
   deadCircuits: Set<number>
+  /** The hacking menu that is open, if any. */
+  terminal: Terminal | null
+  /** A hint for the action available right now, e.g. "E: pick lock". */
+  prompt: string | null
   time: TimeState
   alarm: boolean
   shake: number
@@ -102,6 +107,8 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     security: createSecurity(),
     elevatorCars: createElevators(level.elevators),
     deadCircuits: new Set(),
+    terminal: null,
+    prompt: null,
     time: createTime(),
     alarm: false,
     shake: 0,

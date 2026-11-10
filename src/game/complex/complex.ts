@@ -1,7 +1,9 @@
 import { createRng, randomInt } from '../rng'
 import { LIGHT, type Level, type Room, type RoomKind } from '../site'
 import { createGrid, setTile } from '../tiles'
+import { furnishSite } from '../furnish/furnish'
 import { buildBlock } from './block'
+import { addDucts } from './ducts'
 import { addRoom, chance, createDraft, fill, pick, ROOM_HEIGHT, STOREY, type SiteDraft } from './kit'
 
 export const COMPLEX_WIDTH = 300
@@ -82,6 +84,8 @@ export function createComplex(seed: number): Level {
 
   const vault = placeVault(site)
   roamingPatrols(site)
+  addDucts(site)
+  furnishSite(site)
 
   return {
     name: 'Blackmoor Complex',

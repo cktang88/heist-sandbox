@@ -7,6 +7,7 @@ import { createWorld, type SiteKind, type World } from './game/world'
 import { attachInput } from './inputDevice'
 import { createCamera, followFocus } from './render/camera'
 import { drawHud } from './render/drawHud'
+import { drawFlashOverlay } from './render/flashOverlay'
 import { drawOverlay } from './render/overlay'
 import { createSceneRenderer, type SceneRenderer } from './render/drawScene'
 import { createRenderer3d, type Renderer3d } from './render3d/renderer3d'
@@ -82,6 +83,7 @@ function frame(now: number): void {
     context.clearRect(0, 0, canvas.width, canvas.height)
     drawOverlay(context, world, camera)
   } else scene.draw2d?.draw(context, world, camera, frameInput.aim)
+  drawFlashOverlay(context, world, canvas.width, canvas.height)
   drawHud(context, world, camera, frameInput.aim)
   // Debug hook: lets tests and the console inspect the heist and fast-forward it.
   ;(globalThis as { __game?: unknown }).__game = { world, advance: (seconds: number, held: Partial<Input> = {}) => fastForward(world, seconds, { ...frameInput, ...held }) }
