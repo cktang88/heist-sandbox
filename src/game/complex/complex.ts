@@ -219,8 +219,10 @@ function outdoorAreas(site: SiteDraft, storeys: number): void {
   const openRooms = site.rooms.filter((room) => outdoor.has(room.kind))
   site.lamps = site.lamps.filter((lamp) => !openRooms.some((room) => lamp.fixture === 'ceilingPanel' && Math.abs(lamp.y - (room.y + 0.2)) < 0.01 && lamp.x >= room.x && lamp.x <= room.x + room.w))
   site.guards.push({ x: 150, y: ground - storeys * STOREY, facing: 1, role: 'patrol', route: [{ x: 100, y: ground - storeys * STOREY }, { x: 176, y: ground - storeys * STOREY }] })
-  site.guards.push({ x: 66, y: ground, facing: 1, role: 'patrol', route: [{ x: 53, y: ground }, { x: 84, y: ground }] })
-  site.guards.push({ x: 190, y: ground, facing: -1, role: 'patrol', route: [{ x: 188, y: ground }, { x: 236, y: ground }] })
+  // The depot patrol turns back short of the yard manhole, which a calm guard takes for a ledge.
+  site.guards.push({ x: 66, y: ground, facing: 1, role: 'patrol', route: [{ x: 53, y: ground }, { x: 80, y: ground }] })
+  // The quarters have no door on the silo side, so this patrol walks through their ground floor and back.
+  site.guards.push({ x: 190, y: ground, facing: -1, role: 'patrol', route: [{ x: 188, y: ground }, { x: 225, y: ground }] })
 }
 
 /** The walls of a room that open onto a neighbouring room on the same floor (not the outer wall, a shaft or a void). */
