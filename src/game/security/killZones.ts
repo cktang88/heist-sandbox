@@ -43,8 +43,10 @@ export function respectKillZones(world: World, guard: Guard, goal: Vec, dt: numb
   const hop = nextHop(world.stairwells, feet, goal)
   const zone = zoneAhead(world, guard, hop.kind === 'walk' ? hop.x : feet.x)
   if (!zone || Math.abs(zone.at.x - feet.x) > KILL_ZONES.throwReach) return false
+  const atEdge = Math.abs(zone.at.x - feet.x) < KILL_ZONES.radius + 1.5
   if (world.clock < zone.clearedAt) {
-    // Something is already on its way through: wait for it to pop.
+    // Something is already on its way through: close in to the edge, and wait there for it to pop.
+    if (!atEdge) return false
     hold(world, guard, dt)
     return true
   }
@@ -54,7 +56,7 @@ export function respectKillZones(world: World, guard: Guard, goal: Vec, dt: numb
     return true
   }
   // Nothing to throw: hold at the edge, watching it.
-  if (Math.abs(zone.at.x - feet.x) < KILL_ZONES.radius + 1.5) {
+  if (atEdge) {
     barkLine(world, guard, 'killZone')
     hold(world, guard, dt)
     guard.facing = zone.at.x > feet.x ? 1 : -1
