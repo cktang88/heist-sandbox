@@ -11,6 +11,7 @@ import { placeLooseProp } from './meleeLayer'
 import { modelFromRecipe } from './propbatch/looseModel'
 import { recipeOf, signatureOf } from './propbatch/recipe'
 import { Region, type PlacedProp } from './propbatch/region'
+import { showcaseJob } from './propbatch/showcase'
 import { buildProp } from './props'
 import { pickFor } from './props/officeParts'
 
@@ -76,11 +77,18 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
   const regionOf: Region[] = []
   const loose = new Map<number, Group>()
   const isHidden = (index: number): boolean => props[index].broken || loose.has(index)
+  addBuildJob(showcaseJob(props, placedOf, { x: world.player.x, y: world.player.y }))
   for (const area of areas) {
     group.add(area.region.group)
     for (const index of area.region.props) regionOf[index] = area.region
     area.region.start(isHidden)
-    addBuildJob({ x: area.x + REGION_W / 2, y: area.y + REGION_H / 2, cause: `props ${area.x},${area.y}`, step: () => area.region.step(placedOf) })
+    addBuildJob({
+      x: area.x + REGION_W / 2, y: area.y + REGION_H / 2,
+      get cause() {
+        return `props ${area.x},${area.y} ${area.region.phase}`
+      },
+      step: () => area.region.step(placedOf),
+    })
   }
 
   function pullOut(index: number): void {

@@ -12,7 +12,7 @@ import { createEnvironment } from './core/environment'
 import { lookFor } from './core/looks'
 import { createQualityController, LADDER, LOW_DETAIL } from './core/quality'
 import { createRenderInfo } from './core/renderInfo'
-import { measured } from './core/timing'
+import { measured, timedPart } from './core/timing'
 import { createSkyShading, type SkyShading } from './core/skyShading'
 import { createLevelMesh, FRONT, type LevelMesh } from './levelMesh'
 import { createLights } from './lights'
@@ -193,10 +193,10 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       // Damaged chunks are re-meshed a few a frame, nearest first, so a big blast never stalls one frame.
       const later = holdBackFarChunks(world.grid, view)
       stage.sky.markChunks(world.grid.dirtyChunks)
-      stage.level.refresh(view)
+      timedPart('level mesh', () => stage!.level.refresh(view))
       for (const index of later) world.grid.dirtyChunks.add(index)
       stage.actors.update(world, aim, view)
-      lights.update(world, view)
+      timedPart('lights', () => lights.update(world, view))
       placeCamera(world, view)
       stage.sky.update(cameras.perspective.matrixWorld)
       post.setLook({ timeOfDay: world.timeOfDay, alarm: world.alarm ? 0.5 + 0.5 * Math.sin(now / 260) : 0, slow: 1 - world.time.scale })
@@ -206,7 +206,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       if (isLoading() && drawnThisLevel) return
       drawnThisLevel = true
       renderer.info.reset()
-      post.render(now / 1000)
+      timedPart('draw (three.js and WebGL calls)', () => post.render(now / 1000))
       info.publish(now, LADDER[quality.level].scale, quality.level, quality.averageMs)
     },
     setLook: setStyle,

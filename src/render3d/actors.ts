@@ -112,16 +112,16 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       for (const guard of now.guards) {
         let figure = guards.get(guard)
         // Only people near the view get a body; a big site has far more guards than fit on screen.
+        // People away from the view leave the scene graph (hidden objects would still have their matrices updated).
         if (!near(guard.x, guard.y)) {
-          if (figure) figure.group.visible = false
+          if (figure) group.remove(figure.group)
           continue
         }
         if (!figure) {
           figure = new Figure(outfitFor(guard.role, guard.armored))
           guards.set(guard, figure)
-          group.add(figure.group)
         }
-        figure.group.visible = true
+        if (!figure.group.parent) group.add(figure.group)
         const mood = guardMood(guard)
         if (mood === 'dead') {
           if (guard.ragdoll) figure.poseRagdoll(guard.ragdoll)

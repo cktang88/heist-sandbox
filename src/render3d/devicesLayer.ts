@@ -11,7 +11,7 @@ import { BACK } from './levelMesh'
 /** Wall devices are drawn a little larger than life so they read at game zoom. */
 const WALL_DEVICE_SCALE = 1.35
 
-type Placed = { model: DeviceModel; key: string }
+type Placed = { model: DeviceModel; key: string; ready: boolean }
 
 function stateOf(world: World, device: Device): DeviceState {
   return { live: isCircuitLive(world, device.circuit), disabled: device.disabled, hacked: device.hacked, open: world.terminal?.device === device.id }
@@ -55,10 +55,12 @@ export const createDevicesLayer: LayerFactory = (world) => {
       model.root.position.set(device.x + 0.5, -(device.y + 0.5), BACK)
       model.root.scale.setScalar(WALL_DEVICE_SCALE)
     } else model.root.position.set(device.x + 0.5, -device.y, 0)
-    model.root.visible = false
-    const entry = { model, key: '' }
+    const entry: Placed = { model, key: '', ready: false }
     placed.set(device, entry)
-    prepare(model.root, () => group.add(model.root))
+    // It joins the scene (when near the view) only once its shaders and textures are ready.
+    prepare(model.root, () => {
+      entry.ready = true
+    })
     return entry
   }
 
@@ -87,11 +89,12 @@ export const createDevicesLayer: LayerFactory = (world) => {
         const near = inView(frame, device.x, device.y, 2)
         let entry = placed.get(device)
         if (!near) {
-          if (entry) entry.model.root.visible = false
+          // Out of the scene graph entirely, not just hidden: three still updates the matrices of hidden objects.
+          if (entry) group.remove(entry.model.root)
           continue
         }
         entry ??= place(device)
-        entry.model.root.visible = true
+        if (entry.ready && !entry.model.root.parent) group.add(entry.model.root)
         const state = stateOf(world, device)
         const key = keyOf(state)
         if (key !== entry.key) {

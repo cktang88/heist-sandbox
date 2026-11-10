@@ -48,6 +48,8 @@ export class Region {
   private work: Work | null = null
   /** True once every built prop is in a batch (scanned models may still be on their way). */
   built = false
+  /** What the last step did, for the frame probe. */
+  phase: 'prop' | 'batch' | 'scan' | 'idle' = 'idle'
 
   constructor(readonly props: readonly number[]) {
     this.group.matrixAutoUpdate = false
@@ -76,6 +78,7 @@ export class Region {
     if (!work) return 'done'
     const prop = work.props.pop()
     if (prop !== undefined) {
+      this.phase = 'prop'
       const entry = placedOf(prop)
       addParts(work.sorted, prop, entry)
       for (const scan of entry.recipe.scans) this.requestScan(work, scan.url)
@@ -84,12 +87,14 @@ export class Region {
     }
     const plan = work.plans.pop()
     if (plan) {
+      this.phase = 'batch'
       this.addBatch(plan, placedOf)
       return 'more'
     }
     this.built = true
     const arrived = work.arrived.pop()
     if (arrived) {
+      this.phase = 'scan'
       const plans = new Map<string, BatchPlan>()
       const pieces = scanPieces(arrived.scene)
       for (const member of this.props) addScanUses(plans, member, placedOf(member), arrived.url, pieces)
