@@ -50,7 +50,8 @@ export function holdShield(world: World, input: Input, dt: number): void {
 export function releaseShield(world: World, turnsOnPlayer: boolean): void {
   const guard = world.melee.shield
   world.melee.shield = null
-  if (!guard || guard.mode === 'dead' || !turnsOnPlayer) return
+  // A man who was out cold or reeling when taken stays that way; only one merely held comes back fighting.
+  if (!guard || guard.mode === 'dead' || !turnsOnPlayer || guard.stunSeconds > HELD_STUN) return
   guard.stunSeconds = 0
   enterCombat(world, guard, centerOf(world.player))
 }
