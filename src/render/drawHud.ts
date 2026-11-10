@@ -11,8 +11,9 @@ import { worldToScreen, type Camera } from './camera'
 const HELP = [
   'A/D move    W/S climb and take stairs    SPACE jump, tap again to double jump',
   'HOLD SPACE while falling: parachute    C or CTRL: crouch',
-  'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool    Q: set off C4',
-  'E: pick locks, use devices, take down unaware guards, recall the drone',
+  'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool (9 and 7 twice: frag, rope)',
+  'Q or RIGHT-CLICK: set off C4    E: pick locks, use devices, take down, recall the drone',
+  'F punch    V kick    HOLD G drag furniture or grab a guard    T throw',
   'SHIFT: focus (slow motion, slowest when you hold still)',
   'Steal the gold case from the vault and get back to the van.',
 ]
@@ -54,7 +55,7 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   drawTools(context, world, unit, width, height)
   drawCrosshair(context, world, camera, aim)
   if (world.drone) caption(context, `DRONE  ${Math.ceil(world.drone.battery)}s   click: detonate   E: recall`, width / 2, unit * 2, '#6fd0ff', unit, 'center')
-  if (world.charges.length > 0 && !world.drone) caption(context, `C4 SET x${world.charges.length}   Q or right-click: detonate all`, width / 2, unit * 2, '#ffb347', unit, 'center')
+  if (world.charges.length > 0) caption(context, `C4 SET x${world.charges.length}   Q or right-click: detonate all`, width / 2, unit * (world.drone ? 3.3 : 2), '#ffb347', unit, 'center')
   if (world.prompt && world.status === 'playing') drawPrompt(context, world.prompt, unit, width, height)
   if (world.terminal && world.status === 'playing') drawTerminal(context, world.terminal, unit, width, height)
   if (world.status === 'playing' && world.clock < 9 && world.security.level === 0) drawHelp(context, unit, width, height)
@@ -172,7 +173,7 @@ function drawTerminal(context: CanvasRenderingContext2D, terminal: NonNullable<W
     caption(context, String(index + 1), x + unit + size * 0.75, rowY, '#ffd28a', size, 'center')
     caption(context, option, x + unit + size * 2.2, rowY, '#f0e6d0', size, 'left')
   })
-  caption(context, 'NUMBER KEYS: CHOOSE    WALK AWAY: CLOSE', x + w / 2, y + h - unit * 0.6, DIM, unit * 0.62, 'center')
+  caption(context, 'NUMBER KEYS: CHOOSE    E OR WALK AWAY: CLOSE', x + w / 2, y + h - unit * 0.6, DIM, unit * 0.62, 'center')
 }
 
 /** The ring widens as sustained fire makes the gun less accurate, so spread is never a surprise. */
@@ -224,7 +225,8 @@ function drawTools(context: CanvasRenderingContext2D, world: World, unit: number
     }
     context.fillStyle = tool.quiet ? '#7ee08a' : '#ff7a5a'
     context.fillRect(x, y + h - unit * 0.18, w, unit * 0.18)
-    const key = String((index + 1) % 10)
+    // A second-page tool shares its key with a first-page one.
+    const key = String(((tool.slot ?? index) + 1) % 10)
     caption(context, key, x + unit * 0.35, y + size * 1.25, selected ? '#ffd27a' : DIM, size * 0.85, 'left')
     const nameLeft = x + unit * 0.35 + measure(context, key, size * 0.85) + unit * 0.35
     caption(context, fit(context, tool.name.toUpperCase(), size, x + w - unit * 0.3 - nameLeft), nameLeft, y + size * 1.25, selected ? '#ffffff' : '#b4bcc8', size, 'left')
@@ -238,7 +240,7 @@ function drawTools(context: CanvasRenderingContext2D, world: World, unit: number
 function drawHelp(context: CanvasRenderingContext2D, unit: number, width: number, height: number): void {
   const size = Math.min(unit, (width - unit * 4) / 62)
   const w = Math.min(width - unit * 2, size * 50)
-  panel(context, width / 2 - w / 2, height * 0.28 - size * 1.8, w, size * 10.2)
+  panel(context, width / 2 - w / 2, height * 0.28 - size * 1.8, w, size * (HELP.length * 1.5 + 1.2))
   HELP.forEach((line, index) => caption(context, line, width / 2, height * 0.28 + index * size * 1.5, 'rgba(255,255,255,0.88)', size * 0.82, 'center'))
 }
 
