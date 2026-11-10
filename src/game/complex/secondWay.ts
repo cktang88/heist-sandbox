@@ -58,6 +58,20 @@ function openColumn(site: SiteDraft, room: Room, x: number): boolean {
   return true
 }
 
+/** A ceiling fitting of `room` hanging under column `x`, where a hatch is opening: it would hang from the hatch's lid. */
+function hangsOver(prop: Prop, room: Room, x: number): boolean {
+  const { mount, w } = propSpec(prop.kind)
+  return prop.roomId === room.id && mount === 'ceiling' && prop.x + 0.5 - w / 2 < x + 1 && prop.x + 0.5 + w / 2 > x
+}
+
+/** A light hung under the new hatch moves along the ceiling, toward the middle of the room, clear of it. */
+function clearLampsFrom(site: SiteDraft, room: Room, x: number): void {
+  const inward = x + 0.5 < room.x + room.w / 2 ? 1 : -1
+  for (const lamp of site.lamps) {
+    if (lamp.hung && Math.floor(lamp.x) === x && lamp.y > room.y && lamp.y < room.y + 1.5 && lamp.x >= room.x && lamp.x <= room.x + room.w) lamp.x += inward * 1.5
+  }
+}
+
 /** A hatch in the slab between `upper` (standing on it) and `lower` (whose ceiling it is), with a ladder down through `lower`. */
 function tryHatch(site: SiteDraft, upper: Room, lower: Room, clearing: boolean): boolean {
   const from = Math.max(upper.x, lower.x)
@@ -67,7 +81,8 @@ function tryHatch(site: SiteDraft, upper: Room, lower: Room, clearing: boolean):
     const [above, below] = [inTheWay(site, upper, x), inTheWay(site, lower, x)]
     const free = above.length === 0 && below.length === 0
     if (!free && !(clearing && clearable(site, upper, above) && clearable(site, lower, below))) continue
-    site.props = site.props.filter((prop) => !above.includes(prop) && !below.includes(prop))
+    site.props = site.props.filter((prop) => !above.includes(prop) && !below.includes(prop) && !hangsOver(prop, lower, x))
+    clearLampsFrom(site, lower, x)
     fill(site, x, lower.y, x, lower.floorY - 1, 'ladder')
     fill(site, x, upper.floorY, x, upper.floorY, 'door')
     return true
@@ -79,6 +94,7 @@ function tryHatch(site: SiteDraft, upper: Room, lower: Room, clearing: boolean):
 function addHatch(site: SiteDraft, room: Room): boolean {
   const usable = (other: Room) => other.building === room.building && !NO_LADDER_ROOMS.has(other.kind)
   const lower = site.rooms.filter((other) => usable(other) && other.y === room.floorY + 1)
-  const upper = site.rooms.filter((other) => usable(other) && other.floorY === room.y - 1)
+  // A hatch in the roof needs no ladder up on the roof, so a room on the top storey can be got into from up there.
+  const upper = site.rooms.filter((other) => (usable(other) || (other.kind === 'rooftop' && other.building === room.building)) && other.floorY === room.y - 1)
   return [false, true].some((clearing) => lower.some((other) => tryHatch(site, room, other, clearing)) || upper.some((other) => tryHatch(site, other, room, clearing)))
 }

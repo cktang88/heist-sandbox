@@ -5,12 +5,15 @@ import { tileAt } from '../tiles'
 import { createWorld } from '../world'
 import { createComplex } from './complex'
 import { STOREY } from './kit'
+import { CAMERAS } from '../security/tuning'
+import { cameraBlindSpots, doorsBlockedByDevices, hidesPerStorey, quietEntries } from '../stealthRuns/audit'
 import {
-  deviceProblems, dropZone, fixtureProblems, guardProblems, propProblems, reachable, reachedRoom, reachedSpot, roomProblems, siteFor,
+  caseRoomProblems, deviceProblems, dropZone, fixtureProblems, guardProblems, propProblems, reachable, reachedRoom, reachedSpot, roomProblems,
+  sewerProblems, siteFor,
 } from './audit'
 
 /** Odd and even seeds: even ones are mirrored, and must pass the same checks. */
-const SEEDS = [1, 2, 3, 4, 5, 12, 13, 18]
+const SEEDS = Array.from({ length: 40 }, (_, index) => index + 1)
 const sites = new Map<string, Level>()
 function site(seed: number, kind: 'complex' | 'outpost' = 'complex'): Level {
   const key = `${kind}:${seed}`
@@ -50,17 +53,24 @@ describe('the generated complex', () => {
     expect(guardProblems(site(seed))).toEqual([])
   })
 
-  it.each(SEEDS)('seed %i lets the player reach every room from the drop zone', (seed) => {
+  it.each(SEEDS)('seed %i lets the player reach every room, supply and terminal from the drop zone', (seed) => {
     const level = site(seed)
     const seen = reachable(level, dropZone(level), 'player')
     expect(level.rooms.filter((room) => !reachedRoom(level, seen, room)).map((room) => roomName(level, room.id))).toEqual([])
+    expect(level.pickups.filter((pickup) => !reachedSpot(level, seen, pickup.x, pickup.y))).toEqual([])
+    expect(level.devices.filter((device) => device.kind === 'computer' && !reachedSpot(level, seen, device.x, device.y))).toEqual([])
   })
 
-  it.each(SEEDS)('seed %i lets an alerted guard reach every room and every post from the tower stairs, without elevators', (seed) => {
+  it.each(SEEDS)('seed %i lets an alerted guard reach every room, post, patrol point and device from the tower stairs, without elevators', (seed) => {
     const level = site(seed)
     const seen = reachable(level, towerStairs(level), 'guard')
     expect(level.rooms.filter((room) => !reachedRoom(level, seen, room)).map((room) => roomName(level, room.id))).toEqual([])
-    expect(level.guards.filter((guard) => !reachedSpot(level, seen, guard.x, guard.y)).map((guard) => `${guard.role} at ${guard.x},${guard.y}`)).toEqual([])
+    const spots = level.guards.flatMap((guard) => [guard, ...(guard.route ?? [])])
+    expect(spots.filter((spot) => !reachedSpot(level, seen, spot.x, spot.y)).map((spot) => `${spot.x},${spot.y}`)).toEqual([])
+    // Restoring power, raising the alarm, working a terminal or a keypad: each from the floor of its room.
+    const floorOf = (device: Level['devices'][number]) => level.rooms[device.roomId!].floorY
+    const devices = level.devices.filter((device) => device.kind !== 'camera' && !reachedSpot(level, seen, device.x, floorOf(device)))
+    expect(devices.map((device) => `${device.kind} at ${device.x},${device.y}`)).toEqual([])
   })
 
   it.each(SEEDS)('seed %i can be won: from the drop to the loot, and from the loot to the van', (seed) => {
@@ -70,6 +80,26 @@ describe('the generated complex', () => {
     const { extraction: van } = level
     const out = Array.from({ length: van.w }, (_, index) => van.x + index).some((x) => reachedSpot(level, back, x, van.y + van.h))
     expect(out).toBe(true)
+  })
+})
+
+describe('the generated complex, for a quiet player', () => {
+  it.each(SEEDS)('seed %i lets every room the case could be in be reached, left for the van, and entered two quiet ways', (seed) => {
+    expect(caseRoomProblems(site(seed))).toEqual([])
+  })
+
+  it.each(SEEDS)('seed %i joins the sewer from the street manholes to the tower basement', (seed) => {
+    expect(sewerProblems(site(seed))).toEqual([])
+  })
+
+  it.each(SEEDS)('seed %i offers three quiet ways into the tower, hides on every storey and a blind spot under every camera', (seed) => {
+    const level = site(seed)
+    const entries = quietEntries(level)
+    expect(entries.length, entries.join(', ')).toBeGreaterThanOrEqual(3)
+    expect(entries).toContain('sewer hatch')
+    expect([...hidesPerStorey(level, 'tower')].filter(([, count]) => count < 3)).toEqual([])
+    expect(level.devices.filter((device) => device.kind === 'camera' && cameraBlindSpots(level, device, CAMERAS).length === 0)).toEqual([])
+    expect(doorsBlockedByDevices(level)).toEqual([])
   })
 })
 
@@ -101,10 +131,13 @@ describe('a mirrored complex', () => {
 })
 
 describe('the outpost', () => {
-  it.each([1, 2, 3, 4, 5, 8])('seed %i puts every lamp and prop where it can be, and can be won', (seed) => {
+  it.each(SEEDS)('seed %i puts every lamp and prop where it can be, and can be won', (seed) => {
     const level = site(seed, 'outpost')
     expect(propProblems(level)).toEqual([])
     expect(fixtureProblems(level)).toEqual([])
     expect(reachedSpot(level, reachable(level, dropZone(level), 'player'), level.loot.x, level.loot.y)).toBe(true)
+    const back = reachable(level, level.loot, 'player')
+    const { extraction: van } = level
+    expect(Array.from({ length: van.w }, (_, index) => van.x + index).some((x) => reachedSpot(level, back, x, van.y + van.h))).toBe(true)
   })
 })

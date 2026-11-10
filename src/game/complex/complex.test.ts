@@ -95,7 +95,10 @@ describe('createComplex', () => {
     expect(level.guards.length).toBeGreaterThan(40)
   })
 
-  it('is the same for the same seed', () => {
-    expect(createComplex(9).grid.kinds).toEqual(createComplex(9).grid.kinds)
+  it('is the same for the same seed, whatever was built before it', () => {
+    const plain = (level: ReturnType<typeof createComplex>) => JSON.stringify({ ...level, grid: Array.from(level.grid.kinds) })
+    const first = plain(createComplex(9))
+    createComplex(10)
+    expect(plain(createComplex(9)) === first).toBe(true)
   })
 })

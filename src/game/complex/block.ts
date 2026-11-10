@@ -35,6 +35,9 @@ const MIN_ROOM = 8
 const MIN_LEFTOVER = 6
 const MAX_ROOM = 22
 const TALL_ROOM_ODDS = 0.55
+/** Rooms that are only what they are above a width: a garage holds a car and a locker. A narrower one is a store room. */
+const MIN_WIDTH: Partial<Record<RoomKind, number>> = { garage: 10 }
+const fitted = (kind: RoomKind, width: number): RoomKind => (width >= (MIN_WIDTH[kind] ?? 0) ? kind : 'storage')
 const OPEN_ARCH_ODDS = 0.3
 
 type Span = { from: number; to: number }
@@ -139,7 +142,7 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
   const furnish = (span: Span): void => {
     const rooms = splitSpan(site, span)
     rooms.forEach((room, index) => {
-      const kind = pick(site.rng, kinds)
+      const kind = fitted(pick(site.rng, kinds), room.to - room.from + 1)
       const tall = !madeTall && TALL.includes(kind) && room.to - room.from >= 13 && canGoTall(room) && chance(site.rng, TALL_ROOM_ODDS)
       if (tall) {
         madeTall = true

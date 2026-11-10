@@ -1,7 +1,7 @@
 import { propSpec, type PropKind } from '../propCatalog'
 import type { Rng } from '../rng'
 import type { Prop, Room } from '../site'
-import { isSolidAt, type Grid } from '../tiles'
+import { isSolidAt, tileAt, type Grid } from '../tiles'
 import { between, extent, pickFrom } from './pick'
 import { ABOVE, type RoomStyle } from './styles'
 
@@ -18,6 +18,11 @@ const BAND: Partial<Record<PropKind, Band>> = {
 }
 
 const MIN_WALL_ITEMS = 4
+/**
+ * Highest an eye-level item's middle sits above the floor: a notice or whiteboard stays within reading reach (2 tiles,
+ * intel/sources.ts) of a standing player's middle, 0.8 above his feet.
+ */
+const EYE_MAX = 2.75
 /** Floor and wall pieces together that keep even a small room from looking bare. */
 const MIN_DRESSING = 6
 const SERVICE_RUNS: readonly PropKind[] = ['conduitRun', 'ventGrille', 'roomNumber', 'pipeRun', 'exitSign', 'fireExtinguisher', 'wallClock']
@@ -33,7 +38,7 @@ function bandTop(rng: Rng, room: Room, kind: PropKind, eyeLine: number): number 
     case 'high': return room.y + between(rng, 0.35, 0.9)
     case 'low': return room.floorY - 1.3 - h / 2 + between(rng, -0.1, 0.1)
     case 'floor': return room.floorY - h
-    case 'eye': return eyeLine - h / 2 + between(rng, -0.12, 0.12)
+    case 'eye': return Math.max(eyeLine - h / 2 + between(rng, -0.12, 0.12), room.floorY - EYE_MAX - h / 2)
   }
 }
 
@@ -120,14 +125,16 @@ export function hangWall(rng: Rng, grid: Grid, room: Room, style: RoomStyle, flo
 export function hangCeiling(rng: Rng, grid: Grid, room: Room, style: RoomStyle, floor: Prop[]): Prop[] {
   const out: Prop[] = []
   const taken: { left: number; right: number }[] = []
-  // Nothing hangs under a hole in the ceiling, such as a manhole a ladder comes down through.
+  // Nothing hangs under a hole in the ceiling, or under a hatch or manhole cover (a door in the slab) a ladder comes down from.
   const hole = (span: { left: number; right: number }) => {
-    for (let x = Math.floor(span.left); x < span.right; x += 1) if (!isSolidAt(grid, x, room.y - 1)) return true
+    for (let x = Math.floor(span.left); x < span.right; x += 1) if (!isSolidAt(grid, x, room.y - 1) || tileAt(grid, x, room.y - 1) === 'door') return true
     return false
   }
+  const clashes = (span: { left: number; right: number }) => taken.some((other) => span.left < other.right - 0.05 && other.left < span.right - 0.05)
   for (const prop of floor) {
     const kind = ABOVE[prop.kind]
-    if (!kind || hole(extent({ kind, x: prop.x }))) continue
+    // A stove right beside one with a hood goes without, rather than two hoods hanging through each other.
+    if (!kind || hole(extent({ kind, x: prop.x })) || clashes(extent({ kind, x: prop.x }))) continue
     out.push({ kind, x: prop.x, y: room.y, roomId: room.id })
     taken.push(extent({ kind, x: prop.x }))
   }

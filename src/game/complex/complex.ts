@@ -184,13 +184,16 @@ function serviceWalls(site: SiteDraft, room: Room): number[] | null {
 }
 
 /**
- * Columns of bare floor (no furniture standing over them, no beam) with no sewer lamp hanging under them, a step in
- * from either wall so the doorway itself stays clear, nearest the walls first.
+ * Columns of bare floor (no furniture standing over them, no beam, no guard starting there or turning at the end of his
+ * round, where he would stand on whoever climbs up) with no sewer lamp hanging under them, a step in from either wall so
+ * the doorway itself stays clear, nearest the walls first.
  */
 function hatchColumns(site: SiteDraft, room: Room): number[] {
   const sewerLamps = site.lamps.filter((lamp) => lamp.y > SEWER.top - 1 && lamp.y < SEWER.bottom)
   const inTheWay = site.props.filter((prop) => prop.roomId === room.id && propSpec(prop.kind).mount === 'floor' && propSpec(prop.kind).h > 0.1)
+  const stood = site.guards.flatMap((guard) => [guard, ...(guard.route ?? [])]).filter((spot) => spot.y === room.floorY)
   const clear = (x: number) => tileAt(site.grid, x, room.floorY) === 'concrete'
+    && !stood.some((spot) => spot.x === x)
     && !inTheWay.some((prop) => Math.abs(prop.x - x) < propSpec(prop.kind).w / 2 + 0.5)
     && !sewerLamps.some((lamp) => Math.abs(lamp.x - (x + 0.5)) < 1.5)
   const columns: number[] = []
@@ -395,8 +398,11 @@ function roamingPatrols(site: SiteDraft): void {
     const pairs = sorted.slice(1).map((b, index) => [sorted[index], b] as const).filter(([a, b]) => b.x - (a.x + a.w) <= 1 && a.floorY === b.floorY)
     if (pairs.length === 0 || !chance(site.rng, 0.8)) continue
     const [a, b] = pairs[randomInt(site.rng, 0, pairs.length - 1)]
+    // Beside, not inside, a guard the room's own staffing already put in its middle.
+    let x = a.x + Math.floor(a.w / 2)
+    while (site.guards.some((guard) => guard.x === x && guard.y === a.floorY)) x += 1
     site.guards.push({
-      x: a.x + Math.floor(a.w / 2), y: a.floorY, facing: 1, role: 'patrol', roomId: a.id,
+      x, y: a.floorY, facing: 1, role: 'patrol', roomId: a.id,
       route: [{ x: a.x + 2, y: a.floorY }, { x: b.x + b.w - 3, y: b.floorY }],
     })
   }

@@ -31,7 +31,7 @@ export function createLevel(seed: number): Level {
   fillTiles(grid, 0, GROUND, WORLD_WIDTH - 1, WORLD_HEIGHT - 3, 'dirt')
   fillTiles(grid, 0, WORLD_HEIGHT - 2, WORLD_WIDTH - 1, WORLD_HEIGHT - 1, 'bedrock')
 
-  buildTower(grid, rng, storeys, guards, lamps, props)
+  const roofHatch = buildTower(grid, rng, storeys, guards, lamps, props)
   buildBasement(grid)
   buildSewer(grid)
 
@@ -57,7 +57,7 @@ export function createLevel(seed: number): Level {
       { x: 86, y: BASEMENT.bottom + 1, kind: 'medkit' },
       { x: 92, y: BASEMENT.bottom + 1, kind: 'ammo' },
       { x: 40, y: SEWER.bottom + 1, kind: 'ammo' },
-      { x: randomInt(rng, BUILDING.left + 3, BUILDING.right - 3), y: roof, kind: 'medkit' },
+      { x: offHatch(randomInt(rng, BUILDING.left + 3, BUILDING.right - 3), roofHatch), y: roof, kind: 'medkit' },
     ],
     interiors: [
       { kind: 'room', x: BUILDING.left, y: roof, w: BUILDING.right - BUILDING.left + 1, h: GROUND - roof },
@@ -69,7 +69,13 @@ export function createLevel(seed: number): Level {
   }
 }
 
-function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[], lamps: Lamp[], props: Prop[]): void {
+/** A spot on the roof beside the hatch rather than on its lid. */
+function offHatch(x: number, hatch: number): number {
+  return x !== hatch ? x : x < BUILDING.right - 5 ? x + 2 : x - 2
+}
+
+/** Raises the building, returning the column of the hatch in its roof. */
+function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[], lamps: Lamp[], props: Prop[]): number {
   const { left, right } = BUILDING
   const roof = GROUND - storeys * STOREY
   fillTiles(grid, left, roof, right, GROUND - 1, 'air')
@@ -110,19 +116,22 @@ function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[],
       if (blocked.some((other) => Math.abs(other - x) < 3)) continue
       props.push({ x, y: floorY, kind: furniture[randomInt(rng, 0, furniture.length - 1)] })
     }
-    guards.push({ x: pickClearX(rng, left + 3, right - 3, blocked), y: floorY, facing: rng() < 0.5 ? 1 : -1 })
-    if (storey > 0 && rng() < 0.6) guards.push({ x: pickClearX(rng, left + 3, right - 3, blocked), y: floorY, facing: 1 })
+    const first = pickClearX(rng, left + 3, right - 3, blocked)
+    guards.push({ x: first, y: floorY, facing: rng() < 0.5 ? 1 : -1 })
+    // Not inside the first one.
+    if (storey > 0 && rng() < 0.6) guards.push({ x: pickClearX(rng, left + 3, right - 3, [...blocked, first]), y: floorY, facing: 1 })
     holeX = ladderX
 
     const nextLadder = randomInt(rng, left + 4, right - 4)
     ladderX = Math.abs(nextLadder - ladderX) < 6 ? (ladderX < (left + right) / 2 ? right - 5 : left + 5) : nextLadder
   }
 
-  // Front door, skylight, and a guard walking the roof.
+  // Front door, skylight, and a guard walking the roof (off the roof hatch, which `holeX` now holds).
   fillTiles(grid, left, GROUND - 3, left, GROUND - 1, 'door')
   const skylight = randomInt(rng, left + 6, right - 10)
   fillTiles(grid, skylight, roof, skylight + 3, roof, 'glass')
-  guards.push({ x: right - 6, y: roof, facing: -1 })
+  guards.push({ x: Math.abs(holeX - (right - 6)) > 1 ? right - 6 : right - 9, y: roof, facing: -1 })
+  return holeX
 }
 
 /** Picks a column that is not a wall, a ladder, or a hole in the floor. */
