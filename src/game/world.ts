@@ -30,6 +30,7 @@ import { createPhysProps, type PhysPropsState } from './physprops/state'
 import { createMelee, type MeleeState } from './melee/state'
 import { createIntel, type IntelState } from './intel/types'
 import { createGaps, type GapState } from './gaps/state'
+import { createSystems, type SystemsState } from './systems/state'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -99,6 +100,8 @@ export type World = {
   rng: Rng
   /** Where the case really is, and what the player has learned about it. */
   intel: IntelState
+  /** Couplings between systems: water, live wires, falling fittings, traps and faults (systems/). */
+  systems: SystemsState
 }
 
 export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
@@ -150,6 +153,7 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     status: 'playing',
     rng: createRng(seed ^ 0x9e3779b9),
     intel: createIntel(),
+    systems: createSystems(seed),
   }
   setupIntel(world)
   prepareWorld(world)

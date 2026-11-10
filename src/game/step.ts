@@ -8,6 +8,7 @@ import { stepRopes } from './rope/rope'
 import { stepGrapple } from './grapple/grapple'
 import { stepFallingProps } from './vehicles/fallingProps'
 import { stepHazards } from './hazards/hazards'
+import { stepSystems } from './systems/systems'
 import { stepSecurity } from './security/dispatch'
 import { stepDrone } from './drone'
 import { stepEffects } from './effects'
@@ -77,6 +78,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   stepCollapse(world, dt)
   lap('collapse')
   stepHazards(world, dt)
+  stepSystems(world, dt)
   lap('hazards')
   stepDevices(world, input, dt)
   stepElevators(world, input, dt)
