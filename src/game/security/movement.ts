@@ -58,7 +58,7 @@ export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: num
 
 function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, careful: boolean): MoveStatus {
   if (guard.stairs) {
-    stepStairs(world, guard, to.y, dt)
+    stepStairs(world, guard, guard.stairsTo ?? to.y, dt)
     return 'moving'
   }
   if (guard.climbing) return climbLadder(world, guard, to, dt)
@@ -70,8 +70,10 @@ function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, c
   const level = Math.abs(to.y - feet.y) < SAME_FLOOR
   // Only a guard in a hurry takes the quick way down through a hole; a calm one keeps to the floors and stairs.
   const hop = nextHop(world.stairwells, feet, to, careful || to.y - feet.y < SAME_FLOOR ? undefined : holesFor(world, guard))
-  if (hop.kind === 'stairs' && !level) {
+  if (hop.kind === 'stairs') {
     guard.stairs = { well: hop.well.id, u: hop.stop }
+    // A goal on this floor reached by stairs lies across a void: ride one flight, then plan again from there.
+    guard.stairsTo = level ? hop.well.stops[hop.stop + hop.direction] : null
     return 'moving'
   }
   if (hop.kind === 'none') {
