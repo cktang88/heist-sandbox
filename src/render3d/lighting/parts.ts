@@ -28,11 +28,11 @@ export class Parts {
 
   /** An upright cylinder (or cone, when the radii differ) centred on its middle. `open` leaves the ends off, like a shade. */
   cylinder(x: number, y: number, z: number, top: number, bottom: number, h: number, color: Tint, open = false, rotation?: Euler): this {
-    return this.add(new CylinderGeometry(top, bottom, h, 18, 1, open), color, x, y, z, rotation)
+    return this.add(new CylinderGeometry(top, bottom, h, 12, 1, open), color, x, y, z, rotation)
   }
 
   sphere(x: number, y: number, z: number, radius: number, color: Tint, stretchY = 1): this {
-    const ball = new SphereGeometry(radius, 14, 10)
+    const ball = new SphereGeometry(radius, 10, 7)
     ball.scale(1, stretchY, 1)
     return this.add(ball, color, x, y, z)
   }

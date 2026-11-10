@@ -12,12 +12,12 @@ import { drawHud } from './render/drawHud'
 import { drawFlashOverlay } from './render/flashOverlay'
 import { drawOverlay } from './render/overlay'
 import { createSceneRenderer, type SceneRenderer } from './render/drawScene'
-import { setLoading } from './render3d/core/buildQueue'
+import { buildMsSpent, setLoading } from './render3d/core/buildQueue'
 import { endFrame, noteFramePart, startCountingFrames } from './render3d/core/frameProbe'
 import { sceneReadiness } from './render3d/core/readiness'
+import { measured } from './render3d/core/timing'
 import { createRenderer3d, type Renderer3d } from './render3d/renderer3d'
-import { randomSeed, writeSeed } from './ui/address'
-import { onLookChange } from './ui/address'
+import { onLookChange, randomSeed, writeSeed } from './ui/address'
 import { loadingScreen, nextPaint } from './ui/loading'
 import { createMenus } from './ui/menus'
 
@@ -57,43 +57,52 @@ const siteKind: SiteKind = new URLSearchParams(location.search).get('site') === 
 // --- Start-up: each step paints the loading screen first, so the page shows progress instead of freezing. ---
 loading.show(0.02, 'Starting the renderer')
 await nextPaint()
-const scene = createScene()
+const scene = measured('create renderer', createScene)
 loading.show(0.06, 'Generating the complex')
 await nextPaint()
-let world: World = createWorld(newSeed(), siteKind)
+let world: World = measured('create world', () => createWorld(newSeed(), siteKind))
 let lastTime = performance.now()
 let view = centerOf(world.player)
 let aim = view
 /** Until the scene near the player is built the heist does not step; see `render3d/core/readiness.ts`. */
 let starting = true
 const dropJobs = { value: 0 }
+let finalFrameDrawn = false
 loading.show(0.12, 'Building the city')
 await nextPaint()
 
 function beginLoading(): void {
   starting = true
+  finalFrameDrawn = false
   dropJobs.value = 0
   setLoading(true)
 }
 
 function finishLoading(now: number): void {
   starting = false
+  finalFrameDrawn = false
   setLoading(false)
   loading.hide()
   startCountingFrames()
+  if (new URLSearchParams(location.search).get('debug') === '1') console.info(`[perf] building during loading: ${buildMsSpent()} ms of script`)
   // The time spent loading is not game time.
   lastTime = now
 }
 
-/** Moves the bar while the scene is being built; starts play once the drop path is ready. */
+/**
+ * Moves the bar while the scene is being built. Once the drop path is ready, one more frame is drawn behind the
+ * loading screen (it uploads everything just built), then play starts.
+ */
 function updateLoading(now: number): void {
-  if (!scene.draw3d) {
+  if (!scene.draw3d || finalFrameDrawn) {
     finishLoading(now)
     return
   }
   const state = sceneReadiness(world, dropJobs)
   loading.show(0.2 + state.share * 0.8, state.step)
-  if (state.ready) finishLoading(now)
+  if (!state.ready) return
+  setLoading(false)
+  finalFrameDrawn = true
 }
 
 // Menus (src/ui): pause, controls, help and settings. While one is open the heist does not step.

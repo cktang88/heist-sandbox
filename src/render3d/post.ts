@@ -75,6 +75,9 @@ const AO_RADIUS = 1.1
 /** Only the building slice gets occlusion; the far skyline and backdrop do not. */
 const AO_DEPTH = { near: 2.5, far: -3.2 }
 const MULTISAMPLES = 4
+/** Ambient occlusion resolution relative to the scene, and its sample counts (occlusion and denoise). */
+const AO_SCALE = 0.5
+const AO_SAMPLES = 8
 
 export type Mood = { timeOfDay: TimeOfDay; alarm: number; slow: number }
 
@@ -154,8 +157,8 @@ export function createPost(renderer: WebGLRenderer, scene: Scene, cameras: Camer
   // the internal buffer is never drawn to, so it is never allocated.
   const ao = new GTAOPass(scene, camera, 1, 1)
   ao.setGBuffer(target.depthTexture ?? undefined)
-  ao.updateGtaoMaterial({ radius: AO_RADIUS, distanceExponent: 1, thickness: 1.2, scale: 2, samples: 12, distanceFallOff: 1 })
-  ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: pixel ? 3 : 6, rings: 2, samples: 12 })
+  ao.updateGtaoMaterial({ radius: AO_RADIUS, distanceExponent: 1, thickness: 1.2, scale: 2, samples: AO_SAMPLES, distanceFallOff: 1 })
+  ao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: pixel ? 3 : 6, rings: 2, samples: AO_SAMPLES })
   ao.blendIntensity = 1
   ao.setSceneClipBox(new Box3(new Vector3(-1e4, -1e4, AO_DEPTH.far), new Vector3(1e4, 1e4, AO_DEPTH.near)))
   composer.addPass(ao)
@@ -179,6 +182,9 @@ export function createPost(renderer: WebGLRenderer, scene: Scene, cameras: Camer
 
   function resizePasses(): void {
     composer.setSize(size.width, size.height)
+    // Occlusion is soft and blurred anyway: worked out at half size (a quarter of the pixels) and blended back at full.
+    // The pixel look's buffer is already small, so it keeps its own size.
+    if (!pixel) ao.setSize(Math.max(1, Math.round(size.width * AO_SCALE)), Math.max(1, Math.round(size.height * AO_SCALE)))
     const bloomScale = level?.bloomScale ?? 1
     // The pixel look's buffer is already small; its bloom runs at full art resolution so glows keep their shape.
     const bloomSize = pixel ? 1 : bloomScale

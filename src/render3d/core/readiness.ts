@@ -18,7 +18,7 @@ export type Readiness = { ready: boolean; step: string; share: number }
  * once the level exists, so the first count seen is the whole.
  */
 export function sceneReadiness(world: World, firstCount: { value: number }): Readiness {
-  if (!gpuReady()) return { ready: false, step: 'Compiling shaders and lighting the sky', share: 0 }
+  if (!gpuReady()) return { ready: false, step: 'Building the city, compiling shaders, lighting the sky', share: 0 }
   const x = world.player.x
   const left = jobsWithin(x - DROP_REACH_X, -Infinity, x + DROP_REACH_X, Infinity)
   firstCount.value = Math.max(firstCount.value, left)

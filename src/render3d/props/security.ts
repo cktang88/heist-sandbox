@@ -276,7 +276,7 @@ const vaultShelves = prop((group) => {
   box(group, matte(0x8a6a44, 0.8), -1.0, 2.04, 0.7, 0.4, 0.55, -1.75)
 })
 
-const WHEEL = once('safeWheel', () => new TorusGeometry(1, 0.08, 8, 24))
+const WHEEL = once('safeWheel', () => new TorusGeometry(1, 0.08, 6, 16))
 
 const safeLarge = prop((group) => {
   const body = photo('paint', 0x34423c, 0.5)

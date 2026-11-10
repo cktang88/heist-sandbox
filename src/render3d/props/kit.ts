@@ -11,8 +11,9 @@ import { SCAN_URL } from '../propbatch/recipe'
 export const BOX = new BoxGeometry(1, 1, 1)
 // Wall materials tint by a per-corner colour, so plain boxes need a white one to show their texture.
 BOX.setAttribute('color', new Float32BufferAttribute(new Float32Array(BOX.attributes.position.count * 3).fill(1), 3))
-export const CYLINDER = new CylinderGeometry(1, 1, 1, 20)
-export const BALL = new SphereGeometry(1, 16, 12)
+// Round parts are a few pixels across at the game's camera distance: a dozen sides read as round there.
+export const CYLINDER = new CylinderGeometry(1, 1, 1, 12)
+export const BALL = new SphereGeometry(1, 10, 7)
 
 /** Metres to tiles. Scanned models are in metres. */
 export const TILES_PER_METRE = 1 / 1.1

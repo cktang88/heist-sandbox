@@ -7,7 +7,9 @@ import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import type { Motion } from '../render/human/pose'
 import { clearBuildJobs, runBuildJobs } from './core/buildQueue'
+import { noteFramePart } from './core/frameProbe'
 import { createGpuProbe } from './core/gpu'
+import { measured } from './core/timing'
 import { createEffects3d } from './fx3d'
 import type { SurfaceMaterials, SurfaceName } from './levelMesh'
 import { Figure, outfitFor, weaponFor } from './people3d'
@@ -20,13 +22,19 @@ import { createGapsLayer } from './gapsLayer'
 import { createGrappleLayer } from './grappleLayer'
 import { createHazardsLayer } from './hazardsLayer'
 import { createSandboxLayer } from './sandboxLayer'
-import { DRAW_DISTANCE, type Layer } from './layer'
+import { DRAW_DISTANCE, type Layer, type LayerFactory } from './layer'
 import { createPropsLayer } from './propsLayer'
 import { createRoomsLayer } from './roomsLayer'
 import { createStructureLayer } from './structureLayer'
 
 /** Everything that moves or can be picked up: people, props, shots and effects. */
-export type Actors = { group: Group; update(world: World, aim: Vec, view: Vec): void; dispose(): void }
+export type Actors = {
+  group: Group
+  /** Sets up the next layer; true once all are set up. Spread over frames, so starting a level never freezes the page for long. */
+  buildNext(): boolean
+  update(world: World, aim: Vec, view: Vec): void
+  dispose(): void
+}
 
 /** People on a staircase are drawn further back, on the stairs behind the walking lane. */
 const STAIR_LANE = -1.5
@@ -42,8 +50,13 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
   const effects = createEffects3d()
   group.add(effects.group, createGpuProbe())
   // Each layer owns one slice of the scene. They are independent, so they can be worked on separately.
-  const layers: Layer[] = [createRoomsLayer, createPropsLayer, createFixturesLayer, createDevicesLayer, createStructureLayer, createHazardsLayer, createSandboxLayer, createGapsLayer, createGrappleLayer].map((create) => create(world, materials))
-  for (const layer of layers) group.add(layer.group)
+  const factories: [string, LayerFactory][] = [
+    ['rooms', createRoomsLayer], ['props', createPropsLayer], ['fixtures', createFixturesLayer], ['devices', createDevicesLayer],
+    ['structure', createStructureLayer], ['hazards', createHazardsLayer], ['sandbox', createSandboxLayer], ['gaps', createGapsLayer],
+    ['grapple', createGrappleLayer],
+  ]
+  // Each layer's set-up and per-frame time is measured, for the `?debug=1` readout (User Timing and the frame probe).
+  const layers: { name: string; layer: Layer }[] = []
 
   const player = new Figure('operative')
   const parachute = buildParachute()
@@ -72,6 +85,15 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
 
   return {
     group,
+    buildNext() {
+      const next = factories[layers.length]
+      if (!next) return true
+      const [name, create] = next
+      const layer = measured(`build layer ${name}`, () => create(world, materials))
+      layers.push({ name: `layer ${name}`, layer })
+      group.add(layer.group)
+      return layers.length === factories.length
+    },
     update(now, aim, view) {
       const near = (x: number, y: number) => Math.abs(x - view.x) < DRAW_DISTANCE && Math.abs(y - view.y) < DRAW_DISTANCE * 0.62
       const hero = now.player
@@ -157,7 +179,11 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
 
       const dt = Math.max(0, now.clock - lastClock)
       effects.update(now, dt)
-      for (const layer of layers) layer.update(now, { dt, view, aim })
+      for (const { name, layer } of layers) {
+        const start = performance.now()
+        layer.update(now, { dt, view, aim })
+        noteFramePart(name, performance.now() - start)
+      }
       runBuildJobs(view)
       lastClock = now.clock
     },

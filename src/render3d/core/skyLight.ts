@@ -38,10 +38,13 @@ export function updateSkyMap(map: SkyMap, grid: Grid, x0: number, y0: number, x1
   const top = Math.max(0, y0)
   const bottom = Math.min(grid.height - 1, y1)
   const open = new Float32Array((right - left + 1) * (bottom - top + 1))
+  const clearAbove = clearSkyRows(grid, left, right)
   for (let y = top; y <= bottom; y += 1) {
     for (let x = left; x <= right; x += 1) {
       const kind = grid.kinds[y * grid.width + x]
-      open[(y - top) * (right - left + 1) + (x - left)] = TRANSMIT[kind] > 0 ? skyVisibility(grid, x, y) * TRANSMIT[kind] : -1
+      // Above every wall within a ray's reach, every ray gets out: no need to trace them.
+      const seen = y < clearAbove[x - left] ? 1 : skyVisibility(grid, x, y)
+      open[(y - top) * (right - left + 1) + (x - left)] = TRANSMIT[kind] > 0 ? seen * TRANSMIT[kind] : -1
     }
   }
   for (let y = top; y <= bottom; y += 1) {
@@ -50,6 +53,29 @@ export function updateSkyMap(map: SkyMap, grid: Grid, x0: number, y0: number, x1
       map.values[y * grid.width + x] = Math.round(255 * (own >= 0 ? own : wallFace(map, grid, open, left, top, right, bottom, x, y)))
     }
   }
+}
+
+/**
+ * For each column from `left` to `right`, the rows above this index see nothing but clear air within `RAY_REACH`
+ * columns to either side (rays only go upward or sideways), so their sky visibility is exactly 1.
+ */
+function clearSkyRows(grid: Grid, left: number, right: number): Int32Array {
+  const firstBlocker = new Int32Array(grid.width).fill(grid.height)
+  for (let x = 0; x < grid.width; x += 1) {
+    for (let y = 0; y < grid.height; y += 1) {
+      if (TRANSMIT[grid.kinds[y * grid.width + x]] < 1) {
+        firstBlocker[x] = y
+        break
+      }
+    }
+  }
+  const rows = new Int32Array(right - left + 1)
+  for (let x = left; x <= right; x += 1) {
+    let lowest = grid.height
+    for (let near = Math.max(0, x - RAY_REACH - 1); near <= Math.min(grid.width - 1, x + RAY_REACH + 1); near += 1) lowest = Math.min(lowest, firstBlocker[near])
+    rows[x - left] = lowest
+  }
+  return rows
 }
 
 /** A solid tile shows the sky light of the air next to it, read from this pass where it was just computed. */

@@ -6,10 +6,13 @@ import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import type { Camera } from '../render/camera'
 import { createActors, type Actors } from './actors'
+import { isLoading } from './core/buildQueue'
+import { holdBackFarChunks } from './core/chunkBudget'
 import { createEnvironment } from './core/environment'
 import { lookFor } from './core/looks'
 import { createQualityController, LADDER, LOW_DETAIL } from './core/quality'
 import { createRenderInfo } from './core/renderInfo'
+import { measured } from './core/timing'
 import { createSkyShading, type SkyShading } from './core/skyShading'
 import { createLevelMesh, FRONT, type LevelMesh } from './levelMesh'
 import { createLights } from './lights'
@@ -66,6 +69,8 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   let grid: Grid | null = null
   let stage: { level: LevelMesh; actors: Actors; group: Group; sky: SkyShading } | null = null
   let warming: Promise<unknown> | null = null
+  let building: Generator<void, void> | null = null
+  let drawnThisLevel = false
   let screen = { width: 1, height: 1 }
   let appliedLevel = -1
   let lastFrame = performance.now()
@@ -115,17 +120,25 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     }
   }
 
-  function buildStage(world: World): void {
+  /**
+   * Sets up a level in steps, one per frame, so the page keeps painting the loading screen between them:
+   * sky shading, level geometry, then each layer, then the shader warm-up.
+   */
+  function* stageSteps(world: World): Generator<void, void> {
     if (stage) {
       scene.remove(stage.group)
       stage.level.dispose()
       stage.actors.dispose()
       stage.sky.dispose()
+      stage = null
     }
     const group = new Group()
-    const sky = createSkyShading(world.grid)
-    const level = createLevelMesh(world.grid, world.interiors, world.groundY, materials)
+    const sky = measured('build sky shading', () => createSkyShading(world.grid))
+    yield
+    const level = measured('build level mesh', () => createLevelMesh(world.grid, world.interiors, world.groundY, materials))
+    yield
     const actors = createActors(world, materials)
+    while (!actors.buildNext()) yield
     group.add(level.group, actors.group, createSky(world.grid.width, world.groundY, world.timeOfDay))
     // The building is drawn cut open, so invisible sheets stand in for its missing front and keep moonlight out.
     const blocker = new MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: DoubleSide })
@@ -137,7 +150,6 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     }
     scene.add(group)
     stage = { level, actors, group, sky }
-    grid = world.grid
 
     const look = lookFor(world.timeOfDay, world.lamps.length)
     environment.apply(look)
@@ -151,7 +163,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     const limit = new Promise((resolve) => setTimeout(resolve, WARM_UP_LIMIT_MS))
     const work = skyReady.then(() => {
       placeCamera(world, world.player)
-      return renderer.compileAsync(scene, cameras.perspective)
+      return measured('compile shaders', () => renderer.compileAsync(scene, cameras.perspective))
     })
     const done = Promise.race([work, limit])
     void done.then(() => {
@@ -169,17 +181,30 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       const now = performance.now()
       applyQuality(quality.frame(now - lastFrame))
       lastFrame = now
-      if (grid !== world.grid || !stage) buildStage(world)
+      if (grid !== world.grid) {
+        grid = world.grid
+        building = stageSteps(world)
+        drawnThisLevel = false
+      }
+      if (building?.next().done === false) return
+      building = null
       if (warming || !stage) return
 
+      // Damaged chunks are re-meshed a few a frame, nearest first, so a big blast never stalls one frame.
+      const later = holdBackFarChunks(world.grid, view)
       stage.sky.markChunks(world.grid.dirtyChunks)
       stage.level.refresh(view)
+      for (const index of later) world.grid.dirtyChunks.add(index)
       stage.actors.update(world, aim, view)
       lights.update(world, view)
       placeCamera(world, view)
       stage.sky.update(cameras.perspective.matrixWorld)
       post.setLook({ timeOfDay: world.timeOfDay, alarm: world.alarm ? 0.5 + 0.5 * Math.sin(now / 260) : 0, slow: 1 - world.time.scale })
 
+      // Behind the loading screen one frame is drawn (it compiles what exists and hands layers the renderer); after
+      // that, frames only build, which is far quicker than building and drawing a scene nobody can see.
+      if (isLoading() && drawnThisLevel) return
+      drawnThisLevel = true
       renderer.info.reset()
       post.render(now / 1000)
       info.publish(now, LADDER[quality.level].scale, quality.level, quality.averageMs)

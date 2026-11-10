@@ -37,4 +37,19 @@ describe('sky visibility', () => {
     updateSkyMap(map, grid, 0, 0, 39, 29)
     expect(map.values[17 * 40 + 20]).toBeGreaterThan(60)
   })
+
+  it('skips tracing in open sky without changing the result', () => {
+    const grid = createGrid(120, 60)
+    fillTiles(grid, 0, 50, 119, 59, 'dirt')
+    fillTiles(grid, 40, 20, 70, 49, 'concrete')
+    fillTiles(grid, 42, 22, 68, 47, 'air')
+    setTile(grid, 90, 35, 'glass')
+    const map = createSkyMap(grid)
+    for (let y = 0; y < 50; y += 1) {
+      for (let x = 0; x < 120; x += 1) {
+        if (grid.kinds[y * 120 + x] !== 0) continue
+        expect(map.values[y * 120 + x]).toBe(Math.round(255 * skyVisibility(grid, x, y)))
+      }
+    }
+  })
 })

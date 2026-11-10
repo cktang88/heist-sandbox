@@ -10,7 +10,7 @@ import { CYLINDER, glow, matte, scanned, type ScanOptions } from './kit'
  */
 
 export const PLANE = new PlaneGeometry(1, 1)
-export const RING = new TorusGeometry(1, 0.12, 8, 24)
+export const RING = new TorusGeometry(1, 0.12, 6, 16)
 /** Six-sided so dumbbell heads and weight plates read as cast iron rather than tubes. */
 export const HEX = new CylinderGeometry(1, 1, 1, 6)
 
