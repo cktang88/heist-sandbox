@@ -10,6 +10,7 @@ import { raiseAlarm, updateGuard } from './guards'
 import { idleInput, type Input } from './input'
 import { interact } from './interact'
 import { GRAVITY, moveBody } from './physics'
+import { emitMovementNoise } from './movement/footsteps'
 import { movePlayer, updateFocus } from './player'
 import { stepProjectiles } from './projectiles'
 import { stepTime } from './time'
@@ -35,6 +36,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
     stepDrone(world, input, dt)
   } else {
     movePlayer(world.grid, world.player, input, dt, world.stairwells)
+    emitMovementNoise(world)
     interact(world, input, dt)
     // While a hacking menu is open, the number keys choose its options and not a weapon.
     useTool(world, terminalConsumesInput(world) ? { ...input, selectTool: null } : input, dt)

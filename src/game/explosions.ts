@@ -1,3 +1,4 @@
+import { hurtPropsInRadius } from './cover'
 import { hurtTile } from './destruction'
 import { burst, flash } from './effects'
 import { hurtGuard } from './guards'
@@ -28,6 +29,8 @@ export function explode(world: World, at: Vec, blast: Blast): void {
       if (gap <= blast.radius) hurtTile(world, tileX, tileY, blast.tileDamage * (1 - (gap / blast.radius) * 0.75))
     }
   }
+
+  hurtPropsInRadius(world, at, blast.radius, blast.bodyDamage)
 
   let killed = 0
   for (const guard of world.guards) {
