@@ -96,6 +96,20 @@ describe('kicking', () => {
     expect(guard.hp).toBeLessThan(guard.maxHp)
   })
 
+  it('a door burst open does not beat a body lying behind it', () => {
+    const world = arena()
+    addWall(world, 15)
+    fillTiles(world.grid, 15, GROUND - 3, 15, GROUND - 1, 'door')
+    const body = addGuard(world, 16.8, -1)
+    knockOutCold(world, body, 1000)
+    putPlayer(world, 14.4)
+    run(world, 0.5)
+    press(world, 'kickPressed', 0.05)
+    expect(tileAt(world.grid, 15, GROUND - 2)).toBe('air')
+    expect(body.hp).toBe(body.maxHp)
+    expect(body.mode).not.toBe('combat')
+  })
+
   it('sends a loose crate skidding', () => {
     const world = arena()
     const crate = addProp(world, 'crate', 12, GROUND)
