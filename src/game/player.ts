@@ -90,6 +90,9 @@ export function createPlayer(start: Vec): Player {
  * hold it while falling to open the chute. Jump at a wall while pushing toward it to catch its top edge and climb up.
  */
 export function movePlayer(grid: Grid, player: Player, input: Input, dt: number, stairwells: readonly Stairwell[] = []): void {
+  // Recoil and spread settle whatever he is doing, on the stairs and in hiding too.
+  player.kick *= Math.exp(-KICK_RECOVERY * dt)
+  player.bloom = Math.max(0, player.bloom - BLOOM_RECOVERY_PER_SECOND * dt)
   if (player.hidden) {
     // Still, but not weightless: if the floor goes from under the hiding place he drops (and is out of it).
     player.vx = 0
@@ -101,8 +104,6 @@ export function movePlayer(grid: Grid, player: Player, input: Input, dt: number,
   const center = centerOf(player)
   const move = (input.right ? 1 : 0) - (input.left ? 1 : 0)
   player.facing = input.aim.x >= center.x ? 1 : -1
-  player.kick *= Math.exp(-KICK_RECOVERY * dt)
-  player.bloom = Math.max(0, player.bloom - BLOOM_RECOVERY_PER_SECOND * dt)
   if (climbLedge(player, input, dt)) return
 
   updatePosture(grid, player, input.crouch, RUN_SPEED, dt)

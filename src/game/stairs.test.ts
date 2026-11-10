@@ -137,3 +137,15 @@ describe('leaving a flight between landings', () => {
     expect(boxHitsSolid(world.grid, world.player)).toBe(false)
   })
 })
+
+describe('shooting on the stairs', () => {
+  it('recoil and spread settle while climbing, as they do on the floor', () => {
+    const body = bareWorld(40, 120)
+    body.stairwells = [well]
+    Object.assign(body.player, { x: 10 - body.player.w / 2, y: 100 - body.player.h, onGround: true, kick: 1, bloom: 0.14 })
+    for (let frame = 0; frame < 60; frame += 1) movePlayer(body.grid, body.player, { ...idleInput({ x: 30, y: 90 }), up: true }, 1 / 60, body.stairwells)
+    expect(body.player.stairs).not.toBeNull()
+    expect(body.player.kick).toBeLessThan(0.01)
+    expect(body.player.bloom).toBe(0)
+  })
+})
