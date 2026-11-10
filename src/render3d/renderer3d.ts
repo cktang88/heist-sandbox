@@ -26,7 +26,12 @@ const MAX_PIXELS = 1920 * 1200
 /** Longest wait for shaders and the sky before drawing a new level anyway. */
 const WARM_UP_LIMIT_MS = 4000
 
-export type Renderer3d = { draw(world: World, camera: Camera, aim: Vec): void; resize(width: number, height: number): void }
+export type Renderer3d = {
+  draw(world: World, camera: Camera, aim: Vec): void
+  resize(width: number, height: number): void
+  /** Switches the art style live, without reloading: rebuilds the post chain; no material shader is recompiled. */
+  setLook(name: StyleName): void
+}
 
 /**
  * `lowDetail` pins the cheapest quality rung (no shadows, occlusion or multisampling, reduced resolution).
@@ -179,6 +184,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       post.render(now / 1000)
       info.publish(now, LADDER[quality.level].scale, quality.level, quality.averageMs)
     },
+    setLook: setStyle,
     resize(width, height) {
       screen = { width, height }
       applySize(LADDER[appliedLevel].scale)
