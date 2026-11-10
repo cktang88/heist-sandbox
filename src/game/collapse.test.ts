@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findUnsupported, stepCollapse } from './collapse'
+import { findUnsupported, slabRows, stepCollapse } from './collapse'
 import { hurtGuard } from './guards'
 import { propBox } from './hazards/props'
 import { addProp } from './hazards/testWorld'
@@ -11,7 +11,7 @@ import { boxHitsSolid } from './physics'
 import { createRagdoll, stepRagdoll } from './ragdoll'
 import { createRng } from './rng'
 import { hurtTile } from './destruction'
-import { explode, ROCKET_BLAST } from './explosions'
+import { C4_BLAST, explode, ROCKET_BLAST } from './explosions'
 import { idleInput } from './input'
 import { createLevel } from './level'
 import { stepWorld } from './step'
@@ -205,15 +205,71 @@ describe('floors held by the back wall', () => {
     expect(world.player.y + world.player.h).toBeCloseTo(room.floorY, 1)
   })
 
-  it('a storey whose slab is cut away for a long stretch on both sides still comes down', () => {
+  it('a storey whose slab is cut away for a long stretch on both sides keeps the piece left between, held from behind', () => {
     const { world, room } = officeFloor()
     const middle = Math.floor(room.x + room.w / 2)
-    // Cut the floor and everything under it far beyond the back wall's reach on both sides of a short piece.
+    // Cut the floor and everything under it far along on both sides of a short piece.
     for (let x = middle - 14; x <= middle + 14; x += 1) {
       const from = Math.abs(x - middle) <= 1 ? room.floorY + 1 : room.floorY
       for (let y = from; y <= room.floorY + 5; y += 1) hurtTile(world, x, y, 1e6)
     }
     settle(world, 0.1)
-    expect(row(world, room.floorY, middle - 1, middle + 1)).toEqual(['air', 'air', 'air'])
+    expect(row(world, room.floorY, middle - 1, middle + 1)).toEqual(['concrete', 'concrete', 'concrete'])
+  })
+})
+
+describe('what a blast leaves standing', () => {
+  const FRAME = 1 / 60
+  type Spot = (x0: number, x1: number, floorY: number) => { x: number; y: number }[]
+  const middle = (x0: number, x1: number) => (x0 + x1) / 2
+  const charges: [string, Spot, typeof C4_BLAST][] = [
+    ['C4 on the floor', (x0, x1, f) => [{ x: middle(x0, x1), y: f - 0.3 }], C4_BLAST],
+    ['C4 on the ceiling', (x0, x1, f) => [{ x: middle(x0, x1), y: f - 4.7 }], C4_BLAST],
+    ['C4 on a side wall', (x0, _x1, f) => [{ x: x0 + 0.3, y: f - 2 }], C4_BLAST],
+    ['C4 on the back wall', (x0, x1, f) => [{ x: middle(x0, x1), y: f - 2 }], C4_BLAST],
+    ['two C4 on the floor', (x0, x1, f) => [{ x: middle(x0, x1) - 5, y: f - 0.3 }, { x: middle(x0, x1) + 5, y: f - 0.3 }], C4_BLAST],
+    ['three C4 in one room', (x0, x1, f) => [{ x: x0 + 2, y: f - 0.3 }, { x: middle(x0, x1), y: f - 4.7 }, { x: x1 - 2, y: f - 0.3 }], C4_BLAST],
+    ['a rocket into the floor', (x0, x1, f) => [{ x: middle(x0, x1), y: f + 0.5 }], ROCKET_BLAST],
+  ]
+  const rooms = {
+    complex: (world: World) => world.rooms.find((room) => room.building === 'tower' && room.storey === 8 && room.w >= 14 && room.kind !== 'stairwell')!,
+    outpost: (world: World) => ({ x: 73, w: 44, floorY: world.groundY - 12 }),
+  }
+
+  for (const site of ['complex', 'outpost'] as const) {
+    it.each(charges)(`on the ${site}, %s takes out only what it destroys: nothing falls`, (_name, spots, blast) => {
+      const world = createWorld(1, site)
+      world.guards = []
+      Object.assign(world.player, { x: 5, y: world.groundY - 2, hp: 1e9 })
+      const room = rooms[site](world)
+      for (const at of spots(room.x, room.x + room.w - 1, room.floorY)) explode(world, at, blast)
+      let fell = 0
+      for (let frame = 0; frame < 120; frame += 1) {
+        stepWorld(world, idleInput(), FRAME)
+        fell += world.falling.length
+      }
+      expect(fell).toBe(0)
+    })
+  }
+
+  it('brings the storeys above down together, and settles, once a whole storey of walls is gone', () => {
+    const world = createWorld(1, 'outpost')
+    world.guards = []
+    Object.assign(world.player, { x: 5, y: world.groundY - 2, hp: 1e9 })
+    const left = 70
+    const right = 118
+    const roof = world.interiors[0].y
+    for (let y = world.groundY - 5; y < world.groundY; y += 1) for (let x = left; x <= right; x += 1) setTile(world.grid, x, y, 'air')
+    world.structureChanged = true
+    stepWorld(world, idleInput(), FRAME)
+    const started = world.falling.length
+    expect(started).toBeGreaterThan(100)
+    // Everything above came loose in the same frame, so it falls as one piece.
+    expect(new Set(world.falling.map((tile) => tile.vy)).size).toBe(1)
+    for (let frame = 0; frame < 240 && world.falling.length > 0; frame += 1) stepWorld(world, idleInput(), FRAME)
+    expect(world.falling).toEqual([])
+    expect(world.structureChanged).toBe(false)
+    expect(findUnsupported(world.grid, slabRows(world))).toEqual([])
+    expect(tileAt(world.grid, Math.floor((left + right) / 2), roof)).toBe('air')
   })
 })
