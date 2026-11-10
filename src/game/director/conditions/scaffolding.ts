@@ -16,7 +16,11 @@ export const scaffolding: ConditionDef = {
   fits: (site) => site === 'complex',
   excludes: [],
   start(world, rng) {
-    const side = rng() < 0.5 ? -1 : 1
+    // The scaffold goes up the face with windows to climb in by (the other may be the blank wall of the lift shaft).
+    const coin = rng() < 0.5 ? -1 : 1
+    const west = glassOnFace(world, -1)
+    const east = glassOnFace(world, 1)
+    const side = west === east ? coin : west > east ? -1 : 1
     const storeys = raiseScaffold(world, side, MIN_STOREYS + Math.floor(rng() * EXTRA_STOREYS))
     const lift = world.elevatorCars.length > 0 ? world.elevatorCars[Math.floor(rng() * world.elevatorCars.length)] : null
     if (lift) lift.locked = true
@@ -24,6 +28,16 @@ export const scaffolding: ConditionDef = {
     const climb = storeys > 0 ? `scaffolding climbs the tower's ${face} face to floor ${storeys}` : 'work crews have left tools about'
     return { id: 'scaffolding', line: `Maintenance: ${climb}${lift ? ', and one lift is out of order' : ''}.` }
   },
+}
+
+/** How many window tiles the tower's outer wall has on one side. */
+function glassOnFace(world: World, side: number): number {
+  const tower = world.rooms.filter((room) => room.building === 'tower' && room.storey >= 0)
+  if (tower.length === 0) return 0
+  const wall = side < 0 ? Math.min(...tower.map((room) => room.x)) - 1 : Math.max(...tower.map((room) => room.x + room.w))
+  let glass = 0
+  for (let y = 0; y < world.groundY; y += 1) if (tileAt(world.grid, wall, y) === 'glass') glass += 1
+  return glass
 }
 
 /** Ladder up the open air beside the tower's outer wall, from the street up to as many storeys as stay clear. */
