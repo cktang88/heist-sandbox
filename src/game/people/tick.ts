@@ -10,7 +10,7 @@ import { say } from './lines'
 import { noteChanges, noteDeeds, tellStories } from './memory'
 import { meetAgain } from './nemesis'
 import { coverForFriends, actOnBonds, watchShield } from './relations'
-import { renameAll } from './rename'
+import { renameBarks, renameRecords } from './rename'
 import type { ActName, PeopleState, Person } from './types'
 
 /**
@@ -36,12 +36,13 @@ export function stepPeople(world: World, dt: number): void {
     people.cursor = (people.cursor + 1) % persons.length
     if (people.active.has(person.guard)) tickPerson(world, people, person)
   }
+  renameBarks(world, people)
   if (world.clock - people.slowAt < TICK) return
   people.slowAt = world.clock
   watchShield(world, people)
   coverForFriends(world, people)
   noteDeeds(world, people)
-  renameAll(world, people)
+  renameRecords(world, people)
 }
 
 /** Keeps the set of guards still in the game, and names anyone new (the response team) as he arrives. */

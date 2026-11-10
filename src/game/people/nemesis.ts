@@ -43,7 +43,7 @@ export function rememberHeist(world: World, before: readonly Remembered[]): Reme
   const heist = Math.max(0, ...before.map((entry) => entry.heist)) + 1
   const site = siteName(world)
   const fresh = people.persons
-    .filter((person) => person.roster && person.guard.mode !== 'dead')
+    .filter((person) => person.roster && person.guard.mode !== 'dead' && world.guards.includes(person.guard))
     .map((person) => ({ person, what: whatHappened(person) }))
     .filter((entry): entry is { person: Person; what: Remembered['what'] } => entry.what !== null)
     .sort((a, b) => WEIGHT[b.what] - WEIGHT[a.what] || a.person.id - b.person.id)
@@ -94,7 +94,8 @@ export function welcomeReturning(world: World, remembered: readonly Remembered[]
 /** Roster guards nearest the case, then officers: where a returning enemy makes the most difference. */
 function stationsThatMatter(world: World, people: PeopleState): Person[] {
   const loot = world.loot
-  const roster = people.persons.filter((person) => person.roster && person.guard.mode !== 'dead')
+  const onSite = new Set(world.guards)
+  const roster = people.persons.filter((person) => person.roster && person.guard.mode !== 'dead' && onSite.has(person.guard))
   return roster.sort((a, b) => distance(centerOf(a.guard), loot) - distance(centerOf(b.guard), loot))
 }
 

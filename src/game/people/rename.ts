@@ -6,19 +6,24 @@ import type { PeopleState, Person } from './types'
 /**
  * Until the radio and bark code ask the people layer for names, they call guards "Unit 7" or by a short fallback
  * list. This puts the real names in afterwards: in the radio log, in fresh barks, and in clue origins. Only roster
- * people are renamed (late arrivals already go by the fallback name). Runs a few times a second, on little text.
+ * people are renamed (late arrivals already go by the fallback name). Little text is touched each time.
  */
 
 const UNIT = /\bUnit (\d+)\b/g
 
-export function renameAll(world: World, people: PeopleState): void {
-  const log = world.security.log
-  for (let i = 0; i < log.length; i += 1) if (log[i].includes('Unit ')) log[i] = renameUnits(world, people, log[i])
+/** New barks, every frame, so a fallback name is never on screen. */
+export function renameBarks(world: World, people: PeopleState): void {
   for (const line of world.security.barks) {
     if (renamed.has(line)) continue
     renamed.add(line)
     line.text = renameFallbacks(world, people, renameUnits(world, people, line.text), line)
   }
+}
+
+/** The radio log and clue origins, a few times a second. */
+export function renameRecords(world: World, people: PeopleState): void {
+  const log = world.security.log
+  for (let i = 0; i < log.length; i += 1) if (log[i].includes('Unit ')) log[i] = renameUnits(world, people, log[i])
   for (const clue of world.intel.clues) {
     const index = /^guard:(\d+)$/.exec(clue.sourceKey)
     const person = index ? rosterAt(world, people, Number(index[1])) : null
