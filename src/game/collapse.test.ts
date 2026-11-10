@@ -3,6 +3,7 @@ import { findUnsupported, stepCollapse } from './collapse'
 import { hurtGuard } from './guards'
 import { propBox } from './hazards/props'
 import { addProp } from './hazards/testWorld'
+import { loosen } from './physprops/state'
 import { boxHitsSolid } from './physics'
 import { createRagdoll, stepRagdoll } from './ragdoll'
 import { createRng } from './rng'
@@ -87,10 +88,15 @@ describe('collapse', () => {
     fillTiles(world.grid, 0, 10, 9, 11, 'bedrock')
     Object.assign(world.player, { x: 1, y: 10 - world.player.h - 0.001, hp: 1e6 })
     const desk = addProp(world, 'desk', 5, 10)
-    for (let x = 4; x <= 6; x += 1) world.falling.push({ x, y: 3, vy: 0, kind: 'concrete' })
+    // An extinguisher thrown off its wall, lying on the floor: a wall prop, but loose now.
+    const extinguisher = addProp(world, 'fireExtinguisher', 8, 9.2)
+    loosen(world, extinguisher)
+    for (let x = 4; x <= 8; x += 1) world.falling.push({ x, y: 3, vy: 0, kind: 'concrete' })
     for (let frame = 0; frame < 90; frame += 1) stepCollapse(world, 1 / 60)
-    const box = propBox(desk)
-    expect(boxHitsSolid(world.grid, { x: box.x + 0.05, y: box.y + 0.05, w: box.w - 0.1, h: box.h - 0.1 })).toBe(false)
+    for (const prop of [desk, extinguisher]) {
+      const box = propBox(prop)
+      expect(boxHitsSolid(world.grid, { x: box.x + 0.05, y: box.y + 0.05, w: box.w - 0.1, h: box.h - 0.1 })).toBe(false)
+    }
   })
 
   it('keeps a duct hanging from the slab above when the door it rests on is opened, and drops it when the slab goes', () => {

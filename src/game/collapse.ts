@@ -177,14 +177,16 @@ function shatter(world: World, tile: FallingTile): boolean {
 function occupied(world: World, cell: Rect): boolean {
   if (touches(cell, world.player) || (!world.loot.taken && touches(cell, world.loot))) return true
   if (world.pickups.some((pickup) => !pickup.taken && touches(cell, pickup))) return true
-  if (propsAt(world, cell.x, cell.y).some((id) => standsIn(propById(world, id), cell))) return true
+  if (propsAt(world, cell.x, cell.y).some((id) => standsIn(world, propById(world, id), cell))) return true
   return world.guards.some((guard) => guard.ragdoll
     ? guard.ragdoll.points.some((point) => point.x >= cell.x && point.x < cell.x + 1 && point.y >= cell.y && point.y < cell.y + 1)
     : touches(cell, guard))
 }
 
-function standsIn(prop: PropState | undefined, cell: Rect): boolean {
-  return !!prop && !prop.broken && propSpec(prop.kind).mount === 'floor' && touches(cell, propBox(prop))
+/** Floor furniture, or anything the player has knocked loose (an extinguisher thrown off its wall), in the cell. */
+function standsIn(world: World, prop: PropState | undefined, cell: Rect): boolean {
+  if (!prop || prop.broken || !touches(cell, propBox(prop))) return false
+  return propSpec(prop.kind).mount === 'floor' || world.physProps.loose.has(prop.id)
 }
 
 function touches(a: Rect, b: Rect): boolean {
