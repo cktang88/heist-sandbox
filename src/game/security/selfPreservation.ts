@@ -15,8 +15,8 @@ import { NERVE, PATROL, UNDER_FIRE } from './tuning'
  * out of the line of fire when he is right there, and never stopping in a doorway during a fight.
  */
 
-const DIVE_LIFT = 4
-const DIVE_DRAG = 2
+const DIVE_LIFT = 5
+const DIVE_DRAG = 3
 const GRENADE_FLOOR = 2.5
 const DRAG_STEP = 3
 const DRAG_HOLD = 0.9
@@ -51,7 +51,7 @@ export function stepDive(world: World, guard: Guard, dt: number): void {
   guard.diveSeconds = Math.max(0, guard.diveSeconds - dt)
   guard.crouching = true
   guard.vy += GRAVITY * dt
-  if (guard.onGround) guard.vx *= Math.max(0, 1 - DIVE_DRAG * dt * 4)
+  if (guard.onGround) guard.vx *= Math.max(0, 1 - DIVE_DRAG * dt)
   moveBody(world.grid, guard, dt)
   if (guard.diveSeconds === 0) guard.vx = 0
 }
@@ -93,7 +93,8 @@ export function beingDragged(world: World, guard: Guard, dt: number): boolean {
     guard.draggedBy = null
     return false
   }
-  const spot = feetOf(rescuer).x + rescuer.facing * DRAG_HOLD
+  const side = Math.sign(feetOf(guard).x - feetOf(rescuer).x) || rescuer.facing
+  const spot = feetOf(rescuer).x + side * DRAG_HOLD
   guard.crouching = true
   guard.vx = Math.max(-PATROL.hurrySpeed, Math.min(PATROL.hurrySpeed, (spot - feetOf(guard).x) * 8))
   guard.vy += GRAVITY * dt

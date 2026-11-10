@@ -234,7 +234,7 @@ export const UNDER_FIRE = {
   blindCooldownMin: 0.35,
   blindCooldownMax: 0.8,
   /** Blind fire goes at a last known position no older than this. */
-  blindFreshSeconds: 5,
+  blindFreshSeconds: 8,
   reloadSeconds: 2.2,
   /** A live grenade or charge this close makes him dive. */
   diveRange: 3.6,

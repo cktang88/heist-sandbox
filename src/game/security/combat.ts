@@ -265,7 +265,7 @@ function bound(world: World, guard: Guard, wasBounding: boolean): boolean {
   }
   if (!wasBounding) {
     guard.boundSince = world.clock
-    if (world.guards.some(near)) barkLine(world, guard, 'moving')
+    if (world.guards.some(near)) barkLine(world, guard, 'moving', true)
   }
   guard.bounding = true
   return true
