@@ -38,6 +38,8 @@ function callText(world: World, event: SecurityEvent): string {
       return event.loud ? `Control, shots fired, ${floorName(world, event.at)}.` : `Control, heard something on ${floorName(world, event.at)}.`
     case 'fault':
       return `Control, lights are out on ${floorName(world, event.at)}.`
+    case 'fire':
+      return `Control, fire on ${floorName(world, event.at)}!`
     default:
       return 'Control, come in.'
   }

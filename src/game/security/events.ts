@@ -16,6 +16,8 @@ export type SecurityEvent =
   | { kind: 'alarmButton'; at: Vec }
   | { kind: 'commsDown'; at: Vec }
   | { kind: 'fault'; at: Vec; what: 'lights' }
+  /** A fire seen by a guard (`alarm` false) or the fire alarm rung by a sprinkler opening (`alarm` true). */
+  | { kind: 'fire'; at: Vec; alarm: boolean }
 
 /** A line a guard says out loud, shown above them for a moment. Barks explain what the guards are about to do. */
 export type Bark = Vec & { text: string; life: number }
