@@ -9,7 +9,9 @@ export type StealthRating = { name: 'GHOST' | 'SILENT' | 'LOUD'; line: string }
 export function stealthRating(world: World): StealthRating {
   const stats = world.stats
   if (stats.alarms > 0 || world.alarm) return { name: 'LOUD', line: 'the whole block heard you' }
-  if (stats.timesSpotted === 0 && bodiesFound(world) === 0 && stats.kills === 0) return { name: 'GHOST', line: 'never seen, nobody dead, nothing found' }
+  // Nobody dead means nobody, however he died: shot, kicked off a roof, caught in a blast or a fire.
+  const dead = world.guards.some((guard) => guard.mode === 'dead')
+  if (stats.timesSpotted === 0 && bodiesFound(world) === 0 && !dead) return { name: 'GHOST', line: 'never seen, nobody dead, nothing found' }
   return { name: 'SILENT', line: 'the alarm never rang' }
 }
 

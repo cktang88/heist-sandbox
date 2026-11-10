@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { hurtGuard } from '../guards'
 import { addProp } from '../hazards/testWorld'
 import { addGuard, addLamp, arena, GROUND, putPlayer, run } from '../security/testArena'
 import { stealthCues } from './cues'
@@ -55,5 +56,13 @@ describe('the end-of-heist rating', () => {
     world.stealth.found.add(world.guards.indexOf(victim))
     world.stats.bodiesFound = 1
     expect(stealthRating(world).name).toBe('GHOST')
+  })
+
+  it('is not Ghost once anyone is dead, even by a fall or a fire rather than a bullet', () => {
+    const world = arena()
+    const guard = addGuard(world, 30, 1)
+    hurtGuard(world, guard, 1000, { x: 30, y: GROUND }, 'hazard')
+    expect(world.stats.kills).toBe(0)
+    expect(stealthRating(world).name).toBe('SILENT')
   })
 })
