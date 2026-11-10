@@ -1,7 +1,8 @@
-import { DirectionalLight, Group, HemisphereLight, Object3D, PointLight, SpotLight } from 'three'
+import { AdditiveBlending, BufferGeometry, CanvasTexture, ConeGeometry, Float32BufferAttribute, DirectionalLight, DoubleSide, Group, HemisphereLight, Mesh, MeshBasicMaterial, Object3D, PointLight, SpotLight } from 'three'
 import type { Lamp } from '../game/level'
 import { isSolidAt } from '../game/tiles'
 import { centerOf, type Vec } from '../game/types'
+import { visionCone } from '../render/cone'
 import type { World } from '../game/world'
 
 /**
@@ -12,6 +13,8 @@ const LAMP_LIGHTS = 9
 const SHADOWED_LAMPS = 3
 const TORCH_LIGHTS = 3
 const FLASH_LIGHTS = 4
+/** Sight beams are cheap, so every guard near the view gets one even if it has no real torch light. */
+const SIGHT_BEAMS = 10
 
 const LAMP_COLORS = { warm: 0xffd9a8, cold: 0xcfe0ff, green: 0x9fe6ad } as const
 const MOON_COLOR = 0x9fb8ff
@@ -38,6 +41,50 @@ function spot(color: number, angle: number, distance: number, shadowSize: number
   return light
 }
 
+/** A faint see-through cone that makes a light's beam visible, as if the air were a little dusty. */
+function createBeam(color: number, length: number, spread: number, strength: number): Mesh {
+  const canvas = document.createElement('canvas')
+  canvas.width = 4
+  canvas.height = 64
+  const c = canvas.getContext('2d')!
+  const fade = c.createLinearGradient(0, 0, 0, 64)
+  fade.addColorStop(0, 'rgba(255,255,255,1)')
+  fade.addColorStop(1, 'rgba(255,255,255,0)')
+  c.fillStyle = fade
+  c.fillRect(0, 0, 4, 64)
+  const cone = new ConeGeometry(Math.tan(spread) * length, length, 28, 1, true)
+  // Move the tip to the origin, so the beam can simply be placed at the light.
+  cone.translate(0, -length / 2, 0)
+  const beam = new Mesh(cone, new MeshBasicMaterial({
+    map: new CanvasTexture(canvas), color, transparent: true, opacity: strength, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false,
+  }))
+  beam.visible = false
+  return beam
+}
+
+const CONE_POINTS = 14
+
+/**
+ * A guard's torch beam as a flat glowing fan. It uses the same wall-clipped outline as the guard's sight,
+ * so what looks lit is exactly what the guard can see.
+ */
+function createSightBeam(): Mesh {
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new Float32BufferAttribute(new Float32Array(CONE_POINTS * 3), 3))
+  const colors = new Float32Array(CONE_POINTS * 3)
+  colors.fill(1, 0, 3)
+  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3))
+  const fan: number[] = []
+  for (let index = 1; index < CONE_POINTS - 1; index += 1) fan.push(0, index, index + 1)
+  geometry.setIndex(fan)
+  const beam = new Mesh(geometry, new MeshBasicMaterial({
+    color: TORCH_COLOR, vertexColors: true, transparent: true, opacity: 0.2, blending: AdditiveBlending, depthWrite: false, side: DoubleSide, fog: false,
+  }))
+  beam.frustumCulled = false
+  beam.visible = false
+  return beam
+}
+
 export function createLights(): LightRig {
   const group = new Group()
 
@@ -61,7 +108,10 @@ export function createLights(): LightRig {
   const torches = Array.from({ length: TORCH_LIGHTS }, () => spot(TORCH_COLOR, 0.5, 16, 0))
   const flashes = Array.from({ length: FLASH_LIGHTS }, () => new PointLight(FLASH_COLOR, 0, 16, 1.6))
   const playerFill = new PointLight(0xa8c4ff, 2.2, 6, 1.8)
+  const lampBeams = lamps.map(() => createBeam(0xffe2b8, 5.2, 0.62, 0.05))
+  const torchBeams = Array.from({ length: SIGHT_BEAMS }, () => createSightBeam())
   for (const light of [...lamps, ...torches]) group.add(light, light.target)
+  group.add(...lampBeams, ...torchBeams)
   group.add(...flashes, playerFill)
 
   const aim = (light: SpotLight, target: Object3D, x: number, y: number, z: number) => {
@@ -82,7 +132,10 @@ export function createLights(): LightRig {
       const lit = world.lamps.filter((lamp) => lampIsLit(world, lamp)).sort((a, b) => near(a) - near(b))
       lamps.forEach((light, index) => {
         const lamp = lit[index]
+        lampBeams[index].visible = Boolean(lamp) && near(lamp) <= 40
         if (!lamp || near(lamp) > 40) return void (light.intensity = 0)
+        lampBeams[index].position.set(lamp.x, -lamp.y - 0.2, -0.6)
+        ;(lampBeams[index].material as MeshBasicMaterial).color.setHex(LAMP_COLORS[lamp.color])
         light.color.setHex(LAMP_COLORS[lamp.color])
         light.intensity = lamp.hung ? 9 : 22
         light.position.set(lamp.x, -lamp.y - 0.25, -0.5)
@@ -99,6 +152,16 @@ export function createLights(): LightRig {
         light.color.setHex(guard.state === 'alert' ? 0xffd0b0 : TORCH_COLOR)
         light.position.set(eye.x, -eye.y, 0.5)
         aim(light, light.target, eye.x + guard.facing * 8, -eye.y - 1.2, -0.3)
+      })
+
+      torchBeams.forEach((beam, index) => {
+        const guard = awake[index]
+        beam.visible = Boolean(guard) && near(guard) <= 40
+        if (!beam.visible) return
+        const outline = beam.geometry.getAttribute('position')
+        visionCone(world, guard).forEach((corner, at) => outline.setXYZ(at, corner.x, -corner.y, 0.12))
+        outline.needsUpdate = true
+        ;(beam.material as MeshBasicMaterial).color.setHex(guard.state === 'alert' ? 0xff6a50 : guard.state === 'suspicious' ? 0xffd23f : TORCH_COLOR)
       })
 
       const bursts = world.effects.flashes.filter((flash) => flash.kind !== 'noise').sort((a, b) => b.radius - a.radius)

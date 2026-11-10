@@ -1,22 +1,15 @@
 import type { World } from '../game/world'
 import type { Camera } from './camera'
-import { tracePolygon, visionCone } from './cone'
 import { drawGuardMarks, drawSignals } from './drawActors'
 
-const CONE_TINT = { patrol: 'rgba(255,255,255,0.035)', suspicious: 'rgba(255,210,63,0.09)', alert: 'rgba(255,45,61,0.1)' } as const
-
 /**
- * Flat markers drawn over the 3D scene, in world units: what each guard can see,
- * their "!" and "?" marks, sound ripples, lockpick progress and the extraction label.
+ * Flat markers drawn over the 3D scene, in world units: guards' "!" and "?" marks and awareness bars, sound ripples, lockpick progress and the extraction label.
  */
 export function drawOverlay(context: CanvasRenderingContext2D, world: World, camera: Camera): void {
   context.setTransform(camera.scale, 0, 0, camera.scale, camera.width / 2 - camera.x * camera.scale, camera.height / 2 - camera.y * camera.scale)
 
   for (const guard of world.guards) {
     if (guard.state === 'dead') continue
-    tracePolygon(context, visionCone(world, guard))
-    context.fillStyle = CONE_TINT[guard.state]
-    context.fill()
     if (guard.awareness > 0.05 && guard.state !== 'alert') {
       const x = guard.x + guard.w / 2
       context.fillStyle = 'rgba(0,0,0,0.6)'
