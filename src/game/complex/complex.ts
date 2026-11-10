@@ -1,6 +1,6 @@
 import { createRng, randomInt } from '../rng'
 import { LIGHT, roomAt, type Level, type Room, type RoomKind } from '../site'
-import { createGrid, setTile } from '../tiles'
+import { createGrid, setTile, tileAt } from '../tiles'
 import { furnishSite } from '../furnish/furnish'
 import { buildBlock } from './block'
 import { addDucts } from './ducts'
@@ -223,22 +223,48 @@ function outdoorAreas(site: SiteDraft, storeys: number): void {
   site.guards.push({ x: 190, y: ground, facing: -1, role: 'patrol', route: [{ x: 188, y: ground }, { x: 236, y: ground }] })
 }
 
-/** Turns one suitable room into the steel-walled vault that holds the loot. */
+/** The walls of a room that open onto a neighbouring room on the same floor (not the outer wall, a shaft or a void). */
+function innerWalls(site: SiteDraft, room: Room): number[] {
+  return [room.x - 1, room.x + room.w].filter((wall) => {
+    const beyond = roomAt(site.rooms, wall + (wall < room.x ? -0.5 : 1.5), room.floorY - 0.5)
+    return beyond !== undefined && beyond.floorY === room.floorY && beyond.building === room.building
+  })
+}
+
+/** An elevator opens straight into this room: no place for a vault. */
+function besideShaft(site: SiteDraft, room: Room): boolean {
+  return site.elevators.some((shaft) => shaft.stops.includes(room.floorY) && (shaft.doorSide === 1 ? shaft.x + shaft.w === room.x - 1 : shaft.x - 1 === room.x + room.w))
+}
+
+/** Sets steel over a block of tiles, leaving the indestructible frame (slab ends, beams, shaft walls) as it is. */
+function armour(site: SiteDraft, x0: number, y0: number, x1: number, y1: number): void {
+  for (let y = y0; y <= y1; y += 1) {
+    for (let x = x0; x <= x1; x += 1) if (tileAt(site.grid, x, y) !== 'reinforced') setTile(site.grid, x, y, 'steel')
+  }
+}
+
+/**
+ * Turns one suitable room into the steel-walled vault that holds the loot. A keypad door is set in each wall
+ * that has a room beyond it; an outer wall or shaft wall stays a wall.
+ */
 function placeVault(site: SiteDraft): Room {
   const candidates = site.rooms.filter((room) => room.building === 'tower' && room.h === ROOM_HEIGHT && room.w >= 10 && room.w <= 22
-    && (room.storey === -3 || room.storey >= 14) && room.kind !== 'stairwell' && room.kind !== 'rooftop')
+    && (room.storey === -3 || room.storey >= 14) && room.kind !== 'stairwell' && room.kind !== 'rooftop' && innerWalls(site, room).length > 0
+    && !besideShaft(site, room))
   const room = pick(site.rng, candidates)
+  const doors = innerWalls(site, room)
   room.kind = 'vault'
   room.security = 3
   const [left, right] = [room.x - 1, room.x + room.w]
-  for (const wall of [left, right]) {
-    fill(site, wall, room.y, wall, room.floorY - 1, 'steel')
+  // Whatever the room held before it became the vault (its terminal, camera, guard) goes with its old use.
+  site.devices = site.devices.filter((device) => device.roomId !== room.id)
+  for (const wall of [left, right]) armour(site, wall, room.y, wall, room.floorY - 1)
+  for (const wall of doors) {
     fill(site, wall, room.floorY - 3, wall, room.floorY - 1, 'door')
     site.devices.push({ kind: 'keypad', x: wall + (wall === left ? -1 : 1), y: room.floorY - 2, roomId: room.id, target: { x: wall, y: room.floorY - 1 } })
   }
-  fill(site, left, room.y - 1, right, room.y - 1, 'steel')
-  fill(site, left, room.floorY, right, room.floorY, 'steel')
-  // Whoever was posted in the room before it became the vault is replaced by the vault's own guard.
+  armour(site, left, room.y - 1, right, room.y - 1)
+  armour(site, left, room.floorY, right, room.floorY)
   site.guards = site.guards.filter((guard) => guard.roomId !== room.id)
   site.guards.push({ x: room.x + 2, y: room.floorY, facing: 1, role: 'heavy', roomId: room.id })
   site.devices.push({ kind: 'camera', x: room.x + 1, y: room.floorY - 4, roomId: room.id, facing: 1 })
