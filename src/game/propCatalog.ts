@@ -153,7 +153,7 @@ export const PROP_CATALOG = {
   sandbags: spec('security', 2.4, 1.1, 'low', 'floor', false, 400),
   barricade: spec('security', 2, 1.2, 'low', 'floor', false, 250),
   metalDetector: spec('security', 1.2, 2.5, 'none', 'floor', false, 60),
-  cellBars: spec('security', 0.3, 4, 'none', 'floor', false, 400),
+  cellBars: spec('security', 2.4, 4, 'none', 'floor', false, 400),
   cellBench: spec('security', 2.2, 0.6, 'none', 'floor', false, INF),
   depositBoxes: spec('security', 3, 2.8, 'none', 'wall', false, INF),
   vaultShelves: spec('security', 2.4, 2.6, 'high', 'floor', false, INF),
