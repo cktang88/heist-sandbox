@@ -1,7 +1,7 @@
 import type { World } from '../world'
 import { expireBarks } from './barks'
 import { shotAt } from './brain'
-import { noticeShotLamps, watchCameraFeeds } from './discoveries'
+import { indexDoors, noticeShotLamps, watchCameraFeeds } from './discoveries'
 import { watchIncomingFire } from './nerve'
 import { stepCameras } from './cameras'
 import { noticeDeadCircuits, stepCheckIns, watchRelays } from './checkins'
@@ -28,6 +28,7 @@ const LOCKDOWN_CONTACT = 30
 
 export function stepSecurity(world: World, dt: number): void {
   const security = world.security
+  indexDoors(world)
   expireBarks(world, dt)
   // Something else (a tripped sensor, an old code path) rang the alarm: that is a confirmed intruder.
   if (world.alarm && security.level < 3) raiseLevel(world, 3)

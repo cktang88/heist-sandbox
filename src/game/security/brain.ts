@@ -9,7 +9,7 @@ import { restoreCircuit } from '../devices/power'
 import { blindBehaviour, combatBehaviour, enterCombat } from './combat'
 import { alreadyCalling, progressRadio, shout, startRadio } from './comms'
 import { escapeHazard, markFireReported, spotFire } from './danger'
-import { lookForTrouble, smokeGrenadeNear } from './discoveries'
+import { lookForTrouble } from './discoveries'
 import { holdsBack, panicBehaviour, surrenderedBehaviour } from './fear'
 import { noiseKind, type NoiseSource } from './hearing'
 import { eyeOf, feetOf, isActive, setMode, type Guard, type GuardMode, type InterestKind } from './model'
@@ -155,7 +155,7 @@ function noticeTrouble(world: World, guard: Guard): void {
   const found = lookForTrouble(world, guard)
   if (!found || !wouldNotice(guard, found.priority)) return
   noticeSomething(guard, found.at, found.kind, found.priority)
-  if (guard.interest) guard.interest.tamper = found.tamper
+  if (guard.interest) Object.assign(guard.interest, { tamper: found.tamper, canister: found.canister })
   barkLine(world, guard, found.line, true)
   // That was his line for it: no second "Huh?" for the same thing.
   guard.announced = guard.mode
@@ -355,7 +355,7 @@ function conclude(world: World, guard: Guard, at: Vec): void {
   else if (kind === 'tamper') {
     startRadio(world, guard, { kind: 'tamper', at, what: interest?.tamper ?? 'door' })
     startSearch(world, guard, at, TIMING.searchSeconds / 2)
-  } else if (kind === 'smoke' && smokeGrenadeNear(world, at)) {
+  } else if (kind === 'smoke' && interest?.canister) {
     barkLine(world, guard, 'smokeGrenade', true)
     startRadio(world, guard, { kind: 'noise', at, loud: false })
     startSearch(world, guard, at, TIMING.searchSeconds / 2)

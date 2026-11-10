@@ -22,7 +22,7 @@ import { DISCOVERY } from './tuning'
  */
 
 /** What a guard found: where to go and look, what to say, and anything worth radioing in at once. */
-export type Finding = { at: Vec; kind: InterestKind; priority: number; line: LineKind; tamper?: Tamper; report?: SecurityEvent }
+export type Finding = { at: Vec; kind: InterestKind; priority: number; line: LineKind; tamper?: Tamper; canister?: boolean; report?: SecurityEvent }
 
 const CHUTE_REPORT_AGAIN = 30
 const CHUTE_BEHIND = 2
@@ -54,6 +54,11 @@ function doorsByRow(grid: Grid): Map<number, number[]> {
   }
   doorIndexes.set(grid, index)
   return index
+}
+
+/** Takes note of the doors as the site was built, before anyone can open one. Called every frame; only the first call does any work. */
+export function indexDoors(world: World): void {
+  doorsByRow(world.grid)
 }
 
 /** The key of the door with a tile at this spot: its column and bottom row. */
@@ -97,13 +102,13 @@ function smokeAhead(world: World, guard: Guard): Finding | null {
     const reportedAt = world.security.firesReported.get(room)
     if (reportedAt !== undefined && world.clock - reportedAt < 60) return null
     markFireReported(world, { x: at.x, y: floorBelow(world, at).y - 1 })
-    return { at: floorBelow(world, at), kind: 'smoke', priority: 3, line: 'seeFire' }
+    return { at: floorBelow(world, at), kind: 'smoke', priority: 3, line: 'seeFire', canister: smokeGrenadeNear(world, at) }
   }
   return null
 }
 
 /** Is a smoke grenade's screen what he is looking at (rather than smoke from a fire)? */
-export function smokeGrenadeNear(world: World, at: Vec): boolean {
+function smokeGrenadeNear(world: World, at: Vec): boolean {
   return world.hazards.grenades.some((grenade) => grenade.kind === 'smoke' && grenade.popped && distance(centerOf(grenade), at) < DISCOVERY.smokeSight + 3)
 }
 
