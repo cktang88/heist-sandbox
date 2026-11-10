@@ -57,7 +57,6 @@ export function stepIdle(world: World, people: PeopleState, person: Person): voi
     else if (guard.role === 'patrol' && guard.wait <= 0) person.act = null
     return
   }
-  if (person.traits.includes('byTheBook') && people.rng() < 0.7) return
   if (startChat(world, people, person)) return
   if (world.clock < person.nextActAt || !idleOk(world, guard)) return
   const effect = effectOf(person.traits, world.clock)
@@ -141,7 +140,8 @@ function startChat(world: World, people: PeopleState, person: Person): boolean {
     }
     // Walk over, now and then, if nothing is in the way.
     const keen = person.traits.includes('chatty') ? 2 : 1
-    if (guard.role !== 'patrol' || guard.wait <= 1 || guard.detour || world.clock < person.nextChatAt || people.rng() > WANDER_ODDS * keen) continue
+    // A by-the-book man never leaves his route to socialise.
+    if (guard.role !== 'patrol' || person.traits.includes('byTheBook') || guard.wait <= 1 || guard.detour || world.clock < person.nextChatAt || people.rng() > WANDER_ODDS * keen) continue
     if (!hasLineOfSight(world.grid, { x: mine.x, y: mine.y - 1 }, { x: theirs.x, y: theirs.y - 1 })) continue
     guard.detour = { x: theirs.x + (mine.x < theirs.x ? -1.2 : 1.2), y: theirs.y }
     guard.wait = 0

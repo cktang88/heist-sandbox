@@ -11,10 +11,12 @@ import type { PeopleState, Person, TraitId } from './types'
  */
 
 const BROTHER_ODDS = 0.04
+/** Mixed into the seed so the people layer draws from its own random stream, never the simulation's. */
+const SALT = 24326
 
 /** Identities for every guard on the site as built. Pure: the same seed gives the same people. */
 export function createPeople(world: World, seed: number): PeopleState {
-  const rng = createRng((seed * 2654435761) ^ 0x5eed)
+  const rng = createRng((seed * 2654435761) ^ SALT)
   const pool = namePool(rng)
   const people = blankState(rng, pool)
   for (const guard of world.guards) {
