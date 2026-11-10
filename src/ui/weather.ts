@@ -14,6 +14,12 @@ const RAIN_INSIDE = 0.25
 
 export type Weather = { update(world: World): void }
 
+/** How much of the rain overlay shows: full outside, faint in a room (rain on the windows), none underground. */
+export function rainShare(raining: boolean, outdoors: boolean, underground: boolean): number {
+  if (!raining || underground) return 0
+  return outdoors ? RAIN_OUTSIDE : RAIN_INSIDE
+}
+
 export function createWeather(): Weather {
   const rain = h('div', { class: 'sg-rain' })
   const flash = h('div', { class: 'sg-lightning' })
@@ -23,7 +29,7 @@ export function createWeather(): Weather {
   return {
     update(world) {
       const feet = { x: world.player.x + world.player.w / 2, y: world.player.y + world.player.h }
-      const wet = world.director.masking.outdoors > 0 ? (isOutdoors(world, feet) ? RAIN_OUTSIDE : RAIN_INSIDE) : 0
+      const wet = rainShare(world.director.masking.outdoors > 0, isOutdoors(world, feet), feet.y > world.groundY)
       const since = world.clock - world.director.lightningAt
       const bright = since >= 0 && since < FLASH_SECONDS ? 0.55 * (1 - since / FLASH_SECONDS) * (since < 0.08 || since > 0.16 ? 1 : 0.35) : 0
       const rainText = wet.toFixed(2)
