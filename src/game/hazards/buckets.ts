@@ -50,14 +50,29 @@ export function currentBuckets(buckets: PropBuckets | null, props: readonly Prop
     }
     // A different list altogether: start again.
     if (slot.id !== prop.id) return build(props, keysOf)
-    const keys = keysNow(prop, keysOf)
-    if (sameKeys(keys, slot.keys)) continue
-    for (const key of slot.keys) unfile(buckets.byKey, key, prop.id)
-    slot.keys = Array.from(keys.values.subarray(0, keys.count))
-    for (const key of slot.keys) fileSorted(buckets.byKey, key, prop.id)
+    refileSlot(buckets, slot, prop, keysOf)
   }
   buckets.props = props
   return buckets
+}
+
+/**
+ * Brings one prop up to date after it moved within the list the buckets were built for, so a single prop landing
+ * somewhere new does not mean asking every prop where it is.
+ */
+export function refile(buckets: PropBuckets, prop: PropState, keysOf: KeysOf): void {
+  const { props } = buckets
+  const position = props[prop.id] === prop ? prop.id : props.indexOf(prop)
+  const slot = buckets.slots[position]
+  if (slot && slot.id === prop.id) refileSlot(buckets, slot, prop, keysOf)
+}
+
+function refileSlot(buckets: PropBuckets, slot: { id: number; keys: number[] }, prop: PropState, keysOf: KeysOf): void {
+  const keys = keysNow(prop, keysOf)
+  if (sameKeys(keys, slot.keys)) return
+  for (const key of slot.keys) unfile(buckets.byKey, key, prop.id)
+  slot.keys = Array.from(keys.values.subarray(0, keys.count))
+  for (const key of slot.keys) fileSorted(buckets.byKey, key, prop.id)
 }
 
 function build(props: readonly PropState[], keysOf: KeysOf): PropBuckets {

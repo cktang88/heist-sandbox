@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createProps, type PropState } from '../cover'
-import { addKey, currentBuckets, type KeysOf } from './buckets'
+import { addKey, currentBuckets, refile, type KeysOf } from './buckets'
 
 const byColumn: KeysOf = (prop, keys) => {
   addKey(keys, Math.floor(prop.x / 4))
@@ -26,6 +26,15 @@ describe('prop buckets', () => {
     expect(snapshot(updated.byKey)).toEqual(snapshot(currentBuckets(null, moved, byColumn).byKey))
     expect(updated.byKey.get(3)).toEqual([0])
     expect(updated.byKey.get(0)).toEqual([3])
+  })
+
+  it('refiles one prop that moved in the same list, exactly as a full rebuild would', () => {
+    const props = start()
+    const buckets = currentBuckets(null, props, byColumn)
+    props[1].x = 14
+    refile(buckets, props[1], byColumn)
+    expect(snapshot(buckets.byKey)).toEqual(snapshot(currentBuckets(null, props, byColumn).byKey))
+    expect(buckets.byKey.get(3)).toEqual([1, 3])
   })
 
   it('keeps ids in each bucket in ascending order', () => {

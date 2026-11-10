@@ -1,8 +1,8 @@
 import type { PropState } from '../cover'
 import { burst } from '../effects'
 import { hurtGuard } from '../guards'
-import { addKey, currentBuckets, type KeyList, type KeysOf, type PropBuckets } from '../hazards/buckets'
-import { propById } from '../hazards/props'
+import { addKey, currentBuckets, refile, type KeyList, type KeysOf, type PropBuckets } from '../hazards/buckets'
+import { propById, propMoved } from '../hazards/props'
 import { breakProp } from '../hazards/reactions'
 import type { Holes } from '../gaps/holes'
 import { currentHoles } from '../gaps/state'
@@ -32,8 +32,6 @@ export type FallingPropsState = {
   mark: number
   /** Floor props filed by the tiles they stand on. */
   standing: PropBuckets | null
-  /** A prop has landed somewhere new since the stand-on index was last brought up to date. */
-  landed: boolean
 }
 
 const SOLID = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid ? 1 : 0))
@@ -50,7 +48,7 @@ const PLAYER_CRUSH_SHARE = 0.5
 const DUST = '#8a8f98'
 
 export function createFallingProps(): FallingPropsState {
-  return { falling: [], solid: null, grid: null, mark: 0, standing: null, landed: false }
+  return { falling: [], solid: null, grid: null, mark: 0, standing: null }
 }
 
 export function stepFallingProps(world: World, dt: number): void {
@@ -154,10 +152,9 @@ function holeReach(holes: Holes): number {
 }
 const reaches = new WeakMap<Holes, number>()
 
-/** Floor props filed under the tiles they stand on, brought up to date when the prop list changed or a prop landed. */
+/** Floor props filed under the tiles they stand on, brought up to date when the prop list changed. */
 function indexStanding(world: World, state: FallingPropsState): PropBuckets {
-  state.standing = currentBuckets(state.standing, world.props, standingKeys(world.grid.width), state.landed)
-  state.landed = false
+  state.standing = currentBuckets(state.standing, world.props, standingKeys(world.grid.width))
   return state.standing
 }
 
@@ -220,9 +217,10 @@ function dropProp(world: World, item: FallingProp, dt: number): boolean {
 
 function land(world: World, prop: PropState, row: number, speed: number): void {
   prop.y = row
-  // The prop now covers other tiles: fire and the stand-on index must look again.
-  world.hazards.propIndex = null
-  world.fallingProps.landed = true
+  // The prop now covers other tiles: fire's index and the stand-on index file it afresh.
+  propMoved(world, prop)
+  const { standing } = world.fallingProps
+  if (standing && standing.props === world.props) refile(standing, prop, standingKeys(world.grid.width))
   const spec = propSpec(prop.kind)
   const box: Rect = { x: prop.x + 0.5 - spec.w / 2, y: row - spec.h, w: spec.w, h: spec.h }
   const at = { x: box.x + box.w / 2, y: row - 0.2 }
