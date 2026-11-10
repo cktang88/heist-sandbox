@@ -60,6 +60,23 @@ export const CONTROLS: readonly ControlGroup[] = [
     ],
   },
   {
+    title: 'Stealth',
+    rows: [
+      { keys: ['E'], action: 'Behind an unaware guard (or in the dark): quick kill. Small sound, leaves blood' },
+      { keys: ['C + hold E'], action: 'Crouched behind him: choke him out silently (wakes in a few minutes unless tied up)' },
+      { keys: ['Hold E'], action: 'From the front: wrestle him down (loud). A startled guard: choke him NOW, before he reports' },
+      { keys: ['G'], action: 'Pick up a body (dead, out cold or tied); G again puts it down' },
+      { keys: ['T'], action: 'While carrying: throw the body (off a ledge, down a shaft)' },
+      { keys: ['E'], action: 'While carrying: hide the body in a locker, wardrobe, stall, dumpster, fridge, car boot or under a desk' },
+      { keys: ['E'], action: 'Hide in a locker, wardrobe or stall, or crawl under a desk or bed; E again to get out or grab a passer-by' },
+      { keys: ['E', 'Hold E'], action: 'On a body: tie him up, take his keycard, his radio, his uniform (a disguise)' },
+      { keys: ['E'], action: 'When a pocketed radio is called: answer for its owner (a couple of times)' },
+      { keys: ['C + E'], action: 'At a door: ease it open silently. At a fuse box: rig the breaker to trip later' },
+      { keys: ['X'], action: 'Whistle or knock: pulls the nearest guard over (guards lured too often get wary)' },
+      { keys: ['E'], action: 'At a TV, screen, vending or arcade machine: switch it on to pull a guard over' },
+    ],
+  },
+  {
     title: 'Interact',
     rows: [
       { keys: ['E'], action: 'Use what is in reach: pick locks, take down, hack, cut wires, switches, call elevators' },

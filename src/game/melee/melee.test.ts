@@ -150,7 +150,7 @@ describe('human shield', () => {
     expect(colleagueInLine(world, gunman, eyeOf(gunman), centerOf(world.player))).toBe(true)
   })
 
-  it('can drag off a guard who is out cold, who stays out when dropped', () => {
+  it('picks up a guard who is out cold as a body to carry, not a shield, and he stays out when dropped', () => {
     const world = arena()
     const guard = addGuard(world, 15, -1)
     putPlayer(world, 14.1)
@@ -159,10 +159,13 @@ describe('human shield', () => {
     putPlayer(world, guard.x + guard.w / 2 - 0.9)
     press(world, 'punchPressed')
     expect(knockedOut(guard)).toBe(true)
+    expect(guard.out).toBe(true)
     run(world, 0.2, { grab: true })
-    expect(world.melee.shield).toBe(guard)
-    run(world, 0.2)
     expect(world.melee.shield).toBeNull()
+    expect(world.stealth.carried).toBe(world.guards.indexOf(guard))
+    run(world, 0.1)
+    run(world, 0.1, { grab: true })
+    expect(world.stealth.carried).toBeNull()
     expect(knockedOut(guard)).toBe(true)
   })
 

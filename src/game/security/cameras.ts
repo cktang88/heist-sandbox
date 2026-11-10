@@ -6,6 +6,8 @@ import { clearView, playerLight } from './perception'
 import { deviceBuilding, floorName, roomOf } from './places'
 import { reportEvent } from './report'
 import { CAMERAS } from './tuning'
+import { fooledCamera } from '../stealth/disguise'
+import { feedLooped } from '../stealth/cameraLoop'
 
 /**
  * Cameras sweep slowly. One that is working (not cut, not hacked) and sees the player in decent light
@@ -31,9 +33,10 @@ export function cameraView(world: World, device: Device): CameraView {
 }
 
 function seesPlayer(world: World, view: CameraView): boolean {
-  if (!view.active) return false
+  if (!view.active || world.player.hidden) return false
   const target = centerOf(world.player)
-  if (distance(view.origin, target) > view.range) return false
+  const gap = distance(view.origin, target)
+  if (gap > view.range || fooledCamera(world, gap)) return false
   const angle = Math.atan2(target.y - view.origin.y, target.x - view.origin.x)
   const off = Math.abs(Math.atan2(Math.sin(angle - view.angle), Math.cos(angle - view.angle)))
   return off <= view.halfAngle && clearView(world, view.origin, target) && playerLight(world) >= CAMERAS.minLight
@@ -59,7 +62,8 @@ export function stepCameras(world: World, dt: number): void {
       world.security.cameras.set(device.id, watch)
     }
     watch.cooldown = Math.max(0, watch.cooldown - dt)
-    if (!seesPlayer(world, cameraView(world, device))) {
+    // A looped feed shows the empty room it recorded: nothing moves on it, and nothing looks wrong either.
+    if (feedLooped(world, device) || !seesPlayer(world, cameraView(world, device))) {
       watch.seen = Math.max(0, watch.seen - dt)
       continue
     }

@@ -201,7 +201,16 @@ export type Guard = Body & {
   breachAt: Vec | null
   /** Since when a colleague has stood in his line of fire at the man he can see (Infinity while his line is clear). */
   lineBlockedSince: number
+  /** Knocked out cold (choked, darted, punched out): limp on the floor as a ragdoll until `stunSeconds` runs out. */
+  out: boolean
+  /** Stuffed into a hiding place (the prop id) by the player: nobody sees him until someone opens it. */
+  hiddenIn: number | null
+  /** Caught off guard by the intruder at arm's length: frozen for `seconds` before he shouts, radios or fights (startle.ts). */
+  startle: Startle | null
 }
+
+/** The beat between a lone guard walking into the intruder and doing something about it. `total` is the window he was given. */
+export type Startle = { seconds: number; total: number }
 
 /**
  * A guard's decision at a door held shut by furniture: go `around` it by other stairs (walking `waypoints` in turn),
@@ -243,6 +252,7 @@ export function createGuard(spawn: GuardSpawn, armored = false): Guard {
     blindFiring: false, bounding: false, boundSince: 0, draggedBy: null, dragSeconds: 0, blindReaction: null, droppedWeapon: null, unwatchedSeconds: 0, restrained: false,
     aim: { x: spawn.facing, y: 0 }, heardAt: -Infinity, underFireAt: -Infinity, shelter: null, peeking: false, peekSeconds: 0,
     shield: false, stackLeader: null, stackSlot: 0, clearedAt: -Infinity, dropPrep: null, doorPlan: null, breachAt: null, lineBlockedSince: Infinity,
+    out: false, hiddenIn: null, startle: null,
   }
 }
 
@@ -272,7 +282,7 @@ export function eyeOf(guard: Body): Vec {
 
 /** Can this guard act right now (alive, not stunned, not given up)? */
 export function isActive(guard: Guard): boolean {
-  return guard.mode !== 'dead' && guard.mode !== 'surrendered' && guard.stunSeconds <= 0
+  return guard.mode !== 'dead' && guard.mode !== 'surrendered' && guard.stunSeconds <= 0 && !guard.out
 }
 
 /** Changes mode and restarts the mode clock. Barks for the change are made by the brain, which sees it next frame. */

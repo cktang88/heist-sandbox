@@ -16,7 +16,8 @@ export function stepMelee(world: World, input: Input, dt: number): void {
   const melee = world.melee
   melee.cooldown = Math.max(0, melee.cooldown - dt)
   for (const [guard, daze] of melee.dazes) if (daze.until <= world.clock) melee.dazes.delete(guard)
-  if (!world.drone) {
+  // Shut in a locker there is no room to swing; bursting out is an E action (stealth/controls.ts).
+  if (!world.drone && !world.player.hidden) {
     holdShield(world, input, dt)
     if (input.punchPressed) punch(world)
     else if (input.kickPressed) kick(world)

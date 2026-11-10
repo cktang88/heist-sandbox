@@ -56,6 +56,10 @@ export type Act =
   | { kind: 'torch' }
   /** Looking around for whatever caught his attention. */
   | { kind: 'scan' }
+  /** A body over the shoulder: the off hand holds its legs, the gun hand stays free for the pistol. */
+  | { kind: 'carry' }
+  /** Caught off guard at arm's length: recoiling, the off hand going for the radio. `t` 0..1 through the beat. */
+  | { kind: 'startled'; t: number }
 
 type Of<K extends Act['kind']> = Extract<Act, { kind: K }>
 
@@ -499,10 +503,29 @@ function scan(body: Skeleton, m: Motion): Skeleton {
   })
 }
 
+/** Bent a little under the weight, the off hand on the shoulder clamping the legs, the gun hand where it was. */
+function carry(body: Skeleton, m: Motion): Skeleton {
+  const rig = tiltUpper(shiftHips(rigOf(body, m.facing), 0, 0.05), m.facing * 0.12)
+  const shoulder = shoulderOf(rig.hip, rig.lean)
+  return assemble({ ...rig, hands: [rig.hands[0], add(shoulder, 0.16 * m.facing, -0.02)], handAngles: [rig.handAngles?.[0] ?? 0, fromPitch(-1.2, m.facing)] })
+}
+
+/** Rocked back on his heels, the gun hand dropping, the other hand flying to the radio on his chest. */
+function startled(body: Skeleton, m: Motion, act: Of<'startled'>): Skeleton {
+  const recoil = envelope(act.t, 0, 0.08, 0.6, 1)
+  const rig = tiltUpper(rigOf(body, m.facing), -m.facing * 0.22 * recoil)
+  const shoulder = shoulderOf(rig.hip, rig.lean)
+  return assemble({
+    ...rig, hands: [add(rig.hands[0], 0, 0.18 * recoil), add(shoulder, 0.1 * m.facing, 0.05 + 0.08 * (1 - act.t))],
+    handAngles: [rig.handAngles?.[0] ?? 0, fromPitch(-1.6, m.facing)], lookPitch: -0.1, nod: -0.2,
+  })
+}
+
 type Poser = (body: Skeleton, m: Motion, act: never) => Skeleton
 const POSES: { [K in Act['kind']]: (body: Skeleton, m: Motion, act: Of<K>) => Skeleton } = {
   hang, rope, vault, punch, kick, drag, hostage, captive, throw: throwing, plant, work, slide,
   surrender, restrained, cower, blindFire, duck, reload, dive, blinded, dragged, dragging, shield, stack, radio, torch, scan,
+  carry, startled,
 }
 
 /** Reposes `body` (the walking or aiming pose for `m`) for what the person is busy with. */

@@ -7,6 +7,7 @@ import { nearestFree } from './orders'
 import { deviceBuilding, deviceFeet, floorName, roomOf, unitName } from './places'
 import { log, reportEvent } from './report'
 import { COMMS } from './tuning'
+import { ringPocketRadio, unansweredCall } from '../stealth/radio'
 
 /**
  * The routine that makes silent takedowns run on a clock: every guard checks in by radio on a staggered
@@ -31,10 +32,12 @@ export function stepCheckIns(world: World): void {
       return
     }
     guard.checkInAt = Infinity
-    guard.missing = true
-    security.polls.push({ guard: index, at: world.clock + COMMS.pollSeconds })
-    log(world, `Control: ${unitName(index)}, check in.`)
+    // The player has his radio: it crackles in the player's pocket, and he may answer for him (stealth/radio.ts).
+    if (world.stealth.radios.has(index) && !world.stealth.checkIn) return ringPocketRadio(world, index)
+    markMissing(world, index)
   })
+  const unanswered = unansweredCall(world)
+  if (unanswered !== null) markMissing(world, unanswered)
 
   security.polls = security.polls.filter((poll) => {
     if (world.clock < poll.at) return true
@@ -50,7 +53,14 @@ export function stepCheckIns(world: World): void {
   })
 }
 
-function nextCheckIn(world: World): number {
+/** He did not check in: control polls him, and if he still says nothing, sends a pair. */
+function markMissing(world: World, index: number): void {
+  world.guards[index].missing = true
+  world.security.polls.push({ guard: index, at: world.clock + COMMS.pollSeconds })
+  log(world, `Control: ${unitName(index)}, check in.`)
+}
+
+export function nextCheckIn(world: World): number {
   return world.clock + COMMS.checkInMin + world.rng() * (COMMS.checkInMax - COMMS.checkInMin)
 }
 

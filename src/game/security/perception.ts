@@ -4,6 +4,8 @@ import { lightLevelAt } from '../light'
 import { centerOf, distance, type Vec } from '../types'
 import { hasLineOfSight } from '../vision'
 import type { World } from '../world'
+import { bodyAt, bodyInOpen } from '../stealth/bodies'
+import { disguiseFactor } from '../stealth/disguise'
 import { shelteredFrom } from './coverSpots'
 import { eyeOf, type Guard } from './model'
 import { AWARENESS, VISION } from './tuning'
@@ -19,6 +21,8 @@ export type Zone = 'central' | 'peripheral' | 'rear'
 export type Detection = { rate: number; zone: Zone }
 
 const SMOKE_BLOCKS = 0.6
+/** Closer than this (side to side) a guard feels as much as sees the man next to him. */
+const BUMP = 1.1
 
 /** Guards with their guard up (searching, fighting, running to raise the alarm) look further and wider. */
 export function isAlerted(guard: Guard): boolean {
@@ -93,12 +97,15 @@ function distanceFactor(gap: number): number {
 
 /** How the player is being seen by this guard right now, or null if not at all. */
 export function detectPlayer(world: World, guard: Guard): Detection | null {
-  if (guard.blindSeconds > 0) return null
+  // Shut in a locker or flat under a desk, he is out of sight until someone opens it (stealth/search.ts).
+  if (guard.blindSeconds > 0 || world.player.hidden) return null
   const player = world.player
   const eye = eyeOf(guard)
   const body = centerOf(player)
   const head = { x: body.x, y: player.y + 0.3 }
-  const zone = zoneOf(guard, eye, body) ?? zoneOf(guard, eye, head)
+  // Walking into someone in front of him is noticed: up close the cone's edge would miss a man at his elbow.
+  const touching = (body.x - eye.x) * guard.facing > -0.1 && Math.abs(eye.x - body.x) < BUMP && Math.abs(eye.y - body.y) < 1.2
+  const zone = touching ? 'central' : zoneOf(guard, eye, body) ?? zoneOf(guard, eye, head)
   if (!zone) return null
   const moving = Math.abs(player.vx) > 0.6 || Math.abs(player.vy) > 1.5
   if (zone !== 'central' && !moving) return null
@@ -115,20 +122,27 @@ export function detectPlayer(world: World, guard: Guard): Detection | null {
   const motion = Math.abs(player.vx) > 5 ? AWARENESS.runFactor : moving ? 1 : AWARENESS.stillFactor
   const stance = crouching ? AWARENESS.crouchFactor : 1
   const zoneRate = zone === 'central' ? 1 : AWARENESS.peripheralRate
-  return { rate: (distanceFactor(gap) * light * motion * stance * zoneRate) / AWARENESS.fillSeconds, zone }
+  const uniform = disguiseFactor(world, guard, gap)
+  if (uniform <= 0) return null
+  return { rate: (distanceFactor(gap) * light * motion * stance * zoneRate * uniform) / AWARENESS.fillSeconds, zone }
 }
 
-/** A colleague's body this guard can see and has not seen before (guard index), if any. */
+/**
+ * A colleague's body this guard can see and has not seen before (guard index), if any: dead or out cold, lying in
+ * the open. The same rules as for seeing the player: his central cone, a clear view, enough light, and low cover
+ * hides a body (it lies on the floor) from a guard on the same level.
+ */
 export function spotBody(world: World, guard: Guard): number | null {
   const eye = eyeOf(guard)
   const darkRange = hasTorchOut(guard) ? VISION.torchDarkRange : VISION.darkRange
   for (let index = 0; index < world.guards.length; index += 1) {
     const other = world.guards[index]
-    if (other.mode !== 'dead' || !other.ragdoll || guard.bodiesSeen.includes(index)) continue
-    const hip = other.ragdoll.points[2]
-    const at = { x: hip.x, y: hip.y }
+    if (!bodyInOpen(world, other) || guard.bodiesSeen.includes(index)) continue
+    const at = bodyAt(other)
     if (zoneOf(guard, eye, at) !== 'central' || !clearView(world, eye, at)) continue
-    if (lightFactor(lightLevelAt(world, at), distance(eye, at), darkRange) <= 0) continue
+    const gap = distance(eye, at)
+    if (lightFactor(lightLevelAt(world, at), gap, darkRange) <= 0) continue
+    if (Math.abs(eye.y - at.y) < 2.5 && gap > 3 && shelteredFrom(world, { x: at.x, y: at.y + 0.3 }, eye, true)) continue
     return index
   }
   return null

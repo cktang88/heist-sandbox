@@ -37,6 +37,8 @@ describe('picking a tool', () => {
     play(world, FRAME, { selectTool: wheelSelection(1) })
     expect(world.player.tool).toBe(actionIndex('grapple'))
     play(world, FRAME, { selectTool: wheelSelection(1) })
+    expect(world.player.tool).toBe(actionIndex('dart'))
+    play(world, FRAME, { selectTool: wheelSelection(1) })
     expect(world.player.tool).toBe(0)
   })
 

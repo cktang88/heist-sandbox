@@ -3,6 +3,8 @@ import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import { createBackdrop } from './backdrop'
 import type { Camera } from './camera'
+import { drawStealthScreen, drawStealthWorld } from './stealthOverlay'
+import { hudUnit } from './drawHud'
 import { drawEffects, drawFalling, drawGoggles, drawGuard, drawGuardMarks, drawLamps, drawPlayer, drawProjectiles, drawSignals, drawThings } from './drawActors'
 import { drawPickups, drawProps } from './drawProps'
 import { createLighting } from './lighting'
@@ -60,7 +62,9 @@ export function createSceneRenderer(): SceneRenderer {
       drawSignals(context, world)
       drawProjectiles(context, world)
       drawEffects(context, world)
+      drawStealthWorld(context, world, camera)
       context.setTransform(1, 0, 0, 1, 0, 0)
+      drawStealthScreen(context, world, camera, hudUnit(camera.height))
     },
   }
 }

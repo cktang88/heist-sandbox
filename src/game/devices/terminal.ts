@@ -10,6 +10,8 @@ import { floorOf, onFloor, roomOf, type Floor } from './floor'
 import { unlockFloorDoors } from './locks'
 import { deviceCenter, floorCircuits } from './power'
 import { deviceState } from './state'
+import { loopFeeds, loopSecondsLeft } from '../stealth/cameraLoop'
+import { CAMERA_LOOP } from '../stealth/tuning'
 
 /** A hacking menu the player has open on a computer: pick an option with the number keys. */
 export type Terminal = { device: number; title: string; options: string[] }
@@ -73,7 +75,7 @@ function terminalOptions(world: World, device: Device): Option[] {
   if (!floor || !kind) return []
   const has = (kinds: readonly RoomKind[]) => kinds.includes(kind)
   // A floor with no cameras or no lighting circuit does not offer to switch them.
-  const options: Option[] = [camerasOption(world, floor, kind === 'security'), lightsOption(world, floor)].filter((option): option is Option => option !== null)
+  const options: Option[] = [loopOption(world, floor), camerasOption(world, floor, kind === 'security'), lightsOption(world, floor)].filter((option): option is Option => option !== null)
   if (has(CAN_UNLOCK)) options.push({ label: 'Unlock doors on this floor', run: () => unlockFloorDoors(world, floor) })
   if (has(CAN_JAM)) options.push({ label: 'Jam radios', run: () => switchOff(world, inBuilding(world, floor, 'radioRelay'), RADIOS_JAMMED_SECONDS) })
   if (has(CAN_LOCATE_VAULT)) options.push({ label: 'Show vault location', run: () => revealVaults(world) })
@@ -86,6 +88,15 @@ function terminalOptions(world: World, device: Device): Option[] {
   if (has(CAN_FAKE_ALARM)) options.push({ label: 'Trigger false alarm on another floor', run: () => falseAlarm(world, floor) })
   options.push(...elevatorOptions(world, floor, has(CAN_HOLD_ELEVATORS)))
   return options
+}
+
+/** Looping the feeds hides the player without the dead-feed fault a switched-off camera shows the control room. */
+function loopOption(world: World, floor: Floor): Option | null {
+  const cameras = world.devices.filter((device) => device.kind === 'camera' && onFloor(world, floor, device))
+  if (cameras.length === 0) return null
+  const left = loopSecondsLeft(world, cameras)
+  const label = left > 0 ? `Loop camera feeds again (${Math.ceil(left)}s left)` : `Loop camera feeds on this floor (${CAMERA_LOOP.seconds}s, unnoticed)`
+  return { label, run: () => loopFeeds(world, cameras) }
 }
 
 function camerasOption(world: World, floor: Floor, forGood: boolean): Option | null {

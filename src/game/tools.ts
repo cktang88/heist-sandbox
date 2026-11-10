@@ -1,4 +1,5 @@
 import { fireGrapple } from './grapple/hook'
+import { fireDart } from './stealth/dart'
 import { throwCharge } from './charges'
 import { hurtTile } from './destruction'
 import { launchDrone } from './drone'
@@ -38,9 +39,12 @@ export function useTool(world: World, input: Input, dt: number): void {
     }
   }
   player.cooldown = Math.max(0, player.cooldown - dt)
+  // Shut in a locker there is no room to raise a gun.
+  if (player.hidden) return
 
   const tool = TOOLS[player.tool]
-  const gun = GUNS[tool.id]
+  // The dart gun is drawn as a pistol but shoots darts, one at a time, with no magazine.
+  const gun = tool.action ? undefined : GUNS[tool.id]
   const pulled = tool.auto ? input.fire : input.firePressed
   const hand = handOf(world)
   const aim = normalize(input.aim.x - hand.x, input.aim.y - hand.y)
@@ -54,6 +58,7 @@ export function useTool(world: World, input: Input, dt: number): void {
       // Nowhere to tie it: the rope is not used up.
       if (!anchorRope(world)) player.ammo[player.tool] += 1
     } else if (tool.action === 'grapple') fireGrapple(world, hand, aim)
+    else if (tool.action === 'dart') fireDart(world, hand, aim)
     else if (tool.id === 'c4') throwCharge(world, hand, aim, input.aim)
     else if (tool.id === 'drill') drill(world, hand, aim, dt)
     else if (tool.id === 'drone') launchDrone(world)

@@ -6,8 +6,8 @@ const rows = CONTROLS.flatMap((group) => group.rows)
 const keyFor = (action: string) => rows.find((row) => row.action.startsWith(action))?.keys
 
 describe('the controls table', () => {
-  it('has the six groups in reading order', () => {
-    expect(CONTROLS.map((group) => group.title)).toEqual(['Move', 'Combat', 'Tools', 'Close combat', 'Interact', 'System'])
+  it('has the seven groups in reading order', () => {
+    expect(CONTROLS.map((group) => group.title)).toEqual(['Move', 'Combat', 'Tools', 'Close combat', 'Stealth', 'Interact', 'System'])
   })
 
   it('lists every tool in the kit exactly once', () => {

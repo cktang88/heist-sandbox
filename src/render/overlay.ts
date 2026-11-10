@@ -5,6 +5,7 @@ import { worldToScreen, type Camera } from './camera'
 import { drawSignals } from './drawActors'
 import { caption, hudUnit, measure } from './drawHud'
 import { drawSearchArea } from './intelHud'
+import { drawStealthScreen, drawStealthWorld } from './stealthOverlay'
 
 /** Bark speech labels fade out over their last stretch of life. */
 const BARK_FADE_SECONDS = 0.5
@@ -19,6 +20,7 @@ export function drawOverlay(context: CanvasRenderingContext2D, world: World, cam
   context.setTransform(camera.scale, 0, 0, camera.scale, camera.width / 2 - camera.x * camera.scale, camera.height / 2 - camera.y * camera.scale)
   const area = drawSearchArea(context, world)
   drawRipples(context, world)
+  drawStealthWorld(context, world, camera)
   const player = world.player
   if (player.pick > 0) {
     const x = player.x + player.w / 2
@@ -34,10 +36,11 @@ export function drawOverlay(context: CanvasRenderingContext2D, world: World, cam
   const unit = hudUnit(camera.height)
   if (world.security.lastKnown) drawLastKnown(context, world, camera, world.security.lastKnown, unit)
   for (const guard of world.guards) {
-    if (guard.state === 'dead' || !onScreen(camera, guard, 2)) continue
+    if (guard.state === 'dead' || guard.out || guard.startle || !onScreen(camera, guard, 2)) continue
     drawGuardStatus(context, world, camera, guard, unit)
   }
   drawBarks(context, world, camera, unit)
+  drawStealthScreen(context, world, camera, unit)
   if (world.status !== 'playing') return
   const roof = dropTarget(world)
   if (roof) drawEdgeArrow(context, world, camera, unit, roof, 'TARGET', '#6fd0ff')

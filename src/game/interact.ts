@@ -3,7 +3,6 @@ import { lockSeconds, keypadFor } from './devices/locks'
 import { deviceCenter, flipPower } from './devices/power'
 import { deviceState } from './devices/state'
 import { callElevator, carUnderPlayer, elevatorRefuses, shaftDoorAt, shaftOf } from './elevators'
-import { hurtGuard, restrainGuard } from './guards'
 import { windowAction } from './grapple/windows'
 import type { Input } from './input'
 import { interrogateAction, readAction } from './intel/intel'
@@ -13,9 +12,12 @@ import { setTile, tileAt, type Grid } from './tiles'
 import { TOOLS } from './toolDefs'
 import { centerOf, distance, overlaps, type Vec } from './types'
 import type { Device, World } from './world'
+import { bodyAction, hideAction, noisemakerAction, stashAction, takedownAction, tieUpAction } from './stealth/actions'
+import { hidingPrompt, stealthControls } from './stealth/controls'
+import { rigBreaker, rigSecondsLeft } from './stealth/sabotage'
+import { SABOTAGE } from './stealth/tuning'
 
 const PICK_REACH = 2
-const TAKEDOWN_REACH = 1.6
 const MAX_DOOR_TILES = 8
 const MEDKIT_HEAL = 50
 const AMMO_REFILL_SHARE = 0.5
@@ -36,7 +38,7 @@ const TYPING_GAP = 0.3
  * One thing the player can do right now. `hold` is how many seconds E must be held;
  * without it a single press does it. `key` names the target so changing target restarts the progress.
  */
-type Action = { prompt: string; key: string; run: () => void; hold?: number; typing?: boolean }
+export type Action = { prompt: string; key: string; run: () => void; hold?: number; typing?: boolean; hint?: string }
 
 /**
  * The hands-on actions. Loot and supplies are picked up by walking over them; everything else
@@ -45,19 +47,31 @@ type Action = { prompt: string; key: string; run: () => void; hold?: number; typ
  */
 export function interact(world: World, input: Input, dt: number): void {
   collect(world)
+  world.stealth.hint = null
+  // A choke, hiding, a radio to answer: the stealth code has the hands (and E) for now.
+  const busy = stealthControls(world, input, dt)
+  if (busy !== undefined) {
+    world.player.pick = 0
+    world.prompt = busy || null
+    return
+  }
   if (!takedownAction(world) && world.terminal) return useTerminal(world, input)
   const action = bestAction(world)
   const acted = perform(world, input, dt, action)
   // The hint shows what E does next, so it is chosen again after anything changed.
   const next = acted ? bestAction(world) : action
-  world.prompt = world.terminal ? terminalPrompt(world) : next?.prompt ?? null
+  world.prompt = world.terminal ? terminalPrompt(world) : world.player.hidden ? hidingPrompt(world) : next?.prompt ?? null
+  world.stealth.hint = world.terminal ? null : next?.hint ?? null
 }
 
 function bestAction(world: World): Action | null {
   // Nothing is in reach through the walls of a moving car.
   if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
-  return interrogateAction(world) ?? takedownAction(world) ?? deviceAction(world, 'near') ?? elevatorAction(world) ?? windowAction(world) ?? doorAction(world)
-    ?? deviceAction(world, 'camera') ?? readAction(world) ?? deviceAction(world, 'lightSwitch')
+  if (world.stealth.carried !== null) return stashAction(world) ?? doorAction(world)
+  if (world.player.hidden) return null
+  return tieUpAction(world) ?? takedownAction(world) ?? bodyAction(world) ?? interrogateAction(world) ?? deviceAction(world, 'near') ?? elevatorAction(world)
+    ?? windowAction(world) ?? doorAction(world) ?? deviceAction(world, 'camera') ?? readAction(world) ?? hideAction(world) ?? noisemakerAction(world)
+    ?? deviceAction(world, 'lightSwitch')
 }
 
 function collect(world: World): void {
@@ -126,15 +140,6 @@ function terminalPrompt(world: World): string {
   return count > 0 ? `1-${count}: choose, E: close` : 'Access denied. E: close'
 }
 
-function takedownAction(world: World): Action | null {
-  const center = centerOf(world.player)
-  const guard = world.guards.find((other) => other.state !== 'dead' && other.state !== 'alert' && !other.restrained && distance(centerOf(other), center) < TAKEDOWN_REACH)
-  if (!guard) return null
-  // A guard with his hands up is tied, not killed.
-  if (guard.mode === 'surrendered') return { prompt: 'E: tie up', key: 'tieUp', run: () => restrainGuard(world, guard) }
-  return { prompt: 'E: take down', key: 'takedown', run: () => hurtGuard(world, guard, 1000, center) }
-}
-
 /**
  * Which devices compete for the E key, from most to least important. Cameras are reached from further away (they
  * hang near the ceiling), so they only win when nothing at arm's length (a door, an elevator call) is in reach.
@@ -177,8 +182,11 @@ function actionFor(world: World, device: Device): Action | null {
     case 'lightSwitch': {
       if (device.circuit === undefined || device.disabled) return null
       const dark = world.deadCircuits.has(device.circuit)
+      // Crouched at a live fuse box: rig the breaker to trip later, while the player is somewhere else.
+      if (device.kind === 'fusebox' && !dark && world.player.crouching) return rigAction(world, device, key)
       const prompt = device.kind === 'fusebox' ? (dark ? 'E: restore power' : 'E: cut power') : dark ? 'E: lights on' : 'E: lights off'
-      return { prompt, key, run: () => flipPower(world, device) }
+      const hint = device.kind === 'fusebox' && !dark ? 'Crouch to rig it on a timer instead' : undefined
+      return { prompt, key, run: () => flipPower(world, device), hint }
     }
     case 'computer':
       if (device.disabled) return null
@@ -193,6 +201,7 @@ function actionFor(world: World, device: Device): Action | null {
       }
     case 'keypad':
       if (device.hacked || device.disabled) return null
+      if (world.stealth.keycards.size > 0) return { prompt: 'E: swipe the keycard', key, run: () => hackKeypad(world, device) }
       return { prompt: 'Hold E: hack keypad', key, hold: HACK_KEYPAD_SECONDS, typing: true, run: () => hackKeypad(world, device) }
     case 'alarmButton':
       if (device.disabled) return null
@@ -206,6 +215,12 @@ function actionFor(world: World, device: Device): Action | null {
     case 'elevatorPanel':
       return panelAction(world, device, key)
   }
+}
+
+function rigAction(world: World, device: Device, key: string): Action {
+  const left = rigSecondsLeft(world, device)
+  if (left !== null) return { prompt: `Breaker rigged: trips in ${Math.ceil(left)}s`, key, run: () => {} }
+  return { prompt: `Hold E: rig the breaker to trip in ${SABOTAGE.delay}s`, key: `${key}:rig`, hold: SABOTAGE.rigSeconds, run: () => rigBreaker(world, device) }
 }
 
 function hackKeypad(world: World, device: Device): void {
@@ -244,15 +259,26 @@ function doorAction(world: World): Action | null {
   const door = nearestDoor(world.grid, center)
   if (!door) return null
   const seconds = lockSeconds(world, door)
+  // Crouched, the door is eased open without a sound; standing it clunks; a kick (V) bursts it.
+  const easy = world.player.crouching
   const run = () => {
     openDoor(world.grid, door)
     world.structureChanged = true
+    if (easy) return
     emitNoise(world, center, 2)
     playSound(world, 'door', center)
   }
   const key = `door:${door.x}`
-  if (seconds === 0) return { prompt: 'E: open door', key, run }
-  return { prompt: keypadFor(world, door) ? 'Hold E: pick secure lock' : 'Hold E: pick lock', key, hold: seconds, run }
+  const keypad = keypadFor(world, door)
+  if (seconds > 0 && keypad && world.stealth.keycards.size > 0) {
+    return { prompt: 'E: swipe the keycard', key, run: () => {
+      keypad.hacked = true
+      playSound(world, 'beep', center)
+      run()
+    } }
+  }
+  if (seconds === 0) return easy ? { prompt: 'E: ease the door open (silent)', key, run } : { prompt: 'E: open door', key, run, hint: 'Crouch to ease it open silently' }
+  return { prompt: keypad ? 'Hold E: pick secure lock' : 'Hold E: pick lock', key, hold: seconds, run }
 }
 
 export function nearestDoor(grid: Grid, from: Vec): Vec | null {

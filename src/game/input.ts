@@ -23,6 +23,8 @@ export type Input = {
   /** Held to grab: drags furniture, or holds a guard as a shield. */
   grab: boolean
   throwPressed: boolean
+  /** A short whistle (or a knock on the wall) that pulls the nearest guard over to look. */
+  whistlePressed: boolean
   /** Where the player is pointing, in tile units. */
   aim: Vec
   selectTool: number | null
@@ -32,6 +34,6 @@ export function idleInput(aim: Vec = { x: 0, y: 0 }): Input {
   return {
     left: false, right: false, up: false, down: false, jumpPressed: false, jumpHeld: false, fire: false, firePressed: false,
     interact: false, interactPressed: false, detonatePressed: false, reloadPressed: false, focus: false, crouch: false,
-    punchPressed: false, kickPressed: false, grab: false, throwPressed: false, aim, selectTool: null,
+    punchPressed: false, kickPressed: false, grab: false, throwPressed: false, whistlePressed: false, aim, selectTool: null,
   }
 }
