@@ -46,15 +46,34 @@ export function throwNearest(world: World, aim: Vec): boolean {
   const hand = handOf(world)
   const prop = throwableInReach(world, hand)
   if (!prop) return false
+  const center = propCenter(prop)
+  const shift = clearShift(world, propBox(prop), hand.x - center.x, hand.y - center.y)
+  if (shift === null) return false
   if (world.physProps.grabbed?.id === prop.id) world.physProps.grabbed = null
   const loose = loosen(world, prop)
-  const center = propCenter(prop)
-  shiftProp(prop, hand.x - center.x, hand.y - center.y)
+  shiftProp(prop, shift, hand.y - center.y)
   const direction = normalize(aim.x - hand.x, aim.y - hand.y)
   const share = Math.min(1, Math.max(HEAVY_SPEED_SHARE, LIGHT_SPEED_SHARE - weightOf(prop.kind) * SPEED_LOST_PER_WEIGHT))
   const speed = THROW_SPEED * share
   Object.assign(loose, { flying: true, tipped: 0, vx: direction.x * speed, vy: direction.y * speed - THROW_LIFT })
   return true
+}
+
+const NUDGE_STEP = 0.05
+
+/**
+ * The sideways move that brings a prop into the hand. Something wider than the player, picked up while he leans on
+ * a wall, would stick into it there (and then hang in it); it is held a little off the wall instead. Null if it
+ * cannot be held clear at all.
+ */
+function clearShift(world: World, box: Rect, dx: number, dy: number): number | null {
+  for (let nudge = 0; nudge <= box.w / 2 + NUDGE_STEP; nudge += NUDGE_STEP) {
+    for (const side of [-1, 1]) {
+      const x = dx + side * nudge
+      if (!boxHitsSolid(world.grid, { ...box, x: box.x + x, y: box.y + dy })) return x
+    }
+  }
+  return null
 }
 
 function throwableInReach(world: World, hand: Vec): PropState | null {
