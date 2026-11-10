@@ -167,4 +167,17 @@ describe('tonight\'s conditions', () => {
     expect(strikes.length).toBeGreaterThanOrEqual(1)
     expect(strikes[0].outcome).toBeTruthy()
   })
+
+  it('a guard the rival crew knocks cold drops like a body, and is not put down to the player', () => {
+    const world = directedWorld(13, 'complex', [])
+    const rival = CONDITIONS.find((condition) => condition.id === 'rivalCrew')!.start(world, () => 0.7)
+    world.director.conditions.push(rival)
+    rival.step!(world, 200)
+    const victim = world.guards.find((guard) => guard.out)!
+    expect(victim.ragdoll).not.toBeNull()
+    idle(world, 1)
+    expect(world.stats.knockouts).toBe(0)
+    expect(world.chronicle.tally.knockedOut).toBe(0)
+    expect(world.chronicle.beats.some((beat) => beat.kind === 'down')).toBe(false)
+  })
 })

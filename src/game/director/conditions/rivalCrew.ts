@@ -1,8 +1,8 @@
 import { note } from '../../chronicle/note'
-import { stunGuard } from '../../guards'
 import { emitNoise } from '../../noise'
 import { feetOf, isActive } from '../../security/model'
 import { playSound } from '../../sounds'
+import { knockOutCold } from '../../stealth/bodies'
 import { distance, type Vec } from '../../types'
 import type { World } from '../../world'
 import { pick, spotIn } from '../crew'
@@ -33,6 +33,7 @@ export const rivalCrew: ConditionDef = {
       id: 'rivalCrew',
       line: 'A rival crew is inside tonight: expect trouble you did not start, somewhere else on site.',
       step(world: World, dt: number) {
+        for (const victim of world.director.rivalVictims) if (!victim.out) world.director.rivalVictims.delete(victim)
         if (done >= INCIDENTS) return
         next -= dt
         if (next > 0) return
@@ -59,7 +60,9 @@ function strike(world: World, kind: Incident, rng: () => number): void {
   if (kind === 'knockout') {
     const victim = pick(world.guards.filter((guard) => isActive(guard) && guard.mode === 'calm' && distance(feetOf(guard), player) > FAR), rng)
     if (victim) {
-      stunGuard(victim, COLD_SECONDS)
+      // He drops like any man knocked cold, a body to be found, and comes round angry; it is not the player's tally.
+      knockOutCold(world, victim, COLD_SECONDS, false)
+      world.director.rivalVictims.add(victim)
       note(world, 'event', victim, { detail: 'rivalCrew', outcome: 'knocked out a guard' })
       return
     }

@@ -17,6 +17,7 @@ export function createDirector(seed: number, site: SiteKind): DirectorState {
     cooldowns: new Map(), nextLook: 0, lastEventAt: -Infinity, tension: 0, lastDecision: '',
     masking: { outdoors: 0, rooms: new Set() }, lightningAt: -Infinity,
     signals: { lastSeenAt: -Infinity, powerCuts: 0, knownDead: new Set(), ownDead: new Set(), out: new Set(), woke: [], dealt: new Set() },
+    rivalVictims: new Set(),
   }
 }
 
