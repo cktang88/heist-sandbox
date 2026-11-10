@@ -399,7 +399,7 @@ export function measure(context: CanvasRenderingContext2D, value: string, size: 
 }
 
 /** Cuts text short so it fits in `room` pixels. */
-function fit(context: CanvasRenderingContext2D, value: string, size: number, room: number): string {
+export function fit(context: CanvasRenderingContext2D, value: string, size: number, room: number): string {
   let cut = value
   while (cut.length > 1 && measure(context, cut, size) > room) cut = cut.slice(0, -1)
   return cut

@@ -1,6 +1,6 @@
 import { describeFilter, searchArea, talkersLeft, type Clue, type SearchArea } from '../game/intel/intel'
 import type { World } from '../game/world'
-import { caption, measure, panel } from './drawHud'
+import { caption, fit, measure, panel } from './drawHud'
 
 /**
  * What the player has learned about where the case is: the Intel log (a HUD panel under the vitals)
@@ -23,7 +23,8 @@ export function drawIntel(context: CanvasRenderingContext2D, world: World, unit:
   const textWidth = Math.min(width * 0.4, Math.max(...lines.map((line) => measure(context, line.text, line.size))))
   if (top + lines.length * lineHeight > height * 0.6) lines.length = Math.max(1, Math.floor((height * 0.6 - top) / lineHeight))
   panel(context, x - unit * 0.5, top, textWidth + unit, lines.length * lineHeight + unit * 0.6)
-  lines.forEach((line, index) => caption(context, line.text, x, top + unit * 1.05 + index * lineHeight, line.colour, line.size, 'left'))
+  // On a narrow window the panel is capped at 40% of the width: longer lines are cut to fit inside it.
+  lines.forEach((line, index) => caption(context, fit(context, line.text, line.size, textWidth), x, top + unit * 1.05 + index * lineHeight, line.colour, line.size, 'left'))
 }
 
 function panelLines(world: World, unit: number): Line[] {
