@@ -1,5 +1,5 @@
 import {
-  CanvasTexture, DoubleSide, Group, Mesh, MeshStandardMaterial, PlaneGeometry, SRGBColorSpace, type Material,
+  CanvasTexture, DoubleSide, FrontSide, Group, Mesh, MeshStandardMaterial, PlaneGeometry, SRGBColorSpace, type Material,
 } from 'three'
 import { BOX, box, cylinder, glow, matte } from './kit'
 
@@ -65,7 +65,7 @@ export function paint(width: number, height: number, draw: (c: CanvasRenderingCo
  */
 export function printed(texture: CanvasTexture, roughness = 0.85, alpha: 'none' | 'cutout' | 'blend' = 'none'): MeshStandardMaterial {
   return new MeshStandardMaterial({
-    map: texture, roughness, side: alpha === 'cutout' ? DoubleSide : undefined,
+    map: texture, roughness, side: alpha === 'cutout' ? DoubleSide : FrontSide,
     alphaTest: alpha === 'cutout' ? 0.5 : 0, transparent: alpha === 'blend', depthWrite: alpha !== 'blend',
     polygonOffset: alpha === 'blend', polygonOffsetFactor: -2,
   })
