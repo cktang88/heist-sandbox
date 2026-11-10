@@ -351,6 +351,8 @@ export function guardProblems(level: Level): string[] {
     const room = guard.roomId === undefined ? undefined : roomById.get(guard.roomId)
     if (room && (guard.y !== room.floorY || guard.x < room.x - 1 || guard.x > room.x + room.w)) problems.push(`${where} outside his room ${room.kind} ${room.id}`)
     if (!guard.route) continue
+    // A patrol stops and turns at the ends of his round: on a hatch, he stands on whoever climbs up through it.
+    for (const point of guard.route) if (hatchAt(level.grid, point.x, point.y)) problems.push(`${where} turns on the hatch at ${point.x},${point.y}`)
     const seen = reachable(level, guard, 'calm')
     for (const point of guard.route) if (!reachedSpot(level, seen, point.x, point.y)) problems.push(`${where} cannot walk to route point ${point.x},${point.y}`)
   }
