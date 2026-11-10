@@ -195,15 +195,20 @@ function drawLastKnown(context: CanvasRenderingContext2D, world: World, camera: 
   caption(context, 'LAST SEEN', point.x, point.y - radius - unit * 0.4, 'rgba(255,150,90,0.95)', unit * 0.7, 'center')
 }
 
-/** While dropping in, the roof of the biggest building on the site, so the player can steer for it. */
+/** Heists whose player has touched down: the drop-in arrow is only for the first fall from the plane. */
+const landed = new WeakSet<World>()
+
+/** While dropping in, where to steer: the roof of the biggest building, or its near wall once below the roofline. */
 function dropTarget(world: World): Vec | null {
   const player = world.player
-  if (player.onGround || player.hasLoot) return null
+  if (player.onGround) landed.add(world)
+  if (landed.has(world)) return null
   let main: World['interiors'][number] | null = null
   for (const interior of world.interiors) if (interior.kind === 'room' && (!main || interior.w * interior.h > main.w * main.h)) main = interior
-  // Only on the way down from the plane: once he is below the roofline the arrow would only be noise.
-  if (!main || player.y + player.h > main.y) return null
-  return { x: main.x + main.w / 2, y: main.y }
+  if (!main) return null
+  const feet = player.y + player.h
+  if (feet <= main.y) return { x: main.x + main.w / 2, y: main.y }
+  return { x: player.x < main.x ? main.x : main.x + main.w, y: feet }
 }
 
 /**

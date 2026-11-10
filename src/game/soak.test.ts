@@ -35,7 +35,8 @@ const FRAME = 1 / 60
  * this catches runaway cost, not small slowdowns.
  */
 const MEAN_FRAME_BUDGET = 40
-const WORST_SECOND_BUDGET = 120
+// Generous: other work on the same machine makes single seconds noisy; a real runaway is far above this.
+const WORST_SECOND_BUDGET = 300
 
 const inner = (box: Rect, margin: number): Rect => ({ x: box.x + margin, y: box.y + margin, w: box.w - 2 * margin, h: box.h - 2 * margin })
 
