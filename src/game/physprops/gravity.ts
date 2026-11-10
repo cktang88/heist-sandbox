@@ -178,7 +178,7 @@ function slideToFit(grid: Grid, box: Rect, dx: number, dy: number): number | nul
  * A prop that dropped through a hole narrower than itself (only its footing has to fit) lands with an edge in the
  * floor it fell through or a wall beside it. It shifts sideways, as little as it can, to stand clear.
  */
-function standClear(grid: Grid, prop: PropState): void {
+export function standClear(grid: Grid, prop: PropState): void {
   const box = propBox(prop)
   if (!boxHitsSolid(grid, box)) return
   for (let nudge = NUDGE_STEP; nudge <= box.w; nudge += NUDGE_STEP) {
