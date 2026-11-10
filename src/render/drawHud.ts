@@ -11,12 +11,14 @@ import { objectiveText } from '../game/intel/intel'
 import { stealthCues, type Cue } from '../game/stealth/cues'
 import { stealthRating } from '../game/stealth/rating'
 import { worldToScreen, type Camera } from './camera'
+import { morePressesLine } from '../ui/controls'
 import { drawIntel } from './intelHud'
 
 const HELP = [
   'A/D move    W/S climb and take stairs    SPACE jump, tap again to double jump',
   'HOLD SPACE while falling: parachute    C or CTRL: crouch',
-  'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool (9 again: frag; 7 again: rope, grapple)',
+  'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool',
+  `Press a key again for more: ${morePressesLine()}`,
   'Q or RIGHT-CLICK: set off C4    E: pick locks, use devices, take down (crouch + hold E: choke), hide',
   'F punch    V kick    HOLD G drag furniture or grab a guard    G pick up a body    T throw    X whistle',
   'SHIFT: focus (slow motion, slowest when you hold still)',

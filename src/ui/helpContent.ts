@@ -1,4 +1,5 @@
 import { TOOLS } from '../game/toolDefs'
+import { morePressesLine } from './controls'
 
 /**
  * What the help screen says, as data: short tabs of plain sentences with small examples.
@@ -49,7 +50,7 @@ export const HELP_TABS: readonly HelpTab[] = [
     blocks: [
       { kind: 'text', text: 'Find the gold case, grab it, and get back to the van. The panel at the top right always says what to do next and where you are.' },
       { kind: 'list', items: [
-        { term: 'Find it', text: 'The case is in the vault, deep in the building or below ground.' },
+        { term: 'Find it', text: 'Nobody tells you where it is: the vault, an executive safe, a lab, a store room or the armoury. Make guards talk, read notes, hack computers, listen in. The Intel panel keeps what you learn and an arrow points at the search area.' },
         { term: 'Grab it', text: 'Walk over it to pick it up.' },
         { term: 'Get out', text: 'Reach the van to win. Go down and the heist is over: press Enter for a new one.' },
       ] },
@@ -109,7 +110,7 @@ export const HELP_TABS: readonly HelpTab[] = [
   {
     title: 'Tools',
     blocks: [
-      { kind: 'text', text: 'Number keys pick a tool; press 9 again for the frag and 7 again for the rope. Green slots are quiet, red are loud.' },
+      { kind: 'text', text: `Number keys pick a tool; press a key again for the tool it shares (${morePressesLine()}). Green slots are quiet, red are loud.` },
       { kind: 'list', items: toolItems() },
     ],
   },
