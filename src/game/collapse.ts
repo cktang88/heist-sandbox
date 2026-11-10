@@ -6,7 +6,9 @@ import { hurtGuard } from './guards'
 import { emitNoise } from './noise'
 import { GRAVITY } from './physics'
 import { playSound } from './sounds'
-import { setTile, TILE_DEFS, TILE_KINDS, tileAt, type Grid, type TileKind } from './tiles'
+import { builtAs, BUILT_NONE } from './gaps/holes'
+import { currentHoles } from './gaps/state'
+import { CLEAR_OF_LANE, RUBBLE, setLaneFlags, setTile, TILE_DEFS, TILE_KINDS, tileAt, type Grid, type TileKind } from './tiles'
 import type { Interior } from './site'
 import type { Rect } from './types'
 import type { World } from './world'
@@ -26,24 +28,18 @@ const SOLID = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid ? 1 :
 /** Ladders are bolted to the walls beside them, so they hold the two sides of a shaft together. */
 const CARRIES = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid || kind === 'ladder' ? 1 : 0))
 const DUCT = TILE_KINDS.indexOf('duct')
-const REINFORCED = TILE_KINDS.indexOf('reinforced')
-
-/** One slab row of a building, columns x0..x1: where floors are also held by the back wall the side view cuts away. */
-export type SlabRow = { y: number; x0: number; x1: number }
 
 /**
- * The building is drawn cut open, but its floors are really also bolted to the back wall (and the unseen front
- * wall). So a run of slab that has lost every 2D path to the ground still hangs on if, along the same slab row,
- * a held tile lies within this many columns on at least one side: two rocket holes leave the slab between them
- * standing. Once the walls carrying a storey are gone on both sides for longer than this, it comes down.
+ * One slab row of a building, columns x0..x1: where floors are also held by the back wall the side view cuts away.
+ * `top` and `bottom` are the building's first and last rows, so holding a slab never reaches outside it.
  */
-const BACK_WALL_SPAN = 8
+export type SlabRow = { y: number; x0: number; x1: number; top: number; bottom: number }
 
 /**
  * Finds solid tiles that are no longer held up. A tile is supported when a chain of touching solid tiles
- * (or ladders) links it to the bottom of the map, or to a run of building slab the back wall still holds (see
- * `BACK_WALL_SPAN`). The reinforced frame cannot be destroyed, so it never falls, but a piece of it that is cut off
- * holds nothing up either: otherwise every floor bolted to a beam would hang there for ever.
+ * (or ladders) links it to the bottom of the map, or to a building slab the back wall still holds (see `holdSlab`).
+ * The reinforced frame cannot be destroyed, but it is held like anything else: a piece of it cut off on every side
+ * (a beam whose whole storey came down around it) falls too, rather than hanging in the air for ever.
  */
 export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): number[] {
   const { width, height, kinds } = grid
@@ -72,44 +68,57 @@ export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): num
   }
   for (let index = (height - 1) * width; index < size; index += 1) if (SOLID[kinds[index]]) reach(index)
   spread()
-  for (const slab of slabs) holdSlab(grid, supported, slab, reach)
-  spread()
   const loose: number[] = []
-  for (let index = 0; index < size; index += 1) if (!supported[index] && SOLID[kinds[index]] && kinds[index] !== REINFORCED) loose.push(index)
-  return loose
+  for (let index = 0; index < size; index += 1) if (!supported[index] && SOLID[kinds[index]]) loose.push(index)
+  // Almost always everything is held by the plain rule; the back walls only need asking when something is not.
+  if (loose.length === 0) return loose
+  // A slab held from behind holds what hangs from it, which may reach down to (and hold) another slab: go on until none is left.
+  const held = new Uint8Array(slabs.length)
+  for (let changed = true; changed;) {
+    changed = false
+    slabs.forEach((slab, entry) => {
+      if (held[entry] || !holdSlab(grid, supported, slab, reach)) return
+      held[entry] = 1
+      changed = true
+      spread()
+    })
+  }
+  return loose.filter((index) => !supported[index])
 }
 
 /**
- * Marks the runs of loose slab on one row that the back wall still holds. Sweeps both ways, counting a run it has
- * just held as holding, so a row of islands between several holes all stay up.
+ * The building is drawn cut open, but its floors are really also bolted to the back wall (and the unseen front
+ * wall), which runs the whole length of the storey, and so are the partitions, lintels and ducts between them. So
+ * while any tile of a slab row is still held up, the storey's frame stands, and every remaining tile of that row hangs
+ * on from behind, however ragged the holes blown in it, along with everything on the storeys just above and below
+ * it: only what a blast destroyed disappears. A storey comes down only once nothing at all holds its slab (its walls
+ * and the storeys below are gone). Returns true if it held the row.
  */
-function holdSlab(grid: Grid, supported: Uint8Array, slab: SlabRow, reach: (index: number) => void): void {
-  if (slab.y < 0 || slab.y >= grid.height) return
-  const row = slab.y * grid.width
+function holdSlab(grid: Grid, supported: Uint8Array, slab: SlabRow, reach: (index: number) => void): boolean {
+  if (slab.y < 0 || slab.y >= grid.height) return false
   const x0 = Math.max(0, slab.x0)
   const x1 = Math.min(grid.width - 1, slab.x1)
-  const sweep = (from: number, to: number, step: number): void => {
-    let gap = BACK_WALL_SPAN + 1
-    for (let x = from; x !== to + step; x += step) {
-      const index = row + x
-      if (!SOLID[grid.kinds[index]]) gap += 1
-      else if (supported[index]) gap = 0
-      else if (gap <= BACK_WALL_SPAN) reach(index)
-      else gap = BACK_WALL_SPAN + 1
-    }
+  const row = slab.y * grid.width
+  let standing = false
+  for (let x = x0; x <= x1 && !standing; x += 1) standing = supported[row + x] === 1 && SOLID[grid.kinds[row + x]] === 1
+  if (!standing) return false
+  const from = Math.max(0, slab.top, slab.y - STOREY + 1)
+  const to = Math.min(grid.height - 1, slab.bottom, slab.y + STOREY - 1)
+  for (let y = from; y <= to; y += 1) {
+    for (let x = x0; x <= x1; x += 1) if (SOLID[grid.kinds[y * grid.width + x]]) reach(y * grid.width + x)
   }
-  sweep(x0, x1, 1)
-  sweep(x1, x0, -1)
+  return true
 }
 
-/** The slab rows of every building of two or more storeys; one-storey sheds, bridges and silos keep the plain rule. */
+/** The slab rows of every building built in whole storeys; silos and watchtowers keep the plain rule. */
 export function slabRows(world: World): SlabRow[] {
   const cached = slabCache.get(world.interiors)
   if (cached) return cached
   const rows: SlabRow[] = []
   for (const interior of world.interiors) {
-    if (interior.kind !== 'room' || interior.h % STOREY !== 0 || interior.h < 2 * STOREY) continue
-    for (let y = interior.y; y <= interior.y + interior.h; y += STOREY) rows.push({ y, x0: interior.x, x1: interior.x + interior.w - 1 })
+    if (interior.kind !== 'room' || interior.h % STOREY !== 0) continue
+    const bottom = interior.y + interior.h
+    for (let y = interior.y; y <= bottom; y += STOREY) rows.push({ y, x0: interior.x, x1: interior.x + interior.w - 1, top: interior.y, bottom })
   }
   slabCache.set(world.interiors, rows)
   return rows
@@ -123,7 +132,7 @@ export function stepCollapse(world: World, dt: number): void {
     for (const index of findUnsupported(world.grid, slabRows(world))) {
       const x = index % world.grid.width
       const y = Math.floor(index / world.grid.width)
-      world.falling.push({ x, y, vy: 0, kind: tileAt(world.grid, x, y) })
+      world.falling.push({ x, y, vy: 0, kind: fallsAs(tileAt(world.grid, x, y)) })
       setTile(world.grid, x, y, 'air')
     }
   }
@@ -132,6 +141,11 @@ export function stepCollapse(world: World, dt: number): void {
   // Lowest first, so a falling stack lands in order instead of on top of itself.
   world.falling.sort((a, b) => b.y - a.y)
   world.falling = world.falling.filter((tile) => !dropTile(world, tile, dt))
+}
+
+/** A piece of the reinforced frame that comes loose is wrecked by the fall: it lands as ordinary rubble. */
+function fallsAs(kind: TileKind): TileKind {
+  return kind === 'reinforced' ? 'concrete' : kind
 }
 
 /** Moves one falling tile. Returns true when it has landed or broken up. */
@@ -159,7 +173,10 @@ function dropTile(world: World, tile: FallingTile, dt: number): boolean {
   if (under === 'reinforced' || tileAt(world.grid, tile.x, below - 1) !== 'air') return shatter(world, tile)
   // Setting solid around a person, a body, the loot, furniture or a thrown charge would bury it; it breaks up on them instead.
   if (occupied(world, { x: tile.x, y: below - 1, w: 1, h: 1 })) return shatter(world, tile)
+  // A heap that grows up into a hole in the floor above breaks up there rather than plugging it.
+  if (builtAs(currentHoles(world), tile.x, below - 1) !== BUILT_NONE) return shatter(world, tile)
   setTile(world.grid, tile.x, below - 1, tile.kind)
+  settleRubble(world.grid, tile.x, below - 1)
   burst(world.effects, world.rng, { x: tile.x + 0.5, y: below }, 3, '#8a8f98', 4)
   world.shake = Math.min(1, world.shake + 0.04)
   if (tile.vy > CRUSH_SPEED) {
@@ -167,6 +184,24 @@ function dropTile(world: World, tile: FallingTile, dt: number): boolean {
     playSound(world, 'collapse', { x: tile.x + 0.5, y: below })
   }
   return true
+}
+
+/**
+ * A heap of fallen tiles up to this many rows high is a pile people step round in depth (or over); one that grows
+ * taller fills enough of the room's height to block it, and then the whole heap blocks.
+ */
+export const LOW_PILE = 2
+
+/** Marks a tile that has just come to rest as rubble, and decides whether its heap still leaves the lane clear. */
+function settleRubble(grid: Grid, x: number, y: number): void {
+  let height = 1
+  while (height <= LOW_PILE && (grid.lane[(y + height) * grid.width + x] & RUBBLE) !== 0) height += 1
+  if (height <= LOW_PILE) {
+    setLaneFlags(grid, x, y, RUBBLE | CLEAR_OF_LANE)
+    return
+  }
+  setLaneFlags(grid, x, y, RUBBLE)
+  for (let below = 1; below < height; below += 1) setLaneFlags(grid, x, y + below, RUBBLE)
 }
 
 function shatter(world: World, tile: FallingTile): boolean {

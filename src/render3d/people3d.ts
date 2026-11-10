@@ -6,7 +6,7 @@ import { advanceStride, BONES, poseHuman, type Limb, type Motion, type Skeleton 
 import { bodyParts } from './people/body'
 import type { Outfit } from './people/looks'
 import { FAR_SURFACE, HIT_SURFACE, NEAR_SURFACE } from './people/surface'
-import { weaponGeometry } from './people/weapons'
+import { shieldGeometry, weaponGeometry } from './people/weapons'
 
 export type { Outfit } from './people/looks'
 export { outfitFor, weaponFor } from './people/looks'
@@ -15,6 +15,8 @@ export { outfitFor, weaponFor } from './people/looks'
 const ARM_Z = 0.19
 const LEG_Z = 0.085
 const WEAPON_Z = 0.21
+/** A shield is carried out in front of the body, just on the camera side of its middle. */
+const SHIELD_Z = 0.03
 /** Climbing a ladder, the body turns its back to the camera and steps back toward the rungs. */
 const LADDER_DEPTH = -0.38
 /** A landing hard enough to squash the legs, and how long the squash and a hit flinch last. */
@@ -53,6 +55,9 @@ export class Figure {
   private squash = 0
   private flinch = 0
   private memory: Memory | null = null
+  /** Made only for people who ever need them, so everyone else keeps to the usual draw calls. */
+  private shield: Mesh | null = null
+  private dropped: { mesh: Mesh; tool: ToolId } | null = null
   private limp: { ragdoll: Ragdoll; facing: 1 | -1; body: Skeleton } | null = null
 
   constructor(readonly outfit: Outfit) {
@@ -130,10 +135,44 @@ export class Figure {
     this.weapon.visible = held !== null && body.armed
     if (this.weapon.visible) this.aim(this.weapon, body.grip, WEAPON_Z, body.hands[0], facing)
 
+    this.poseShield(body, facing)
+
     if (flash !== this.flashing) {
       this.flashing = flash
       for (const mesh of this.meshes) mesh.material = flash ? HIT_SURFACE : this.far.has(mesh) ? FAR_SURFACE : NEAR_SURFACE
     }
+  }
+
+  private poseShield(body: Skeleton, facing: 1 | -1): void {
+    const at = body.offHand?.at
+    if (at && !this.shield) {
+      this.shield = new Mesh(shieldGeometry(), NEAR_SURFACE)
+      this.shield.castShadow = true
+      this.body.add(this.shield)
+    }
+    if (!this.shield) return
+    this.shield.visible = Boolean(at)
+    if (!at) return
+    this.shield.position.set(at.x - this.origin, -at.y, SHIELD_Z)
+    this.shield.scale.set(facing, 1, 1)
+  }
+
+  /** The weapon a man let go of, lying on the floor where he dropped it; `at` is null while he holds it. */
+  showDropped(at: Vec | null, tool: ToolId | null): void {
+    if (!at || !tool) {
+      if (this.dropped) this.dropped.mesh.visible = false
+      return
+    }
+    if (!this.dropped) {
+      const mesh = new Mesh(weaponGeometry(tool), NEAR_SURFACE)
+      this.group.add(mesh)
+      this.dropped = { mesh, tool }
+    }
+    if (this.dropped.tool !== tool) this.dropped = { mesh: Object.assign(this.dropped.mesh, { geometry: weaponGeometry(tool) }), tool }
+    const { mesh } = this.dropped
+    mesh.visible = true
+    mesh.position.set(at.x, -at.y + 0.05, 0.1)
+    mesh.rotation.z = 0.08
   }
 
   /**

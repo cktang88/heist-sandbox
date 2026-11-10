@@ -1,8 +1,8 @@
 import { GRAPPLE_TOOL } from './grapple/tool'
 
-export type ToolId = 'pistol' | 'rifle' | 'shotgun' | 'sniper' | 'rocket' | 'c4' | 'drill' | 'drone' | 'smoke' | 'flash'
+export type ToolId = 'pistol' | 'rifle' | 'shotgun' | 'sniper' | 'rocket' | 'c4' | 'drill' | 'drone' | 'smoke' | 'flash' | 'frag' | 'rope' | 'grapple'
 
-/** What a tool does when it differs from what the hands hold: `id` is the item the renderers draw in the hands. */
+/** The second-page tools, which share a hotkey with a first-page one. `id` is the item the renderers draw in the hands. */
 export type ToolAction = 'frag' | 'rope' | 'grapple'
 
 /**
@@ -27,9 +27,10 @@ export const TOOLS: readonly ToolDef[] = [
   { id: 'smoke', name: 'Smoke', ammo: 4, cooldown: 0.6, auto: false, quiet: true },
   { id: 'flash', name: 'Flash', ammo: 4, cooldown: 0.6, auto: false, quiet: false },
   // Second page: a frag shares the smoke key (9), the rope shares the drill key (7).
-  { id: 'flash', name: 'Frag', ammo: 4, cooldown: 0.6, auto: false, quiet: false, action: 'frag', slot: 8 },
-  { id: 'c4', name: 'Rope', ammo: 3, cooldown: 0.5, auto: false, quiet: true, action: 'rope', slot: 6 },
-  GRAPPLE_TOOL,
+  { id: 'frag', name: 'Frag', ammo: 4, cooldown: 0.6, auto: false, quiet: false, action: 'frag', slot: 8 },
+  { id: 'rope', name: 'Rope', ammo: 3, cooldown: 0.5, auto: false, quiet: true, action: 'rope', slot: 6 },
+  // The grapple's entry predates its own hand model; it is drawn as a grappling gun.
+  { ...GRAPPLE_TOOL, id: 'grapple' },
 ]
 
 /** The first tool with this held item: always the first-page one. */
@@ -45,9 +46,14 @@ function slotOf(index: number): number {
   return TOOLS[index].slot ?? index
 }
 
+/** Every tool a hotkey cycles through, first page first. */
+export function toolsOnKey(key: number): number[] {
+  return TOOLS.map((_, index) => index).filter((index) => slotOf(index) === key)
+}
+
 /** The tool a hotkey press picks. Pressing the key of the tool in hand swaps to the next tool on that key. */
 export function toolForKey(key: number, current: number): number {
-  const onKey = TOOLS.map((_, index) => index).filter((index) => slotOf(index) === key)
+  const onKey = toolsOnKey(key)
   const at = onKey.indexOf(current)
   return at < 0 ? onKey[0] : onKey[(at + 1) % onKey.length]
 }

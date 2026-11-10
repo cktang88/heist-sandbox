@@ -4,7 +4,7 @@
  * Pure: no browser code, so it is tested directly.
  */
 
-export const LOOKS = ['real', 'pixel', 'sketch', 'paint'] as const
+export const LOOKS = ['real', 'pixel', 'pixel-hd', 'sketch', 'paint'] as const
 export const QUALITIES = ['auto', 'low', 'high'] as const
 export const VIEWS = ['3d', '2d'] as const
 export const SITES = ['complex', 'outpost'] as const
@@ -28,7 +28,7 @@ export type Settings = {
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
-  look: 'real', quality: 'auto', view: '3d', site: 'complex', volume: 0.8, muted: false, autoSlowmo: true, shake: true,
+  look: 'pixel', quality: 'auto', view: '3d', site: 'complex', volume: 0.8, muted: false, autoSlowmo: true, shake: true,
 }
 
 export const STORAGE_KEY = 'smash-and-grab.settings'

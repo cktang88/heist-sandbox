@@ -28,6 +28,16 @@ export function canWalkAcross(world: World, x: number, floorY: number): boolean 
   return isWalkableHole(currentHoles(world), x, floorY)
 }
 
+/**
+ * True when column x of slab row `floorY` is a hole blasted in a floor that leaves its back strip standing: where
+ * furniture, which stands at the back of a room, still has floor under it. Built openings (hatches, shafts) are not.
+ */
+export function backStripAt(world: World, x: number, floorY: number): boolean {
+  const column = Math.floor(x)
+  const holes = currentHoles(world)
+  return column >= 0 && column < holes.grid.width && holes.walkable.has(floorY * holes.grid.width + column)
+}
+
 /** True when the slab row under the body is floor or walk-past hole all the way across it, with at least one hole. */
 export function heldUpByHoles(holes: Holes, body: Body, floorY: number): boolean {
   let overHole = false

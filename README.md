@@ -1,16 +1,17 @@
 # Smash & Grab
 
-A side-on heist game where every wall can be blown apart. Drop in, steal the gold case from the vault, and get back to the van. Go quiet or go loud.
+A side-on heist sandbox. Parachute into a guarded complex, find a gold case, and get it back to the van. Go quiet or go loud: almost everything can be blown apart, and the guards react to what you do.
+
+![Tower offices](docs/screenshots/office.png)
 
 ```
-        plane drop (parachute)
-              ↓
-   van      ┌─────────┐ roof hatch / skylight
-  ┌──┐      │ guards  │
-  │  │ ───► │ door    │  front door (lockpick)
-──┴──┴──────┴────┬────┴────────
-   manhole       │ basement ── vault ★
-     └──── sewer ┘  (hatch, or blast up through the floor)
+        plane drop (parachute, steer for the TARGET arrow)
+                        ↓
+ van   gate   depot   ┌──────────┐   quarters   silos
+ ┌─┐   ┌─┐   ┌────┐   │  tower   │   ┌──────┐   ┌─┐┌─┐
+ │ │ ► │ │ ► │    │ ► │ 20+ floors│ ► │      │   │ ││ │
+─┴─┴───┴─┴───┴────┴───┴────┬─────┴───┴──────┴───┴─┴┴─┴─
+   manhole ── sewer ── basements ── (the case is hidden somewhere)
 ```
 
 ## Run it
@@ -33,88 +34,143 @@ npm test
 npm run build
 ```
 
+## The job
+
+1. Drop in. Hold **Space** while falling to open the parachute.
+2. Find the gold case. Nobody tells you where it is: it sits in one of several rooms (the vault, an executive safe, a lab, a store room, the armoury).
+3. Carry it back to the van.
+
+### Finding the case
+
+| Source | How | How reliable |
+|---|---|---|
+| A guard who surrendered, is tied up, or is your human shield | Hold **E** to question him. Each person talks once | About 70% tell the truth. Officers know the room; rookies only know the building |
+| Notice boards, whiteboards, papers | Hold **E** to read | About 90% |
+| A hacked computer | "Search files for the case" | About 90% |
+| Two calm guards chatting | Stay hidden nearby for a few seconds | About 90% |
+
+Two sources that agree mark a clue as confirmed. The Intel panel lists what you know and an arrow points at the search area.
+
+Going loud costs you: dead guards cannot talk, and once the alarm has rung for a while the guards move the case, which makes your old clues stale.
+
 ## Controls
+
+Press **Esc** in the game for the full list, help and settings.
 
 | Key | Action |
 |---|---|
 | A / D | Move |
-| W / S | Climb ladders, stairs and ropes; ride elevators |
+| W / S | Climb ladders, stairs, ropes and the grapple line; ride elevators; hold S over a floor hole to drop through |
 | Space | Jump. Tap again in the air to double jump. Grabs ledges |
 | Hold Space while falling | Parachute |
 | C or Ctrl | Crouch (quieter, hides behind low cover); slide when running |
 | Mouse | Aim and use the tool in hand |
 | R | Reload |
 | 1-9, 0 or wheel | Pick a tool. Press 9 again for Frag; 7 again for Rope, then Grapple |
-| E | Do the thing in reach: break in through a window (tap to smash, hold to cut quietly), pick locks, take down, hack, cut wires, switches, call elevators |
-| F / V | Punch / kick (kick also tips tables and bursts doors) |
+| E | Do the thing in reach: break in through a window (tap to smash, hold to cut quietly), pick locks, take down, tie up, question, hack, cut wires, switches, call elevators |
+| F / V | Punch / kick (a kick also tips tables and bursts doors) |
 | Hold G | Drag furniture, or hold a guard from behind as a shield |
 | T | Throw the nearest small object where you aim |
-| Q or right-click | Set off all C4. C4 sticks to walls, doors and ceilings |
+| Q or right-click | Set off all C4 |
 | Shift | Focus: slow motion, slowest when you hold still |
-| Esc or P | Pause menu: controls, help, settings (art style, quality, site, seed, sound) |
-| H / K or F1 | Help / controls list |
+| Esc or P | Pause menu |
+| H / K or F1 | Help / controls |
 | Enter | New heist after winning or losing |
+
+![Pause menu](docs/screenshots/menu-pause.png)
 
 ## Tools
 
-| # | Tool | Quiet? | Use |
+| Key | Tool | Quiet? | Use |
 |---|---|---|---|
 | 1 | Pistol | Yes | Drops unaware guards in one shot |
 | 2 | Rifle | No | Fast fire; goes through doors |
 | 3 | Shotgun | No | Nine pellets, huge up close, useless far away |
 | 4 | Sniper | No | One heavy shot; goes through doors, brick and people |
 | 5 | Rockets | No | Blast holes anywhere |
-| 6 | C4 | Until it goes off | Throw, then press Q. Breaks even the steel vault |
-| 7 | Drill / Rope / Grapple | Mostly | Tunnel slowly; tie a rope at an edge; or fire a hook, reel with W/S, swing with A/D |
+| 6 | C4 | Until it goes off | Sticks to walls, doors, windows and ceilings. Q sets off all of it |
+| 7 | Drill | Mostly | Tunnel through anything, slowly |
+| 7 ×2 | Rope | Yes | Tie it at an edge and climb the outside of the building |
+| 7 ×3 | Grapple | Yes | Fire a hook at a wall or roof edge, reel with W/S, swing with A/D |
 | 8 | Drone | Yes | Fly it with the move keys to scout, click to detonate |
-| 9 | Smoke / Frag | Yes / No | Hide in smoke, or roll a frag down the stairs |
+| 9 | Smoke | Yes | Blocks sight |
+| 9 ×2 | Frag | No | Rolls down stairs; destroys the stair flight |
 | 0 | Flash | No | Blinds and deafens anyone looking |
-
-## Things the world lets you do
-
-- The gold case is hidden. Question guards who surrender, are tied up or are held as a shield (about 70% tell the truth); read notes and hack files for better clues. Go loud and the guards move it.
-- Walk past a hole blown in a floor, hold S over it to drop through, or jump up through it.
-- Shoot out lamps, cameras, alarm buttons, radio relays and fuse boxes.
-- Push a desk against a door to block it, or under a hole in the ceiling to climb up.
-- Blow up a stair flight or cut an elevator cable to stop guards following.
-- Destroy a floor and whatever stood on it falls; cars catch fire and explode.
-- Shoot fuel drums and gas cylinders; fire spreads and sprinklers answer.
 
 The crosshair ring widens as a gun gets less accurate, so spread is never a surprise.
 
-## How stealth works
+## Things the world lets you do
 
-- Guards show what they can see as a torch beam. Stay out of it, or behind something solid.
-- Noise draws guards to look. Loud tools carry a long way.
-- A guard who spots you radios it in. The site alert rises in steps (0 to 4): first one guard looks, then squads search, then the alarm rings, the elevators lock down and three armoured responders drive in.
-- Cut the radio relay and guards must run to an alarm button instead. Cut the power and they go to the fuse box.
-- Slow motion kicks in briefly when you are spotted, when a bullet just misses, and when a blast takes out a guard.
+- Shoot out lamps, cameras, alarm buttons, radio relays and fuse boxes.
+- Cut the power at a fuse box, or the radios at a relay. Guards then have to walk to a button or the fuse box.
+- Hack computers to switch off cameras and lights, unlock doors, jam radios or trigger a false alarm.
+- Push a desk against a door to block it, or under a hole in the ceiling to climb up.
+- Kick a table over for cover. Kick a guard off a ledge or through a window.
+- Blow up a stair flight or cut an elevator cable to stop guards following.
+- Destroy a floor and whatever stood on it falls. Cars catch fire and explode.
+- Shoot fuel drums and gas cylinders. Fire spreads, smoke fills rooms, sprinklers answer.
+- Walk past a hole blown in a floor, drop through it, or jump up through it. Floors are held up from behind, so a slab between two holes stays.
+- Swing on the grapple and crash through a window.
 
-## The world reacts
+## The guards
 
-- Anything you cut off from the ground falls: blow out a wall and the floors above come down, crushing whoever is underneath.
-- Downed guards go limp and get thrown by later blasts.
-- Medkits and ammo boxes are scattered around the site.
-- Even-numbered seeds flip the level, so the van and the building swap sides.
-- Sound is built in, and drops in pitch during slow motion. It starts after your first click or key press.
+| They notice | What happens |
+|---|---|
+| A small sound | One guard comes to look |
+| A body, an open door, a picked lock, a dead camera, a rope | They radio it in and search in pairs |
+| Gunfire | They aim at where it came from, take cover and shoot back, even through a floor hole |
+| An explosion | The armoured response team drives in and the site locks down |
 
-## Graphics and sound
+- The site alert rises in steps from 0 to 4 and is shown at the top right.
+- Each guard is a rookie, regular or veteran. Scared guards refuse to enter a room alone, fire blind from cover, fall back, hide or surrender.
+- In a fight they split up: some pin you down while others come round by another stairwell.
+- A spot where guards died becomes a kill zone. They flashbang it first, and after enough deaths a four-man shield team comes through.
 
-- The game is drawn in real 3D, viewed from the side: photo-scanned wall textures, moonlight, lamps and torches that cast shadows, glow around bright things, film-style tone mapping and a little lens grain.
-- Gunfire and explosions are real recordings. Everything else is generated.
-- Third-party assets are public domain (CC0), listed in `public/textures/LICENSE.md`, except the furniture models in `public/models2/`, which are CC BY 4.0 and credited in `public/models2/CREDITS.md`.
+## Screens
 
-If it runs slowly, add one of these to the address:
+| | |
+|---|---|
+| ![Settings](docs/screenshots/menu-settings.png) | ![Controls](docs/screenshots/menu-controls.png) |
+| ![Help](docs/screenshots/menu-help.png) | ![Quarters building](docs/screenshots/quarters.png) |
+| ![Server room](docs/screenshots/server.png) | ![The looks in an office](docs/screenshots/looks-office.png) |
+
+## Art styles
+
+Pixel is the default. Pick another in Settings (it switches at once) or add `?look=real`, `pixel`, `pixel-hd`, `sketch` or `paint` to the address.
+
+![The four looks](docs/screenshots/looks-lounge.png)
+
+## Options
+
+Settings are in the pause menu and are remembered. The same things can be set in the address:
 
 | Add | Effect |
 |---|---|
-| `?quality=low` | Keeps 3D, drops shadows and sharpness |
-| `?render=2d` | The earlier flat view, which needs no graphics card |
+| `?seed=1` | Replay the same heist. Even seeds flip the site left to right |
+| `?site=outpost` | A small site instead of the big complex |
+| `?quality=low` or `?quality=high` | Fewer or more graphics effects (default adjusts itself) |
+| `?render=2d` | A flat view that needs no graphics card |
+| `?debug=1` | Publishes drawing counters on `globalThis.__renderInfo` |
 
 ## Code layout
 
-- `src/game/` is the whole game with no browser code: tiles, physics, guards, tools, explosions. `step.ts` advances one frame; `world.ts` holds the state.
-- `src/render3d/` draws the world in 3D: level geometry (`levelMesh.ts`), lights (`lights.ts`), people (`people3d.ts`), effects (`fx3d.ts`), lens effects (`post.ts`).
-- `src/render/` holds the 2D pieces: the HUD, the markers drawn over the 3D view (`overlay.ts`), the skeleton poses both views share (`human/pose.ts`), and the fallback flat renderer.
-- `src/inputDevice.ts` turns keyboard and mouse into the `Input` the game reads; `src/audio.ts` plays the sound events the game records.
-- Add `?seed=1` to the URL to replay the same level. The default site is the big complex (a 20+ storey tower, depot, quarters, silos); add `?site=outpost` for the small one.
+| Folder | What it holds |
+|---|---|
+| `src/game/` | The whole game with no browser code. `world.ts` is the state, `step.ts` advances one frame |
+| `src/game/complex/`, `furnish/` | The site generator: buildings, rooms, furniture, lights, ducts |
+| `src/game/security/` | Guards: senses, nerve, tactics, radio, dispatcher, shield team |
+| `src/game/hazards/`, `ballistics/`, `frag/`, `collapse.ts` | Fire, smoke, grenades, bullets through walls, falling structure |
+| `src/game/physprops/`, `melee/`, `rope/`, `grapple/`, `gaps/` | Furniture you can move, close combat, ropes, the grapple, floor holes |
+| `src/game/intel/` | The hidden case and the clues that find it |
+| `src/render3d/` | The 3D view (three.js): level, lights, props, people, effects |
+| `src/render/` | The HUD, markers over the 3D view, the shared skeleton, the flat fallback view |
+| `src/ui/` | Menus: pause, controls, help, settings |
+| `docs/` | Design references and research notes |
+
+Everything in `src/game/` is deterministic and covered by tests (`npm test`).
+
+## Credits
+
+- Textures, skies, most models and sounds are public domain (CC0); sources are listed in `public/textures/LICENSE.md`.
+- The furniture models in `public/models2/` are CC BY 4.0 and credited in `public/models2/CREDITS.md`.
+- Design references are listed in `docs/REFERENCES.md`.

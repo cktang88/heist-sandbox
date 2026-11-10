@@ -48,7 +48,7 @@ describe('settings and the address', () => {
 
   it('only address-backed settings need a reload', () => {
     expect(needsReload(DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS, volume: 0.1, shake: false })).toBe(false)
-    expect(needsReload(DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS, look: 'pixel' })).toBe(true)
+    expect(needsReload(DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS, look: 'sketch' })).toBe(true)
   })
 })
 

@@ -1,11 +1,9 @@
 import { Group, Mesh } from 'three'
 import { guardMood, type Guard } from '../game/guards'
 import type { TileKind } from '../game/tiles'
-import { TOOLS } from '../game/toolDefs'
-import { handOf } from '../game/tools'
 import type { Vec } from '../game/types'
 import type { World } from '../game/world'
-import type { Motion } from '../render/human/pose'
+import { guardMotion, playerMotion } from '../render/human/motion'
 import { createEffects3d } from './fx3d'
 import type { SurfaceMaterials, SurfaceName } from './levelMesh'
 import { Figure, outfitFor, weaponFor } from './people3d'
@@ -13,7 +11,6 @@ import { BOX, buildDrone, buildLoot, buildParachute, buildPickup, buildVan, CHAR
 import { createDevicesLayer } from './devicesLayer'
 import { createFixturesLayer } from './fixturesLayer'
 import { depthOffsetFor } from '../game/gaps/gaps'
-import { onLine } from '../game/grapple/state'
 import { createGapsLayer } from './gapsLayer'
 import { createGrappleLayer } from './grappleLayer'
 import { createHazardsLayer } from './hazardsLayer'
@@ -71,14 +68,8 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
     update(now, aim, view) {
       const near = (x: number, y: number) => Math.abs(x - view.x) < DRAW_DISTANCE && Math.abs(y - view.y) < DRAW_DISTANCE * 0.62
       const hero = now.player
-      const feet = { x: hero.x + hero.w / 2, y: hero.y + hero.h }
-      const hand = handOf(now)
-      const motion: Motion = {
-        x: feet.x, feetY: feet.y, facing: hero.facing, vx: hero.vx, vy: hero.vy, onGround: hero.onGround,
-        mode: hero.chute ? 'chute' : hero.stairs ? 'stairs' : hero.onLadder || onLine(now.grapple) ? 'ladder' : hero.crouching ? 'crouch' : 'normal',
-        aim: Math.atan2(aim.y - hand.y, aim.x - hand.x), kick: hero.kick,
-      }
-      const body = player.animate({ ...motion, clock: now.clock }, now.drone ? 'drone' : TOOLS[hero.tool].id)
+      const posed = playerMotion(now, aim)
+      const body = player.animate(posed.motion, posed.held)
       player.group.position.z = hero.stairs ? STAIR_LANE : depthOffsetFor(now, hero)
       parachute.visible = hero.chute
       parachute.position.set(body.shoulder.x, -body.shoulder.y, 0)
@@ -96,21 +87,15 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
           group.add(figure.group)
         }
         figure.group.visible = true
+        figure.showDropped(guard.droppedWeapon, weaponFor(guard.role, guard.armored))
         const mood = guardMood(guard)
         if (mood === 'dead') {
           if (guard.ragdoll) figure.poseRagdoll(guard.ragdoll)
           continue
         }
-        const base = { x: guard.x + guard.w / 2, y: guard.y + guard.h }
-        // A fighting guard aims at where he believes the player is (his last known position), never the true spot.
-        const target = guard.target
-        const relaxed = guard.facing > 0 ? 0.35 : Math.PI - 0.35
-        const alert = guard.state !== 'patrol'
-        figure.animate({
-          x: base.x, feetY: base.y, facing: guard.facing, vx: guard.vx, vy: guard.vy, onGround: guard.onGround,
-          mode: guard.stairs ? 'stairs' : guard.climbing ? 'ladder' : guard.crouching ? 'crouch' : 'normal',
-          aim: mood === 'alert' && target ? Math.atan2(target.y - (guard.y + 0.5), target.x - base.x) : relaxed, kick: guard.kick, clock: now.clock, alert,
-        }, weaponFor(guard.role, guard.armored, alert), guard.hitFlash > 0)
+        const weapon = weaponFor(guard.role, guard.armored, guard.state !== 'patrol')
+        const posed = guardMotion(now, guard, weapon)
+        figure.animate(posed.motion, posed.held, guard.hitFlash > 0)
         figure.group.position.z = guard.stairs ? STAIR_LANE : depthOffsetFor(now, guard)
       }
 
