@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { findUnsupported } from './collapse'
 import { hurtTile } from './destruction'
+import { explode, ROCKET_BLAST } from './explosions'
 import { idleInput } from './input'
 import { createLevel } from './level'
 import { stepWorld } from './step'
 import { createGrid, fillTiles, setTile, tileAt } from './tiles'
-import { createWorld } from './world'
+import { createWorld, type World } from './world'
 
 describe('collapse', () => {
   it.each([1, 2, 3, 42])('leaves the untouched level of seed %i standing', (seed) => {
@@ -19,6 +20,20 @@ describe('collapse', () => {
     expect(findUnsupported(grid)).toEqual([])
     setTile(grid, 2, 3, 'air')
     expect(findUnsupported(grid).length).toBe(2)
+  })
+
+  it('never drops the reinforced frame, even a beam whose slab and walls are all gone, but a cut-off beam holds nothing up', () => {
+    const grid = createGrid(8, 8)
+    fillTiles(grid, 0, 7, 7, 7, 'bedrock')
+    fillTiles(grid, 1, 2, 6, 2, 'concrete')
+    setTile(grid, 3, 2, 'reinforced')
+    fillTiles(grid, 1, 3, 1, 6, 'brick')
+    // Walls and slab gone: the beam stays where it is; the slab beside it falls.
+    fillTiles(grid, 1, 3, 1, 6, 'air')
+    setTile(grid, 2, 2, 'air')
+    setTile(grid, 5, 2, 'air')
+    const loose = findUnsupported(grid).map((index) => [index % 8, Math.floor(index / 8)])
+    expect(loose).toEqual([[1, 2], [4, 2], [6, 2]])
   })
 
   it('keeps a duct hanging from the slab above when the door it rests on is opened, and drops it when the slab goes', () => {
@@ -66,5 +81,57 @@ describe('collapse', () => {
     expect(tileAt(world.grid, 40, 39)).toBe('brick')
     expect(tileAt(world.grid, 40, 36)).toBe('brick')
     expect(tileAt(world.grid, 40, 35)).toBe('air')
+  })
+})
+
+describe('floors held by the back wall', () => {
+  const FRAME = 1 / 60
+  const settle = (world: World, seconds: number) => {
+    for (let frame = 0; frame < seconds / FRAME; frame += 1) {
+      world.player.hp = 1e6
+      stepWorld(world, idleInput({ x: world.player.x, y: world.player.y }), FRAME)
+    }
+  }
+  /** A tower office wide enough for two holes with slab left between them, and nobody else around. */
+  const officeFloor = () => {
+    const world = createWorld(1, 'complex')
+    world.guards = []
+    const room = world.rooms.find((candidate) => candidate.building === 'tower' && candidate.storey === 6 && candidate.w >= 18)!
+    return { world, room }
+  }
+  const row = (world: World, y: number, x0: number, x1: number) => {
+    const kinds: string[] = []
+    for (let x = x0; x <= x1; x += 1) kinds.push(tileAt(world.grid, x, y))
+    return kinds
+  }
+
+  it('two rockets into a tower floor leave the slab between the holes standing, with the player on it', () => {
+    const { world, room } = officeFloor()
+    const left = room.x + 3
+    const right = room.x + room.w - 4
+    const middle = Math.floor((left + right) / 2)
+    Object.assign(world.player, { x: middle, y: room.floorY - world.player.h - 0.01, vx: 0, vy: 0 })
+    explode(world, { x: left + 0.5, y: room.floorY + 0.5 }, ROCKET_BLAST)
+    explode(world, { x: right + 0.5, y: room.floorY + 0.5 }, ROCKET_BLAST)
+    expect(tileAt(world.grid, left, room.floorY)).toBe('air')
+    expect(tileAt(world.grid, right, room.floorY)).toBe('air')
+    // The plain side-on rule would drop the middle: nothing links it to the ground in the cut-open view.
+    const width = world.grid.width
+    expect(findUnsupported(world.grid).some((index) => index % width === middle && Math.floor(index / width) === room.floorY)).toBe(true)
+    settle(world, 2)
+    expect(row(world, room.floorY, middle - 2, middle + 2)).not.toContain('air')
+    expect(world.player.y + world.player.h).toBeCloseTo(room.floorY, 1)
+  })
+
+  it('a storey whose slab is cut away for a long stretch on both sides still comes down', () => {
+    const { world, room } = officeFloor()
+    const middle = Math.floor(room.x + room.w / 2)
+    // Cut the floor and everything under it far beyond the back wall's reach on both sides of a short piece.
+    for (let x = middle - 14; x <= middle + 14; x += 1) {
+      const from = Math.abs(x - middle) <= 1 ? room.floorY + 1 : room.floorY
+      for (let y = from; y <= room.floorY + 5; y += 1) hurtTile(world, x, y, 1e6)
+    }
+    settle(world, 0.1)
+    expect(row(world, room.floorY, middle - 1, middle + 1)).toEqual(['air', 'air', 'air'])
   })
 })

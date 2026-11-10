@@ -4,6 +4,7 @@ import { emitNoise } from './noise'
 import { GRAVITY } from './physics'
 import { playSound } from './sounds'
 import { setTile, TILE_DEFS, TILE_KINDS, tileAt, type Grid, type TileKind } from './tiles'
+import type { Interior } from './site'
 import type { Rect } from './types'
 import type { World } from './world'
 
@@ -16,16 +17,32 @@ const PLAYER_CRUSH_DAMAGE = 25
 const MAX_FALL_SPEED = 30
 /** A duct floor sits this many rows under the slab it hangs from (one row of crawl space between). */
 const HANGER_ROWS = 2
+/** Rows from one floor slab to the next. */
+const STOREY = 6
 const SOLID = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid ? 1 : 0))
 /** Ladders are bolted to the walls beside them, so they hold the two sides of a shaft together. */
 const CARRIES = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid || kind === 'ladder' ? 1 : 0))
 const DUCT = TILE_KINDS.indexOf('duct')
+const REINFORCED = TILE_KINDS.indexOf('reinforced')
+
+/** One slab row of a building, columns x0..x1: where floors are also held by the back wall the side view cuts away. */
+export type SlabRow = { y: number; x0: number; x1: number }
 
 /**
- * Finds solid tiles that are no longer held up. A tile is supported when a chain of
- * touching solid tiles (or ladders) links it to the bottom of the map.
+ * The building is drawn cut open, but its floors are really also bolted to the back wall (and the unseen front
+ * wall). So a run of slab that has lost every 2D path to the ground still hangs on if, along the same slab row,
+ * a held tile lies within this many columns on at least one side: two rocket holes leave the slab between them
+ * standing. Once the walls carrying a storey are gone on both sides for longer than this, it comes down.
  */
-export function findUnsupported(grid: Grid): number[] {
+const BACK_WALL_SPAN = 8
+
+/**
+ * Finds solid tiles that are no longer held up. A tile is supported when a chain of touching solid tiles
+ * (or ladders) links it to the bottom of the map, or to a run of building slab the back wall still holds (see
+ * `BACK_WALL_SPAN`). The reinforced frame cannot be destroyed, so it never falls, but a piece of it that is cut off
+ * holds nothing up either: otherwise every floor bolted to a beam would hang there for ever.
+ */
+export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): number[] {
   const { width, height, kinds } = grid
   const size = width * height
   const supported = new Uint8Array(size)
@@ -37,28 +54,70 @@ export function findUnsupported(grid: Grid): number[] {
     supported[next] = 1
     stack[top++] = next
   }
-  for (let index = (height - 1) * width; index < size; index += 1) if (SOLID[kinds[index]]) reach(index)
   const hanger = HANGER_ROWS * width
-  while (top > 0) {
-    const index = stack[--top]
-    const x = index % width
-    if (index >= width) reach(index - width)
-    if (index + width < size) reach(index + width)
-    if (x > 0) reach(index - 1)
-    if (x < width - 1) reach(index + 1)
-    // Ducts hang on rods from the slab two rows up, over their crawl space, not from the doors they pass over.
-    if (index + hanger < size && kinds[index + hanger] === DUCT) reach(index + hanger)
+  const spread = (): void => {
+    while (top > 0) {
+      const index = stack[--top]
+      const x = index % width
+      if (index >= width) reach(index - width)
+      if (index + width < size) reach(index + width)
+      if (x > 0) reach(index - 1)
+      if (x < width - 1) reach(index + 1)
+      // Ducts hang on rods from the slab two rows up, over their crawl space, not from the doors they pass over.
+      if (index + hanger < size && kinds[index + hanger] === DUCT) reach(index + hanger)
+    }
   }
+  for (let index = (height - 1) * width; index < size; index += 1) if (SOLID[kinds[index]]) reach(index)
+  spread()
+  for (const slab of slabs) holdSlab(grid, supported, slab, reach)
+  spread()
   const loose: number[] = []
-  for (let index = 0; index < size; index += 1) if (!supported[index] && SOLID[kinds[index]]) loose.push(index)
+  for (let index = 0; index < size; index += 1) if (!supported[index] && SOLID[kinds[index]] && kinds[index] !== REINFORCED) loose.push(index)
   return loose
 }
+
+/**
+ * Marks the runs of loose slab on one row that the back wall still holds. Sweeps both ways, counting a run it has
+ * just held as holding, so a row of islands between several holes all stay up.
+ */
+function holdSlab(grid: Grid, supported: Uint8Array, slab: SlabRow, reach: (index: number) => void): void {
+  if (slab.y < 0 || slab.y >= grid.height) return
+  const row = slab.y * grid.width
+  const x0 = Math.max(0, slab.x0)
+  const x1 = Math.min(grid.width - 1, slab.x1)
+  const sweep = (from: number, to: number, step: number): void => {
+    let gap = BACK_WALL_SPAN + 1
+    for (let x = from; x !== to + step; x += step) {
+      const index = row + x
+      if (!SOLID[grid.kinds[index]]) gap += 1
+      else if (supported[index]) gap = 0
+      else if (gap <= BACK_WALL_SPAN) reach(index)
+      else gap = BACK_WALL_SPAN + 1
+    }
+  }
+  sweep(x0, x1, 1)
+  sweep(x1, x0, -1)
+}
+
+/** The slab rows of every building of two or more storeys; one-storey sheds, bridges and silos keep the plain rule. */
+function slabRows(world: World): SlabRow[] {
+  const cached = slabCache.get(world.interiors)
+  if (cached) return cached
+  const rows: SlabRow[] = []
+  for (const interior of world.interiors) {
+    if (interior.kind !== 'room' || interior.h % STOREY !== 0 || interior.h < 2 * STOREY) continue
+    for (let y = interior.y; y <= interior.y + interior.h; y += STOREY) rows.push({ y, x0: interior.x, x1: interior.x + interior.w - 1 })
+  }
+  slabCache.set(world.interiors, rows)
+  return rows
+}
+const slabCache = new WeakMap<readonly Interior[], SlabRow[]>()
 
 /** Turns unsupported tiles into falling ones, then moves everything that is falling. */
 export function stepCollapse(world: World, dt: number): void {
   if (world.structureChanged) {
     world.structureChanged = false
-    for (const index of findUnsupported(world.grid)) {
+    for (const index of findUnsupported(world.grid, slabRows(world))) {
       const x = index % world.grid.width
       const y = Math.floor(index / world.grid.width)
       world.falling.push({ x, y, vy: 0, kind: tileAt(world.grid, x, y) })
