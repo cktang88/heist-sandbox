@@ -1,4 +1,5 @@
 import type { World } from '../world'
+import { stepTraps } from './actions'
 import { checkBackdrafts } from './backdraft'
 import { openedTiles } from './changes'
 import { stepElectric } from './electric'
@@ -31,6 +32,7 @@ export { ignitionSourceAt, lightCigarette } from './ignition'
 export { fanAction, setFan } from './fans'
 export { doorTooHot, touchHotDoor } from './heat'
 export { handbrakeAction, releaseHandbrake } from './rolling'
+export { systemsAction, valveAction, gasFittingAction, fuelTapAction, cableAction, timerAction, rigDoorAction, shutValves } from './actions'
 
 const LIQUID_TICK = 0.25
 /** How often people's footing and shocks are looked at. */
@@ -47,6 +49,7 @@ export function stepSystems(world: World, dt: number): void {
   loosenFittings(world, opened)
   stepFallingFittings(world, dt)
   stepRolling(world, dt)
+  stepTraps(world, opened, dt)
   sparkSwitchedCircuits(world)
   systems.liquidClock += dt
   if (systems.liquidClock >= LIQUID_TICK) {
