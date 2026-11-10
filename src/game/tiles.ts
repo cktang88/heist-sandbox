@@ -65,8 +65,34 @@ function markDirty(grid: Grid, x: number, y: number): void {
   }
 }
 
+/**
+ * Same result as `setTile` on every tile of the rectangle, but each touched chunk is flagged once rather than
+ * five times per tile: the generator fills thousands of tiles at a time.
+ */
 export function fillTiles(grid: Grid, x0: number, y0: number, x1: number, y1: number, kind: TileKind): void {
-  for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) setTile(grid, x, y, kind)
+  const left = Math.max(0, x0)
+  const top = Math.max(0, y0)
+  const right = Math.min(grid.width - 1, x1)
+  const bottom = Math.min(grid.height - 1, y1)
+  if (left > right || top > bottom) return
+  const code = TILE_KINDS.indexOf(kind)
+  const hp = TILE_DEFS[kind].hp
+  for (let y = top; y <= bottom; y += 1) {
+    grid.kinds.fill(code, y * grid.width + left, y * grid.width + right + 1)
+    grid.hp.fill(hp, y * grid.width + left, y * grid.width + right + 1)
+  }
+  grid.version += (right - left + 1) * (bottom - top + 1)
+  // The filled tiles plus their four neighbours form a cross: the rectangle widened by one, and heightened by one.
+  markChunks(grid, left - 1, top, right + 1, bottom)
+  markChunks(grid, left, top - 1, right, bottom + 1)
+}
+
+function markChunks(grid: Grid, x0: number, y0: number, x1: number, y1: number): void {
+  const fromX = Math.floor(Math.max(0, x0) / CHUNK_TILES)
+  const toX = Math.floor(Math.min(grid.width - 1, x1) / CHUNK_TILES)
+  const fromY = Math.floor(Math.max(0, y0) / CHUNK_TILES)
+  const toY = Math.floor(Math.min(grid.height - 1, y1) / CHUNK_TILES)
+  for (let chunkY = fromY; chunkY <= toY; chunkY += 1) for (let chunkX = fromX; chunkX <= toX; chunkX += 1) grid.dirtyChunks.add(chunkIndex(grid, chunkX, chunkY))
 }
 
 export function isSolidAt(grid: Grid, x: number, y: number): boolean {
