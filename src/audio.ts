@@ -8,7 +8,11 @@ import type { World } from './game/world'
  * Gunfire and explosions are real recordings (CC0, see public/textures/LICENSE.md).
  * Everything else, and any recording that has not loaded yet, is synthesised from noise and tones.
  */
-export type GameAudio = { update(world: World): void }
+export type GameAudio = {
+  update(world: World): void
+  /** Overall loudness, 0 (silent) to 1. Remembered until sound starts, so it can be set before the first click. */
+  setVolume(level: number): void
+}
 
 type Voice = { seconds: number; gain: number; lowpass: number; highpass: number; thump: number; thumpGain: number }
 
@@ -62,6 +66,8 @@ export function createAudio(): GameAudio {
   let master: BiquadFilterNode | null = null
   let noise: AudioBuffer | null = null
   let siren: { tone: OscillatorNode; gain: GainNode } | null = null
+  let volume: GainNode | null = null
+  let volumeLevel = 1
   const samples = new Map<SoundKind, AudioBuffer[]>()
 
   // Browsers only allow sound after the player has clicked or pressed a key.
@@ -71,7 +77,9 @@ export function createAudio(): GameAudio {
     master = context.createBiquadFilter()
     master.type = 'lowpass'
     master.frequency.value = 20000
-    master.connect(context.destination)
+    volume = context.createGain()
+    volume.gain.value = volumeLevel
+    master.connect(volume).connect(context.destination)
     noise = context.createBuffer(1, context.sampleRate, context.sampleRate)
     const hiss = noise.getChannelData(0)
     for (let index = 0; index < hiss.length; index += 1) hiss[index] = Math.random() * 2 - 1
@@ -171,6 +179,11 @@ export function createAudio(): GameAudio {
         play(event.kind, 1 / (1 + gap / HEARING_TILES), Math.max(-1, Math.min(1, (event.x - ear.x) / PAN_TILES)), pitch)
       }
       setSiren(world.alarm && world.status === 'playing', pitch)
+    },
+    setVolume(level) {
+      volumeLevel = Math.max(0, Math.min(1, level))
+      // A short glide rather than a jump, so muting mid-sound does not click.
+      if (context && volume) volume.gain.setTargetAtTime(volumeLevel, context.currentTime, 0.03)
     },
   }
 }
