@@ -3,6 +3,7 @@ import type { PropState } from '../cover'
 import { addProp } from '../hazards/testWorld'
 import { propBox } from '../hazards/props'
 import { addGuard, addWall, arena, GROUND, putPlayer, run } from '../security/testArena'
+import { boxHitsSolid } from '../physics'
 import { fillTiles, setTile } from '../tiles'
 import type { World } from '../world'
 import { doorBlockedAt, propCover, standingSurfaceUnder } from './physprops'
@@ -107,6 +108,31 @@ describe('loose furniture and holes', () => {
     run(world, 1.5)
     expect(desk.y).toBe(below)
     expect(guard.hp).toBeLessThan(guard.maxHp)
+  })
+
+  const buried = (world: World, prop: PropState) => {
+    const box = propBox(prop)
+    return boxHitsSolid(world.grid, { x: box.x + 0.02, y: box.y + 0.02, w: box.w - 0.04, h: box.h - 0.04 })
+  }
+
+  it('a shoved chair slides to a stop against a wall, not into it', () => {
+    const world = arena()
+    addWall(world, 20)
+    const chair = addProp(world, 'officeChair', 18, GROUND)
+    loosen(world, chair).vx = 12
+    run(world, 1.5)
+    expect(buried(world, chair)).toBe(false)
+  })
+
+  it('a plant that tips into a one-tile hole off-centre ends up resting clear of the floor it fell through', () => {
+    const world = arena()
+    // A shaft one tile wide, two storeys deep.
+    fillTiles(world.grid, 16, GROUND, 16, GROUND + 5, 'air')
+    const plant = addProp(world, 'plant', 16, GROUND)
+    plant.x += 0.15
+    loosen(world, plant)
+    run(world, 2)
+    expect(buried(world, plant)).toBe(false)
   })
 
   it('stays put over a gap narrower than half its width', () => {

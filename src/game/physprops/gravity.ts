@@ -2,7 +2,7 @@ import type { PropState } from '../cover'
 import { hurtGuard, stunGuard } from '../guards'
 import { propBox, propCenter } from '../hazards/props'
 import { emitNoise } from '../noise'
-import { GRAVITY, moveBody } from '../physics'
+import { boxHitsSolid, GRAVITY, moveBody } from '../physics'
 import { playSound } from '../sounds'
 import { isSolidAt, type Grid } from '../tiles'
 import { overlaps, type Body, type Rect } from '../types'
@@ -62,7 +62,14 @@ function fall(world: World, prop: PropState, loose: LooseProp, dt: number): void
   const body: Body = { ...start, vx: loose.vx, vy: loose.vy + GRAVITY * dt, onGround: false }
   const speed = body.vy
   moveBody(world.grid, body, dt)
-  shiftProp(prop, body.x - start.x, body.y - start.y)
+  const dy = body.y - start.y
+  let dx = body.x - start.x
+  // Only the footing is moved through the grid; the prop's own sides, wider than it, stop a slide at a wall.
+  if (dx !== 0 && boxHitsSolid(world.grid, offset(propBox(prop), dx, dy)) && !boxHitsSolid(world.grid, offset(propBox(prop), 0, dy))) {
+    dx = 0
+    body.vx = 0
+  }
+  shiftProp(prop, dx, dy)
   if (speed > CRUSH_SPEED) crush(world, prop, loose, speed)
   loose.vx = body.vx
   loose.vy = body.vy
@@ -73,6 +80,7 @@ function fall(world: World, prop: PropState, loose: LooseProp, dt: number): void
 function land(world: World, prop: PropState, loose: LooseProp, speed: number, dt: number): void {
   const box = propBox(prop)
   shiftProp(prop, 0, Math.round(box.y + box.h) - (box.y + box.h))
+  standClear(world.grid, prop)
   loose.vy = 0
   loose.struck.clear()
   loose.vx *= Math.exp(-FRICTION * dt)
@@ -81,6 +89,28 @@ function land(world: World, prop: PropState, loose: LooseProp, speed: number, dt
   const center = propCenter(prop)
   playSound(world, 'impact', center)
   emitNoise(world, center, THUD_NOISE + weightOf(prop.kind) * THUD_NOISE_PER_WEIGHT)
+}
+
+function offset(box: Rect, dx: number, dy: number): Rect {
+  return { ...box, x: box.x + dx, y: box.y + dy }
+}
+
+const NUDGE_STEP = 0.05
+
+/**
+ * A prop that dropped through a hole narrower than itself (only its footing has to fit) lands with an edge in the
+ * floor it fell through or a wall beside it. It shifts sideways, as little as it can, to stand clear.
+ */
+function standClear(grid: Grid, prop: PropState): void {
+  const box = propBox(prop)
+  if (!boxHitsSolid(grid, box)) return
+  for (let nudge = NUDGE_STEP; nudge <= box.w; nudge += NUDGE_STEP) {
+    for (const side of [-1, 1]) {
+      if (boxHitsSolid(grid, offset(box, side * nudge, 0))) continue
+      shiftProp(prop, side * nudge, 0)
+      return
+    }
+  }
 }
 
 /** Whoever the falling prop comes down on is hurt once per fall, harder for heavy things falling fast. */
