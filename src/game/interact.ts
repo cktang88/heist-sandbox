@@ -51,7 +51,8 @@ export function interact(world: World, input: Input, dt: number): void {
 function bestAction(world: World): Action | null {
   // Nothing is in reach through the walls of a moving car.
   if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
-  return takedownAction(world) ?? deviceAction(world) ?? elevatorAction(world) ?? deviceAction(world, true) ?? doorAction(world)
+  return takedownAction(world) ?? deviceAction(world, 'near') ?? elevatorAction(world) ?? doorAction(world)
+    ?? deviceAction(world, 'camera') ?? deviceAction(world, 'lightSwitch')
 }
 
 function collect(world: World): void {
@@ -130,15 +131,23 @@ function takedownAction(world: World): Action | null {
 }
 
 /**
- * The nearest device in reach that has something to do. Light switches are everywhere, so they only win
- * when nothing more important (a terminal, a keypad, an elevator) is in reach: pass `switches` to pick them.
+ * Which devices compete for the E key, from most to least important. Cameras are reached from further away (they
+ * hang near the ceiling), so they only win when nothing at arm's length (a door, an elevator call) is in reach.
+ * Light switches are everywhere, so they come last of all.
  */
-function deviceAction(world: World, switches = false): Action | null {
+type DeviceRank = 'near' | 'camera' | 'lightSwitch'
+
+function rankOf(device: Device): DeviceRank {
+  return device.kind === 'camera' || device.kind === 'lightSwitch' ? device.kind : 'near'
+}
+
+/** The nearest device of this rank in reach that has something to do. */
+function deviceAction(world: World, rank: DeviceRank): Action | null {
   const center = centerOf(world.player)
   let best: Action | null = null
   let bestGap = Number.POSITIVE_INFINITY
   for (const device of world.devices) {
-    if ((device.kind === 'lightSwitch') !== switches) continue
+    if (rankOf(device) !== rank) continue
     const gap = distance(center, deviceCenter(device))
     if (gap > (device.kind === 'camera' ? CAMERA_REACH : DEVICE_REACH) || gap >= bestGap) continue
     const action = actionFor(world, device)
