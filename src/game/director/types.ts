@@ -30,7 +30,7 @@ export type ConditionDef = {
 
 export type EventId =
   | 'smokeBreak' | 'blackout' | 'phoneCall' | 'patrolSwap' | 'wanderer' | 'chatter'
-  | 'sweep' | 'courier' | 'evacuation' | 'engineer' | 'crawler' | 'deal'
+  | 'sweep' | 'courier' | 'evacuation' | 'engineer' | 'crawler' | 'deal' | 'spotCheck'
 
 /**
  * `raise` events add pressure (more eyes, a search, a fixed fuse); `release` events open a window (a post left empty,

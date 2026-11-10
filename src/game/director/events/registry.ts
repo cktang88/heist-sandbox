@@ -9,10 +9,11 @@ import { evacuation } from './evacuation'
 import { patrolSwap } from './patrolSwap'
 import { phoneCall } from './phoneCall'
 import { smokeBreak } from './smokeBreak'
+import { spotCheck } from './spotCheck'
 import { sweep } from './sweep'
 import { wanderer } from './wanderer'
 
 /** Every event the director can spring. The order is part of the seed's meaning: append new ones at the end. */
 export const EVENTS: readonly EventDef[] = [
-  smokeBreak, blackout, phoneCall, patrolSwap, wanderer, chatter, sweep, courier, evacuation, engineer, crawler, deal,
+  smokeBreak, blackout, phoneCall, patrolSwap, wanderer, chatter, sweep, courier, evacuation, engineer, crawler, deal, spotCheck,
 ]

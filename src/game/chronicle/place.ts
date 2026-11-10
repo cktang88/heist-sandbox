@@ -26,6 +26,8 @@ export function placeName(world: World, feet: Vec): string {
     case 'gatehouse': return 'the gatehouse'
   }
   const kind = KIND_WORDS[room.kind] ?? room.kind
+  if (room.storey === -1) return `the ${building}'s basement ${kind}`
+  if (room.storey < -1) return `the ${kind} on basement level ${-room.storey} of the ${building}`
   return `the ${storeyWord(room.storey)} ${kind} of the ${building}`
 }
 

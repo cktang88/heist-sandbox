@@ -75,6 +75,8 @@ function pace(world: World): void {
   director.lastDecision = decision.why
   if (!decision.mood) return
   const pool = candidates(world, EVENTS, decision.mood)
+  // Breaking a dead stretch matters more than which way: if nothing of the wanted mood is left, take the other.
+  if (pool.length === 0 && decision.why === 'dead stretch') pool.push(...candidates(world, EVENTS, decision.mood === 'raise' ? 'release' : 'raise'))
   while (pool.length > 0) {
     const [event] = pool.splice(Math.floor(director.rng() * pool.length), 1)
     if (launch(world, event)) return

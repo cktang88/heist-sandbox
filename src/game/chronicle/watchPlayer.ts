@@ -1,5 +1,5 @@
 import { searchFilter } from '../intel/area'
-import { describeFilter } from '../intel/describe'
+import { describeFilter, matches } from '../intel/describe'
 import { TOOLS } from '../toolDefs'
 import { centerOf, distance } from '../types'
 import type { World } from '../world'
@@ -35,7 +35,8 @@ export function watchPlayer(world: World): void {
   if (!seen.hasLoot && player.hasLoot) {
     seen.hasLoot = true
     const filter = searchFilter(world.intel)
-    note(world, 'caseFound', player, { detail: filter ? describeFilter(filter) : undefined })
+    const place = world.intel.places[world.intel.real]
+    note(world, 'caseFound', player, { detail: filter ? describeFilter(filter) : undefined, truth: filter && place ? matches(filter, place) : undefined })
   }
   if (seen.status === 'playing' && world.status !== 'playing') {
     seen.status = world.status
