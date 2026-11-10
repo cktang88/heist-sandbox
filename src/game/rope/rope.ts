@@ -36,6 +36,8 @@ export function anchorRope(world: World): boolean {
     if (bottom - feetRow < MIN_ROWS) return false
     for (let y = feetRow - 1; y <= bottom; y += 1) setTile(world.grid, x, y, 'ladder')
     world.ropes.push({ x, top: feetRow - 1, bottom, anchor })
+    // He swings out over the edge onto the rope, ready to climb down.
+    Object.assign(player, { x: x + 0.5 - player.w / 2, vx: 0, vy: 0, onLadder: true, onGround: false })
     world.structureChanged = true
     playSound(world, 'switch', { x: x + 0.5, y: feetRow - 0.5 })
     emitNoise(world, { x: x + 0.5, y: feetRow - 0.5 }, ROPE_NOISE)
@@ -44,9 +46,9 @@ export function anchorRope(world: World): boolean {
   return false
 }
 
-/** Open air at head height, at the edge's level and below it. */
+/** Room for a body beside the edge, and open air below it. */
 function opensBelow(world: World, x: number, feetRow: number): boolean {
-  return tileAt(world.grid, x, feetRow - 1) === 'air' && tileAt(world.grid, x, feetRow) === 'air' && tileAt(world.grid, x, feetRow + 1) === 'air'
+  return [-2, -1, 0, 1].every((dy) => tileAt(world.grid, x, feetRow + dy) === 'air')
 }
 
 function lowestOpenRow(world: World, x: number, top: number): number {
