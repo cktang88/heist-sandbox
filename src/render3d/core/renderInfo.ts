@@ -1,4 +1,5 @@
 import type { WebGLRenderer } from 'three'
+import { stepTimings, type SlowStep } from '../../game/stepTimings'
 import { jobCount } from './buildQueue'
 import { playStartedMs, worstFrames, type WorstFrame } from './frameProbe'
 
@@ -14,6 +15,12 @@ export type RenderInfo = {
   averageFrameMs: number
   /** The longest frames since play started (JavaScript time only) and what they were spent on. */
   worstFrames: readonly WorstFrame[]
+  /**
+   * The slowest simulation steps since the page opened (top five), each with the system that took longest in it, and
+   * the worst step time: next to `worstFrames`, so a long frame's "simulation" part can be traced to a game system.
+   */
+  slowestSteps: readonly SlowStep[]
+  worstStepMs: number
   /** Milliseconds from opening the page until play started (the loading screen went away). */
   loadedAtMs: number
   /** Scene pieces still waiting to be built (the site finishes building during play). */
@@ -69,6 +76,8 @@ export function createRenderInfo(renderer: WebGLRenderer, enabled: boolean): { p
         qualityLevel: level,
         averageFrameMs: Math.round(averageMs * 10) / 10,
         worstFrames: worstFrames().slice(),
+        slowestSteps: stepTimings().slowest.slice(0, 5),
+        worstStepMs: stepTimings().worstMs,
         loadedAtMs: playStartedMs(),
         buildJobs: jobCount(),
         longFrames: longFrames.slice(),
