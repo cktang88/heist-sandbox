@@ -64,7 +64,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   const info = createRenderInfo(renderer, options.get('debug') === '1')
 
   let grid: Grid | null = null
-  let stage: { level: LevelMesh; actors: Actors; group: Group; sky: SkyShading } | null = null
+  let stage: { level: LevelMesh; actors: Actors; group: Group; sky: SkyShading; backdrop: Group } | null = null
   let warming: Promise<unknown> | null = null
   let screen = { width: 1, height: 1 }
   let appliedLevel = -1
@@ -121,12 +121,15 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       stage.level.dispose()
       stage.actors.dispose()
       stage.sky.dispose()
+      // The backdrop holds one large texture; free it or every new heist keeps the old one.
+      stage.backdrop.userData.dispose?.()
     }
     const group = new Group()
     const sky = createSkyShading(world.grid)
     const level = createLevelMesh(world.grid, world.interiors, world.groundY, materials)
     const actors = createActors(world, materials)
-    group.add(level.group, actors.group, createSky(world.grid.width, world.groundY, world.timeOfDay))
+    const backdrop = createSky(world.grid.width, world.groundY, world.timeOfDay, world.lamps.length)
+    group.add(level.group, actors.group, backdrop)
     // The building is drawn cut open, so invisible sheets stand in for its missing front and keep moonlight out.
     const blocker = new MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: DoubleSide })
     for (const area of world.interiors) {
@@ -136,7 +139,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       group.add(sheet)
     }
     scene.add(group)
-    stage = { level, actors, group, sky }
+    stage = { level, actors, group, sky, backdrop }
     grid = world.grid
 
     const look = lookFor(world.timeOfDay, world.lamps.length)
