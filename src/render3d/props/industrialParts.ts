@@ -111,7 +111,7 @@ export const FINISH = {
 
 // ---------- Geometry ----------
 
-/** A square frustum (top 70% of the base), flat-shaded: car cabins, gold bars, barrier tops. */
+/** A square frustum (top 70% of the base), flat-shaded: the shape of a gold bar. */
 export const FRUSTUM = once('frustum', () => {
   const shape = new CylinderGeometry(0.7 / Math.SQRT2, 1 / Math.SQRT2, 1, 4, 1).rotateY(Math.PI / 4).toNonIndexed()
   shape.computeVertexNormals()
@@ -155,17 +155,6 @@ export function disc(group: Group, material: Material, x: number, y: number, z: 
 export function wheel(group: Group, x: number, radius: number, z: number, width = 0.22, hub: Material = FINISH.steel): void {
   disc(group, FINISH.rubber, x, radius, z - width / 2, radius, width)
   quiet(disc(group, hub, x, radius, z + 0.005, radius * 0.55, 0.02))
-}
-
-/** Adds a mesh of a shared geometry with a box-like placement: left, bottom, width, height, depth, centred at z. */
-export function shape(group: Group, geometry: BufferGeometry, material: Material, left: number, bottom: number, w: number, h: number, depth: number, z: number): Mesh {
-  const mesh = new Mesh(geometry, material)
-  mesh.scale.set(w, h, depth)
-  mesh.position.set(left + w / 2, bottom + h / 2, z)
-  mesh.castShadow = true
-  mesh.receiveShadow = true
-  group.add(mesh)
-  return mesh
 }
 
 /** One geometry made of many unit boxes, merged once so repeated parts (bars, fins, slats) cost a single draw. */
