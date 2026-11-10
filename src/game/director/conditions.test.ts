@@ -120,7 +120,9 @@ describe('tonight\'s conditions', () => {
     idle(world, minutes * 60 + seconds + 2)
     const dock = world.rooms.find((room) => room.kind === 'loadingDock' && room.building === 'depot')!
     expect(world.guards.filter((guard) => guard.station && Math.abs(guard.station.y - dock.floorY) < 1 && guard.station.x >= dock.x && guard.station.x <= dock.x + dock.w).length).toBeGreaterThan(0)
-    expect(deviceState(world).unlockedDoors.size).toBeGreaterThanOrEqual(unlockedBefore)
+    expect(deviceState(world).unlockedDoors.size).toBeGreaterThan(unlockedBefore)
+    idle(world, 60)
+    expect(deviceState(world).unlockedDoors.size).toBe(unlockedBefore)
   })
 
   it('maintenance puts a climbable scaffold up the tower and parks a lift', () => {
