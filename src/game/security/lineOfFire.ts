@@ -58,7 +58,7 @@ export function exposedTo(world: World, threat: Vec, feet: Vec, crouching: boole
 
 /** Floor furniture on the target's floor that stands between the shooter and that point, unless the shooter is right at it. */
 function furnitureBetween(world: World, threat: Vec, point: Vec, feet: Vec): boolean {
-  for (const entry of coverNear(world, feet.x, feet.y, 3)) {
+  for (const entry of coverNear(world, (threat.x + feet.x) / 2, feet.y, Math.abs(threat.x - feet.x) / 2 + 0.5)) {
     // Low cover hides only a kneeling body, whatever the model's height; high cover hides a standing one.
     const height = propSpec(entry.prop.kind).h
     const top = feet.y - (entry.high ? Math.max(LOW_COVER_TOP + 0.6, height) : Math.min(height, LOW_COVER_TOP))
