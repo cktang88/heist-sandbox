@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from '../game/input'
 import { stepWorld } from '../game/step'
 import { createWorld, type World } from '../game/world'
-import { clockText, helpTop, hurtAlpha, nextHurt, hudUnit, intelTop, objectiveLine, optionKey, visibility } from './drawHud'
+import { clockText, helpTop, wrapLine, hurtAlpha, nextHurt, hudUnit, intelTop, objectiveLine, optionKey, visibility } from './drawHud'
 
 const FRAME = 1 / 60
 
@@ -85,5 +85,16 @@ describe('the hit flash', () => {
 
   it('does not flash when healing', () => {
     expect(hurtAlpha(nextHurt(nextHurt(undefined, 50, 0), 80, 1), 1)).toBe(0)
+  })
+})
+
+describe('the objective line', () => {
+  const widthOf = (text: string) => text.length * 10
+  it('stays one line when it fits, and breaks at a space onto a second when it does not', () => {
+    expect(wrapLine('Find the gold case', 300, widthOf)).toEqual(['Find the gold case'])
+    const lines = wrapLine('Search the tower · floors 10 to 14 · east wing · an executive safe', 400, widthOf)
+    expect(lines).toHaveLength(2)
+    for (const line of lines) expect(widthOf(line)).toBeLessThanOrEqual(400)
+    expect(lines.join(' ')).toBe('Search the tower · floors 10 to 14 · east wing · an executive safe')
   })
 })

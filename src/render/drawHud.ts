@@ -130,10 +130,13 @@ function drawSituation(context: CanvasRenderingContext2D, world: World, unit: nu
   const level = Math.max(0, Math.min(4, world.security.level))
   const alert = ALERT_LEVELS[level]
   const right = width - unit
-  const goal = objectiveLine(world)
-  const place = locationLine(world)
-  const textWidth = Math.max(measure(context, goal, unit * 0.85), measure(context, place, unit * 0.75), unit * 15)
-  panel(context, right - textWidth - unit * 0.5, unit * 0.5, textWidth + unit, unit * 5.4)
+  // The panel may take what the vitals leave free; a long objective goes onto a second line rather than over them.
+  const room = Math.max(unit * 15, width - unit * 20)
+  const goals = wrapLine(objectiveLine(world), room, (text) => measure(context, text, unit * 0.85))
+  const place = fit(context, locationLine(world), unit * 0.75, room)
+  const textWidth = Math.max(...goals.map((line) => measure(context, line, unit * 0.85)), measure(context, place, unit * 0.75), unit * 15)
+  const extra = (goals.length - 1) * unit * 1.1
+  panel(context, right - textWidth - unit * 0.5, unit * 0.5, textWidth + unit, unit * 5.4 + extra)
   // Five pips, filled up to the current level; the top two pulse so a lockdown is impossible to miss.
   const pip = unit * 0.9
   const pulse = level >= 3 ? 0.6 + 0.4 * Math.sin(world.clock * 8) : 1
@@ -146,8 +149,23 @@ function drawSituation(context: CanvasRenderingContext2D, world: World, unit: nu
   }
   caption(context, 'ALERT', right - 5 * (pip + unit * 0.25) - unit * 0.5, unit * 1.45, DIM, unit * 0.6, 'right')
   caption(context, alert.word, right, unit * 2.95, alert.color, unit * 1.25, 'right')
-  caption(context, goal, right, unit * 4.1, TEXT, unit * 0.85, 'right')
-  caption(context, place, right, unit * 5.25, DIM, unit * 0.75, 'right')
+  goals.forEach((line, index) => caption(context, line, right, unit * (4.1 + index * 1.1), TEXT, unit * 0.85, 'right'))
+  caption(context, place, right, unit * 5.25 + extra, DIM, unit * 0.75, 'right')
+}
+
+/** Splits text at spaces into at most two lines that each fit `room`; whatever still does not fit is cut. */
+export function wrapLine(text: string, room: number, widthOf: (text: string) => number): string[] {
+  if (widthOf(text) <= room) return [text]
+  const words = text.split(' ')
+  const cut = (line: string) => {
+    let short = line
+    while (short.length > 1 && widthOf(short) > room) short = short.slice(0, -1)
+    return short
+  }
+  if (words.length < 2) return [cut(text)]
+  let split = words.length - 1
+  while (split > 1 && widthOf(words.slice(0, split).join(' ')) > room) split -= 1
+  return [cut(words.slice(0, split).join(' ')), cut(words.slice(split).join(' '))]
 }
 
 let lastRoom: Room | null = null
