@@ -9,6 +9,7 @@ import { hurtGuard } from '../guards'
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
 import { radioWorks } from './comms'
+import { reportEvent } from './report'
 import { feetOf, type Guard } from './model'
 import { addDevice, addGuard, addRoom, arena, GROUND, putPlayer, run } from './testArena'
 
@@ -119,6 +120,19 @@ describe('guards and hazards', () => {
     expect(world.security.lastKnown).toBeNull()
     expect(guard.mode).not.toBe('combat')
     expect(stoodInFire).toBe(false)
+  })
+
+  it('a fire alarm that keeps ringing for the same room (the sprinklers reopening) is one report and one pair sent', () => {
+    const world = arena()
+    addRoom(world, { kind: 'office', building: 'b', x: 10, w: 40, floorY: GROUND })
+    const first = addGuard(world, 60, 1, 'patrol')
+    const second = addGuard(world, 90, 1, 'patrol')
+    reportEvent(world, { kind: 'fire', at: { x: 30, y: GROUND - 4 }, alarm: true })
+    run(world, 10)
+    for (const guard of [first, second]) Object.assign(guard, { mode: 'calm', interest: null, follow: null })
+    reportEvent(world, { kind: 'fire', at: { x: 30, y: GROUND - 4 }, alarm: true })
+    expect(world.security.log.filter((line) => line.includes('Fire alarm')).length).toBe(1)
+    expect(second.interest).toBeNull()
   })
 
   it('a guard caught in flames gets out, is hurt, and does not start a fight with nobody', () => {

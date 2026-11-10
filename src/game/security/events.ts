@@ -80,6 +80,8 @@ export type SecurityState = {
   circuitsDeadSince: Map<number, number>
   /** Room id (or -1 outside rooms) to the clock time a fire there was last reported. */
   firesReported: Map<number, number>
+  /** Rooms whose fire alarm has rung, and when: the sprinklers reopening ring it again, which is not news. */
+  fireAlarms: Map<number, number>
   /** Bodies (guard indices) already reported. */
   reportedBodies: Set<number>
   /** Guard indices allowed to fire aimed shots this frame. */
@@ -142,7 +144,7 @@ export type SecurityState = {
 export function createSecurity(): SecurityState {
   return {
     level: 0, lastKnown: null, lastContactAt: -Infinity, levelSince: 0, peak: 0, log: [], barks: [], polls: [],
-    searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(), circuitsDeadSince: new Map(), firesReported: new Map(),
+    searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(), circuitsDeadSince: new Map(), firesReported: new Map(), fireAlarms: new Map(),
     reportedBodies: new Set(), shooters: [], campSpot: null, campSeconds: 0,
     confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
     deaths: [], unseenDeaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), burntDoors: new Set(), openDoorsFound: 0, camerasDeadSince: new Map(), camerasReported: new Set(),
