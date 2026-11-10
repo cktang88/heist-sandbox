@@ -31,10 +31,19 @@ export function reloadWith(settings: Settings, seed = currentSeed()): void {
   location.replace(`${location.pathname}?${params.toString()}${location.hash}`)
 }
 
-/**
- * Switches the art style. The renderer only reads `?look=` at start-up for now, so this reloads;
- * once it has a live setter, call that here instead and the menus need not change.
- */
+let liveLook: ((look: Look) => void) | null = null
+
+/** The 3D view registers its switch here, so a new art style shows at once; without one the page reloads. */
+export function onLookChange(apply: (look: Look) => void): void {
+  liveLook = apply
+}
+
+/** Switches the art style and remembers it: live when the 3D view is running, otherwise by reloading. */
 export function applyLook(look: Look): void {
-  reloadWith({ ...currentSettings(), look })
+  const settings = { ...currentSettings(), look }
+  if (!liveLook) return reloadWith(settings)
+  saveSettings(settings)
+  const params = paramsFor(settings, new URLSearchParams(location.search))
+  history.replaceState(history.state, '', `${location.pathname}?${params.toString()}${location.hash}`)
+  liveLook(look)
 }

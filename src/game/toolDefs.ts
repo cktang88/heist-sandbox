@@ -45,9 +45,14 @@ function slotOf(index: number): number {
   return TOOLS[index].slot ?? index
 }
 
+/** Every tool a hotkey cycles through, first page first. */
+export function toolsOnKey(key: number): number[] {
+  return TOOLS.map((_, index) => index).filter((index) => slotOf(index) === key)
+}
+
 /** The tool a hotkey press picks. Pressing the key of the tool in hand swaps to the next tool on that key. */
 export function toolForKey(key: number, current: number): number {
-  const onKey = TOOLS.map((_, index) => index).filter((index) => slotOf(index) === key)
+  const onKey = toolsOnKey(key)
   const at = onKey.indexOf(current)
   return at < 0 ? onKey[0] : onKey[(at + 1) % onKey.length]
 }

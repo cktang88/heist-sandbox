@@ -17,6 +17,7 @@ import { endFrame, noteFramePart, startCountingFrames } from './render3d/core/fr
 import { sceneReadiness } from './render3d/core/readiness'
 import { createRenderer3d, type Renderer3d } from './render3d/renderer3d'
 import { randomSeed, writeSeed } from './ui/address'
+import { onLookChange } from './ui/address'
 import { loadingScreen, nextPaint } from './ui/loading'
 import { createMenus } from './ui/menus'
 
@@ -104,6 +105,7 @@ function startHeist(seed: number): void {
   beginLoading()
 }
 const menus = createMenus({ audio, site: siteKind, newHeist: startHeist })
+if (scene.draw3d) onLookChange((look) => scene.draw3d?.setLook(look))
 
 function resize(): void {
   // Draw at the screen's real pixel density so edges stay sharp.

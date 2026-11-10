@@ -14,7 +14,8 @@ import { deviceState } from './state'
 /** A hacking menu the player has open on a computer: pick an option with the number keys. */
 export type Terminal = { device: number; title: string; options: string[] }
 
-type Option = { label: string; run: () => void }
+/** `speaks` marks an option that reports its own result, so no "done" line is added. */
+type Option = { label: string; run: () => void; speaks?: boolean }
 
 /** A floor's cameras stay dark this long after an ordinary terminal shuts them off; the security room's console does it for good. */
 const CAMERAS_OFF_SECONDS = 120
@@ -60,6 +61,7 @@ export function chooseOption(world: World, index: number): void {
   if (!option) return
   option.run()
   const at = deviceCenter(device)
+  if (!option.speaks) sayAt(world, at, `Done: ${label.toLowerCase()}`)
   playSound(world, 'keyboard', at)
   playSound(world, 'beep', at)
   terminal.options = terminalOptions(world, device).map((candidate) => candidate.label)
@@ -70,12 +72,13 @@ function terminalOptions(world: World, device: Device): Option[] {
   const kind = roomOf(world, device)?.kind
   if (!floor || !kind) return []
   const has = (kinds: readonly RoomKind[]) => kinds.includes(kind)
-  const options: Option[] = [camerasOption(world, floor, kind === 'security'), lightsOption(world, floor)]
+  // A floor with no cameras or no lighting circuit does not offer to switch them.
+  const options: Option[] = [camerasOption(world, floor, kind === 'security'), lightsOption(world, floor)].filter((option): option is Option => option !== null)
   if (has(CAN_UNLOCK)) options.push({ label: 'Unlock doors on this floor', run: () => unlockFloorDoors(world, floor) })
   if (has(CAN_JAM)) options.push({ label: 'Jam radios', run: () => switchOff(world, inBuilding(world, floor, 'radioRelay'), RADIOS_JAMMED_SECONDS) })
   if (has(CAN_LOCATE_VAULT)) options.push({ label: 'Show vault location', run: () => revealVaults(world) })
   if (!world.intel.used.has(`device:${device.id}`)) {
-    options.push({ label: 'Search files for the case', run: () => {
+    options.push({ label: 'Search files for the case', speaks: true, run: () => {
       const clue = terminalClue(world, device)
       if (clue) sayAt(world, deviceCenter(device), terminalLine(clue))
     } })
@@ -85,16 +88,18 @@ function terminalOptions(world: World, device: Device): Option[] {
   return options
 }
 
-function camerasOption(world: World, floor: Floor, forGood: boolean): Option {
+function camerasOption(world: World, floor: Floor, forGood: boolean): Option | null {
   const cameras = world.devices.filter((device) => device.kind === 'camera' && onFloor(world, floor, device))
+  if (cameras.length === 0) return null
   return {
     label: forGood ? 'Shut down cameras on this floor' : 'Disable cameras on this floor',
     run: () => switchOff(world, cameras, forGood ? Number.POSITIVE_INFINITY : CAMERAS_OFF_SECONDS),
   }
 }
 
-function lightsOption(world: World, floor: Floor): Option {
+function lightsOption(world: World, floor: Floor): Option | null {
   const circuits = [...floorCircuits(world, floor)]
+  if (circuits.length === 0) return null
   const allDark = circuits.length > 0 && circuits.every((circuit) => world.deadCircuits.has(circuit))
   return {
     label: allDark ? 'Restore lights on this floor' : 'Cut lights on this floor',

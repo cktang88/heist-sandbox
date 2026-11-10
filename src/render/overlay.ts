@@ -39,6 +39,8 @@ export function drawOverlay(context: CanvasRenderingContext2D, world: World, cam
   }
   drawBarks(context, world, camera, unit)
   if (world.status !== 'playing') return
+  const roof = dropTarget(world)
+  if (roof) drawEdgeArrow(context, world, camera, unit, roof, 'TARGET', '#6fd0ff')
   if (world.player.hasLoot) drawEdgeArrow(context, world, camera, unit, centerOf(world.extraction), 'VAN', '#39ff6a')
   else if (area?.region) drawEdgeArrow(context, world, camera, unit, centerOf(area.region), 'INTEL', '#f0c060')
 }
@@ -191,6 +193,22 @@ function drawLastKnown(context: CanvasRenderingContext2D, world: World, camera: 
   context.lineTo(point.x, point.y + unit * 0.3)
   context.stroke()
   caption(context, 'LAST SEEN', point.x, point.y - radius - unit * 0.4, 'rgba(255,150,90,0.95)', unit * 0.7, 'center')
+}
+
+/** Heists whose player has touched down: the drop-in arrow is only for the first fall from the plane. */
+const landed = new WeakSet<World>()
+
+/** While dropping in, where to steer: the roof of the biggest building, or its near wall once below the roofline. */
+function dropTarget(world: World): Vec | null {
+  const player = world.player
+  if (player.onGround) landed.add(world)
+  if (landed.has(world)) return null
+  let main: World['interiors'][number] | null = null
+  for (const interior of world.interiors) if (interior.kind === 'room' && (!main || interior.w * interior.h > main.w * main.h)) main = interior
+  if (!main) return null
+  const feet = player.y + player.h
+  if (feet <= main.y) return { x: main.x + main.w / 2, y: main.y }
+  return { x: player.x < main.x ? main.x : main.x + main.w, y: feet }
 }
 
 /**
