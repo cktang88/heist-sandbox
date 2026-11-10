@@ -26,7 +26,7 @@ import { rememberNemeses, withNemeses } from './ui/nemesisStore'
 // Director, briefing, weather and debrief (src/game/director, src/game/chronicle, src/ui/debrief.ts).
 import { startDirector } from './game/director/director'
 import { debriefOf } from './game/chronicle/chronicle'
-import { showBriefing } from './ui/briefing'
+import { hideBriefing, showBriefing } from './ui/briefing'
 import { showDebrief } from './ui/debrief'
 import { rememberHeist } from './ui/debriefStore'
 import { createWeather } from './ui/weather'
@@ -141,6 +141,7 @@ let debriefed: World | null = null
 function debriefIfOver(): void {
   if (world.status === 'playing' || debriefed === world) return
   debriefed = world
+  hideBriefing()
   const entry = { debrief: debriefOf(world), seed: heistSeed, site: siteKind, when: new Date().toLocaleString() }
   rememberHeist(entry)
   closeDebrief = showDebrief(entry, { sameSeed: () => startHeist(heistSeed), newSeed: () => startHeist(randomSeed()) })
