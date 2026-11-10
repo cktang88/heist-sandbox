@@ -4,7 +4,9 @@ import type { World } from '../game/world'
 import { createBackdrop } from './backdrop'
 import type { Camera } from './camera'
 import { drawEffects, drawFalling, drawGoggles, drawGuard, drawGuardMarks, drawLamps, drawPlayer, drawProjectiles, drawSignals, drawThings } from './drawActors'
+import { drawProps } from './drawProps'
 import { createLighting } from './lighting'
+import { drawRain } from './rain'
 import { createTileCache, type TileCache } from './tileCache'
 
 const MAX_SHAKE_TILES = 0.45
@@ -28,6 +30,7 @@ export function createSceneRenderer(): SceneRenderer {
       context.setTransform(1, 0, 0, 1, 0, 0)
       context.imageSmoothingEnabled = true
       backdrop.draw(context, camera)
+      drawRain(context, camera, world.clock)
 
       // Shake grows with the square of the jolt, so small hits stay subtle and big ones slam.
       const jolt = world.shake * world.shake * MAX_SHAKE_TILES
@@ -39,6 +42,7 @@ export function createSceneRenderer(): SceneRenderer {
 
       toWorld()
       tiles.draw(context, camera, 'back')
+      drawProps(context, world)
       drawThings(context, world)
       drawLamps(context, world)
       for (const guard of world.guards) drawGuard(context, world, guard)

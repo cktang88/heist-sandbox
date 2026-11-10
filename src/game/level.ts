@@ -13,7 +13,9 @@ export type GuardSpawn = Vec & { facing: 1 | -1 }
 export type Interior = Rect & { kind: 'room' | 'earth' }
 /** A light fitting. Hung lamps go dark when the ceiling tile above them is destroyed. */
 export type Lamp = Vec & { radius: number; color: 'warm' | 'cold' | 'green'; hung: boolean }
-export type Level = { grid: Grid; playerStart: Vec; extraction: Rect; loot: Vec; guards: GuardSpawn[]; interiors: Interior[]; lamps: Lamp[] }
+/** Furniture and clutter. Purely for looks; `y` is the floor row it stands on. */
+export type Prop = Vec & { kind: 'desk' | 'cabinet' | 'crate' | 'plant' | 'server' | 'gold' }
+export type Level = { grid: Grid; playerStart: Vec; extraction: Rect; loot: Vec; guards: GuardSpawn[]; interiors: Interior[]; lamps: Lamp[]; props: Prop[] }
 
 const BUILDING = { left: 70, right: 118 }
 const BASEMENT = { left: 74, right: 94, top: 43, bottom: 47 }
@@ -31,11 +33,12 @@ export function createLevel(seed: number): Level {
   const storeys = randomInt(rng, 3, 5)
   const guards: GuardSpawn[] = []
   const lamps: Lamp[] = []
+  const props: Prop[] = []
 
   fillTiles(grid, 0, GROUND, WORLD_WIDTH - 1, WORLD_HEIGHT - 3, 'dirt')
   fillTiles(grid, 0, WORLD_HEIGHT - 2, WORLD_WIDTH - 1, WORLD_HEIGHT - 1, 'bedrock')
 
-  buildTower(grid, rng, storeys, guards, lamps)
+  buildTower(grid, rng, storeys, guards, lamps, props)
   buildBasement(grid)
   buildSewer(grid)
 
@@ -49,6 +52,7 @@ export function createLevel(seed: number): Level {
     grid,
     guards,
     lamps: [...lamps, ...fixedLamps()],
+    props: [...props, ...fixedProps()],
     interiors: [
       { kind: 'room', x: BUILDING.left, y: roof, w: BUILDING.right - BUILDING.left + 1, h: GROUND - roof },
       { kind: 'earth', x: 0, y: GROUND, w: WORLD_WIDTH, h: WORLD_HEIGHT - GROUND },
@@ -59,7 +63,7 @@ export function createLevel(seed: number): Level {
   }
 }
 
-function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[], lamps: Lamp[]): void {
+function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[], lamps: Lamp[], props: Prop[]): void {
   const { left, right } = BUILDING
   const roof = GROUND - storeys * STOREY
   fillTiles(grid, left, roof, right, GROUND - 1, 'air')
@@ -91,6 +95,11 @@ function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[],
     for (let x = left + 6; x < right - 3; x += 11) lamps.push({ x: x + 0.5, y: ceilingY + 1.2, radius: 8, color: 'warm', hung: true })
 
     const blocked = [wallX, ladderX, holeX]
+    const furniture = ['desk', 'cabinet', 'plant', 'server', 'desk', 'crate'] as const
+    for (let x = left + 3; x < right - 3; x += randomInt(rng, 4, 7)) {
+      if (blocked.some((other) => Math.abs(other - x) < 3)) continue
+      props.push({ x, y: floorY, kind: furniture[randomInt(rng, 0, furniture.length - 1)] })
+    }
     guards.push({ x: pickClearX(rng, left + 3, right - 3, blocked), y: floorY, facing: rng() < 0.5 ? 1 : -1 })
     if (storey > 0 && rng() < 0.6) guards.push({ x: pickClearX(rng, left + 3, right - 3, blocked), y: floorY, facing: 1 })
     holeX = ladderX
@@ -121,6 +130,14 @@ function pickWallX(rng: Rng, left: number, right: number, ladderX: number): numb
     if (Math.abs(x - ladderX) > 3) return x
   }
   return ladderX < (left + right) / 2 ? right - 9 : left + 9
+}
+
+function fixedProps(): Prop[] {
+  const props: Prop[] = []
+  for (const x of [80, 83, 91]) props.push({ x, y: BASEMENT.bottom + 1, kind: 'crate' })
+  for (const x of [98, 100, 107, 109]) props.push({ x, y: VAULT.bottom + 1, kind: 'gold' })
+  for (const x of [28, 31, 52]) props.push({ x, y: GROUND, kind: 'crate' })
+  return props
 }
 
 /** Street lights, plus the dim fittings in the basement, vault and sewer. */

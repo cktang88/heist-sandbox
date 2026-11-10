@@ -3,7 +3,7 @@ import type { FallingTile } from './collapse'
 import type { Drone } from './drone'
 import type { Effects } from './effects'
 import type { Guard } from './guards'
-import { createLevel, type Interior, type Lamp } from './level'
+import { createLevel, type Interior, type Lamp, type Prop } from './level'
 import { createPlayer, type Player } from './player'
 import type { Projectile } from './projectiles'
 import { createRng, type Rng } from './rng'
@@ -34,6 +34,7 @@ export type World = {
   extraction: Rect
   interiors: Interior[]
   lamps: Lamp[]
+  props: Prop[]
   time: TimeState
   alarm: boolean
   shake: number
@@ -60,6 +61,7 @@ export function createWorld(seed: number): World {
     extraction: level.extraction,
     interiors: level.interiors,
     lamps: level.lamps,
+    props: level.props,
     time: createTime(),
     alarm: false,
     shake: 0,
