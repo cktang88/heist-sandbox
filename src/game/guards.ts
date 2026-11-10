@@ -6,6 +6,7 @@ import { enterCombat } from './security/combat'
 import { setMode, type Guard } from './security/model'
 import { onHurt, onKilled } from './security/nerve'
 import { beingDragged } from './security/selfPreservation'
+import { freeOfSolid } from './security/movement'
 import { deployResponders } from './security/response'
 import { raiseLevel } from './security/report'
 import { markUnderFire, witnessHit } from './security/takingFire'
@@ -43,9 +44,9 @@ export function updateGuard(world: World, guard: Guard, dt: number): void {
     guard.stunSeconds = Math.max(0, guard.stunSeconds - dt)
     // Out cold, he can still be hauled out of the line of fire by a colleague.
     if (guard.draggedBy === null || !beingDragged(world, guard, dt)) guard.vx = 0
-    return
-  }
-  thinkGuard(world, guard, dt)
+  } else thinkGuard(world, guard, dt)
+  // Off the stairs nobody stays inside solid tiles, whatever put him there (rubble falling on him, a dive, a buried landing).
+  if (!guard.stairs) freeOfSolid(world, guard)
 }
 
 /**

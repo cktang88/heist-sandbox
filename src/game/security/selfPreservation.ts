@@ -4,7 +4,7 @@ import { hasLineOfSight } from '../vision'
 import type { World } from '../world'
 import { barkLine, nameOf } from './barks'
 import { shelteredFrom } from './coverSpots'
-import { goTo } from './movement'
+import { freeOfSolid, goTo } from './movement'
 import { eyeOf, feetOf, isActive, type Guard } from './model'
 import { frighten, isShaken } from './nerve'
 import { isDoorway, sameFloor } from './places'
@@ -39,7 +39,9 @@ export function watchForGrenades(world: World, guard: Guard): boolean {
   guard.vy = -DIVE_LIFT
   guard.facing = away > 0 ? 1 : -1
   guard.radio = null
+  // Thrown off the flight he was on, which may cross a slab: never left inside it.
   guard.stairs = null
+  freeOfSolid(world, guard)
   guard.climbing = false
   frighten(guard, NERVE.grenade)
   barkLine(world, guard, 'grenade', true)

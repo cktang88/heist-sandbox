@@ -1,13 +1,13 @@
 import { openDoor } from '../interact'
 import { nextHop } from '../nav'
 import { emitNoise } from '../noise'
-import { GRAVITY, moveBody } from '../physics'
+import { boxHitsSolid, GRAVITY, moveBody } from '../physics'
 import { canWalkAcross } from '../gaps/gaps'
 import { doorBlockedAt } from '../physprops/physprops'
 import { playSound } from '../sounds'
 import { climbStairs } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
-import type { Vec } from '../types'
+import type { Body, Vec } from '../types'
 import type { World } from '../world'
 import { doorKeyAt } from './discoveries'
 import { holesFor, readyToDrop } from './holeDrop'
@@ -32,6 +32,9 @@ const KICKED_DOOR_NOISE = 16
 const DROP_EDGE = 1.4
 /** Feet may sink this far into a ladder hole in one frame and still be stepped round it. */
 const MAX_SINK = 0.9
+/** How far, and in what steps, a body stuck in solid tiles is looked round for a free spot. */
+const UNSTICK_STEP = 0.2
+const UNSTICK_REACH = 4
 
 /** Stands still (finishing any staircase flight first, since nobody stops halfway up). */
 export function hold(world: World, guard: Guard, dt: number): void {
@@ -89,6 +92,23 @@ export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: num
   }
   const pace = Math.min(speed, Math.abs(dx) * 5 + 0.5)
   return walk(world, guard, guard.facing * pace, dt) && !openDoorAhead(world, guard, !careful && speed > 3) ? 'blocked' : 'moving'
+}
+
+/**
+ * Gets a body out of solid tiles it has ended up inside (stepped off a flight that crosses a slab, a landing full of
+ * rubble, a dive off the stairs): to the nearest free spot, trying straight up first, then to either side, then down.
+ */
+export function freeOfSolid(world: World, body: Body): void {
+  if (!boxHitsSolid(world.grid, body)) return
+  for (let reach = UNSTICK_STEP; reach <= UNSTICK_REACH; reach += UNSTICK_STEP) {
+    for (const [dx, dy] of [[0, -reach], [-reach, 0], [reach, 0], [0, reach]]) {
+      if (boxHitsSolid(world.grid, { ...body, x: body.x + dx, y: body.y + dy })) continue
+      body.x += dx
+      body.y += dy
+      body.vy = Math.min(body.vy, 0)
+      return
+    }
+  }
 }
 
 /** Applies a walking speed with gravity. Returns true when a wall stopped it. */
@@ -181,7 +201,10 @@ function stepStairs(world: World, guard: Guard, goalY: number | null, dt: number
   if (stillGoing) return
   const atEnd = on.u <= 0 || on.u >= well.stops.length - 1
   const atGoal = goalY === null || on.u === goalStop || (goalStop < 0 && Math.abs(well.stops[on.u] - goalY) < SAME_FLOOR)
-  if (atGoal || atEnd) guard.stairs = null
+  if (!atGoal && !atEnd) return
+  guard.stairs = null
+  // A landing buried under rubble: he climbs out on top of it rather than standing inside it.
+  freeOfSolid(world, guard)
 }
 
 /** Where there are no staircases (the small outpost), a guard who is not calm walks to a ladder and climbs it. */
