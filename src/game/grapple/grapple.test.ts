@@ -112,6 +112,19 @@ describe('grappling hook', () => {
     expect(world.player.vx).toBeGreaterThan(speed * 0.7)
   })
 
+  it('holding Space through a jump off the line does not show a parachute while the swing still carries him', () => {
+    const world = hangUnderBar()
+    run(world, 0.5, { down: true })
+    for (let frame = 0; frame < 150; frame += 1) run(world, FRAME, { right: true })
+    run(world, FRAME, { jumpPressed: true, jumpHeld: true })
+    let chuteWhileFlung = 0
+    for (let frame = 0; frame < 40; frame += 1) {
+      run(world, FRAME, { jumpHeld: true })
+      if (world.grapple.fling > 0 && world.player.chute) chuteWhileFlung += 1
+    }
+    expect(chuteWhileFlung).toBe(0)
+  })
+
   it('lets go when fired again', () => {
     const world = hangUnderBar()
     shootAt(world, { x: 50, y: 10 })
