@@ -35,7 +35,6 @@ function field(world: World): SmokeField {
   if (world.hazards.smoke) return world.hazards.smoke
   const size = world.grid.width * world.grid.height
   const made: SmokeField = {
-    width: world.grid.width,
     screen: new Float32Array(size), toxic: new Float32Array(size), foam: new Float32Array(size), gas: new Float32Array(size),
     flow: [new Float32Array(size), new Float32Array(size), new Float32Array(size), new Float32Array(size)],
     active: [], live: new Uint8Array(size), seen: new Int32Array(size), stamp: 0, gasCells: 0,

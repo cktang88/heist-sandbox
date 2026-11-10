@@ -36,7 +36,6 @@ export type FlashState = Vec & { life: number }
 
 /** The smoke and gas field: one value per tile in typed arrays, made on first use; only `active` cells are stepped. */
 export type SmokeField = {
-  width: number
   /** Screening smoke, toxic fire smoke, short-lived foam, and flammable gas. Smoke values above 1 mean pressure. */
   screen: Float32Array
   toxic: Float32Array
