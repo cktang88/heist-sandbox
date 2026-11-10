@@ -68,6 +68,10 @@ export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): num
   }
   for (let index = (height - 1) * width; index < size; index += 1) if (SOLID[kinds[index]]) reach(index)
   spread()
+  const loose: number[] = []
+  for (let index = 0; index < size; index += 1) if (!supported[index] && SOLID[kinds[index]]) loose.push(index)
+  // Almost always everything is held by the plain rule; the back walls only need asking when something is not.
+  if (loose.length === 0) return loose
   // A slab held from behind holds what hangs from it, which may reach down to (and hold) another slab: go on until none is left.
   const held = new Uint8Array(slabs.length)
   for (let changed = true; changed;) {
@@ -79,9 +83,7 @@ export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): num
       spread()
     })
   }
-  const loose: number[] = []
-  for (let index = 0; index < size; index += 1) if (!supported[index] && SOLID[kinds[index]]) loose.push(index)
-  return loose
+  return loose.filter((index) => !supported[index])
 }
 
 /**
