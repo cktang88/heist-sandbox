@@ -2,6 +2,7 @@ import { openDoor } from '../interact'
 import { nextHop } from '../nav'
 import { emitNoise } from '../noise'
 import { GRAVITY, moveBody } from '../physics'
+import { doorBlockedAt } from '../physprops/physprops'
 import { playSound } from '../sounds'
 import { climbStairs } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
@@ -103,6 +104,7 @@ function openDoorAhead(world: World, guard: Guard, kick: boolean): boolean {
     return false
   }
   const at = { x: column, y: row }
+  if (doorBlockedAt(world, at)) return true
   openDoor(world.grid, at)
   world.structureChanged = true
   emitNoise(world, at, kick ? KICKED_DOOR_NOISE : QUIET_DOOR_NOISE, 'guard')

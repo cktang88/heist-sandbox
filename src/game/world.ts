@@ -23,6 +23,8 @@ import { createGuard } from './guards'
 import type { Frag } from './frag/frag'
 import type { Rope } from './rope/rope'
 import { createFallingProps, type FallingPropsState } from './vehicles/fallingProps'
+import { createPhysProps, type PhysPropsState } from './physprops/state'
+import { createMelee, type MeleeState } from './melee/state'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -60,6 +62,10 @@ export type World = {
   devices: Device[]
   lamps: Lamp[]
   props: PropState[]
+  /** Furniture the player has disturbed (dragged, tipped, thrown, falling). */
+  physProps: PhysPropsState
+  /** Close combat: blows, the human shield, guards knocked flying. */
+  melee: MeleeState
   hazards: HazardState
   security: SecurityState
   elevatorCars: ElevatorCar[]
@@ -112,6 +118,8 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     devices: level.devices.map((device, id) => ({ ...device, id, disabled: false, hacked: false })),
     lamps: level.lamps,
     props: createProps(level.props),
+    physProps: createPhysProps(),
+    melee: createMelee(),
     hazards: createHazards(),
     security: createSecurity(),
     elevatorCars: createElevators(level.elevators),

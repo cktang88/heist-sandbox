@@ -1,6 +1,7 @@
 import { burst } from './effects'
 import { propBroke } from './hazards/hazards'
 import { propsNear } from './hazards/props'
+import { propCover } from './physprops/tip'
 import { propSpec } from './propCatalog'
 import type { Prop } from './site'
 import { playSound } from './sounds'
@@ -68,7 +69,7 @@ export function hurtPropsInRadius(world: World, at: Vec, radius: number, damage:
 export function sightBlockedByProps(world: World, from: Vec, to: Vec): boolean {
   const crouched = targetIsCrouching(world, to)
   for (const prop of coverNear(world, to.x)) {
-    if (propSpec(prop.kind).cover === 'low' && !crouched) continue
+    if (propCover(world, prop) === 'low' && !crouched) continue
     const box = coverBox(prop)
     if (from.x >= box.left && from.x <= box.right) continue
     const tucked = to.x >= box.left - TUCKED_IN && to.x <= box.right + TUCKED_IN && to.y <= box.bottom
@@ -83,7 +84,7 @@ export function isInCover(world: World, body: Body & { crouching?: boolean }): b
   return coverNear(world, body.x + body.w / 2).some((prop) => {
     const box = coverBox(prop)
     const besideIt = body.x + body.w >= box.left - TUCKED_IN && body.x <= box.right + TUCKED_IN && Math.abs(feet - box.bottom) < 0.3
-    return besideIt && (propSpec(prop.kind).cover === 'high' || body.crouching === true)
+    return besideIt && (propCover(world, prop) === 'high' || body.crouching === true)
   })
 }
 
