@@ -442,8 +442,8 @@ function spaced(world: World, guard: Guard, spot: Vec, side: number): Vec {
 
 /** Aimed fire for token holders, slower wild fire for the suppressor, never through a colleague. */
 function tryFire(world: World, guard: Guard, known: Vec): void {
-  // With the man in his sights he fires even while still on the radio (the call carries on over his shoulder mic).
-  if (guard.drawSeconds > 0 || !guard.seesPlayer || guard.shootCooldown > 0) return
+  // With the man in his sights he fires even while still on the radio (the call carries on over his shoulder mic), unless he is busy getting to cover.
+  if (guard.drawSeconds > 0 || !guard.seesPlayer || guard.shootCooldown > 0 || (guard.radio && guard.shelter !== null)) return
   // A man hanging on a grappling line has nowhere to hide: everyone with a shot takes it.
   const aimed = world.security.shooters.includes(world.guards.indexOf(guard)) || onLine(world.grapple)
   const eye = eyeOf(guard)
