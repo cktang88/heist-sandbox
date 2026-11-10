@@ -1,6 +1,6 @@
 import type { Charge } from '../charges'
 import { C4_BLAST } from '../explosions'
-import { releaseHook } from '../grapple/hook'
+import { cutLine } from '../grapple/hook'
 import { tileAt, type Grid } from '../tiles'
 import { centerOf, distance, type Vec } from '../types'
 import type { World } from '../world'
@@ -51,7 +51,7 @@ export function lineLeftHanging(world: World, guard: Guard): Finding | null {
 export function cutLineNear(world: World, guard: Guard, at: Vec): void {
   const anchor = world.grapple.anchor
   if (world.grapple.phase !== 'parked' || !anchor || distance({ x: anchor.x + 0.5, y: anchor.y + 0.5 }, at) > LINE_REACH + 3) return
-  releaseHook(world)
+  cutLine(world)
   barkLine(world, guard, 'cutRope')
 }
 
