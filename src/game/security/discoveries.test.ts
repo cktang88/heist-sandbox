@@ -4,7 +4,8 @@ import { scrapeNoise } from '../guards'
 import { throwGrenade } from '../hazards/hazards'
 import { openDoor } from '../interact'
 import { emitNoise } from '../noise'
-import { fillTiles, setTile } from '../tiles'
+import { fillTiles, setTile, tileAt } from '../tiles'
+import { startFire } from '../hazards/fire'
 import type { World } from '../world'
 import { feetOf, setMode } from './model'
 import { addDevice, addGuard, addLamp, addRoom, arena, GROUND, putPlayer, run, runListening } from './testArena'
@@ -32,6 +33,25 @@ describe('things out of place', () => {
     expect(world.security.level).toBe(2)
     expect(world.security.log.some((line) => line.includes('forced lock'))).toBe(true)
     expect(guard.mode).toBe('searching')
+  })
+
+  it('a door the fire burned away is not called in as a forced lock', () => {
+    const world = arena()
+    putPlayer(world, 140)
+    doorAt50(world)
+    // A lintel that stays up once the door under it has gone.
+    fillTiles(world.grid, 50, GROUND - 6, 54, GROUND - 4, 'brick')
+    fillTiles(world.grid, 51, GROUND - 3, 54, GROUND - 1, 'brick')
+    run(world, 0.1)
+    for (let y = GROUND - 3; y <= GROUND - 1; y += 1) startFire(world, 50, y, 1)
+    run(world, 40, {}, () => tileAt(world.grid, 50, GROUND - 1) !== 'door' && tileAt(world.grid, 50, GROUND - 3) !== 'door')
+    expect(tileAt(world.grid, 50, GROUND - 1)).not.toBe('door')
+    world.hazards.fires.clear()
+    world.hazards.smoke = null
+    addGuard(world, 46, 1)
+    const lines = runListening(world, 25)
+    expect(saidAny(lines, ['picked', 'forced', 'Scratches'])).toBe(false)
+    expect(world.security.log.some((line) => line.includes('forced lock'))).toBe(false)
   })
 
   it('a door a guard opened himself is not reported by his colleagues', () => {

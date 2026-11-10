@@ -1,4 +1,4 @@
-import { openedDoors } from '../doors/doors'
+import { doorKeyAt, openedDoors } from '../doors/doors'
 import { smokeDensityAt } from '../hazards/hazards'
 import { tileAt, type Grid } from '../tiles'
 import { centerOf, distance, type Vec } from '../types'
@@ -81,7 +81,7 @@ function doorTampered(world: World, guard: Guard): Finding | null {
     const ahead = (x + 0.5 - feet.x) * guard.facing
     if (ahead < -1 || ahead > DISCOVERY.doorSight || tileAt(world.grid, x, row) === 'door') continue
     const key = `${x},${row}`
-    if (security.guardDoors.has(key) || security.doorsNoticed.has(key) || elevatorDoorOpen(world, x, row)) continue
+    if (security.guardDoors.has(key) || security.doorsNoticed.has(key) || security.burntDoors.has(key) || elevatorDoorOpen(world, x, row)) continue
     if (!clearView(world, eye, { x: x + 0.5, y: row - 0.5 })) continue
     security.doorsNoticed.add(key)
     const opened = openedDoors(world).get(key)
@@ -92,6 +92,13 @@ function doorTampered(world: World, guard: Guard): Finding | null {
     return { at: beside, kind: 'tamper', priority: 2, line: 'doorOpen', tamper: 'door', door: key }
   }
   return null
+}
+
+/** Remembers every door the fire has reached, so the gap it leaves is not taken for a forced lock. A few times a second. */
+export function noteBurningDoors(world: World): void {
+  for (const fire of world.hazards.fires.values()) {
+    if (tileAt(world.grid, fire.x, fire.y) === 'door') world.security.burntDoors.add(doorKeyAt(world, fire.x, fire.y))
+  }
 }
 
 /** An elevator car standing at this stop with its doors open: normal use, nothing to report. */

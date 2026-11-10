@@ -107,6 +107,8 @@ export type SecurityState = {
   /** Door keys (`x,bottomRow`) guards opened themselves, and doors already found open or picked. */
   guardDoors: Set<string>
   doorsNoticed: Set<string>
+  /** Doors (by key) that caught fire: once burned away they are fire damage, not a forced lock. */
+  burntDoors: Set<string>
   /** Doors found standing open by hand (not forced) tonight: the first is shrugged off (doorCheck.ts). */
   openDoorsFound: number
   /** Per camera device id: since when its feed has been dead, and whether that was reported. */
@@ -143,7 +145,7 @@ export function createSecurity(): SecurityState {
     searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(), circuitsDeadSince: new Map(), firesReported: new Map(),
     reportedBodies: new Set(), shooters: [], campSpot: null, campSeconds: 0,
     confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
-    deaths: [], unseenDeaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), openDoorsFound: 0, camerasDeadSince: new Map(), camerasReported: new Set(),
+    deaths: [], unseenDeaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), burntDoors: new Set(), openDoorsFound: 0, camerasDeadSince: new Map(), camerasReported: new Set(),
     vaultReported: false, caseMissingAt: Infinity, lampsNoticed: new Set(), ropesNoticed: new Set(), chuteReportedAt: -Infinity, recentLines: [],
     killZones: [], shieldTeams: 0, shieldTeamAt: -Infinity, guardFrags: [],
     lineNoticed: false, panesNoticed: new Set(), chargesSeen: new Set(), tiedNoticed: new Set(), caseAskedAt: -Infinity,
