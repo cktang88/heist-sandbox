@@ -53,7 +53,7 @@ export const createHazardsLayer: LayerFactory = (world) => {
   const sprays = createSprays()
   const grenades = createGrenades()
   const scorch = createScorch()
-  group.add(scorch.mesh, fire.group, smoke.pool.mesh, sprays.pool.mesh, grenades.group)
+  group.add(scorch.group, fire.group, smoke.pool.mesh, sprays.pool.mesh, grenades.group)
   const light = createLightCache(world)
   const firePicked: number[] = []
   const smokePicked: number[] = []

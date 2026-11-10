@@ -66,8 +66,9 @@ const smokeMaterial = () => new ShaderMaterial({
       float toxic = vTint.x;
       float light = vTint.y;
       // Lit from above: the underside of a cloud is darker. Light here is the room's light at that tile.
-      float shade = mix(0.5, 1.08, clamp(vUp, 0.0, 1.0)) * (0.78 + n * 0.4);
-      vec3 colour = mix(vec3(0.6, 0.61, 0.64), vec3(0.085, 0.068, 0.055), toxic) * shade * light;
+      // Each puff is a little lighter or darker than its neighbours, so a thick cloud still shows its billows.
+      float shade = mix(0.45, 1.1, clamp(vUp, 0.0, 1.0)) * (0.55 + n * 0.85) * (0.8 + fract(vSeed * 7.31) * 0.35);
+      vec3 colour = mix(vec3(0.44, 0.45, 0.47), vec3(0.085, 0.068, 0.055), toxic) * shade * light;
       gl_FragColor = vec4(colour, alpha);
     }`,
   blending: NormalBlending,

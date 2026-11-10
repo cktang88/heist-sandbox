@@ -8,7 +8,7 @@ export const MAX_FLAMES = 900
 export const MAX_EMBERS = 420
 const FLAME_DEPTHS = [-1.75, -0.85, 0.15]
 /** Brightness of the flame core. Well above 1, so the glow pass blooms it. */
-const FLAME_GAIN = 0.85
+const FLAME_GAIN = 0.7
 
 const flameMaterial = () => new ShaderMaterial({
   uniforms: { uTime: { value: 0 }, uGain: { value: FLAME_GAIN } },
@@ -42,12 +42,12 @@ const flameMaterial = () => new ShaderMaterial({
       float x = (uv.x - 0.5) * 2.0;
       float shape = (1.0 - x * x) * (1.0 - uv.y) * (1.15 + vHeat * 0.5);
       float f = shape - (n * 0.75 + n2 * 0.25) * (0.3 + uv.y * 0.85);
-      f = clamp(f * 2.4, 0.0, 1.0) * smoothstep(0.0, 0.06, uv.y);
+      f = clamp(f * 1.7, 0.0, 1.0) * smoothstep(0.0, 0.06, uv.y);
       float core = f * (1.0 - smoothstep(0.1, 0.45, uv.y));
-      vec3 colour = vec3(0.35, 0.03, 0.0);
-      colour = mix(colour, vec3(1.0, 0.22, 0.02), smoothstep(0.1, 0.5, f));
-      colour = mix(colour, vec3(1.0, 0.52, 0.1), smoothstep(0.5, 0.85, f));
-      colour = mix(colour, vec3(1.5, 1.2, 0.75), smoothstep(0.75, 1.0, core));
+      vec3 colour = vec3(0.3, 0.02, 0.0);
+      colour = mix(colour, vec3(1.0, 0.18, 0.01), smoothstep(0.1, 0.5, f));
+      colour = mix(colour, vec3(1.0, 0.42, 0.06), smoothstep(0.5, 0.9, f));
+      colour = mix(colour, vec3(1.6, 1.1, 0.55), smoothstep(0.85, 1.0, core));
       gl_FragColor = vec4(colour * f * uGain, 1.0);
     }`,
   blending: AdditiveBlending,
@@ -116,7 +116,7 @@ export function createFire(): FireFx {
           const jitter = Math.sin(seed * 91 + layer * 17)
           const size = layer === 2 ? 0.75 : 1
           put4(cell4, flameCount, x + 0.5 + jitter * 0.28, -(y + 1) - 0.05, FLAME_DEPTHS[layer], (seed + layer * 0.37) % 1)
-          put3(shape, flameCount, (1.1 + heat * 0.7) * size, (0.9 + heat * 2.1) * size * (0.85 + jitter * 0.15), heat)
+          put3(shape, flameCount, (1.1 + heat * 0.7) * size, (1.2 + heat * 2.4) * size * (0.85 + jitter * 0.15), heat)
           flameCount += 1
         }
         for (let ember = 0; ember < Math.ceil(heat * 3) && emberCount < MAX_EMBERS; ember += 1) {

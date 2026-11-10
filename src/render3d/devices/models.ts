@@ -62,7 +62,7 @@ let coneParts: { geometry: BufferGeometry; red: Material; green: Material } | nu
 function cones(): { geometry: BufferGeometry; red: Material; green: Material } {
   if (coneParts) return coneParts
   const map = fadeTexture()
-  const make = (color: number) => new MeshBasicMaterial({ map, color: new Color(color).multiplyScalar(0.16), blending: AdditiveBlending, transparent: true, depthWrite: false, side: DoubleSide, fog: false })
+  const make = (color: number) => new MeshBasicMaterial({ map, color: new Color(color).multiplyScalar(0.075), blending: AdditiveBlending, transparent: true, depthWrite: false, side: DoubleSide, fog: false })
   coneParts = { geometry: coneGeometry(), red: make(0xff3020), green: make(0x30ff70) }
   return coneParts
 }

@@ -6,6 +6,9 @@ import { buildDevice, type DeviceModel, type DeviceState } from './devices/model
 import { inView, type LayerFactory } from './layer'
 import { BACK } from './levelMesh'
 
+/** Wall devices are drawn a little larger than life so they read at game zoom. */
+const WALL_DEVICE_SCALE = 1.35
+
 type Placed = { model: DeviceModel; key: string }
 
 function stateOf(world: World, device: Device): DeviceState {
@@ -25,7 +28,8 @@ function aimCamera(world: World, device: Device, model: DeviceModel): void {
   // Keep the sun shade on top when the camera looks left.
   parts.pivot.scale.y = Math.cos(angle) < 0 ? -1 : 1
   if (!parts.cone.visible) return
-  parts.cone.scale.setScalar(Math.max(0.5, cameraReach(world, cameraLens(device), angle) - parts.lensOffset))
+  // The cone lives inside the scaled-up model, so its length is divided back down to reach the real wall.
+  parts.cone.scale.setScalar(Math.max(0.5, cameraReach(world, cameraLens(device), angle) / WALL_DEVICE_SCALE - parts.lensOffset))
 }
 
 /**
@@ -48,8 +52,10 @@ export const createDevicesLayer: LayerFactory = () => {
         }
         if (!entry) {
           const model = buildDevice(device.kind)
-          if (model.anchor === 'wall') model.root.position.set(device.x + 0.5, -(device.y + 0.5), BACK)
-          else model.root.position.set(device.x + 0.5, -device.y, 0)
+          if (model.anchor === 'wall') {
+            model.root.position.set(device.x + 0.5, -(device.y + 0.5), BACK)
+            model.root.scale.setScalar(WALL_DEVICE_SCALE)
+          } else model.root.position.set(device.x + 0.5, -device.y, 0)
           group.add(model.root)
           entry = { model, key: '' }
           placed.set(device, entry)

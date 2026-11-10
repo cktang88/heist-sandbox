@@ -2,7 +2,7 @@ import { CanvasTexture, Color, Group, Mesh, MeshBasicMaterial, PlaneGeometry, SR
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { ElevatorCar } from '../../../game/elevators'
 import type { ElevatorShaft } from '../../../game/site'
-import { BACK } from '../../levelMesh'
+import { BACK, FRONT } from '../../levelMesh'
 import { BOX, glow, matte } from '../../props/kit'
 import { slab, storeyLabel } from './build'
 
@@ -92,7 +92,8 @@ export function buildElevator(shaft: ElevatorShaft): ElevatorRig {
     slab(fixed, wallX - 0.1, floor, wallX + 0.02, floor + DOOR_HEIGHT + 0.15, DOOR_Z - 0.04, DOOR_Z + 0.06)
     slab(fixed, wallX + 0.98, floor, wallX + 1.1, floor + DOOR_HEIGHT + 0.15, DOOR_Z - 0.04, DOOR_Z + 0.06)
     slab(fixed, wallX - 0.1, floor + DOOR_HEIGHT, wallX + 1.1, floor + DOOR_HEIGHT + 0.15, DOOR_Z - 0.04, DOOR_Z + 0.06)
-    slab(fixed, wallX + 0.15, floor + DOOR_HEIGHT + 0.25, wallX + 0.85, floor + DOOR_HEIGHT + 0.62, DOOR_Z - 0.04, DOOR_Z + 0.04)
+    // The indicator housing sits on the face of the wall above the doors.
+    slab(fixed, wallX + 0.12, floor + DOOR_HEIGHT + 0.25, wallX + 0.88, floor + DOOR_HEIGHT + 0.62, FRONT, FRONT + 0.03)
     slab(fixed, lobbyX - 0.1, floor + 1.2, lobbyX + 0.1, floor + 1.6, BACK, BACK + 0.03)
   }
   const frames = new Mesh(mergeGeometries(fixed), BRUSHED)
@@ -114,7 +115,7 @@ export function buildElevator(shaft: ElevatorShaft): ElevatorRig {
     const left = box(group, BRUSHED, 0, floor, 1, floor + DOOR_HEIGHT, DOOR_Z, DOOR_Z + 0.04)
     const right = box(group, BRUSHED, 0, floor, 1, floor + DOOR_HEIGHT, DOOR_Z + 0.005, DOOR_Z + 0.045)
     const screen = new Mesh(display, indicator.material)
-    screen.position.set(wallX + 0.5, floor + DOOR_HEIGHT + 0.435, DOOR_Z + 0.045)
+    screen.position.set(wallX + 0.5, floor + DOOR_HEIGHT + 0.435, FRONT + 0.035)
     const button = box(group, BUTTON_IDLE, lobbyX - 0.05, floor + 1.35, lobbyX + 0.05, floor + 1.45, BACK + 0.03, BACK + 0.06)
     group.add(screen)
     return { y: stopY, left, right, display: screen, button, open: 0 }
@@ -148,7 +149,8 @@ export function buildElevator(shaft: ElevatorShaft): ElevatorRig {
         stop.open += Math.max(-DOOR_SPEED * dt, Math.min(DOOR_SPEED * dt, target - stop.open))
         if (!visible) continue
         // Each panel slides toward its jamb, narrowing as it tucks behind the frame.
-        const width = 0.5 * (1 - stop.open) + 0.03
+        // A thin dark seam stays between the closed panels.
+        const width = 0.485 * (1 - stop.open) + 0.03
         stop.left.scale.x = stop.right.scale.x = width
         stop.left.position.x = wallX + width / 2
         stop.right.position.x = wallX + 1 - width / 2
