@@ -78,6 +78,13 @@ export class Region {
   readonly group = new Group()
   private batches: BatchedProps[] = []
   private cards: CardSet | null = null
+  /**
+   * The last build, still on screen while a rebuild (after a change of look) is under way, and thrown away once the
+   * new one is ready: a look switch never leaves rooms empty while their furniture is built again.
+   */
+  private stale: { batches: BatchedProps[]; cards: CardSet | null; holder: Group } | null = null
+  /** Holds the current build; kept hidden while an old build stands in, so the two are never drawn together. */
+  private content = new Group()
   private hidden = new Set<number>()
   /** Goes up on every build, so a scanned model arriving late does not land in a build that has been replaced. */
   private generation = 0
@@ -96,6 +103,8 @@ export class Region {
    */
   constructor(readonly props: readonly number[], private readonly area?: JobArea) {
     this.group.matrixAutoUpdate = false
+    this.content.matrixAutoUpdate = false
+    this.group.add(this.content)
   }
 
   /** Builds the whole region at once. The props layer uses `start` and `step` instead, to spread the work. */
@@ -104,9 +113,20 @@ export class Region {
     while (this.step((prop) => placed[prop]) === 'more');
   }
 
-  /** Throws away any earlier build and gets ready to build afresh, one `step` at a time. */
+  /** Gets ready to build afresh, one `step` at a time; an earlier finished build stays drawn until this one is ready. */
   start(isHidden: (prop: number) => boolean): void {
-    this.dispose()
+    if (this.ready && this.stale === null) {
+      this.stale = { batches: this.batches, cards: this.cards, holder: this.content }
+      this.content = new Group()
+      this.content.matrixAutoUpdate = false
+      this.content.visible = false
+      this.group.add(this.content)
+      this.batches = []
+      this.cards = null
+      this.preparing = 0
+      this.built = false
+      this.work = null
+    } else this.dispose()
     this.generation += 1
     const order = [...this.props].reverse()
     this.work = { gather: order, scans: new Set(), scenes: new Map(), sort: [...order], bake: [], sorted: new Map(), plans: null, cards: [] }
@@ -165,6 +185,7 @@ export class Region {
     if (work.cards.length > 0) this.addCards(work.cards)
     this.built = true
     this.work = null
+    this.dropStaleOnceReady()
     return 'done'
   }
 
@@ -174,6 +195,11 @@ export class Region {
    */
   get ready(): boolean {
     return this.built && this.work === null && this.preparing === 0
+  }
+
+  /** True while there is something to draw: the finished build, or the last one standing in while a rebuild goes on. */
+  get drawable(): boolean {
+    return this.ready || this.stale !== null
   }
 
   /** Which build this is: a change means the region was restarted. */
@@ -191,16 +217,21 @@ export class Region {
     else this.hidden.delete(prop)
     for (const batch of this.batches) showInstances(batch, prop, !hidden)
     this.cards?.setHidden(prop, hidden)
+    if (this.stale) {
+      for (const batch of this.stale.batches) showInstances(batch, prop, !hidden)
+      this.stale.cards?.setHidden(prop, hidden)
+    }
   }
 
   dispose(): void {
+    this.disposeStale()
     for (const { mesh } of this.batches) {
-      this.group.remove(mesh)
+      mesh.removeFromParent()
       mesh.dispose()
     }
     this.batches = []
     if (this.cards) {
-      for (const mesh of this.cards.meshes) this.group.remove(mesh)
+      for (const mesh of this.cards.meshes) mesh.removeFromParent()
       this.cards.dispose()
       this.cards = null
     }
@@ -248,16 +279,31 @@ export class Region {
     holder.add(...cards.meshes)
     this.prepare(holder, () => this.cards === cards, () => {
       holder.remove(...cards.meshes)
-      this.group.add(...cards.meshes)
+      this.content.add(...cards.meshes)
     })
   }
 
-  private prepare(object: Object3D, current: () => boolean, attach: () => void = () => this.group.add(object)): void {
+  /** Once the new build is fully shown, the old one standing in for it goes. */
+  private dropStaleOnceReady(): void {
+    if (this.ready) this.disposeStale()
+  }
+
+  private disposeStale(): void {
+    if (!this.stale) return
+    for (const { mesh } of this.stale.batches) mesh.dispose()
+    this.stale.cards?.dispose()
+    this.group.remove(this.stale.holder)
+    this.stale = null
+    this.content.visible = true
+  }
+
+  private prepare(object: Object3D, current: () => boolean, attach: () => void = () => this.content.add(object)): void {
     const generation = this.generation
     const show = () => {
       if (generation !== this.generation || !current()) return
       this.preparing -= 1
       attach()
+      this.dropStaleOnceReady()
     }
     this.preparing += 1
     if (this.area) prepareJob(object, this.area, show)
