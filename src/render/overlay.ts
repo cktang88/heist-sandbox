@@ -1,9 +1,10 @@
 import type { Guard } from '../game/guards'
-import type { Vec } from '../game/types'
+import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
 import { worldToScreen, type Camera } from './camera'
 import { drawSignals } from './drawActors'
 import { caption, hudUnit, measure } from './drawHud'
+import { drawSearchArea } from './intelHud'
 
 /** Bark speech labels fade out over their last stretch of life. */
 const BARK_FADE_SECONDS = 0.5
@@ -11,10 +12,12 @@ const TILE_METRES = 1.1
 
 /**
  * Markers drawn over the 3D scene: guards' state icons and awareness meters, their spoken barks,
- * sound ripples, lockpick progress, the last place security saw the player, and the way to the van.
+ * sound ripples, lockpick progress, the last place security saw the player, the search area the intel
+ * points to (the case itself is never marked: the player has to find it), and the way to the van.
  */
 export function drawOverlay(context: CanvasRenderingContext2D, world: World, camera: Camera): void {
   context.setTransform(camera.scale, 0, 0, camera.scale, camera.width / 2 - camera.x * camera.scale, camera.height / 2 - camera.y * camera.scale)
+  const area = drawSearchArea(context, world)
   drawRipples(context, world)
   const player = world.player
   if (player.pick > 0) {
@@ -35,7 +38,9 @@ export function drawOverlay(context: CanvasRenderingContext2D, world: World, cam
     drawGuardStatus(context, world, camera, guard, unit)
   }
   drawBarks(context, world, camera, unit)
-  if (world.player.hasLoot && world.status === 'playing') drawVanArrow(context, world, camera, unit)
+  if (world.status !== 'playing') return
+  if (world.player.hasLoot) drawEdgeArrow(context, world, camera, unit, centerOf(world.extraction), 'VAN', '#39ff6a')
+  else if (area?.region) drawEdgeArrow(context, world, camera, unit, centerOf(area.region), 'INTEL', '#f0c060')
 }
 
 function drawRipples(context: CanvasRenderingContext2D, world: World): void {
@@ -188,11 +193,13 @@ function drawLastKnown(context: CanvasRenderingContext2D, world: World, camera: 
   caption(context, 'LAST SEEN', point.x, point.y - radius - unit * 0.4, 'rgba(255,150,90,0.95)', unit * 0.7, 'center')
 }
 
-/** Once the case is in hand, an arrow at the screen edge points to the van when it is off screen. */
-function drawVanArrow(context: CanvasRenderingContext2D, world: World, camera: Camera, unit: number): void {
-  const van = { x: world.extraction.x + world.extraction.w / 2, y: world.extraction.y + world.extraction.h / 2 }
-  if (onScreen(camera, van, -1)) return
-  const target = worldToScreen(camera, van)
+/**
+ * An arrow at the screen edge toward something off screen, with its distance: the van once the case is in hand,
+ * otherwise the middle of the search area the intel points to.
+ */
+function drawEdgeArrow(context: CanvasRenderingContext2D, world: World, camera: Camera, unit: number, goal: Vec, name: string, colour: string): void {
+  if (onScreen(camera, goal, -1)) return
+  const target = worldToScreen(camera, goal)
   const centre = { x: camera.width / 2, y: camera.height / 2 }
   const angle = Math.atan2(target.y - centre.y, target.x - centre.x)
   const marginX = camera.width / 2 - unit * 3
@@ -202,7 +209,7 @@ function drawVanArrow(context: CanvasRenderingContext2D, world: World, camera: C
   context.save()
   context.translate(tip.x, tip.y)
   context.rotate(angle)
-  context.fillStyle = '#39ff6a'
+  context.fillStyle = colour
   context.beginPath()
   context.moveTo(unit * 0.9, 0)
   context.lineTo(-unit * 0.6, -unit * 0.65)
@@ -211,11 +218,11 @@ function drawVanArrow(context: CanvasRenderingContext2D, world: World, camera: C
   context.closePath()
   context.fill()
   context.restore()
-  const metres = Math.round(Math.hypot(van.x - world.player.x, van.y - world.player.y) * TILE_METRES)
-  const label = `VAN ${metres}m`
+  const metres = Math.round(Math.hypot(goal.x - world.player.x, goal.y - world.player.y) * TILE_METRES)
+  const label = `${name} ${metres}m`
   const back = { x: tip.x - Math.cos(angle) * unit * 2.2, y: tip.y - Math.sin(angle) * unit * 1.6 }
   context.fillStyle = 'rgba(6,8,12,0.6)'
   const w = measure(context, label, unit * 0.75) + unit * 0.6
   context.fillRect(back.x - w / 2, back.y - unit * 0.65, w, unit * 1.05)
-  caption(context, label, back.x, back.y + unit * 0.2, '#39ff6a', unit * 0.75, 'center')
+  caption(context, label, back.x, back.y + unit * 0.2, colour, unit * 0.75, 'center')
 }
