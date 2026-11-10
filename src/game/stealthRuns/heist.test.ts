@@ -10,12 +10,12 @@ import { startRun } from './kit'
  */
 
 /**
- * The seeds and routes the script gets through today. On seeds 1-8 it wins 2 of 16; the rest stop on a picked lock a
- * patrol finds later (the door cannot be shut again: see interact.ts), a guard seeing the case gone, or the script
- * itself giving up on a long wait.
+ * A few of the seed/route pairs the script gets through, to keep this quick. The full table (seeds 1-8 on every
+ * route) is table.test.ts, run with STEALTH_TABLE=1.
  */
 const RUNS: [number, Entry][] = [
   [1, 'roof'],
+  [5, 'roof'],
   [4, 'sewer'],
 ]
 

@@ -41,7 +41,8 @@ export function chokeOut(run: Run, guard: Guard, maxAlert: number): boolean {
     }
     const busy = world.stealth.choke !== null || /choke|keycard/.test(world.prompt ?? '')
     if (!busy && frame > 0) return false
-    tick(run, { interact: true, interactPressed: frame === 0 })
+    // A choke starts on a press (after the keycard has been lifted, a fresh one); then E is held down.
+    tick(run, { interact: true, interactPressed: world.stealth.choke === null && /choke/.test(world.prompt ?? '') })
   }
   return false
 }

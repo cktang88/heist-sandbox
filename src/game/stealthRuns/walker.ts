@@ -78,6 +78,7 @@ export function walkTo(run: Run, goal: Vec, options: WalkOptions = {}): WalkResu
   let behind: Behind | null = null
   let hidAt = -Infinity
   const hides = new Map<Guard, number>()
+  let movedAt = run.log.seconds
   while (run.log.seconds < until) {
     if (blown(run, maxAlert)) return 'blown'
     const at = feet(world)
@@ -106,7 +107,9 @@ export function walkTo(run: Run, goal: Vec, options: WalkOptions = {}): WalkResu
       if (hideUntilPassed(run, due, maxAlert)) continue
     }
     if (blown(run, maxAlert)) return 'blown'
-    const plan = choose(world, direction, (guard) => takedowns || (takedownRoom !== null && guard.roomId === takedownRoom) || (hides.get(guard) ?? 0) >= PATIENCE)
+    // Held up this long by a man who will not move out of the way: he is taken down too.
+    const blocked = run.log.seconds - movedAt > BLOCKED
+    const plan = choose(world, direction, (guard) => blocked || takedowns || (takedownRoom !== null && guard.roomId === takedownRoom) || (hides.get(guard) ?? 0) >= PATIENCE)
     if (plan === 'takedown') {
       const target = takedownTarget(world)?.guard
       if (target && chokeOut(run, target, maxAlert)) stashBody(run, target, maxAlert)
@@ -129,6 +132,7 @@ export function walkTo(run: Run, goal: Vec, options: WalkOptions = {}): WalkResu
     }
     if (plan === 0 || backingOff) holdBack(run)
     else run.waiting = false
+    if (plan !== 0 && !backingOff) movedAt = run.log.seconds
     // Pushing against a door: open it (or pick its lock) before going on.
     pushing = plan !== 0 && !backingOff && Math.abs(world.player.x - lastX) < 0.002 ? pushing + FRAME : 0
     lastX = world.player.x
@@ -167,6 +171,8 @@ function closeBehind(run: Run, door: Behind): boolean {
   return true
 }
 
+/** Held up this long without moving on: whoever is in the way is taken down. */
+const BLOCKED = 12
 /** Hidden from the same patrol this often, the player stops waiting for him and takes him down from behind. */
 const PATIENCE = 2
 /** Out of a hiding place, the player gets on with it for this long before hiding again. */
@@ -269,7 +275,8 @@ function doorWatched(world: World, move: number): boolean {
   return guardsOnFloor(world).some((guard) => {
     const beyond = (feetOf(guard).x - px) * move
     if (beyond <= 0 || beyond >= PEEK) return false
-    return guard.facing === -move || (guard.role !== 'patrol' && Math.abs(guard.vx) < 0.3 && beyond < 8 && guard.wait < needed)
+    // (An operator at his console never turns.)
+    return guard.facing === -move || (guard.role !== 'patrol' && guard.role !== 'operator' && Math.abs(guard.vx) < 0.3 && beyond < 8 && guard.wait < needed)
   })
 }
 
@@ -289,7 +296,7 @@ function openAhead(run: Run, move: number, maxAlert: number): boolean {
   for (let frame = 0; frame < 600 && doorAhead(world, move); frame += 1) {
     if (blown(run, maxAlert)) return false
     const prompt = world.prompt ?? ''
-    const door = /door|lock|keypad/.test(prompt) && !/shut|close/.test(prompt)
+    const door = /door|lock|keypad|keycard/.test(prompt) && !/shut|close/.test(prompt)
     tick(run, door ? { interact: true, interactPressed: prompt.startsWith('E:') && frame % 2 === 0 } : { left: move < 0, right: move > 0 })
   }
   return true
