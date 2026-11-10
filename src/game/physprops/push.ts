@@ -1,6 +1,6 @@
+import { scrapeNoise } from '../security/hearing'
 import type { PropState } from '../cover'
 import { propBox, propById, propCenter } from '../hazards/props'
-import { emitNoise } from '../noise'
 import { boxHitsSolid } from '../physics'
 import { playSound } from '../sounds'
 import { centerOf } from '../types'
@@ -25,8 +25,6 @@ const DRAG_PACE = 5.5
 const MIN_DRAG_SPEED = 1.2
 const MAX_DRAG_SPEED = 5
 const SCRAPE_EVERY = 0.6
-const SCRAPE_NOISE = 4
-const SCRAPE_NOISE_PER_WEIGHT = 1.5
 const SEARCH_RADIUS = 4
 
 export function dragSpeed(prop: PropState): number {
@@ -104,7 +102,7 @@ function scrape(world: World, prop: PropState, distance: number): void {
   state.scraped = 0
   const center = propCenter(prop)
   playSound(world, 'impact', center)
-  emitNoise(world, center, SCRAPE_NOISE + weightOf(prop.kind) * SCRAPE_NOISE_PER_WEIGHT)
+  scrapeNoise(world, center)
 }
 
 function letGo(world: World, prop: PropState): void {

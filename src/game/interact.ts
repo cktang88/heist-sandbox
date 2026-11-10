@@ -3,7 +3,7 @@ import { lockSeconds, keypadFor } from './devices/locks'
 import { deviceCenter, flipPower } from './devices/power'
 import { deviceState } from './devices/state'
 import { callElevator, carUnderPlayer, elevatorRefuses, shaftDoorAt, shaftOf } from './elevators'
-import { hurtGuard } from './guards'
+import { hurtGuard, restrainGuard } from './guards'
 import type { Input } from './input'
 import { emitNoise } from './noise'
 import { playSound } from './sounds'
@@ -122,8 +122,10 @@ function terminalPrompt(world: World): string {
 
 function takedownAction(world: World): Action | null {
   const center = centerOf(world.player)
-  const guard = world.guards.find((other) => other.state !== 'dead' && other.state !== 'alert' && distance(centerOf(other), center) < TAKEDOWN_REACH)
+  const guard = world.guards.find((other) => other.state !== 'dead' && other.state !== 'alert' && !other.restrained && distance(centerOf(other), center) < TAKEDOWN_REACH)
   if (!guard) return null
+  // A guard with his hands up is tied, not killed.
+  if (guard.mode === 'surrendered') return { prompt: 'E: tie up', key: 'tieUp', run: () => restrainGuard(world, guard) }
   return { prompt: 'E: take down', key: 'takedown', run: () => hurtGuard(world, guard, 1000, center) }
 }
 
