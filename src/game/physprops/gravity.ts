@@ -32,7 +32,7 @@ const THUD_NOISE_PER_WEIGHT = 3
 export function settleLooseProps(world: World, dt: number): void {
   for (const { prop, loose } of looseProps(world)) {
     if (loose.flying || world.physProps.grabbed?.id === prop.id) continue
-    if (loose.vx === 0 && loose.vy === 0 && isSupported(world.grid, prop)) continue
+    if (loose.vx === 0 && loose.vy === 0 && isResting(world.grid, prop)) continue
     fall(world, prop, loose, dt)
   }
 }
@@ -43,6 +43,13 @@ export function isSupported(grid: Grid, prop: PropState): boolean {
   const row = Math.floor(footing.y + footing.h + 0.05)
   for (let x = Math.floor(footing.x); x <= Math.floor(footing.x + footing.w - 0.001); x += 1) if (isSolidAt(grid, x, row)) return true
   return false
+}
+
+/** Standing still on a floor: supported, with its bottom right on the floor's surface (not hovering just above it). */
+function isResting(grid: Grid, prop: PropState): boolean {
+  const box = propBox(prop)
+  const bottom = box.y + box.h
+  return Math.abs(bottom - Math.round(bottom)) < 1e-6 && isSupported(grid, prop)
 }
 
 function footingOf(box: Rect): Rect {

@@ -1,15 +1,14 @@
 import type { PropState } from '../cover'
 import { hurtGuard, type Guard } from '../guards'
-import { propCenter } from '../hazards/props'
+import { propBox, propCenter } from '../hazards/props'
 import { emitNoise } from '../noise'
-import { GRAVITY } from '../physics'
+import { boxHitsSolid, GRAVITY } from '../physics'
 import { isThrowable, knocksDown, weightOf } from '../physprops/kinds'
 import { propsAround } from '../physprops/nearby'
 import { looseProps, loosen, rekeyIfMoved, shiftProp, type LooseProp } from '../physprops/state'
 import { playSound } from '../sounds'
-import { isSolidAt } from '../tiles'
 import { handOf } from '../tools'
-import { centerOf, distance, type Vec } from '../types'
+import { centerOf, distance, type Rect, type Vec } from '../types'
 import { normalize } from '../vision'
 import type { World } from '../world'
 import { knockGuard, smashGlass } from './knock'
@@ -27,6 +26,10 @@ const LIGHT_SPEED_SHARE = 1.15
 const SPEED_LOST_PER_WEIGHT = 0.3
 const HEAVY_SPEED_SHARE = 0.6
 const FLIGHT_STEP = 0.25
+/** Thrown things carry further than the game's brisk falling gravity would let them, so a throw can reach across a room. */
+const FLIGHT_GRAVITY = GRAVITY * 0.5
+/** Thrown things leave the hand with a little upward lift, so a throw at a man's chest still reaches him. */
+const THROW_LIFT = 3
 const CLATTER_NOISE = 9
 const CLATTER_NOISE_PER_WEIGHT = 3
 const HIT_DAMAGE = 4
@@ -50,7 +53,7 @@ export function throwNearest(world: World, aim: Vec): boolean {
   const direction = normalize(aim.x - hand.x, aim.y - hand.y)
   const share = Math.min(1, Math.max(HEAVY_SPEED_SHARE, LIGHT_SPEED_SHARE - weightOf(prop.kind) * SPEED_LOST_PER_WEIGHT))
   const speed = THROW_SPEED * share
-  Object.assign(loose, { flying: true, tipped: 0, vx: direction.x * speed, vy: direction.y * speed })
+  Object.assign(loose, { flying: true, tipped: 0, vx: direction.x * speed, vy: direction.y * speed - THROW_LIFT })
   return true
 }
 
@@ -72,24 +75,37 @@ export function stepFlights(world: World, dt: number): void {
 }
 
 function fly(world: World, prop: PropState, loose: LooseProp, dt: number): void {
-  loose.vy += GRAVITY * dt
+  loose.vy += FLIGHT_GRAVITY * dt
   const steps = Math.max(1, Math.ceil((Math.hypot(loose.vx, loose.vy) * dt) / FLIGHT_STEP))
   for (let step = 0; step < steps; step += 1) {
-    const center = propCenter(prop)
-    const next = { x: center.x + (loose.vx * dt) / steps, y: center.y + (loose.vy * dt) / steps }
-    if (isSolidAt(world.grid, next.x, next.y)) {
-      if (!smashGlass(world, Math.floor(next.x), Math.floor(next.y))) return land(world, prop, loose, center)
+    const dx = (loose.vx * dt) / steps
+    const dy = (loose.vy * dt) / steps
+    const box = propBox(prop)
+    const moved = { ...box, x: box.x + dx, y: box.y + dy }
+    if (boxHitsSolid(world.grid, moved)) {
+      if (!smashGlassIn(world, moved)) return land(world, prop, loose, propCenter(prop))
       loose.vx *= GLASS_SLOWDOWN
       loose.vy *= GLASS_SLOWDOWN
     }
+    const center = propCenter(prop)
+    const next = { x: center.x + dx, y: center.y + dy }
     const guard = guardAt(world, next)
     if (guard) {
       hitGuard(world, guard, prop, loose)
       return land(world, prop, loose, next)
     }
-    shiftProp(prop, next.x - center.x, next.y - center.y)
+    shiftProp(prop, dx, dy)
   }
   rekeyIfMoved(world, prop, loose, false)
+}
+
+/** Breaks every pane the box overlaps. Returns true if it went through glass and nothing else. */
+function smashGlassIn(world: World, box: Rect): boolean {
+  let smashed = false
+  for (let y = Math.floor(box.y); y <= Math.floor(box.y + box.h - 0.001); y += 1) {
+    for (let x = Math.floor(box.x); x <= Math.floor(box.x + box.w - 0.001); x += 1) if (smashGlass(world, x, y)) smashed = true
+  }
+  return smashed && !boxHitsSolid(world.grid, box)
 }
 
 /** The flight ends: it clatters here and drops; gravity takes it from there. */
