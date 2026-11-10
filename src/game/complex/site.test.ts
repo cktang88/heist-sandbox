@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Level } from '../site'
+import { createComplex } from './complex'
 import {
   deviceProblems, dropZone, fixtureProblems, guardProblems, propProblems, reachable, reachedRoom, reachedSpot, roomProblems, siteFor,
 } from './audit'
@@ -65,6 +66,16 @@ describe('the generated complex', () => {
     const { extraction: van } = level
     const out = Array.from({ length: van.w }, (_, index) => van.x + index).some((x) => reachedSpot(level, back, x, van.y + van.h))
     expect(out).toBe(true)
+  })
+})
+
+describe('a mirrored complex', () => {
+  it('turns every prop to face the other way, along with guards, devices and elevator doors', () => {
+    const [built, flipped] = [createComplex(2), site(2)]
+    built.props.forEach((prop, index) => expect(flipped.props[index].flip, prop.kind).toBe(!prop.flip))
+    built.guards.forEach((guard, index) => expect(flipped.guards[index].facing).toBe(-guard.facing))
+    built.elevators.forEach((shaft, index) => expect(flipped.elevators[index].doorSide).toBe(-shaft.doorSide))
+    built.devices.forEach((device, index) => expect(flipped.devices[index].facing).toBe(device.facing === undefined ? undefined : -device.facing))
   })
 })
 
