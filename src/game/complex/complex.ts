@@ -2,6 +2,7 @@ import { createRng, randomInt } from '../rng'
 import { LIGHT, roomAt, type Level, type Room, type RoomKind } from '../site'
 import { createGrid, setTile, tileAt } from '../tiles'
 import { furnishSite } from '../furnish/furnish'
+import { propSpec } from '../propCatalog'
 import { buildBlock, staff } from './block'
 import { addDucts } from './ducts'
 import { addRoom, chance, circuitOf, createDraft, fill, pick, ROOM_HEIGHT, STOREY, type SiteDraft } from './kit'
@@ -86,8 +87,10 @@ export function createComplex(seed: number): Level {
   const vault = placeVault(site)
   roamingPatrols(site)
   assignGuardRooms(site)
-  // Furnish first, so the ducts can re-hang whatever ceiling fittings end up under them.
+  // Furnish first, so the ducts can re-hang whatever ceiling fittings end up under them,
+  // and the hatch can be put where no furniture stands and no sewer lamp hangs.
   furnishSite(site)
+  serviceHatch(site)
   addDucts(site)
 
   return {
@@ -125,6 +128,41 @@ function buildSewer(site: SiteDraft): void {
     setTile(site.grid, x, ground, 'door')
   }
   site.guards.push({ x: 120, y: SEWER.bottom + 1, facing: -1, role: 'patrol', route: [{ x: 60, y: SEWER.bottom + 1 }, { x: 200, y: SEWER.bottom + 1 }] })
+}
+
+/**
+ * A maintenance hatch in the floor of one of the tower's lowest basement rooms, with a ladder down through the earth
+ * into the sewer: the quiet way into the tower from below, for whoever came in by a manhole. It sits a step in from a
+ * wall, clear of the frame's beams, in a room nobody is posted in.
+ */
+function serviceHatch(site: SiteDraft): void {
+  const lowest = Math.min(...site.rooms.filter((room) => room.building === 'tower').map((room) => room.storey))
+  const posted = new Set(site.guards.filter((guard) => guard.role !== 'patrol').map((guard) => guard.roomId))
+  const rooms = site.rooms.filter((room) => room.building === 'tower' && room.storey === lowest && room.kind !== 'stairwell' && room.kind !== 'vault')
+  const spots = rooms.flatMap((room) => hatchColumns(site, room).map((x) => ({ room, x })))
+  const quiet = spots.filter((spot) => !posted.has(spot.room.id))
+  const { room, x } = pick(site.rng, quiet.length > 0 ? quiet : spots)
+  fill(site, x, room.floorY + 1, x, SEWER.bottom, 'ladder')
+  setTile(site.grid, x, room.floorY, 'door')
+  // Sewer clutter and ceiling dressing where the ladder comes down are cleared away.
+  const sewer = site.rooms.find((other) => other.kind === 'sewer')?.id
+  site.props = site.props.filter((prop) => prop.roomId !== sewer || propSpec(prop.kind).mount === 'wall' || Math.abs(prop.x - x) >= propSpec(prop.kind).w / 2 + 0.5)
+}
+
+/**
+ * Columns of bare floor (no furniture standing over them, no beam) with no sewer lamp hanging under them, a step in
+ * from either wall so the doorway itself stays clear, nearest the walls first.
+ */
+function hatchColumns(site: SiteDraft, room: Room): number[] {
+  const sewerLamps = site.lamps.filter((lamp) => lamp.y > SEWER.top - 1 && lamp.y < SEWER.bottom)
+  const inTheWay = site.props.filter((prop) => prop.roomId === room.id && propSpec(prop.kind).mount === 'floor' && propSpec(prop.kind).h > 0.1)
+  const clear = (x: number) => tileAt(site.grid, x, room.floorY) === 'concrete'
+    && !inTheWay.some((prop) => Math.abs(prop.x - x) < propSpec(prop.kind).w / 2 + 0.5)
+    && !sewerLamps.some((lamp) => Math.abs(lamp.x - (x + 0.5)) < 1.5)
+  const columns: number[] = []
+  for (let x = room.x + 1; x < room.x + room.w - 1; x += 1) if (clear(x)) columns.push(x)
+  const fromWall = (x: number) => Math.min(x - room.x, room.x + room.w - 1 - x)
+  return columns.sort((a, b) => fromWall(a) - fromWall(b)).slice(0, 2)
 }
 
 /** A glazed walkway from the tower to the living quarters, several storeys up. */
