@@ -47,6 +47,8 @@ export function lightRoom(rng: Rng, room: Room, layers: readonly LightLayer[], p
       for (const host of hosts) {
         if (rng() >= layer.odds) continue
         const [x, y] = hostSpot(rng, room, host, layer.place)
+        // Two pieces by the same wall both put their lamp beside them, against it: one lamp is enough there.
+        if (lamps.some((lamp) => lamp.x === Math.round(x * 100) / 100 && lamp.y === Math.round(y * 100) / 100)) continue
         add(layer, x, y, layer.place === 'above')
       }
     }
