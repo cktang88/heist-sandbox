@@ -1,3 +1,4 @@
+import { setupIntel } from './intel/intel'
 import type { Charge } from './charges'
 import type { FallingTile } from './collapse'
 import type { Drone } from './drone'
@@ -97,7 +98,7 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
   // Even seeds are flipped, so the van and the building swap sides.
   const built = kind === 'complex' ? createComplex(seed) : createLevel(seed)
   const level = seed % 2 === 0 ? mirrorLevel(built) : built
-  return {
+  const world: World = {
     grid: level.grid,
     player: createPlayer(level.playerStart),
     guards: level.guards.map((spawn) => createGuard(spawn)),
@@ -141,4 +142,6 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     rng: createRng(seed ^ 0x9e3779b9),
     intel: createIntel(),
   }
+  setupIntel(world)
+  return world
 }

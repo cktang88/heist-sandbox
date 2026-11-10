@@ -6,7 +6,9 @@ import { TOOLS } from '../game/toolDefs'
 import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
+import { objectiveText } from '../game/intel/intel'
 import { worldToScreen, type Camera } from './camera'
+import { drawIntel } from './intelHud'
 
 const HELP = [
   'A/D move    W/S climb and take stairs    SPACE jump, tap again to double jump',
@@ -14,7 +16,7 @@ const HELP = [
   'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool    Q: set off C4',
   'E: pick locks, use devices, take down unaware guards, recall the drone',
   'SHIFT: focus (slow motion, slowest when you hold still)',
-  'Steal the gold case from the vault and get back to the van.',
+  'Find the gold case: make guards talk, read notes, hack files. Then get to the van.',
 ]
 
 /** The site's alert levels as the player reads them, from calm to locked down. */
@@ -50,6 +52,7 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   const unit = hudUnit(height)
   drawSlowmoTint(context, world, width, height)
   drawVitals(context, world, unit)
+  drawIntel(context, world, unit, width, height)
   drawSituation(context, world, unit, width)
   drawTools(context, world, unit, width, height)
   drawCrosshair(context, world, camera, aim)
@@ -94,7 +97,7 @@ function drawSituation(context: CanvasRenderingContext2D, world: World, unit: nu
   const level = Math.max(0, Math.min(4, world.security.level))
   const alert = ALERT_LEVELS[level]
   const right = width - unit
-  const goal = world.player.hasLoot ? 'Get back to the van' : 'Steal the gold case from the vault'
+  const goal = objectiveText(world)
   const place = locationLine(world)
   const textWidth = Math.max(measure(context, goal, unit * 0.85), measure(context, place, unit * 0.75), unit * 15)
   panel(context, right - textWidth - unit * 0.5, unit * 0.5, textWidth + unit, unit * 5.4)
