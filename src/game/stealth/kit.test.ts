@@ -3,6 +3,8 @@ import { addDevice, addGuard, addLamp, addRoom, arena, GROUND, putPlayer, run } 
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
 import { knockOutCold } from './bodies'
+import { createProps } from '../cover'
+import { enterSpot } from './hide'
 import { DISGUISE, KEYCARD, RADIO } from './tuning'
 
 const holdE = (world: World, seconds: number, extra: object = {}) => {
@@ -43,6 +45,20 @@ describe("a downed guard's radio", () => {
     run(world, 2 / 60)
     run(world, 1 / 60, { interact: true, interactPressed: true })
     expect(world.security.level).toBe(1)
+  })
+
+  it('can be answered from inside a hiding place, and E gets the player out after', () => {
+    const world = overBody()
+    holdE(world, RADIO.takeSeconds + 0.1)
+    world.props = createProps([{ kind: 'wardrobe', x: 21.5, y: GROUND }])
+    enterSpot(world, world.props[0])
+    const guard = world.guards[0]
+    guard.checkInAt = world.clock
+    run(world, 2 / 60)
+    expect(world.prompt).toContain('answer the radio')
+    run(world, 1 / 60, { interact: true, interactPressed: true })
+    expect(guard.missing).toBe(false)
+    expect(world.player.hidden).toBe(true)
   })
 
   it('an unanswered call marks him missing as usual', () => {
