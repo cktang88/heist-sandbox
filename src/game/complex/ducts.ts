@@ -102,7 +102,10 @@ function buildDuct(site: SiteDraft, run: DuctRun): void {
   const grates = [run.left + GRATE_INSET, run.right - GRATE_INSET]
   for (const x of grates) setTile(site.grid, x, floorY, 'air')
   rehang(site, run, grates)
-  site.props = site.props.filter((prop) => lowerProp(site, run, grates, prop))
+  const underneath = new Set(run.rooms.map((room) => room.id))
+  const affected = site.props.filter((prop) => prop.roomId !== undefined && underneath.has(prop.roomId))
+  const dropped = new Set(affected.filter((prop) => !lowerProp(affected, run, grates, prop)))
+  if (dropped.size > 0) site.props = site.props.filter((prop) => !dropped.has(prop))
 }
 
 /** Ceiling lights and wall devices that were up in the new crawl space move down under the duct floor. */
@@ -126,13 +129,12 @@ function rehang(site: SiteDraft, run: DuctRun, grates: readonly number[]): void 
 const WALL_GAP = 0.05
 
 /**
- * Moves a prop of a room under the duct out of the new crawl space: ceiling items hang from the duct floor,
+ * Moves a prop of a room under the duct (`props` are all of theirs) out of the new crawl space: ceiling items hang from the duct floor,
  * wall items slide down below it. Returns false for one that no longer fits (it is dropped): a ceiling item
  * under a grate, or a wall item that would reach the floor or run into another.
  */
-function lowerProp(site: SiteDraft, run: DuctRun, grates: readonly number[], prop: Prop): boolean {
-  const room = run.rooms.find((candidate) => candidate.id === prop.roomId)
-  if (!room) return true
+function lowerProp(props: readonly Prop[], run: DuctRun, grates: readonly number[], prop: Prop): boolean {
+  const room = run.rooms.find((candidate) => candidate.id === prop.roomId)!
   const below = run.crawlY + 2
   const { w, h, mount } = propSpec(prop.kind)
   const [left, right] = [prop.x + 0.5 - w / 2, prop.x + 0.5 + w / 2]
@@ -143,7 +145,7 @@ function lowerProp(site: SiteDraft, run: DuctRun, grates: readonly number[], pro
   if (mount !== 'wall' || prop.y >= below) return true
   const top = below + WALL_GAP
   if (top + h > room.floorY - WALL_GAP) return false
-  const clashes = site.props.some((other) => other !== prop && other.roomId === room.id && propSpec(other.kind).mount === 'wall'
+  const clashes = props.some((other) => other !== prop && other.roomId === room.id && propSpec(other.kind).mount === 'wall'
     && other.y < top + h && top < other.y + propSpec(other.kind).h
     && Math.abs(other.x - prop.x) < (w + propSpec(other.kind).w) / 2)
   if (clashes) return false

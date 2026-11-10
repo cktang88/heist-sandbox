@@ -1,6 +1,6 @@
 import { randomInt, type Rng } from '../rng'
 import { LIGHT, type DeviceSpawn, type ElevatorShaft, type GuardSpawn, type Interior, type Lamp, type PickupSpawn, type Prop, type Room, type RoomKind, type Stairwell } from '../site'
-import { fillTiles, type Grid, type TileKind } from '../tiles'
+import { chunkIndex, CHUNK_TILES, TILE_DEFS, TILE_KINDS, type Grid, type TileKind } from '../tiles'
 
 /** Rows from one floor to the next: five rows of open room plus a one-row slab. */
 export const STOREY = 6
@@ -79,8 +79,27 @@ export function addRoom(site: SiteDraft, kind: RoomKind, building: string, store
   return room
 }
 
-export function fill(site: SiteDraft, x0: number, y0: number, x1: number, y1: number, kind: TileKind): void {
-  fillTiles(site.grid, Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1), kind)
+/**
+ * Sets a rectangle of tiles, the same as `fillTiles`, but writes the grid directly and flags each touched chunk
+ * once instead of once per tile: the site is built from large fills, and per-tile bookkeeping was a fifth of it.
+ */
+export function fill(site: SiteDraft, ax: number, ay: number, bx: number, by: number, kind: TileKind): void {
+  const { grid } = site
+  const [x0, x1] = [Math.max(0, Math.min(ax, bx)), Math.min(grid.width - 1, Math.max(ax, bx))]
+  const [y0, y1] = [Math.max(0, Math.min(ay, by)), Math.min(grid.height - 1, Math.max(ay, by))]
+  if (x0 > x1 || y0 > y1) return
+  const code = TILE_KINDS.indexOf(kind)
+  const { hp } = TILE_DEFS[kind]
+  for (let y = y0; y <= y1; y += 1) {
+    grid.kinds.fill(code, y * grid.width + x0, y * grid.width + x1 + 1)
+    grid.hp.fill(hp, y * grid.width + x0, y * grid.width + x1 + 1)
+  }
+  grid.version += (x1 - x0 + 1) * (y1 - y0 + 1)
+  // Tiles on a chunk edge also dirty the neighbouring chunk, as `setTile` does.
+  const last = { x: Math.ceil(grid.width / CHUNK_TILES) - 1, y: Math.ceil(grid.height / CHUNK_TILES) - 1 }
+  for (let cy = Math.max(0, Math.floor((y0 - 1) / CHUNK_TILES)); cy <= Math.min(last.y, Math.floor((y1 + 1) / CHUNK_TILES)); cy += 1) {
+    for (let cx = Math.max(0, Math.floor((x0 - 1) / CHUNK_TILES)); cx <= Math.min(last.x, Math.floor((x1 + 1) / CHUNK_TILES)); cx += 1) grid.dirtyChunks.add(chunkIndex(grid, cx, cy))
+  }
 }
 
 export function pick<T>(rng: Rng, items: readonly T[]): T {

@@ -50,22 +50,20 @@ function choose(rng: Rng, pool: readonly PropKind[], count: number, limit: numbe
   return out.sort((a, b) => propSpec(b).w - propSpec(a).w)
 }
 
-type Hanger = { grid: Grid; room: Room; floor: Prop[]; taken: WallRect[] }
+/** The stretch of wall a piece of standing furniture hides, from `top` down to the floor. */
+type Screen = { left: number; right: number; top: number }
+type Hanger = { grid: Grid; room: Room; screens: Screen[]; taken: WallRect[] }
 
 /** Is this spot free: open air behind it, nothing else hanging there, and not hidden behind tall furniture? */
 function spotFree(hanger: Hanger, rect: WallRect, band: Band): boolean {
-  const { grid, room, floor, taken } = hanger
+  const { grid, room, screens, taken } = hanger
   if (rect.top < room.y - 1e-6 || rect.bottom > room.floorY + 1e-6) return false
   if (taken.some((other) => overlaps(rect, other, 0.15))) return false
   for (let y = Math.floor(rect.top); y < rect.bottom; y += 1) {
     for (let x = Math.floor(rect.left); x < rect.right; x += 1) if (isSolidAt(grid, x, y)) return false
   }
   if (band === 'top') return true
-  return floor.every((prop) => {
-    const h = propSpec(prop.kind).h
-    const { left, right } = extent(prop)
-    return h < 0.1 || right <= rect.left || left >= rect.right || rect.bottom <= room.floorY - h - 0.1
-  })
+  return screens.every((screen) => screen.right <= rect.left || screen.left >= rect.right || rect.bottom <= screen.top)
 }
 
 /** Tries a handful of spots along the wall for one item. */
@@ -91,7 +89,9 @@ function hang(rng: Rng, hanger: Hanger, kind: PropKind, top: () => number): Prop
  */
 export function hangWall(rng: Rng, grid: Grid, room: Room, style: RoomStyle, floor: Prop[], reserved: WallRect[]): Prop[] {
   if (style.wall.length === 0) return []
-  const hanger: Hanger = { grid, room, floor, taken: [...reserved] }
+  // Worked out once: every spot tried is checked against them.
+  const screens = floor.filter((prop) => propSpec(prop.kind).h >= 0.1).map((prop) => ({ ...extent(prop), top: room.floorY - propSpec(prop.kind).h - 0.1 }))
+  const hanger: Hanger = { grid, room, screens, taken: [...reserved] }
   const eyeLine = room.floorY - 2.5 + between(rng, -0.2, 0.2)
   const count = Math.max(6, Math.round(room.w / 2.2) + 1)
   const limit = Math.max(2, Math.ceil(room.w / 12))
