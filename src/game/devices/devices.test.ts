@@ -7,6 +7,7 @@ import { stepWorld } from '../step'
 import { tileAt } from '../tiles'
 import { useTool } from '../tools'
 import { createWorld, type Device, type World } from '../world'
+import { chooseOption, openTerminal } from './terminal'
 import { lampPowered, pressAlarmButton, restoreCircuit, revealedRooms, stepDevices, terminalConsumesInput } from './devices'
 
 const FRAME = 1 / 60
@@ -99,6 +100,36 @@ describe('fuse boxes and light switches', () => {
     expect(world.sounds.some((sound) => sound.kind === 'switch')).toBe(false)
     restoreCircuit(world, CIRCUIT)
     expect(world.deadCircuits.has(CIRCUIT)).toBe(false)
+  })
+})
+
+describe('a wrecked fuse box', () => {
+  function wrecked() {
+    const { world, x } = setUp()
+    addRoom(world, 'office', 0)
+    const box = addDevice(world, { kind: 'fusebox', x: x + 20, y: GROUND - 2, circuit: CIRCUIT })
+    const lightSwitch = addDevice(world, { kind: 'lightSwitch', x, y: GROUND - 2, circuit: CIRCUIT })
+    world.deadCircuits.add(CIRCUIT)
+    box.disabled = true
+    return { world, lightSwitch }
+  }
+
+  it('cannot be bypassed with a light switch on its circuit', () => {
+    const { world } = wrecked()
+    run(world, FRAME)
+    press(world)
+    expect(world.deadCircuits.has(CIRCUIT)).toBe(true)
+  })
+
+  it('cannot be bypassed from a terminal', () => {
+    const { world, x } = wrecked()
+    const computer = addDevice(world, { kind: 'computer', x: x + 1, y: GROUND, roomId: 0 })
+    computer.hacked = true
+    world.terminal = { device: computer.id, title: '', options: [] }
+    openTerminal(world, computer)
+    const restore = world.terminal!.options.findIndex((option) => option.startsWith('Restore lights'))
+    if (restore >= 0) chooseOption(world, restore)
+    expect(world.deadCircuits.has(CIRCUIT)).toBe(true)
   })
 })
 

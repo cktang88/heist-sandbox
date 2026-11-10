@@ -8,7 +8,7 @@ import { playSound } from '../sounds'
 import type { Device, World } from '../world'
 import { floorOf, onFloor, roomOf, type Floor } from './floor'
 import { unlockFloorDoors } from './locks'
-import { deviceCenter, floorCircuits } from './power'
+import { circuitWrecked, deviceCenter, floorCircuits } from './power'
 import { deviceState } from './state'
 import { ventilationOption } from './ventilation'
 import { loopFeeds, loopSecondsLeft } from '../stealth/cameraLoop'
@@ -112,7 +112,8 @@ function camerasOption(world: World, floor: Floor, forGood: boolean): Option | n
 }
 
 function lightsOption(world: World, floor: Floor): Option | null {
-  const circuits = [...floorCircuits(world, floor)]
+  // A circuit whose fuse box is wrecked stays dark whatever the menu says.
+  const circuits = [...floorCircuits(world, floor)].filter((circuit) => !circuitWrecked(world, circuit))
   if (circuits.length === 0) return null
   const allDark = circuits.length > 0 && circuits.every((circuit) => world.deadCircuits.has(circuit))
   return {
