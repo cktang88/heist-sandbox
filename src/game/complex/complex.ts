@@ -234,6 +234,8 @@ function placeVault(site: SiteDraft): Room {
   }
   fill(site, left, room.y - 1, right, room.y - 1, 'steel')
   fill(site, left, room.floorY, right, room.floorY, 'steel')
+  // Whoever was posted in the room before it became the vault is replaced by the vault's own guard.
+  site.guards = site.guards.filter((guard) => guard.roomId !== room.id)
   site.guards.push({ x: room.x + 2, y: room.floorY, facing: 1, role: 'heavy', roomId: room.id })
   site.devices.push({ kind: 'camera', x: room.x + 1, y: room.floorY - 4, roomId: room.id, facing: 1 })
   return room
@@ -241,12 +243,13 @@ function placeVault(site: SiteDraft): Room {
 
 /**
  * One walking patrol per storey of each building, covering two neighbouring rooms joined by a doorway
- * (never across the open void over a double-height room, which a calm guard will not step into).
+ * (never across the open void over a double-height room, which a calm guard will not step into, and never
+ * through the vault, which only its own guard holds).
  */
 function roamingPatrols(site: SiteDraft): void {
   const byFloor = new Map<string, Room[]>()
   for (const room of site.rooms) {
-    if (['grounds', 'sewer', 'silo', 'gatehouse'].includes(room.building) || room.kind === 'rooftop' || room.kind === 'stairwell') continue
+    if (['grounds', 'sewer', 'silo', 'gatehouse'].includes(room.building) || ['rooftop', 'stairwell', 'vault'].includes(room.kind)) continue
     const key = `${room.building}:${room.storey}`
     byFloor.set(key, [...(byFloor.get(key) ?? []), room])
   }

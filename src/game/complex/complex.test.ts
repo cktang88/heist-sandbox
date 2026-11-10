@@ -26,6 +26,10 @@ describe('createComplex', () => {
     for (const room of level.rooms.filter((candidate) => candidate.kind === 'security')) {
       expect(level.guards.some((guard) => guard.role === 'operator' && guard.roomId === room.id), `operator in room ${room.id}`).toBe(true)
     }
+    const vault = level.rooms.find((room) => room.kind === 'vault')!
+    const inVault = (x: number, y: number) => y === vault.floorY && x >= vault.x - 1 && x <= vault.x + vault.w
+    expect(level.guards.filter((guard) => guard.roomId === vault.id).map((guard) => guard.role)).toEqual(['heavy'])
+    expect(level.guards.filter((guard) => guard.role === 'patrol' && guard.route!.some((point) => inVault(point.x, point.y)))).toEqual([])
     const landings = level.stairwells.flatMap((well) => well.stops.flatMap((y) => [{ x: well.leftX, y }, { x: well.rightX, y }]))
     for (const guard of level.guards) {
       const where = `${guard.role} at ${guard.x},${guard.y}`
