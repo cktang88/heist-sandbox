@@ -45,7 +45,7 @@ export function createWorld(seed: number): World {
   return {
     grid: level.grid,
     player: createPlayer(level.playerStart),
-    guards: level.guards.map(createGuard),
+    guards: level.guards.map((spawn) => createGuard(spawn)),
     projectiles: [],
     charges: [],
     falling: [],

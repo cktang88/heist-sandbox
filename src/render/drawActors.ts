@@ -4,7 +4,7 @@ import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
 import { tracePolygon, visionCone } from './cone'
-import { drawHuman, drawRagdoll, goggleLights, GUARD, OPERATIVE, type Look } from './human/draw'
+import { drawHuman, drawRagdoll, goggleLights, GUARD, OPERATIVE, RESPONDER, type Look } from './human/draw'
 import { poseHuman, type Motion, type Skeleton } from './human/pose'
 import { lampIsLit } from './lighting'
 import { paintTile } from './tileArt'
@@ -16,7 +16,7 @@ const DEAD_LOOK: Look = { ...GUARD, suit: '#5d7391', skin: '#b89a80' }
 export function drawGuard(context: CanvasRenderingContext2D, world: World, guard: Guard): void {
   const feet = { x: guard.x + guard.w / 2, y: guard.y + guard.h }
   if (guard.state === 'dead') {
-    if (guard.ragdoll) drawRagdoll(context, guard.ragdoll, DEAD_LOOK)
+    if (guard.ragdoll) drawRagdoll(context, guard.ragdoll, guard.armored ? RESPONDER : DEAD_LOOK)
     return
   }
 
@@ -27,8 +27,8 @@ export function drawGuard(context: CanvasRenderingContext2D, world: World, guard
   const player = centerOf(world.player)
   const relaxed = guard.facing > 0 ? 0.35 : Math.PI - 0.35
   const aim = guard.state === 'alert' ? Math.atan2(player.y - (guard.y + 0.5), player.x - feet.x) : relaxed
-  const motion: Motion = { x: feet.x, feetY: feet.y, facing: guard.facing, vx: guard.vx, vy: guard.vy, onGround: guard.onGround, mode: 'normal', aim, kick: guard.kick }
-  drawHuman(context, poseHuman(motion), guard.facing, guard.hitFlash > 0 ? HIT_LOOK : GUARD, 'pistol')
+  const motion: Motion = { x: feet.x, feetY: feet.y, facing: guard.facing, vx: guard.vx, vy: guard.vy, onGround: guard.onGround, mode: guard.climbing ? 'ladder' : 'normal', aim, kick: guard.kick }
+  drawHuman(context, poseHuman(motion), guard.facing, guard.hitFlash > 0 ? HIT_LOOK : guard.armored ? RESPONDER : GUARD, guard.armored ? 'rifle' : 'pistol')
 
   if (guard.awareness > 0.05 && guard.state !== 'alert') {
     context.fillStyle = 'rgba(0,0,0,0.6)'

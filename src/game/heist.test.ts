@@ -68,6 +68,36 @@ describe('heist', () => {
     expect(world.alarm).toBe(true)
   })
 
+  it('sends an alerted guard up a ladder after the player', () => {
+    const world = createWorld(1)
+    const guard = world.guards.find((other) => other.homeX === 64)!
+    world.guards = [guard]
+    Object.assign(guard, { x: 72, state: 'alert', awareness: 1, lostSeconds: 99, target: { x: 90, y: GROUND - 8 } })
+    Object.assign(world.player, { x: 5, y: GROUND - 1.7, hp: 1e6 })
+    world.alarm = true
+    const climbed = () => GROUND - (guard.y + guard.h)
+    let highest = 0
+    for (let frame = 0; frame < 60 * 15; frame += 1) {
+      guard.target = { x: 90, y: GROUND - 8 }
+      stepWorld(world, idleInput(), FRAME)
+      highest = Math.max(highest, climbed())
+    }
+    expect(highest).toBeGreaterThan(5)
+  })
+
+  it('calls armoured backup when the alarm rings', () => {
+    const world = createWorld(1)
+    const before = world.guards.length
+    world.guards[0].state = 'alert'
+    world.guards[0].alertSeconds = 99
+    world.guards[0].target = { x: 0, y: 0 }
+    Object.assign(world.player, { x: 5, y: GROUND - 1.7, hp: 1e6 })
+    run(world, 0.1)
+    expect(world.alarm).toBe(true)
+    expect(world.guards.filter((guard) => guard.armored).length).toBe(3)
+    expect(world.guards.length).toBe(before + 3)
+  })
+
   it('takes down an unaware guard silently from behind', () => {
     const world = createWorld(1)
     const guard = world.guards.find((other) => other.homeX === 64)!

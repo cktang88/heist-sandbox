@@ -9,6 +9,7 @@ type Ctx = CanvasRenderingContext2D
 export type Look = { kit: 'operative' | 'guard'; suit: string; limbs: string; vest: string; skin: string; boots: string }
 
 export const OPERATIVE: Look = { kit: 'operative', suit: '#2b313a', limbs: '#242a32', vest: '#3d4a3c', skin: '#1b1f25', boots: '#12151a' }
+export const RESPONDER: Look = { kit: 'operative', suit: '#39414f', limbs: '#2a303b', vest: '#4a5568', skin: '#e2bd9c', boots: '#12151a' }
 export const GUARD: Look = { kit: 'guard', suit: '#7fa0c8', limbs: '#2c3850', vest: '#7fa0c8', skin: '#e2bd9c', boots: '#14171c' }
 
 const OUTLINE = '#07090d'
