@@ -1,9 +1,7 @@
-import type { PropState } from '../cover'
+import { damageProp, type PropState } from '../cover'
 import { burst } from '../effects'
-import { propBroke } from '../hazards/hazards'
-import { propBox, propById, propCenter, propsAt } from '../hazards/props'
+import { propBox, propById, propsAt } from '../hazards/props'
 import { propSpec } from '../propCatalog'
-import { playSound } from '../sounds'
 import type { Rect, Vec } from '../types'
 import type { World } from '../world'
 
@@ -57,18 +55,6 @@ export function shootLoosePropsAt(world: World, at: Vec, damage: number, fromPla
     if (!inside(propBox(prop), at, 0) || world.hazards.burningProps.has(prop.id)) continue
     struck.add(prop)
     burst(world.effects, world.rng, at, 2, DEBRIS, 3)
-    hurtProp(world, prop, damage)
+    damageProp(world, prop, damage)
   }
-}
-
-/** The same breaking rule cover.ts applies to cover props: wear it down, and when it gives, let it react once. */
-function hurtProp(world: World, prop: PropState, amount: number): void {
-  prop.hp -= amount
-  if (prop.hp > 0) return
-  prop.hp = 0
-  prop.broken = true
-  const center = propCenter(prop)
-  playSound(world, 'impact', center)
-  burst(world.effects, world.rng, center, 8, DEBRIS, 6)
-  propBroke(world, prop)
 }

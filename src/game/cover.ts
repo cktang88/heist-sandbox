@@ -87,7 +87,7 @@ export function isInCover(world: World, body: Body & { crouching?: boolean }): b
   })
 }
 
-function damageProp(world: World, prop: PropState, amount: number): void {
+export function damageProp(world: World, prop: PropState, amount: number): void {
   if (prop.broken || !Number.isFinite(prop.hp)) return
   prop.hp -= amount
   if (prop.hp > 0) return
