@@ -1,4 +1,5 @@
 import { HIDES } from '../furnish/hides'
+import { PLACE_ROOMS } from '../intel/places'
 import { createLevel } from '../level'
 import { mirrorLevel } from '../mirror'
 import { propSpec, type PropKind } from '../propCatalog'
@@ -8,6 +9,7 @@ import { spotKind } from '../stealth/spots'
 import { markAside } from '../gaps/aside'
 import { createHoles } from '../gaps/holes'
 import { blocksLaneAt, isSolidAt, tileAt, type Grid } from '../tiles'
+import { quietWaysInto } from './access'
 import { createComplex } from './complex'
 
 /**
@@ -328,5 +330,45 @@ export function guardProblems(level: Level): string[] {
     const seen = reachable(level, guard, 'calm')
     for (const point of guard.route) if (!reachedSpot(level, seen, point.x, point.y)) problems.push(`${where} cannot walk to route point ${point.x},${point.y}`)
   }
+  return problems
+}
+
+const CASE_KINDS = new Set<Room['kind']>(Object.values(PLACE_ROOMS).flat())
+
+/** Feet spots of the van's floor. */
+function vanFloor(level: Level): { x: number; y: number }[] {
+  const { extraction: van } = level
+  return Array.from({ length: van.w }, (_, index) => ({ x: van.x + index, y: van.y + van.h }))
+}
+
+/**
+ * Every room the case could be hidden in (whichever the heist picks) can be reached from the drop and left for the van,
+ * and has at least two quiet ways in, so one guarded door is never the only way.
+ */
+export function caseRoomProblems(level: Level): string[] {
+  const problems: string[] = []
+  const fromDrop = reachable(level, dropZone(level), 'player')
+  for (const room of level.rooms.filter((candidate) => CASE_KINDS.has(candidate.kind) && isIndoor(candidate) && candidate.building !== 'silo')) {
+    const where = `${room.kind} ${room.id} (${room.building}:${room.storey} x${room.x})`
+    if (!reachedRoom(level, fromDrop, room)) problems.push(`${where} cannot be reached from the drop`)
+    const back = reachable(level, { x: room.x + Math.floor(room.w / 2), y: room.floorY }, 'player')
+    if (!vanFloor(level).some((spot) => reachedSpot(level, back, spot.x, spot.y))) problems.push(`${where} has no way back to the van`)
+    const ways = quietWaysInto(level.grid, level.devices, room)
+    if (ways.length < 2) problems.push(`${where} has only ${ways.join(', ') || 'no way'} in`)
+  }
+  return problems
+}
+
+/** The sewer joins up: down a street manhole from the van, along to the tower's basement hatch and up into the tower. */
+export function sewerProblems(level: Level): string[] {
+  const sewer = level.rooms.find((room) => room.kind === 'sewer')
+  if (!sewer) return ['no sewer']
+  const problems: string[] = []
+  const fromVan = reachable(level, vanFloor(level)[0], 'player')
+  if (!reachedRoom(level, fromVan, sewer)) problems.push('the sewer cannot be reached from the van')
+  const below = reachable(level, { x: sewer.x + Math.floor(sewer.w / 2), y: sewer.floorY }, 'player')
+  const lowest = Math.max(...level.rooms.filter((room) => room.building === 'tower').map((room) => room.floorY))
+  const basement = level.rooms.filter((room) => room.building === 'tower' && room.floorY === lowest && room.kind !== 'vault')
+  if (!basement.some((room) => reachedRoom(level, below, room))) problems.push('the sewer leads nowhere into the tower')
   return problems
 }

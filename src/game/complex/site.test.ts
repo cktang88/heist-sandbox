@@ -5,8 +5,11 @@ import { tileAt } from '../tiles'
 import { createWorld } from '../world'
 import { createComplex } from './complex'
 import { STOREY } from './kit'
+import { CAMERAS } from '../security/tuning'
+import { cameraBlindSpots, doorsBlockedByDevices, hidesPerStorey, quietEntries } from '../stealthRuns/audit'
 import {
-  deviceProblems, dropZone, fixtureProblems, guardProblems, propProblems, reachable, reachedRoom, reachedSpot, roomProblems, siteFor,
+  caseRoomProblems, deviceProblems, dropZone, fixtureProblems, guardProblems, propProblems, reachable, reachedRoom, reachedSpot, roomProblems,
+  sewerProblems, siteFor,
 } from './audit'
 
 /** Odd and even seeds: even ones are mirrored, and must pass the same checks. */
@@ -70,6 +73,26 @@ describe('the generated complex', () => {
     const { extraction: van } = level
     const out = Array.from({ length: van.w }, (_, index) => van.x + index).some((x) => reachedSpot(level, back, x, van.y + van.h))
     expect(out).toBe(true)
+  })
+})
+
+describe('the generated complex, for a quiet player', () => {
+  it.each(SEEDS)('seed %i lets every room the case could be in be reached, left for the van, and entered two quiet ways', (seed) => {
+    expect(caseRoomProblems(site(seed))).toEqual([])
+  })
+
+  it.each(SEEDS)('seed %i joins the sewer from the street manholes to the tower basement', (seed) => {
+    expect(sewerProblems(site(seed))).toEqual([])
+  })
+
+  it.each(SEEDS)('seed %i offers three quiet ways into the tower, hides on every storey and a blind spot under every camera', (seed) => {
+    const level = site(seed)
+    const entries = quietEntries(level)
+    expect(entries.length, entries.join(', ')).toBeGreaterThanOrEqual(3)
+    expect(entries).toContain('sewer hatch')
+    expect([...hidesPerStorey(level, 'tower')].filter(([, count]) => count < 3)).toEqual([])
+    expect(level.devices.filter((device) => device.kind === 'camera' && cameraBlindSpots(level, device, CAMERAS).length === 0)).toEqual([])
+    expect(doorsBlockedByDevices(level)).toEqual([])
   })
 })
 
