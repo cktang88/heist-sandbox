@@ -2,6 +2,7 @@ import { openDoor } from '../interact'
 import { nextHop } from '../nav'
 import { emitNoise } from '../noise'
 import { GRAVITY, moveBody } from '../physics'
+import { doorBlockedAt } from '../physprops/physprops'
 import { playSound } from '../sounds'
 import { climbStairs } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
@@ -104,6 +105,7 @@ function openDoorAhead(world: World, guard: Guard, kick: boolean): boolean {
     return false
   }
   const at = { x: column, y: row }
+  if (doorBlockedAt(world, at)) return true
   // Remembered, so colleagues who find it open later know it was one of their own.
   world.security.guardDoors.add(doorKeyAt(world, column, row))
   openDoor(world.grid, at)

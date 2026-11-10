@@ -1,7 +1,7 @@
 import { createAudio } from './audio'
 import type { Input } from './game/input'
 import { stepWorld } from './game/step'
-import { TOOLS } from './game/toolDefs'
+import { HOTKEYS } from './game/toolDefs'
 import { centerOf } from './game/types'
 import { createWorld, type SiteKind, type World } from './game/world'
 import { attachInput } from './inputDevice'
@@ -17,7 +17,7 @@ const MAX_FRAME_SECONDS = 1 / 30
 const stage = document.querySelector<HTMLCanvasElement>('#stage')!
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const context = canvas.getContext('2d')!
-const input = attachInput(canvas, TOOLS.length)
+const input = attachInput(canvas, HOTKEYS)
 /**
  * The flat 2D view remains as a fallback: add `?render=2d` to the address, or it is used if 3D cannot start.
  * `?quality=low` keeps 3D but drops shadows and sharpness.

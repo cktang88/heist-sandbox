@@ -13,6 +13,7 @@ import { BOX, buildDrone, buildLoot, buildParachute, buildPickup, buildVan, CHAR
 import { createDevicesLayer } from './devicesLayer'
 import { createFixturesLayer } from './fixturesLayer'
 import { createHazardsLayer } from './hazardsLayer'
+import { createSandboxLayer } from './sandboxLayer'
 import { DRAW_DISTANCE, type Layer } from './layer'
 import { createPropsLayer } from './propsLayer'
 import { createRoomsLayer } from './roomsLayer'
@@ -33,7 +34,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
   const effects = createEffects3d()
   group.add(effects.group)
   // Each layer owns one slice of the scene. They are independent, so they can be worked on separately.
-  const layers: Layer[] = [createRoomsLayer, createPropsLayer, createFixturesLayer, createDevicesLayer, createStructureLayer, createHazardsLayer].map((create) => create(world, materials))
+  const layers: Layer[] = [createRoomsLayer, createPropsLayer, createFixturesLayer, createDevicesLayer, createStructureLayer, createHazardsLayer, createSandboxLayer].map((create) => create(world, materials))
   for (const layer of layers) group.add(layer.group)
 
   const player = new Figure('operative')
