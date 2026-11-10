@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from '../game/input'
 import { stepWorld } from '../game/step'
 import { createWorld, type World } from '../game/world'
-import { helpTop, hudUnit, intelTop, objectiveLine, visibility } from './drawHud'
+import { helpTop, hudUnit, intelTop, objectiveLine, optionKey, visibility } from './drawHud'
 
 const FRAME = 1 / 60
 
@@ -57,5 +57,11 @@ describe('the first-seconds help panel', () => {
       // The prompt's panel reaches up to 6.3 units above the bottom.
       expect(top + panelHeight, `${width}x${height}`).toBeLessThanOrEqual(height - unit * 6.3)
     }
+  })
+})
+
+describe('the terminal menu', () => {
+  it('numbers options by the key that picks them: 1-9, then 0, then none', () => {
+    expect([0, 8, 9, 10].map(optionKey)).toEqual(['1', '9', '0', null])
   })
 })

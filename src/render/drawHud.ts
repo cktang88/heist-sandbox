@@ -198,7 +198,7 @@ function drawPrompt(context: CanvasRenderingContext2D, prompt: string, unit: num
 /** The hacking menu: a terminal-style panel with the device's title and numbered options. */
 function drawTerminal(context: CanvasRenderingContext2D, terminal: NonNullable<World['terminal']>, unit: number, width: number, height: number): void {
   const size = unit * 0.9
-  const longest = Math.max(measure(context, terminal.title, size * 1.1), ...terminal.options.map((option, index) => measure(context, `${index + 1}  ${option}`, size)))
+  const longest = Math.max(measure(context, terminal.title, size * 1.1), ...terminal.options.map((option) => measure(context, `00  ${option}`, size)))
   const w = Math.min(width - unit * 2, Math.max(unit * 18, longest + unit * 3))
   const h = unit * (4.4 + terminal.options.length * 1.6)
   const x = width / 2 - w / 2
@@ -213,12 +213,23 @@ function drawTerminal(context: CanvasRenderingContext2D, terminal: NonNullable<W
   caption(context, terminal.title.toUpperCase(), x + unit, y + unit * 1.3, '#ffd28a', size * 1.1, 'left')
   terminal.options.forEach((option, index) => {
     const rowY = y + unit * (3.3 + index * 1.6)
-    context.strokeStyle = 'rgba(255,190,90,0.45)'
-    context.strokeRect(x + unit, rowY - size * 0.95, size * 1.5, size * 1.3)
-    caption(context, String(index + 1), x + unit + size * 0.75, rowY, '#ffd28a', size, 'center')
-    caption(context, option, x + unit + size * 2.2, rowY, '#f0e6d0', size, 'left')
+    const key = optionKey(index)
+    if (key) {
+      context.strokeStyle = 'rgba(255,190,90,0.45)'
+      context.strokeRect(x + unit, rowY - size * 0.95, size * 1.5, size * 1.3)
+      caption(context, key, x + unit + size * 0.75, rowY, '#ffd28a', size, 'center')
+    }
+    caption(context, option, x + unit + size * 2.2, rowY, key ? '#f0e6d0' : DIM, size, 'left')
   })
   caption(context, 'NUMBER KEYS: CHOOSE    E OR WALK AWAY: CLOSE', x + w / 2, y + h - unit * 0.6, DIM, unit * 0.62, 'center')
+}
+
+/**
+ * The key that picks a terminal option: 1-9, then 0 for the tenth (the number keys are read as 1-9 then 0).
+ * Options past the tenth have no key, so they are shown dim and unnumbered rather than with a number that does nothing.
+ */
+export function optionKey(index: number): string | null {
+  return index < 10 ? String((index + 1) % 10) : null
 }
 
 /** The ring widens as sustained fire makes the gun less accurate, so spread is never a surprise. */

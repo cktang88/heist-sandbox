@@ -95,7 +95,7 @@ export const CONTROLS: readonly ControlGroup[] = [
     rows: [
       { keys: ['E'], action: 'Use what is in reach: pick locks, take down, hack, cut wires, switches, call elevators' },
       { keys: ['E'], action: 'While flying the drone: bring it back' },
-      { keys: ['1-9'], action: 'Choose an option on a hacked terminal' },
+      { keys: ['1-9', '0'], action: 'Choose an option on a hacked terminal (0 is the tenth)' },
     ],
   },
   {
