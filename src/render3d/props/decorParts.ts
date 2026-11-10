@@ -270,8 +270,8 @@ function neonImage(neon: Neon): CanvasTexture {
       c.strokeStyle = dead ? 'rgba(80,60,70,0.9)' : neon.colour
       c.strokeText(letter, x, 112)
       if (!dead) {
-        c.lineWidth = 2.5
-        c.strokeStyle = '#ffffff'
+        c.lineWidth = 1.5
+        c.strokeStyle = 'rgba(255,255,255,0.7)'
         c.strokeText(letter, x, 112)
       }
       x += c.measureText(letter).width
@@ -285,7 +285,7 @@ function neonImage(neon: Neon): CanvasTexture {
     }
   })
 }
-export const NEON_SIGNS = NEONS.map((neon) => lazy(() => lit(neonImage(neon), 4.5, true)))
+export const NEON_SIGNS = NEONS.map((neon) => lazy(() => lit(neonImage(neon), 3, true)))
 
 /** Room numbers come from one sheet of eight plates; each material shows one plate of it. */
 const ROOM_SHEET = lazy(() => paint(512, 192, (c) => {

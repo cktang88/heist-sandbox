@@ -419,9 +419,10 @@ export const LOGO = lazy(() => lit(paint(768, 256, (c, _w, h) => {
   c.fillStyle = '#eaf8ff'
   c.font = 'bold 92px Arial, sans-serif'
   c.fillText('HALVARD', 228, 140)
-  c.font = '34px Arial, sans-serif'
+  c.font = '30px Arial, sans-serif'
+  c.letterSpacing = '5px'
   c.fillStyle = '#9fd8ee'
-  c.fillText('K E R N   S E C U R E   L O G I S T I C S', 232, 196)
+  c.fillText('KERN SECURE LOGISTICS', 234, 194)
 }), 2.2, true))
 
 export const KIOSK_UI = lazy(() => lit(paint(160, 220, (c, w, h) => {
@@ -487,6 +488,29 @@ function rugImage(seed: number): CanvasTexture {
 }
 export const RUGS = [5, 6].map((seed) => lazy(() => printed(rugImage(seed), 1)))
 
+/** A row of book spines and box files: one textured block fills a whole shelf. */
+function spinesImage(seed: number): CanvasTexture {
+  return paint(512, 128, (c, w, h) => {
+    const r = seeded(seed)
+    c.fillStyle = '#120f0c'
+    c.fillRect(0, 0, w, h)
+    const colours = ['#5a1a1c', '#1d3f6e', '#2a4a2a', '#8a6a2e', '#2a2c30', '#6b5a4a', '#c9c4b6', '#7a2a24', '#1e2a44', '#3a3f44']
+    for (let x = 0; x < w; ) {
+      const bw = 8 + r() * 22
+      const top = r() * h * 0.35
+      c.fillStyle = colours[Math.floor(r() * colours.length)]
+      c.fillRect(x, top, bw - 1.5, h - top)
+      c.fillStyle = 'rgba(230,200,120,0.6)'
+      c.fillRect(x + 2, top + 10 + r() * 8, bw - 6, 3)
+      c.fillRect(x + 2, h - 18, bw - 6, 2)
+      c.fillStyle = 'rgba(255,255,255,0.08)'
+      c.fillRect(x, top, 2, h - top)
+      x += bw
+    }
+  })
+}
+export const SPINES = [31, 32].map((seed) => lazy(() => printed(spinesImage(seed), 0.85)))
+
 /** One palm frond, used as a cut-out card so a handful of cards read as a full plant. */
 export const FROND = lazy(() => printed(paint(256, 128, (c, w, h) => {
   const r = seeded(9)
@@ -499,7 +523,7 @@ export const FROND = lazy(() => printed(paint(256, 128, (c, w, h) => {
     const y = h / 2 - 10 * Math.sin(t * Math.PI) + t * 8
     const len = 52 * Math.sin(t * Math.PI * 0.9 + 0.2)
     for (const side of [-1, 1]) {
-      c.fillStyle = ['#2f5a2a', '#3d6b30', '#24481f', '#4a7a36'][Math.floor(r() * 4)]
+      c.fillStyle = ['#4a7a36', '#5a8a3a', '#3d6b30', '#6a9a48'][Math.floor(r() * 4)]
       c.beginPath()
       c.moveTo(x, y)
       c.quadraticCurveTo(x + 10, y + side * len * 0.6, x + 18, y + side * len)

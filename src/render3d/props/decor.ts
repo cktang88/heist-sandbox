@@ -139,7 +139,7 @@ function fireExtinguisher(): Group {
 
 function fireAlarmPull(): Group {
   const g = new Group()
-  scanned(g, 'fire_alarm', { z: 0, lift: -0.3, scale: 2.2 })
+  scanned(g, 'fire_alarm', { z: 0, lift: -0.15, scale: 2.2 })
   return g
 }
 

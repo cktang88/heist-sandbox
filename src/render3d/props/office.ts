@@ -3,7 +3,7 @@ import type { SurfaceMaterials } from '../levelMesh'
 import type { PropSet } from './index'
 import { ball, box, cylinder, glow, matte, scanned, TILES_PER_METRE } from './kit'
 import {
-  bit, C, drawers, FROND, GLASS, keyboard, KIOSK_UI, knob, LOGO, monitor, mug, officeChair, panel, papers, pick,
+  bit, C, drawers, FROND, GLASS, keyboard, KIOSK_UI, knob, LOGO, monitor, mug, officeChair, panel, papers, pick, SPINES,
   plane, PLANE, RUGS, rod, screenMaterial, WATER_BOTTLE, WHITEBOARDS, type ScreenImage,
 } from './officeParts'
 
@@ -108,23 +108,50 @@ function officeChairProp(): Group {
 function filingCabinet(): Group {
   const g = new Group()
   const v = pick('filingCabinet', 3)
-  scanned(g, 'drawer_cabinet', { z: -1.95 })
-  const top = 1.881 * TILES_PER_METRE
-  if (v === 0) scanned(g, 'cardboard_box_01', { x: -0.1, z: -1.95, lift: top, scale: 0.9, turn: 1.4 })
+  const z = -1.95
+  const top = 1.78
+  const steel = [matte(0x6b7178, 0.45, 0.55), matte(0x4a5248, 0.5, 0.4), matte(0xa49c88, 0.5, 0.35)][v]
+  box(g, steel, -0.45, 0.04, 0.9, 1.74, 0.62, z)
+  box(g, C.black(), -0.43, 0, 0.86, 0.04, 0.58, z)
+  for (let index = 0; index < 4; index += 1) {
+    const bottom = 0.08 + index * 0.42
+    bit(g, steel, -0.42, bottom, 0.84, 0.39, 0.02, z + 0.315)
+    bit(g, C.alu(), -0.12, bottom + 0.23, 0.24, 0.03, 0.04, z + 0.33)
+    bit(g, C.paper(), -0.07, bottom + 0.29, 0.14, 0.05, 0.01, z + 0.327)
+  }
+  if (v === 0) scanned(g, 'cardboard_box_01', { x: -0.1, z, lift: top, scale: 0.9, turn: 1.4 })
   else if (v === 1) {
     for (const [index, colour] of [0x1d3f6e, 0x8a2a2a, 0x2a2c30].entries()) {
-      bit(g, matte(colour, 0.6), -0.35 + index * 0.075, top, 0.07, 0.26, 0.26, -1.95).rotation.z = index === 2 ? -0.25 : 0
+      bit(g, matte(colour, 0.6), -0.35 + index * 0.075, top, 0.07, 0.26, 0.26, z).rotation.z = index === 2 ? -0.25 : 0
     }
-  } else {
-    scanned(g, 'potted_plant_04', { x: 0.25, z: -1.95, lift: top, scale: 1.2 })
-    papers(g, -0.2, top, -1.95)
-  }
+    scanned(g, 'potted_plant_04', { x: 0.25, z, lift: top, scale: 1.2 })
+  } else papers(g, 0.1, top, z)
   return g
 }
 
+/** Shelf heights of the scanned bookshelf, in metres. */
+const SHELVES = [0.1, 0.38, 0.66, 0.95, 1.26, 1.64]
+
 function bookshelf(): Group {
   const g = new Group()
-  scanned(g, 'wooden_bookshelf_worn', { z: -1.95, scale: 1.38 })
+  const v = pick('bookshelf', 2)
+  const scale = 1.38
+  const z = -1.95
+  scanned(g, 'wooden_bookshelf_worn', { z, scale })
+  const unit = scale * TILES_PER_METRE
+  // Fill most shelves with books, leaving gaps and the odd box so it looks used, not stocked.
+  SHELVES.slice(0, 5).forEach((height, index) => {
+    if (index === 3) return
+    const y = height * unit
+    const gap = (SHELVES[index + 1] - height) * unit
+    const width = [1.5, 1.0, 1.55, 0.7, 1.2][(index + v * 2) % 5]
+    const left = index % 2 === 0 ? -0.78 : 0.78 - width
+    const row = box(g, SPINES[(index + v) % 2](), left, y, width, gap * 0.82, 0.3, z + 0.05)
+    row.castShadow = false
+  })
+  scanned(g, 'cardboard_box_01', { x: -0.4, z: z + 0.05, lift: SHELVES[3] * unit, scale: 0.85, turn: Math.PI / 2 })
+  if (v === 1) scanned(g, 'potted_plant_04', { x: 0.4, z: z + 0.05, lift: SHELVES[3] * unit, scale: 1.4 })
+  else box(g, SPINES[1](), 0.1, SHELVES[3] * unit, 0.6, 0.3, 0.3, z + 0.05).castShadow = false
   return g
 }
 
@@ -169,9 +196,10 @@ function plant(): Group {
   const g = new Group()
   const v = pick('plant', 2)
   const pot = v === 0 ? matte(0x2f3134, 0.6) : C.concretePot()
-  box(g, pot, -0.24, 0, 0.48, 0.5, 0.48, -1.6)
-  bit(g, C.soil(), -0.21, 0.5, 0.42, 0.01, 0.42, -1.6)
-  scanned(g, 'potted_plant_02', { z: -1.55, lift: 0.36, scale: 1.4, turn: v * 2.1 })
+  // The scan's own pot sinks into a tall planter so only the foliage shows above its rim.
+  box(g, pot, -0.25, 0, 0.5, 0.7, 0.5, -1.6)
+  bit(g, C.soil(), -0.22, 0.7, 0.44, 0.01, 0.44, -1.6)
+  scanned(g, 'potted_plant_02', { z: -1.55, lift: 0.4, scale: 1.4, turn: v * 2.1 })
   return g
 }
 
@@ -179,25 +207,29 @@ function plantTall(): Group {
   const g = new Group()
   const v = pick('plantTall', 2)
   const z = -1.7
-  cylinder(g, v === 0 ? C.concretePot() : C.terracotta(), 0, 0, 0.26, 0.55, z)
+  if (v === 0) {
+    // A bushy scanned plant raised on a tall fibreglass planter, as in lobbies.
+    cylinder(g, matte(0x24262a, 0.4), 0, 0, 0.3, 1.2, z)
+    cylinder(g, C.brass(), 0, 1.16, 0.305, 0.03, z).castShadow = false
+    scanned(g, 'potted_plant_02', { z: z + 0.05, lift: 1.02, scale: 1.65, turn: 0.8 })
+    return g
+  }
+  cylinder(g, C.terracotta(), 0, 0, 0.26, 0.55, z)
   bit(g, C.soil(), -0.2, 0.55, 0.4, 0.01, 0.4, z)
   const trunk = matte(0x5a4632, 0.9)
-  const stems: [number, number, number][] = [[-0.05, 1.75, -0.08], [0.06, 1.45, 0.1]]
-  for (const [x, top, lean] of stems) {
-    const stem = cylinder(g, trunk, x, 0.5, 0.035, top - 0.5, z)
-    stem.rotation.z = lean
-  }
-  // Fronds fan out from the crown of each stem and droop at the tips.
-  const fronds = 9
+  const stems: [number, number, number][] = [[-0.05, 1.85, -0.08], [0.06, 1.5, 0.1]]
+  for (const [x, top, lean] of stems) cylinder(g, trunk, x, 0.5, 0.035, top - 0.5, z).rotation.z = lean
+  // Fronds fan out from the crown of each stem, arching up then out so they face the room.
+  const fronds = 10
   for (let index = 0; index < fronds; index += 1) {
     const [x, top, lean] = stems[index % 2]
     const holder = new Group()
     holder.position.set(x - Math.sin(lean) * (top - 0.5), top, z)
-    holder.rotation.y = (index / fronds) * Math.PI * 2 + v
+    holder.rotation.y = (index / fronds) * Math.PI * 2
     const leaf = new Mesh(PLANE, FROND())
-    leaf.scale.set(0.75, 0.38, 1)
-    leaf.position.set(0.36, -0.08, 0)
-    leaf.rotation.set(-Math.PI / 2 + 0.5, 0, -0.35)
+    leaf.scale.set(0.95, 0.5, 1)
+    leaf.position.set(0.44, -0.06, 0)
+    leaf.rotation.set(-0.35, 0, -0.3 + (index % 3) * 0.25)
     leaf.castShadow = true
     holder.add(leaf)
     g.add(holder)
