@@ -69,7 +69,12 @@ function decals(texture: CanvasTexture): InstancedMesh {
   return mesh
 }
 
-export type ScorchFx = { group: Group; burn(world: World, x: number, y: number, size: number): void }
+export type ScorchFx = {
+  group: Group
+  burn(world: World, x: number, y: number, size: number): void
+  /** Drops burns whose floor has since been blown away, so none is left floating in the air. */
+  refresh(world: World): void
+}
 
 /**
  * Soot left on the back wall and floor where fire burned or something exploded.
@@ -91,6 +96,9 @@ export function createScorch(): ScorchFx {
   const place = new Vector3()
   const scale = new Vector3()
   const soot = new Color()
+  /** The floor tile under each floor burn (-1 for an empty slot), and the grid version they were last checked at. */
+  const under = new Int32Array(MAX_SCORCH).fill(-1)
+  let checked = -1
 
   const add = (mesh: InstancedMesh, seed: number, rotation: Quaternion) => {
     const slot = next.get(mesh)!
@@ -125,9 +133,24 @@ export function createScorch(): ScorchFx {
         turn.copy(flat).multiply(spin.setFromAxisAngle(axis, seed * 9))
         place.set(x, -below + 0.012, -0.95)
         scale.set(size, size * 1.4, 1)
+        under[next.get(floor)!] = below * world.grid.width + tileX
         add(floor, seed, turn)
         break
       }
+    },
+    refresh(world) {
+      if (world.grid.version === checked) return
+      checked = world.grid.version
+      const width = world.grid.width
+      let changed = false
+      for (let slot = 0; slot < MAX_SCORCH; slot += 1) {
+        const key = under[slot]
+        if (key < 0 || isSolidAt(world.grid, (key % width) + 0.5, Math.floor(key / width) + 0.5)) continue
+        floor.setMatrixAt(slot, HIDDEN)
+        under[slot] = -1
+        changed = true
+      }
+      if (changed) floor.instanceMatrix.needsUpdate = true
     },
   }
 }

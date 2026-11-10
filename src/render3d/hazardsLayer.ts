@@ -34,6 +34,7 @@ export const createHazardsLayer: LayerFactory = (world) => {
     group,
     update(now, frame) {
       const time = now.clock
+      scorch.refresh(now)
       const flames = fireCells(now)
       nearestCells(flames, frame.view, REACH, MAX_FIRE_CELLS, firePicked)
       fire.update(flames, firePicked, time)
