@@ -106,12 +106,14 @@ export const createFixturesLayer: LayerFactory = (world) => {
       const index = near[at]
       const lamp = lamps[index]
       const entry = kinds.get(lamp.fixture)!
+      const level = lampBrightness(world, lamp, index, alarm)
+      shown[index] = level
+      // A fitting shot down is drawn falling by the systems layer; it is no longer on the ceiling.
+      if (world.systems.dropped.has(lamp)) continue
       const slot = entry.glow.count
       place(entry.body, slot, lamp.x, -lamp.y)
       place(entry.glow, slot, lamp.x, -lamp.y)
       if (entry.stem) place(entry.stem, slot, lamp.x, -lamp.y + fixtureModel(lamp.fixture).stem!.at, stemOf(index, world))
-      const level = lampBrightness(world, lamp, index, alarm)
-      shown[index] = level
       const strength = level > 0 ? FIXTURE_SPECS[lamp.fixture].glow * level : 0
       const colors = entry.glow.instanceColor!.array as Float32Array
       for (let channel = 0; channel < 3; channel += 1) colors[slot * 3 + channel] = level > 0 ? linear[index * 3 + channel] * strength : DEAD_GLASS
