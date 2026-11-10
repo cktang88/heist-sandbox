@@ -49,4 +49,14 @@ describe('guards and hazards underfoot', () => {
     wadeIntoFlood(world, guard)
     expect(world.systems.sources.length).toBe(0)
   })
+
+  it('a guard already standing in deep water wades on out of it rather than freezing there for good', () => {
+    const world = arena()
+    const guard = addGuard(world, 43.2, 1, 'patrol')
+    for (let x = 38; x <= 48; x += 1) pourLiquid(world, 'water', x, GROUND - 1, 1.5)
+    expect(stepBlocked(world, guard)).toBe(false)
+    // From dry floor he still will not step in.
+    Object.assign(guard, { x: 37 })
+    expect(stepBlocked(world, guard)).toBe(true)
+  })
 })
