@@ -40,7 +40,7 @@ const TYPING_GAP = 0.3
  * One thing the player can do right now. `hold` is how many seconds E must be held;
  * without it a single press does it. `key` names the target so changing target restarts the progress.
  */
-export type Action = { prompt: string; key: string; run: () => void; hold?: number; typing?: boolean; hint?: string; at?: Vec }
+export type Action = { prompt: string; key: string; run: () => void; hold?: number; typing?: boolean; hint?: string; at?: Vec; lastResort?: boolean }
 
 /**
  * The hands-on actions. Loot and supplies are picked up by walking over them; everything else
@@ -79,6 +79,8 @@ function bestAction(world: World): Action | null {
 
 /** Something behind the player counts this much further away than it is: E goes to what he faces first. */
 const BEHIND_PENALTY = 0.6
+/** Prying an elevator open counts this much further away: it is what E does only when nothing else is at hand. */
+const LAST_RESORT = 1.5
 
 /**
  * Of the things at arm's length (a device, an elevator call, a window, a door to open or shut), the nearest wins,
@@ -92,7 +94,7 @@ function nearestAtHand(world: World, actions: (Action | null)[]): Action | null 
   for (const action of actions) {
     if (!action) continue
     const behind = action.at !== undefined && (action.at.x - center.x) * world.player.facing < -0.3
-    const score = action.at ? distance(center, action.at) + (behind ? BEHIND_PENALTY : 0) : 0
+    const score = action.at ? distance(center, action.at) + (behind ? BEHIND_PENALTY : 0) + (action.lastResort ? LAST_RESORT : 0) : 0
     if (score >= bestScore) continue
     best = action
     bestScore = score
@@ -315,6 +317,7 @@ function doorAction(world: World): Action | null {
   if (seconds === 0) return easy ? { prompt: 'E: ease the door open (silent)', key, at, run: open('opened') } : { prompt: 'E: open door', key, at, run: open('opened'), hint: 'Crouch to ease it open silently' }
   // With its keypad in reach, hacking that (quicker) is what E does; the secure lock is picked only from the far side.
   if (keypad && !keypad.disabled && distance(center, deviceCenter(keypad)) <= DEVICE_REACH) return null
+  if (pried) return { prompt: 'Hold E: pry the doors open', key, at, hold: seconds, run: open('forced'), lastResort: true }
   return { prompt: keypad ? 'Hold E: pick secure lock' : 'Hold E: pick lock', key, at, hold: seconds, run: open('picked') }
 }
 
