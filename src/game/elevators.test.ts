@@ -25,10 +25,11 @@ function press(world: World, input: Partial<Input> = {}): void {
 
 const feet = (world: World) => world.player.y + world.player.h
 
-/** The complex's tower elevator, with every guard sent home. */
+/** The complex's tower elevator, with every guard sent home and no camera by a door to steal the "E" prompt. */
 function setUp(index = 0): { world: World; shaft: ElevatorShaft; car: ElevatorCar } {
   const world = createWorld(1, 'complex')
   world.guards = []
+  for (const device of world.devices) if (device.kind === 'camera') device.disabled = true
   world.player.hp = 1e6
   return { world, shaft: world.elevators[index], car: world.elevatorCars[index] }
 }
@@ -106,7 +107,9 @@ describe('elevators', () => {
     run(world, 6)
     expect(car.stop).toBe(ground)
 
+    // Only a server room's (or security room's) terminal can release the elevators.
     const room = roomAt(world.rooms, world.player.x + 2, shaft.stops[caller] - 1)!
+    room.kind = 'server'
     world.devices.push({ kind: 'computer', x: Math.floor(world.player.x + 0.35), y: shaft.stops[caller], roomId: room.id, id: world.devices.length, disabled: false, hacked: false })
     run(world, 1.6, { interact: true })
     const options = world.terminal!.options
