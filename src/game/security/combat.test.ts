@@ -108,7 +108,8 @@ describe('guard combat', () => {
     const world = arena()
     putPlayer(world, 20)
     throwGrenade(world, 'flash', { x: 20.5, y: GROUND - 1.2 }, { x: 0.2, y: 1 })
-    run(world, 2)
+    // Just after the 1.5 s fuse: the player's blindness wears off from the moment of the bang.
+    run(world, 1.6)
     expect(world.player.blindSeconds).toBeGreaterThan(1)
     expect(world.player.deafSeconds).toBeGreaterThan(1)
   })
