@@ -60,7 +60,7 @@ export function stepCheckIns(world: World): void {
 }
 
 /** A dead man whose death the force knows about: seen or heard to fall, or his body found (nerve.ts keeps the unknown ones). */
-function knownDead(world: World, index: number): boolean {
+export function knownDead(world: World, index: number): boolean {
   return world.guards[index].mode === 'dead' && !world.security.unseenDeaths.some((death) => death.victim === index)
 }
 

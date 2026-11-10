@@ -1,3 +1,4 @@
+import { knownDead } from '../security/checkins'
 import { isShielded } from '../security/combat'
 import { breakDown } from '../security/fear'
 import { eyeOf, feetOf, isActive, type Guard } from '../security/model'
@@ -184,6 +185,8 @@ export function coverForFriends(world: World, people: PeopleState): void {
     if (!person.roster || !person.guard.missing || people.lamented.has(person.id) || !people.covered.has(world.guards.indexOf(person.guard))) continue
     if (world.security.polls.some((poll) => world.guards[poll.guard] === person.guard)) continue
     people.lamented.add(person.id)
+    // His body has been found: nobody asks where he has got to.
+    if (knownDead(world, world.guards.indexOf(person.guard))) continue
     const friend = closeFriends(people, person).find((other) => calmAndOnline(other.guard) || trouble(other.guard))
     if (!friend) continue
     const down = world.guards.filter((guard) => guard.mode === 'dead' || guard.missing).length
