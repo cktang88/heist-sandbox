@@ -117,9 +117,11 @@ describe('poseHuman', () => {
     expect(poseHuman({ ...STAND, clock: 0 }).shoulder.y).not.toBeCloseTo(poseHuman({ ...STAND, clock: 1 }).shoulder.y, 4)
   })
 
-  it('looks where the weapon points, within what a neck can turn', () => {
+  it('looks where the weapon points, within what a neck can turn on top of the spine', () => {
     expect(poseHuman({ ...STAND, aim: -0.4 }).look).toBeCloseTo(-0.4)
-    expect(poseHuman({ ...STAND, aim: -1.5 }).look).toBeGreaterThan(-0.75)
+    const up = poseHuman({ ...STAND, aim: -1.5 })
+    expect(up.lean).toBeLessThan(-0.2)
+    expect(up.look).toBeGreaterThan(-0.75 + up.lean)
   })
 
   it('puts the rising foot higher on a staircase going up', () => {

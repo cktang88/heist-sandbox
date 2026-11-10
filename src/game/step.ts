@@ -75,12 +75,12 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   for (const pickup of world.pickups) {
     if (pickup.taken) continue
     pickup.vy += GRAVITY * dt
-    moveBody(world.grid, pickup, dt)
+    moveBody(world.grid, pickup, dt, 0)
   }
 
   if (!world.loot.taken) {
     world.loot.vy += GRAVITY * dt
-    moveBody(world.grid, world.loot, dt)
+    moveBody(world.grid, world.loot, dt, 0)
   }
 
   if (world.player.hp <= 0) world.status = 'dead'

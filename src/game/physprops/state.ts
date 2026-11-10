@@ -23,6 +23,8 @@ export type LooseProp = {
   /** When guards started and last leant on it to force a door it is holding shut. */
   shoveStart: number
   shoveLast: number
+  /** Pushed into a floor hole on purpose (down held while dragging): it drops through instead of riding the back strip. */
+  dropping?: boolean
 }
 
 export type PhysPropsState = {

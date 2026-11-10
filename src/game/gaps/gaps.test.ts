@@ -161,15 +161,10 @@ describe('walking past a hole in the floor', () => {
     expect(feetOf(world.player)).toBeCloseTo(floorY + 6, 1)
   })
 
-  it('leaves built openings (ladder hatches) and outdoor ground as they are', () => {
+  it('leaves outdoor ground as it is: a hole in the street is a hole', () => {
     const world = quietWorld('outpost')
-    const floorY = GROUND - 6
-    let hatch = -1
-    for (let x = 71; x < 118; x += 1) if (world.grid.kinds[floorY * world.grid.width + x] && !isSolidAt(world.grid, x, floorY)) hatch = x
-    expect(hatch).toBeGreaterThan(0)
     blast(world, 20, GROUND, 2)
     run(world, FRAME)
-    expect(canWalkAcross(world, hatch, floorY)).toBe(false)
     expect(canWalkAcross(world, 20, GROUND)).toBe(false)
     expect(world.gaps.holes.walkable.size).toBe(0)
   })
@@ -185,17 +180,63 @@ describe('walking past a hole in the floor', () => {
   })
 })
 
-describe('guards and floor holes', () => {
-  /** Moves a guard as his walking code would (speed plus gravity through moveBody), then lets the gaps step correct him. */
-  function walkGuard(world: World, guard: ReturnType<typeof createGuard>, speed: number, seconds: number): void {
-    for (let frame = 0; frame < Math.round(seconds / FRAME); frame += 1) {
-      guard.vx = speed
-      guard.vy += GRAVITY * FRAME
-      moveBody(world.grid, guard, FRAME)
-      stepGaps(world, idleInput({ x: 0, y: 0 }))
-    }
+/** The open ladder hatch in the outpost's first upper floor. */
+function outpostHatch(): { world: World; floorY: number; hatch: number } {
+  const world = quietWorld('outpost')
+  const floorY = GROUND - 6
+  for (let x = 71; x < 118; x += 1) {
+    if (tileAt(world.grid, x, floorY) === 'ladder' && isSolidAt(world.grid, x - 1, floorY) && isSolidAt(world.grid, x + 1, floorY)) return { world, floorY, hatch: x }
   }
+  throw new Error('no hatch')
+}
 
+describe('ladder hatches', () => {
+  it('are walked past by default, drawn on the back strip', () => {
+    const { world, floorY, hatch } = outpostHatch()
+    expect(canWalkAcross(world, hatch, floorY)).toBe(true)
+    stand(world.player, hatch - 2.5, floorY)
+    run(world, 0.1)
+    run(world, 0.25, () => ({ right: true }))
+    expect(world.player.onLadder).toBe(false)
+    expect(feetOf(world.player)).toBeCloseTo(floorY, 1)
+    run(world, 0.5, () => ({ right: true }))
+    expect(world.player.x).toBeGreaterThan(hatch + 1)
+    expect(feetOf(world.player)).toBeCloseTo(floorY, 1)
+  })
+
+  it('stop the player over the hatch, then down takes the ladder', () => {
+    const { world, floorY, hatch } = outpostHatch()
+    stand(world.player, hatch + 0.5, floorY)
+    run(world, 0.3)
+    expect(feetOf(world.player)).toBeCloseTo(floorY, 1)
+    expect(depthOffsetFor(world, world.player)).toBeCloseTo(-1.5)
+    run(world, 0.6, () => ({ down: true }))
+    expect(world.player.onLadder).toBe(true)
+    expect(feetOf(world.player)).toBeGreaterThan(floorY + 1)
+  })
+
+  it('are walked past by a guard too, instead of dropping him down the ladder', () => {
+    const { world, floorY, hatch } = outpostHatch()
+    const guard = createGuard({ x: hatch - 3, y: floorY, facing: 1 })
+    world.guards.push(guard)
+    walkGuard(world, guard, 0, 0.1)
+    walkGuard(world, guard, 3, 2)
+    expect(guard.x).toBeGreaterThan(hatch + 1)
+    expect(feetOf(guard)).toBeCloseTo(floorY, 1)
+  })
+})
+
+/** Moves a guard as his walking code would (speed plus gravity through moveBody), then lets the gaps step correct him. */
+function walkGuard(world: World, guard: ReturnType<typeof createGuard>, speed: number, seconds: number): void {
+  for (let frame = 0; frame < Math.round(seconds / FRAME); frame += 1) {
+    guard.vx = speed
+    guard.vy += GRAVITY * FRAME
+    moveBody(world.grid, guard, FRAME)
+    stepGaps(world, idleInput({ x: 0, y: 0 }))
+  }
+}
+
+describe('guards and floor holes', () => {
   it('walks across a hole by default', () => {
     const { world, floorY, hole } = outpostHole()
     const guard = createGuard({ x: hole - 3, y: floorY, facing: 1 })

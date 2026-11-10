@@ -1,4 +1,5 @@
 import type { Body } from '../types'
+import { markAside, type AsideSource } from './aside'
 import { createHoles, refreshHoles, type Holes, type SlabSource } from './holes'
 
 /** Walk-past holes in floor slabs, and the floor each person last stood on (so a jump from below is not caught on the way back down). */
@@ -8,7 +9,9 @@ export type GapState = {
   stoodAt: Map<Body, number>
 }
 
-export function createGaps(site: SlabSource): GapState {
+/** Also flags what was built beside the walking lane (see aside.ts), so it is in place before anyone moves. */
+export function createGaps(site: SlabSource & AsideSource): GapState {
+  markAside(site)
   return { holes: createHoles(site), stoodAt: new Map() }
 }
 

@@ -56,7 +56,7 @@ export function stepFrags(world: World, dt: number): void {
 function fly(world: World, frag: Frag, dt: number): void {
   frag.vy += GRAVITY * dt
   const before = { x: frag.vx, y: frag.vy }
-  if (moveBody(world.grid, frag, dt)) frag.vx = -before.x * BOUNCE
+  if (moveBody(world.grid, frag, dt, 0)) frag.vx = -before.x * BOUNCE
   if (frag.vy === 0 && before.y !== 0) {
     frag.vy = Math.abs(before.y) > 4 ? -before.y * BOUNCE : 0
     if (frag.onGround) frag.vx *= 0.75

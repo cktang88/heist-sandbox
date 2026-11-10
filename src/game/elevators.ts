@@ -2,6 +2,9 @@ import { burst } from './effects'
 import { hurtGuard, type Guard } from './guards'
 import { igniteAt } from './hazards/hazards'
 import type { Input } from './input'
+import { clearShaftDoorway } from './gaps/aside'
+import { currentHoles } from './gaps/state'
+import { heldUpByHoles } from './gaps/walk'
 import { emitNoise } from './noise'
 import { boxHitsSolid, GRAVITY } from './physics'
 import type { Player } from './player'
@@ -56,7 +59,8 @@ export type ElevatorCar = {
 const CAR_SPEED = 5
 /** Open rows above the car floor: anyone in here when it leaves goes along. */
 const CAB_HEIGHT = 5
-const DOOR_HEIGHT = 3
+/** Rows of the doorway in the shaft wall at each stop. */
+export const DOOR_HEIGHT = 3
 /** How long a terminal-summoned car waits at its stop before a lockdown can recall it. */
 const SUMMON_DWELL = 10
 /** How far outside a shaft door the call button can be reached. */
@@ -301,7 +305,7 @@ function releaseRiders(car: ElevatorCar): void {
  */
 function sweep(world: World, car: ElevatorCar, shaft: ElevatorShaft, before: number, dt: number): void {
   for (const body of people(world)) {
-    if (car.riders.includes(body) || !insideShaft(shaft, body)) continue
+    if (car.riders.includes(body) || !insideShaft(shaft, body) || walksPastShaft(world, shaft, body)) continue
     const feet = body.y + body.h
     if (car.y < before) {
       if (feet >= car.y && feet <= before + 0.05) car.riders.push(body)
@@ -312,6 +316,22 @@ function sweep(world: World, car: ElevatorCar, shaft: ElevatorShaft, before: num
     body.vy = Math.max(body.vy, CAR_SPEED)
     hurt(world, body, boxHitsSolid(world.grid, body) ? CRUSH_DAMAGE : PUSH_DAMAGE_PER_SECOND * dt, carCenter(shaft, car.y))
   }
+}
+
+/** Feet this far below a stop are still someone walking past, sunk a little before the gaps step puts them back. */
+const LANE_SINK = 0.9
+
+/**
+ * Someone on the corridor in front of the shaft at one of its stops, walking past it where the car is not: a car going
+ * by passes behind them. They last stood on that storey's floor, have not dropped below it, and the shaft under
+ * them is open (see gaps/walk.ts). The bottom of the shaft is solid ground, so whoever stands there is in the pit.
+ */
+function walksPastShaft(world: World, shaft: ElevatorShaft, body: Person): boolean {
+  const stood = world.gaps.stoodAt.get(body)
+  if (stood === undefined) return false
+  const feet = body.y + body.h
+  const stop = shaft.stops.find((y) => Math.abs(stood - y) < 0.5 && feet > y - 0.5 && feet < y + LANE_SINK)
+  return stop !== undefined && heldUpByHoles(currentHoles(world), body, stop)
 }
 
 function hurt(world: World, body: Person, damage: number, from: Vec): void {
@@ -356,22 +376,15 @@ function openDoors(world: World, car: ElevatorCar, shaft: ElevatorShaft): void {
   playSound(world, 'elevator', { x: x + 0.5, y: floorY - 1.5 })
 }
 
-/** Shuts the doors, first stepping anyone in the doorway to whichever side they mostly stand on. */
+/** Shuts the doors. The doorway is at the back of the corridor, so whoever stands in it is simply in front of the doors. */
 function closeDoors(world: World, car: ElevatorCar, shaft: ElevatorShaft): void {
   if (car.doorTiles.length === 0) {
     car.doorsOpen = false
     return
   }
   const x = doorColumn(shaft)
-  for (const body of people(world)) {
-    const inDoorway = body.x < x + 1 && body.x + body.w > x && car.doorTiles.some((tile) => body.y < tile.y + 1 && body.y + body.h > tile.y)
-    if (!inDoorway) continue
-    // The shaft lies on the side of the wall away from `doorSide`.
-    const shaftSide = insideShaft(shaft, body) || (body.x + body.w / 2 - (x + 0.5)) * shaft.doorSide < 0
-    const goesLeft = shaftSide === (shaft.doorSide === 1)
-    body.x = goesLeft ? x - body.w - EPSILON : x + 1 + EPSILON
-  }
   for (const tile of car.doorTiles) if (tileAt(world.grid, tile.x, tile.y) === 'air') setTile(world.grid, tile.x, tile.y, 'door')
+  if (car.stop !== null) clearShaftDoorway(world.grid, shaft, shaft.stops[car.stop])
   car.doorTiles = []
   car.doorsOpen = false
   playSound(world, 'elevator', { x: x + 0.5, y: car.y - 1.5 })

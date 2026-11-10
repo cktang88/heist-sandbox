@@ -1,11 +1,10 @@
 import { guardMood, type Guard } from '../game/guards'
-import { TOOLS } from '../game/toolDefs'
-import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
 import { tracePolygon, visionCone } from './cone'
 import { drawHuman, drawRagdoll, goggleLights, GUARD, OPERATIVE, RESPONDER, type Look } from './human/draw'
-import { poseHuman, type Motion, type Skeleton } from './human/pose'
+import { guardMotion, playerMotion } from './human/motion'
+import { poseHuman, type Skeleton } from './human/pose'
 import { lampIsLit } from './lighting'
 import { paintTile } from './tileArt'
 
@@ -25,11 +24,8 @@ export function drawGuard(context: CanvasRenderingContext2D, world: World, guard
   context.fillStyle = CONE_COLORS[mood]
   context.fill()
 
-  // A fighting guard aims where he believes the player is, not where the player really is.
-  const relaxed = guard.facing > 0 ? 0.35 : Math.PI - 0.35
-  const aim = mood === 'alert' && guard.target ? Math.atan2(guard.target.y - (guard.y + 0.5), guard.target.x - feet.x) : relaxed
-  const motion: Motion = { x: feet.x, feetY: feet.y, facing: guard.facing, vx: guard.vx, vy: guard.vy, onGround: guard.onGround, mode: guard.climbing ? 'ladder' : guard.crouching ? 'crouch' : 'normal', aim, kick: guard.kick }
-  drawHuman(context, poseHuman(motion), guard.facing, guard.hitFlash > 0 ? HIT_LOOK : guard.armored ? RESPONDER : GUARD, guard.armored ? 'rifle' : 'pistol')
+  const { motion, held } = guardMotion(world, guard, guard.armored ? 'rifle' : 'pistol')
+  drawHuman(context, poseHuman(motion), guard.facing, guard.hitFlash > 0 ? HIT_LOOK : guard.armored ? RESPONDER : GUARD, held)
 
   if (guard.awareness > 0.05 && mood !== 'alert') {
     context.fillStyle = 'rgba(0,0,0,0.6)'
@@ -53,12 +49,7 @@ let playerBody: Skeleton | null = null
 export function drawPlayer(context: CanvasRenderingContext2D, world: World, aim: Vec): void {
   const player = world.player
   const feet = { x: player.x + player.w / 2, y: player.y + player.h }
-  const hand = handOf(world)
-  const motion: Motion = {
-    x: feet.x, feetY: feet.y, facing: player.facing, vx: player.vx, vy: player.vy, onGround: player.onGround,
-    mode: player.chute ? 'chute' : player.onLadder ? 'ladder' : 'normal',
-    aim: Math.atan2(aim.y - hand.y, aim.x - hand.x), kick: player.kick,
-  }
+  const { motion, held } = playerMotion(world, aim)
   const body = poseHuman(motion)
   playerBody = body
 
@@ -67,7 +58,7 @@ export function drawPlayer(context: CanvasRenderingContext2D, world: World, aim:
     context.fillStyle = '#ffd23f'
     context.fillRect(body.shoulder.x - player.facing * 0.42 - 0.15, body.shoulder.y + 0.05, 0.3, 0.45)
   }
-  drawHuman(context, body, player.facing, OPERATIVE, world.drone ? 'drone' : TOOLS[player.tool].id)
+  drawHuman(context, body, player.facing, OPERATIVE, held)
 
   if (player.pick > 0) {
     context.fillStyle = 'rgba(0,0,0,0.6)'

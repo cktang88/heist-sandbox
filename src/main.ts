@@ -14,6 +14,7 @@ import { drawOverlay } from './render/overlay'
 import { createSceneRenderer, type SceneRenderer } from './render/drawScene'
 import { createRenderer3d, type Renderer3d } from './render3d/renderer3d'
 import { randomSeed, writeSeed } from './ui/address'
+import { onLookChange } from './ui/address'
 import { createMenus } from './ui/menus'
 
 const MAX_FRAME_SECONDS = 1 / 30
@@ -60,6 +61,7 @@ function startHeist(seed: number): void {
   view = centerOf(world.player)
 }
 const menus = createMenus({ audio, site: siteKind, newHeist: startHeist })
+if (scene.draw3d) onLookChange((look) => scene.draw3d?.setLook(look))
 
 function resize(): void {
   // Draw at the screen's real pixel density so edges stay sharp.

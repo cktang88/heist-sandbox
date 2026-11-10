@@ -73,7 +73,7 @@ export function stepGrenades(world: World, dt: number): void {
 function fly(world: World, grenade: Grenade, dt: number): void {
   grenade.vy += GRAVITY * dt
   const before = { x: grenade.vx, y: grenade.vy }
-  if (moveBody(world.grid, grenade, dt)) grenade.vx = -before.x * BOUNCE
+  if (moveBody(world.grid, grenade, dt, 0)) grenade.vx = -before.x * BOUNCE
   if (grenade.vy === 0 && before.y !== 0) {
     grenade.vy = Math.abs(before.y) > 4 ? -before.y * BOUNCE : 0
     if (grenade.onGround) grenade.vx *= 0.75
