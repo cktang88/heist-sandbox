@@ -6,7 +6,7 @@ import { propBox, propCenter } from '../hazards/props'
 import { boxHitsSolid } from '../physics'
 import { enterCombat, colleagueInLine } from '../security/combat'
 import { eyeOf } from '../security/model'
-import { addGuard, addWall, arena, GROUND, putPlayer, run } from '../security/testArena'
+import { addGuard, addUpperFloor, addWall, arena, GROUND, putPlayer, run } from '../security/testArena'
 import { fillTiles, tileAt } from '../tiles'
 import { toolIndex } from '../toolDefs'
 import { centerOf } from '../types'
@@ -209,6 +209,25 @@ describe('human shield', () => {
     run(kicked.world, 0.6)
     expect(kicked.world.melee.shield).toBeNull()
     expect(kicked.shield.x).toBeGreaterThan(before + 1)
+  })
+})
+
+describe('the shield on a ladder', () => {
+  it('lets the man go when the player starts up a ladder, instead of carrying him up through the air', () => {
+    const world = arena()
+    addUpperFloor(world, 10, 30)
+    fillTiles(world.grid, 20, GROUND - 7, 20, GROUND - 1, 'ladder')
+    const guard = addGuard(world, 22.2, 1)
+    putPlayer(world, 21.6)
+    run(world, 0.1, { grab: true })
+    expect(world.melee.shield).toBe(guard)
+    putPlayer(world, 20.5)
+    let highest = GROUND
+    run(world, 2, { grab: true, up: true }, () => {
+      if (world.melee.shield) highest = Math.min(highest, guard.y + guard.h)
+    })
+    expect(world.melee.shield).toBeNull()
+    expect(highest).toBeGreaterThan(GROUND - 1)
   })
 })
 
