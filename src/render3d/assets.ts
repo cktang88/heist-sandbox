@@ -9,6 +9,11 @@ const cache = new Map<string, Promise<Group>>()
  * `url` has no leading slash, e.g. `models/barrel/barrel.gltf`.
  */
 export function loadModel(url: string): Promise<Group> {
+  return loadShared(url).then((scene) => scene.clone(true))
+}
+
+/** The loaded model itself, shared by every caller: read it, never change or place it. */
+export function loadShared(url: string): Promise<Group> {
   let pending = cache.get(url)
   if (!pending) {
     pending = loader.loadAsync(`${import.meta.env.BASE_URL}${url}`).then((gltf) => {
@@ -21,7 +26,7 @@ export function loadModel(url: string): Promise<Group> {
     })
     cache.set(url, pending)
   }
-  return pending.then((scene) => scene.clone(true))
+  return pending
 }
 
 /**

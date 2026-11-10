@@ -1,6 +1,6 @@
 import { BoxGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh, MeshStandardMaterial, SphereGeometry, type Material } from 'three'
-import { modelPlaceholder } from '../assets'
 import { MODELS } from '../assetManifest'
+import { SCAN_URL } from '../propbatch/recipe'
 
 /**
  * Shared building blocks for prop models. One unit is one tile (about 1.1 m).
@@ -72,12 +72,14 @@ export type ScanOptions = {
 
 /**
  * Adds a photo-scanned model from the asset list by id, standing on the floor.
- * It appears once loaded. Returns false if the id is unknown, so the caller can fall back to shapes.
+ * This only marks where it goes: the props layer loads it and draws every copy of it together, once it arrives.
+ * Returns false if the id is unknown, so the caller can fall back to shapes.
  */
 export function scanned(group: Group, id: string, options: ScanOptions = {}): boolean {
   const asset = MODELS.find((model) => model.id === id)
   if (!asset) return false
-  const holder = modelPlaceholder(asset.url)
+  const holder = new Group()
+  holder.userData[SCAN_URL] = asset.url
   holder.scale.setScalar(TILES_PER_METRE * (options.scale ?? 1))
   holder.rotation.y = options.turn ?? 0
   holder.position.set(options.x ?? 0, options.lift ?? 0, options.z ?? -1.4)
