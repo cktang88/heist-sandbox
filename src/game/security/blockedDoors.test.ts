@@ -57,7 +57,7 @@ describe('doors held shut by furniture', () => {
     barricade(world)
     putPlayer(world, 110)
     const guard = investigator(world, 46, { x: 66, y: GROUND })
-    // The furniture skids off hard when the door gives; this test is about getting through.
+    // This bare test wall has nothing above the door to hold its top, so two tiles drop on him when it opens (real walls reach a ceiling).
     guard.hp = guard.maxHp = 1e5
     run(world, 15, {}, () => feetOf(guard).x > 52)
     expect(feetOf(guard).x).toBeGreaterThan(52)
