@@ -222,7 +222,7 @@ function panelAction(world: World, device: Device, key: string): Action | null {
 
 function elevatorAction(world: World): Action | null {
   const inCar = carUnderPlayer(world)
-  if (inCar) return { prompt: elevatorRefuses(world, inCar) ? 'Elevator locked down' : 'W/S: ride elevator', key: 'ride', run: () => {} }
+  if (inCar) return { prompt: elevatorRefuses(world, inCar) ? 'Elevator held. Climb out by the shaft ladder' : 'W/S: ride elevator', key: 'ride', run: () => {} }
   const door = shaftDoorAt(world, world.player)
   if (!door) return null
   const { car, stop } = door

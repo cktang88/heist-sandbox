@@ -81,4 +81,25 @@ describe('the E key with several things in reach', () => {
     play(world, 1.2, { interact: true })
     expect(camera.disabled).toBe(true)
   })
+
+  it('tells a player stuck in a frozen car how to get out, and the shaft ladder does it', () => {
+    const world = createWorld(1, 'complex')
+    world.guards = []
+    const shaft = world.elevators[0]
+    const car = world.elevatorCars[0]
+    world.player.hp = 1e6
+    car.targetStop = 3
+    play(world, 6)
+    placePlayer(world, shaft.x + 1.5, car.y)
+    play(world, 0.2)
+    play(world, 0.5, { up: true })
+    world.security.level = 4
+    play(world, 0.2)
+    expect(car.moving).toBe(false)
+    expect(world.prompt).toBe('Elevator held. Climb out by the shaft ladder')
+    const stuckAt = world.player.y
+    play(world, 1, { left: true })
+    play(world, 2, { up: true })
+    expect(world.player.y).toBeLessThan(stuckAt - 5)
+  })
 })
