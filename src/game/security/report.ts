@@ -76,10 +76,10 @@ export function raiseLevel(world: World, to: AlertLevel): void {
   if (to >= 2) assignStations(world)
 }
 
-function contact(world: World, at: Vec): void {
+function contact(world: World, at: Vec, seenAt = world.clock): void {
   const security = world.security
   security.lastKnown = { ...at }
-  security.lastContactAt = world.clock
+  security.lastContactAt = seenAt
   security.focus = floorBelow(world, at)
 }
 
@@ -88,10 +88,13 @@ export function reportEvent(world: World, event: SecurityEvent): void {
   const security = world.security
   switch (event.kind) {
     case 'sighting': {
+      const seenAt = event.seenAt ?? world.clock
+      // Old news the control room already has fresher word than: it changes nothing, and must not keep the alert going.
+      if (seenAt < security.lastContactAt) return
       // Running updates during a fight only make the log when the intruder changes floor or after a lull.
       const before = security.lastKnown
       const update = before !== null && world.clock - security.lastContactAt < QUIET_LOG && floorName(world, before) === floorName(world, event.at)
-      contact(world, event.at)
+      contact(world, event.at, seenAt)
       if (!update) log(world, `${unitName(event.by)}: Contact, ${floorName(world, event.at)}.`)
       raiseLevel(world, 3)
       return

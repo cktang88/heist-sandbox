@@ -15,7 +15,8 @@ export type AlertLevel = 0 | 1 | 2 | 3 | 4
 
 /** What reaches the control room. Guard numbers are indices into `world.guards`. */
 export type SecurityEvent =
-  | { kind: 'sighting'; at: Vec; by: number }
+  /** `seenAt`: when he saw the man, if not just now (a guard coming to his senses tells what he saw before). */
+  | { kind: 'sighting'; at: Vec; by: number; seenAt?: number }
   | { kind: 'noise'; at: Vec; loud: boolean }
   | { kind: 'body'; at: Vec; by: number }
   | { kind: 'missedCheckIn'; guard: number }

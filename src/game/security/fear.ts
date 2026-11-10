@@ -63,7 +63,7 @@ export function pullTogether(world: World, guard: Guard): void {
   guard.crouching = false
   const lead = guard.lastKnown
   startSearch(world, guard, lead ? floorBelow(world, lead) : feetOf(guard))
-  if (lead) startRadio(world, guard, { kind: 'sighting', at: { ...lead }, by: world.guards.indexOf(guard) })
+  if (lead) startRadio(world, guard, { kind: 'sighting', at: { ...lead }, by: world.guards.indexOf(guard), seenAt: guard.lastKnownAt })
 }
 
 /** Running for cover, then cowering there. If the intruder comes right up to him, he gives up. */
@@ -106,15 +106,17 @@ export function surrenderedBehaviour(world: World, guard: Guard, dt: number): vo
     return
   }
   if (goTo(world, guard, guard.droppedWeapon, PATROL.hurrySpeed, dt, false) === 'moving') return
+  // He knows where he last saw the man (where he gave up, failing anything later), not where the man is now.
+  const lead = guard.lastKnown ?? { x: guard.droppedWeapon.x, y: guard.droppedWeapon.y - 1 }
+  const seenAt = guard.lastKnown ? guard.lastKnownAt : world.clock - guard.modeSeconds
   guard.droppedWeapon = null
   guard.rounds = magazineOf(guard.armored)
   // Armed again, he is as steady as a guard who has just pulled himself together.
   guard.shock = Math.max(0, TIERS[guard.tier].nerve - NERVE.recovered)
   guard.nerve = NERVE.recovered
   barkLine(world, guard, 'rearm', true)
-  const lead = guard.lastKnown ?? centerOf(world.player)
   startSearch(world, guard, floorBelow(world, lead))
-  startRadio(world, guard, { kind: 'sighting', at: { ...lead }, by: world.guards.indexOf(guard) })
+  startRadio(world, guard, { kind: 'sighting', at: { ...lead }, by: world.guards.indexOf(guard), seenAt })
 }
 
 /** Is the player close and in plain view of this guard (either way he faces: he knows where the man is)? */

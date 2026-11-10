@@ -79,6 +79,39 @@ describe('panic and surrender', () => {
     expect(guard.mode).toBe('searching')
     expect(said(world, ['Pull it together', 'Breathe', "I'm good"])).toBe(true)
   })
+
+  it('pulling himself together long after he last saw the man, he does not call it in as fresh contact that keeps the alert up', () => {
+    const { world, guard } = breakingGuard(10, 40)
+    run(world, 0.5)
+    expect(guard.mode).toBe('panic')
+    addWall(world, 25)
+    putPlayer(world, 5)
+    run(world, 40, {}, () => {
+      guard.shock = 0.9
+    })
+    // A colleague has had fresher word since.
+    world.security.lastContactAt = world.clock - 20
+    world.security.levelSince = world.clock - 20
+    guard.shock = 0
+    run(world, 6)
+    expect(guard.mode).toBe('searching')
+    expect(world.clock - world.security.lastContactAt).toBeGreaterThan(25)
+    expect(world.clock - world.security.levelSince).toBeGreaterThan(25)
+  })
+
+  it('a guard who re-arms tells only where he gave up, never where the intruder has gone since', () => {
+    const { world, guard } = breakingGuard(26, 30)
+    run(world, 0.5)
+    expect(guard.mode).toBe('surrendered')
+    guard.lastKnown = null
+    addWall(world, 50)
+    putPlayer(world, 80)
+    run(world, FEAR.rearmSeconds * 1.5 + 3, {}, () => guard.droppedWeapon === null)
+    expect(guard.droppedWeapon).toBeNull()
+    const call = guard.radio?.event
+    expect(call?.kind).toBe('sighting')
+    if (call?.kind === 'sighting') expect(Math.abs(call.at.x - 30)).toBeLessThan(5)
+  })
 })
 
 describe('low nerve on the way to trouble', () => {

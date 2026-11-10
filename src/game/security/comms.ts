@@ -117,7 +117,7 @@ function hearShout(world: World, guard: Guard, event: SecurityEvent): void {
   if (!('at' in event) || guard.mode === 'combat' || guard.mode === 'panic') return
   if (event.kind === 'sighting') {
     guard.lastKnown = { ...event.at }
-    guard.lastKnownAt = world.clock
+    guard.lastKnownAt = event.seenAt ?? world.clock
     guard.awareness = Math.max(guard.awareness, 0.6)
   }
   // Running to raise the alarm by hand matters more than going to look: he keeps running.
