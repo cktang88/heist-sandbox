@@ -10,3 +10,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+
+# Working copies used by parallel build agents
+.claude/worktrees/
