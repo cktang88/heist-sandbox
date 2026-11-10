@@ -17,6 +17,8 @@ import { floorBelow, isDoorway, landingsOnFloor, sameFloor } from './places'
 import { clearOfDoorway, dragWounded } from './selfPreservation'
 import { GUARD_PISTOL, GUARD_RIFLE, roundReaches } from './lineOfFire'
 import { ducked, takeShelter } from './takingFire'
+import { flankRoute } from './flank'
+import { respectKillZones } from './killZones'
 import { COMBAT, PATROL, SHELTER, TIERS, TIMING, UNDER_FIRE } from './tuning'
 
 /**
@@ -231,6 +233,9 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
   const taken = world.guards.filter((other) => other !== guard && other.cover).map((other) => other.cover!)
   const wasBounding = guard.bounding
   guard.bounding = false
+  // Nobody walks into the doorway or stair head where colleagues were just cut down (killZones.ts).
+  const heading = (role === 'flank' ? guard.search?.points[guard.search.index] : undefined) ?? threat
+  if (role !== 'fallback' && role !== 'stack' && respectKillZones(world, guard, heading, dt)) return
   switch (role) {
     case 'fallback': {
       guard.cover ??= findCover(world, feet, threat, COMBAT.coverSearch * 1.5, true, taken) ?? { x: feet.x + Math.sign(feet.x - threat.x || 1) * 6, y: feet.y, high: false }
@@ -271,8 +276,14 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
       hold(world, guard, dt)
       return
     case 'flank': {
-      guard.search ??= flankPlan(world, feet, threat)
-      const point = guard.search.points[guard.search.index]
+      guard.search ??= flankPlan(world, guard, feet, threat)
+      if (guard.search.points.length === 0) {
+        // No second way round from here: he holds the near choke point instead.
+        guard.combatRole = 'hold'
+        guard.search = null
+        return
+      }
+      const point = world.clock < guard.search.endsAt ? guard.search.points[guard.search.index] : undefined
       if (!point) {
         goTo(world, guard, threat, PATROL.runSpeed, dt, false)
         return
@@ -280,6 +291,8 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
       if (goTo(world, guard, point, PATROL.runSpeed, dt, false) !== 'moving') guard.search.index += 1
       return
     }
+    case 'stack':
+      return
     case 'hold': {
       guard.cover ??= clearOfDoorway(world, { ...spaced(world, guard, chokepoint(world, feet, threat), Math.sign(threat.x - feet.x) || 1), high: false }, threat)
       takeCover(world, guard, guard.cover, dt)
@@ -444,8 +457,13 @@ function chokepoint(world: World, feet: Vec, threat: Vec): Vec {
   return feet
 }
 
-/** Round by the floor above or below, coming back down beyond the player. */
-function flankPlan(world: World, feet: Vec, threat: Vec): SearchPlan {
+/**
+ * A second route to the player that keeps out of the lane he is covering (flank.ts). With no staircases at all (the
+ * small outpost, which has ladders), round by the floor above or below, coming back down beyond him.
+ */
+function flankPlan(world: World, guard: Guard, feet: Vec, threat: Vec): SearchPlan {
+  const route = world.stairwells.length > 0 ? flankRoute(world, guard, threat) : null
+  if (route || world.stairwells.length > 0) return { points: route ?? [], index: 0, dwell: 0, endsAt: world.clock + FLANK_SECONDS }
   const side = Math.sign(threat.x - feet.x) || 1
   const points: Vec[] = []
   const well = world.stairwells.find((candidate) => candidate.stops.some((y) => Math.abs(y - feet.y) < 0.5))

@@ -32,23 +32,46 @@ export function organiseSquad(world: World, dt: number): void {
     .map((guard) => ({ guard, score: (guard.seesPlayer ? 0 : 1000) + (guard.lastKnown ? distance(feetOf(guard), guard.lastKnown) : 500) }))
     .sort((a, b) => a.score - b.score)
     .map((entry) => entry.guard)
-  const tokens = new Set(ranked.slice(0, COMBAT.attackTokens))
+  // A flanker on his way round does not take a token from the men pinning the player, unless he has a shot already.
+  const tokens = new Set(ranked.filter((guard) => guard.seesPlayer || !(guard.combatRole === 'flank' && stillFlanking(world, guard))).slice(0, COMBAT.attackTokens))
+  // Flanking is the default once there are men to spare: one goes round, two in a bigger fight (or once men are dying).
+  // A site without staircases (the outpost's ladders) only sends one round once the direct way has become a killing zone.
   const killingZone = world.clock - security.lastCasualtyAt < KILLING_ZONE_SECONDS || security.campSeconds > COMBAT.campSeconds / 2
+  const flankersWanted = fighters.length < 3 ? 0 : world.stairwells.length === 0 ? (killingZone ? 1 : 0) : fighters.length >= 5 || killingZone ? 2 : 1
+  // With staircases to go round by, the flank is manned before the suppressor; on a ladder site, after.
+  const routesRound = world.stairwells.length > 0
   let suppressor = false
-  let flanker = false
+  let flankers = fighters.filter((guard) => guard.combatRole === 'flank' && stillFlanking(world, guard)).length
   for (const guard of ranked) {
     const index = world.guards.indexOf(guard)
+    if (guard.stackLeader !== null) {
+      // A shield team works as one column (shieldTeam.ts); its men fire whenever they have a shot.
+      if (guard.seesPlayer) security.shooters.push(index)
+      setRole(world, guard, 'stack')
+      continue
+    }
     if (tokens.has(guard) && guard.seesPlayer) security.shooters.push(index)
     let role: CombatRole
     if (guard.hp < guard.maxHp * COMBAT.fallbackHealth || isBreaking(guard)) role = 'fallback'
     else if (tokens.has(guard)) role = 'assault'
+    else if (guard.combatRole === 'flank' && stillFlanking(world, guard)) role = 'flank'
+    else if (flankers < flankersWanted && mayFlank(guard) && (routesRound || suppressor || !guard.seesPlayer)) role = 'flank'
     else if (guard.seesPlayer && !suppressor) role = 'suppress'
-    else if (killingZone && fighters.length >= 3 && !flanker && !guard.armored && !isShaken(guard)) role = 'flank'
     else role = 'hold'
     if (role === 'suppress') suppressor = true
-    if (role === 'flank') flanker = true
+    if (role === 'flank' && guard.combatRole !== 'flank') flankers += 1
     setRole(world, guard, role)
   }
+}
+
+/** Steady, unarmoured men go round; heavies and the shaken stay with the squad. */
+function mayFlank(guard: Guard): boolean {
+  return !guard.armored && !isShaken(guard)
+}
+
+/** A flanker keeps at it until his route is walked or its time is up, so the squad does not call him back halfway. */
+function stillFlanking(world: World, guard: Guard): boolean {
+  return guard.search !== null && world.clock < guard.search.endsAt && guard.search.index < guard.search.points.length
 }
 
 /** Changes a guard's role, but not more often than every couple of seconds (except to fall back), so nobody dithers. */

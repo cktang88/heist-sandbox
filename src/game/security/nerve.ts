@@ -8,6 +8,7 @@ import { shelteredFrom } from './coverSpots'
 import { breakDown, pullTogether } from './fear'
 import { eyeOf, feetOf, isActive, type Guard } from './model'
 import { clearView } from './perception'
+import { markKillZone } from './killZones'
 import { roomOf } from './places'
 import { NERVE, TIERS, UNDER_FIRE, VISION } from './tuning'
 
@@ -106,6 +107,7 @@ export function onKilled(world: World, victim: Guard): void {
   const at = centerOf(victim)
   const index = world.guards.indexOf(victim)
   world.security.deaths.push({ at, room: roomOf(world, feetOf(victim))?.id ?? -1, clock: world.clock, victim: index })
+  markKillZone(world, victim)
   let caller: Guard | null = null
   let callerGap = Infinity
   for (const other of world.guards) {
