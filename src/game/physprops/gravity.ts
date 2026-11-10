@@ -4,6 +4,7 @@ import { propBox, propCenter } from '../hazards/props'
 import { emitNoise } from '../noise'
 import { boxHitsSolid, GRAVITY, moveBody } from '../physics'
 import { playSound } from '../sounds'
+import { backStripAt } from '../gaps/gaps'
 import { isSolidAt, type Grid } from '../tiles'
 import { overlaps, type Body, type Rect } from '../types'
 import type { World } from '../world'
@@ -32,6 +33,10 @@ const THUD_NOISE_PER_WEIGHT = 3
 export function settleLooseProps(world: World, dt: number): void {
   for (const { prop, loose } of looseProps(world)) {
     if (loose.flying || world.physProps.grabbed?.id === prop.id) continue
+    if (onBackStrip(world, prop, loose)) {
+      glide(world, prop, loose, dt)
+      continue
+    }
     if (loose.vx === 0 && loose.vy === 0 && (isResting(world.grid, prop) || restsOnRim(world.grid, prop))) continue
     fall(world, prop, loose, dt)
   }
@@ -43,6 +48,41 @@ export function isSupported(grid: Grid, prop: PropState): boolean {
   const row = Math.floor(footing.y + footing.h + 0.05)
   for (let x = Math.floor(footing.x); x <= Math.floor(footing.x + footing.w - 0.001); x += 1) if (isSolidAt(grid, x, row)) return true
   return false
+}
+
+/**
+ * Standing on a floor with a walk-past hole under part of it: furniture stands at the back of the room (z -2.2 to
+ * -0.6), on the strip of slab a hole in the front leaves, so it stays up, and slides along that strip when shoved,
+ * unless it was pushed in on purpose (`dropping`). Every column under its footing must be floor or such a hole.
+ */
+export function onBackStrip(world: World, prop: PropState, loose?: LooseProp): boolean {
+  if (loose?.dropping) return false
+  const footing = footingOf(propBox(prop))
+  const bottom = footing.y + footing.h
+  const row = Math.round(bottom)
+  if (Math.abs(bottom - row) > 1e-6) return false
+  let overHole = false
+  for (let x = Math.floor(footing.x); x <= Math.floor(footing.x + footing.w - 0.001); x += 1) {
+    if (isSolidAt(world.grid, x, row)) continue
+    if (!backStripAt(world, x, row)) return false
+    overHole = true
+  }
+  return overHole
+}
+
+/** A shoved prop sliding along the back strip past a hole: it keeps to the floor's level and slows to a stop. */
+function glide(world: World, prop: PropState, loose: LooseProp, dt: number): void {
+  if (loose.vx === 0) {
+    loose.vy = 0
+    return
+  }
+  const dx = loose.vx * dt
+  if (boxHitsSolid(world.grid, offset(propBox(prop), dx, 0))) loose.vx = 0
+  else shiftProp(prop, dx, 0)
+  loose.vy = 0
+  loose.vx *= Math.exp(-FRICTION * dt)
+  if (Math.abs(loose.vx) < STOP_SPEED) loose.vx = 0
+  rekeyIfMoved(world, prop, loose, loose.vx === 0)
 }
 
 /** Standing still on a floor: supported, with its bottom right on the floor's surface (not hovering just above it). */
@@ -105,6 +145,7 @@ function land(world: World, prop: PropState, loose: LooseProp, speed: number, dt
   shiftProp(prop, 0, Math.round(box.y + box.h) - (box.y + box.h))
   standClear(world.grid, prop)
   loose.vy = 0
+  loose.dropping = false
   loose.struck.clear()
   loose.vx *= Math.exp(-FRICTION * dt)
   if (Math.abs(loose.vx) < STOP_SPEED) loose.vx = 0

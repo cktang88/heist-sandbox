@@ -3,6 +3,7 @@ import { burst } from '../effects'
 import { hurtGuard } from '../guards'
 import { propById } from '../hazards/props'
 import { breakProp } from '../hazards/reactions'
+import { currentHoles } from '../gaps/state'
 import { emitNoise } from '../noise'
 import { GRAVITY } from '../physics'
 import { propSpec } from '../propCatalog'
@@ -21,7 +22,7 @@ export type FallingProp = { id: number; vy: number }
 
 export type FallingPropsState = {
   falling: FallingProp[]
-  /** One byte per tile, 1 where it was solid when last compared, and the grid it was taken from. */
+  /** One byte per tile, what held things up there when last compared (see `holdsUp`), and the grid it was taken from. */
   solid: Uint8Array | null
   grid: Grid | null
   version: number
@@ -55,32 +56,48 @@ export function stepFallingProps(world: World, dt: number): void {
     for (const prop of propsOnLostTiles(world, state)) {
       // Furniture the player has disturbed has its own physics (physprops/gravity.ts), which drops it.
       if (world.physProps.loose.has(prop.id)) continue
-      if (!state.falling.some((item) => item.id === prop.id) && !isSupported(world.grid, prop, prop.y)) state.falling.push({ id: prop.id, vy: 0 })
+      if (!state.falling.some((item) => item.id === prop.id) && !isSupported(world, state.solid!, prop)) state.falling.push({ id: prop.id, vy: 0 })
     }
   }
   if (state.falling.length === 0) return
   state.falling = state.falling.filter((item) => !dropProp(world, item, dt))
 }
 
+/** Bit set when a tile is solid: what a vehicle needs under it. */
+const HOLDS_VEHICLE = 1
+/**
+ * Bit set when a tile holds furniture up: solid, or a hole blasted in the front of a slab that leaves the back strip,
+ * where furniture stands (z -2.2 to -0.6), in place.
+ */
+const HOLDS_FURNITURE = 2
+
+function holdsUp(kinds: Uint8Array, walkable: ReadonlySet<number>, index: number): number {
+  if (SOLID[kinds[index]]) return HOLDS_VEHICLE | HOLDS_FURNITURE
+  return walkable.has(index) ? HOLDS_FURNITURE : 0
+}
+
 function remember(world: World, state: FallingPropsState): void {
   const { kinds } = world.grid
+  const walkable = currentHoles(world).walkable
   state.solid = new Uint8Array(kinds.length)
-  for (let index = 0; index < kinds.length; index += 1) state.solid[index] = SOLID[kinds[index]]
+  for (let index = 0; index < kinds.length; index += 1) state.solid[index] = holdsUp(kinds, walkable, index)
   state.grid = world.grid
   state.version = world.grid.version
 }
 
-/** Floor props standing on tiles that were solid at the last look and are not now. Updates the copy as it goes. */
+/** Floor props standing on tiles that held them up at the last look and do not now. Updates the copy as it goes. */
 function propsOnLostTiles(world: World, state: FallingPropsState): PropState[] {
   const solid = state.solid!
   const { kinds } = world.grid
+  const walkable = currentHoles(world).walkable
   const found = new Set<number>()
   const standingOn = indexStanding(world, state)
   for (let index = 0; index < kinds.length; index += 1) {
-    const now = SOLID[kinds[index]]
+    const now = holdsUp(kinds, walkable, index)
     if (solid[index] === now) continue
+    const lost = (solid[index] & ~now) !== 0
     solid[index] = now
-    if (now === 0) for (const id of standingOn.get(index) ?? []) found.add(id)
+    if (lost) for (const id of standingOn.get(index) ?? []) found.add(id)
   }
   state.version = world.grid.version
   return [...found].map((id) => propById(world, id)).filter((prop): prop is PropState => prop !== undefined)
@@ -114,10 +131,13 @@ function footprint(prop: PropState): number[] {
   return columns
 }
 
-function isSupported(grid: Grid, prop: PropState, row: number): boolean {
+/** Enough of the floor under it is left. A vehicle is too big for the back strip of a slab: it needs solid floor. */
+function isSupported(world: World, holding: Uint8Array, prop: PropState): boolean {
   const columns = footprint(prop)
-  const solid = columns.filter((x) => TILE_DEFS[tileAt(grid, x, row)].solid).length
-  return solid > 0 && solid >= columns.length * SUPPORT_SHARE
+  const row = prop.y * world.grid.width
+  const vehicle = isVehicle(prop)
+  const held = columns.filter((x) => x >= 0 && x < world.grid.width && (holding[row + x] & (vehicle ? HOLDS_VEHICLE : HOLDS_FURNITURE)) !== 0).length
+  return held > 0 && held >= columns.length * SUPPORT_SHARE
 }
 
 function touchesSolid(grid: Grid, prop: PropState, row: number): boolean {

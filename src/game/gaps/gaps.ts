@@ -5,7 +5,7 @@ import { anyWalkPast } from './holes'
 import { currentHoles } from './state'
 import { carryAcross, rememberFooting } from './walk'
 
-export { canWalkAcross, carryAcross } from './walk'
+export { backStripAt, canWalkAcross, carryAcross } from './walk'
 export { wantsToDrop, guardWantsToDrop } from './intent'
 export { depthOffsetFor, nearestHole } from './depth'
 export { createGaps, type GapState } from './state'

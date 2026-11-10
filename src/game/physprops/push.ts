@@ -5,7 +5,7 @@ import { boxHitsSolid } from '../physics'
 import { playSound } from '../sounds'
 import { centerOf } from '../types'
 import type { World } from '../world'
-import { isSupported } from './gravity'
+import { isSupported, onBackStrip } from './gravity'
 import { isPushable, weightOf } from './kinds'
 import { propsAround } from './nearby'
 import { capPlayerSpeed } from './pace'
@@ -31,7 +31,8 @@ export function dragSpeed(prop: PropState): number {
   return Math.max(MIN_DRAG_SPEED, Math.min(MAX_DRAG_SPEED, DRAG_PACE / weightOf(prop.kind)))
 }
 
-export function dragFurniture(world: World, grab: boolean, dt: number): void {
+/** `drop` (down held) pushes the furniture into a floor hole it is dragged over, as the player drops through one himself. */
+export function dragFurniture(world: World, grab: boolean, drop: boolean, dt: number): void {
   const state = world.physProps
   const held = state.grabbed ? propById(world, state.grabbed.id) : undefined
   if (!grab || !world.player.onGround || world.melee.shield || !held || held.broken) {
@@ -40,7 +41,7 @@ export function dragFurniture(world: World, grab: boolean, dt: number): void {
     if (grab && world.player.onGround && !world.melee.shield) takeHold(world)
     return
   }
-  drag(world, held, state.grabbed!.offset, dt)
+  drag(world, held, state.grabbed!.offset, drop, dt)
 }
 
 function takeHold(world: World): void {
@@ -59,7 +60,7 @@ export function pushableInReach(world: World, side: 0 | 1 | -1 = 0): PropState |
   for (const prop of propsAround(world, centerOf(player), SEARCH_RADIUS)) {
     if (!isPushable(prop.kind)) continue
     const box = propBox(prop)
-    if (Math.abs(box.y + box.h - feet) > SAME_FLOOR || !isSupported(world.grid, prop)) continue
+    if (Math.abs(box.y + box.h - feet) > SAME_FLOOR || !standsFirm(world, prop)) continue
     const right = box.x - (player.x + player.w)
     const left = player.x - (box.x + box.w)
     if ((side > 0 && left > 0) || (side < 0 && right > 0)) continue
@@ -71,7 +72,12 @@ export function pushableInReach(world: World, side: 0 | 1 | -1 = 0): PropState |
   return best
 }
 
-function drag(world: World, prop: PropState, offset: number, dt: number): void {
+/** On floor, or on the back strip beside a walk-past hole. */
+function standsFirm(world: World, prop: PropState): boolean {
+  return isSupported(world.grid, prop) || onBackStrip(world, prop)
+}
+
+function drag(world: World, prop: PropState, offset: number, drop: boolean, dt: number): void {
   const player = world.player
   capPlayerSpeed(world, dragSpeed(prop), dt)
   const box = propBox(prop)
@@ -87,7 +93,9 @@ function drag(world: World, prop: PropState, offset: number, dt: number): void {
   shiftProp(prop, dx, 0)
   scrape(world, prop, Math.abs(dx))
   const loose = loosen(world, prop)
-  if (!isSupported(world.grid, prop)) {
+  const overHole = !isSupported(world.grid, prop)
+  if (overHole && (drop || !onBackStrip(world, prop))) {
+    loose.dropping = drop
     letGo(world, prop)
     world.physProps.grabbed = null
     return
