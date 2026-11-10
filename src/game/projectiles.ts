@@ -6,7 +6,7 @@ import { coverPropAt, shootLoosePropsAt, stillInside } from './ballistics/props'
 import { shotHitsProp, type PropState } from './cover'
 import { burst, flash } from './effects'
 import { explode, ROCKET_BLAST } from './explosions'
-import { hurtGuard, type Guard } from './guards'
+import { hurtGuard, shieldBlocks, type Guard } from './guards'
 import { tileAt, TILE_DEFS } from './tiles'
 import { hitPause, triggerSlowmo } from './time'
 import { centerOf, distance, type Rect, type Vec } from './types'
@@ -136,6 +136,7 @@ function peopleStop(world: World, bullet: Projectile): boolean {
   if (!bullet.fromPlayer) return playerStops(world, bullet)
   const guard = guardHit(world, bullet)
   if (!guard) return false
+  if (shieldBlocks(world, guard, bullet)) return true
   struckBy(bullet).add(guard)
   const speed = Math.hypot(bullet.vx, bullet.vy)
   guard.vx += (bullet.vx / speed) * bullet.push
