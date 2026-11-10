@@ -1,6 +1,7 @@
 import type { PropState } from '../cover'
 import type { Guard } from '../guards'
 import { propBox } from '../hazards/props'
+import { JOINT, wake } from '../ragdoll'
 import { eyeOf, isActive, setMode } from '../security/model'
 import { hasTorchOut, lightFactor, playerLight, zoneOf } from '../security/perception'
 import { VISION } from '../security/tuning'
@@ -71,6 +72,33 @@ export function passerBy(world: World): Guard | null {
   const feet = box.y + box.h
   return world.guards.find((guard) => guard.mode !== 'dead' && !guard.out && guard.state !== 'alert' && !guard.restrained && guard.mode !== 'surrendered'
     && Math.abs(guard.y + guard.h - feet) < 0.8 && centerOf(guard).x > box.x - 1 && centerOf(guard).x < box.x + box.w + 1) ?? null
+}
+
+/**
+ * A hiding place blown apart, burnt or carried off by a falling floor no longer hides anything: the player is out in
+ * the open where he is (and falls if the floor went), and the bodies inside spill out where they lay.
+ */
+export function stepSpots(world: World): void {
+  const hiding = world.stealth.hiding
+  if (hiding && !stillHides(world, hiding.prop, centerOf(world.player).x, world.player.y + world.player.h)) {
+    world.stealth.hiding = null
+    world.player.hidden = false
+  }
+  for (const guard of world.guards) {
+    if (guard.hiddenIn === null || !guard.ragdoll) continue
+    const hip = guard.ragdoll.points[JOINT.hip]
+    if (stillHides(world, guard.hiddenIn, hip.x, hip.y)) continue
+    guard.hiddenIn = null
+    wake(guard.ragdoll)
+  }
+}
+
+/** Is this hiding place whole and still where the person (or body) inside it was put? */
+function stillHides(world: World, id: number, x: number, feetY: number): boolean {
+  const prop = spotProp(world, id)
+  if (!prop || prop.broken) return false
+  const front = spotFeet(prop)
+  return Math.abs(front.x - x) < 1.5 && Math.abs(front.y - feetY) < 1.5
 }
 
 /** A guard who saw the player get in walks over to open it. */

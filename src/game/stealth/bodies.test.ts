@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Guard } from '../guards'
+import { breakProp } from '../hazards/reactions'
 import { addProp } from '../hazards/testWorld'
 import { addGuard, addLamp, addWall, arena, GROUND, putPlayer, run } from '../security/testArena'
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
-import { knockOutCold } from './bodies'
+import { bodyInOpen, knockOutCold } from './bodies'
 import { CARRY } from './tuning'
 
 /** A guard out cold at x 20 in the dark arena, the player standing over him. */
@@ -95,6 +96,18 @@ describe('hiding bodies', () => {
     run(world, 4)
     expect(world.stealth.found.size).toBe(0)
     expect(patrol.mode).toBe('calm')
+  })
+
+  it('a body in a locker that is blown apart spills out where anyone can see it', () => {
+    const { world, body } = overBody()
+    const locker = addProp(world, 'wallLocker', 21, GROUND)
+    press(world, 'grab')
+    press(world, 'interact')
+    expect(body.hiddenIn).not.toBeNull()
+    breakProp(world, locker)
+    run(world, 1 / 60)
+    expect(body.hiddenIn).toBeNull()
+    expect(bodyInOpen(world, body)).toBe(true)
   })
 
   it('searchers on a raised alert open the lockers near where they search and find the body', () => {
