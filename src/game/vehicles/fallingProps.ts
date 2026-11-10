@@ -118,6 +118,10 @@ function isSupported(grid: Grid, prop: PropState, row: number): boolean {
   return solid > 0 && solid >= columns.length * SUPPORT_SHARE
 }
 
+function touchesSolid(grid: Grid, prop: PropState, row: number): boolean {
+  return footprint(prop).some((x) => TILE_DEFS[tileAt(grid, x, row)].solid)
+}
+
 /** Moves one falling prop. Returns true when it has landed. */
 function dropProp(world: World, item: FallingProp, dt: number): boolean {
   const prop = propById(world, item.id)
@@ -125,7 +129,8 @@ function dropProp(world: World, item: FallingProp, dt: number): boolean {
   item.vy = Math.min(MAX_FALL_SPEED, item.vy + GRAVITY * dt)
   const next = prop.y + item.vy * dt
   for (let row = Math.floor(prop.y) + 1; row <= Math.floor(next); row += 1) {
-    if (row < world.grid.height && !isSupported(world.grid, prop, row)) continue
+    // Once falling it stops on anything solid under it, even a lump of rubble under one edge: going on would sink it in.
+    if (row < world.grid.height && !touchesSolid(world.grid, prop, row)) continue
     land(world, prop, Math.min(row, world.grid.height - 1), item.vy)
     return true
   }
