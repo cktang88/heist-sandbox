@@ -5,7 +5,11 @@ import type { Effects } from './effects'
 import type { Guard } from './guards'
 import { createComplex } from './complex/complex'
 import { createLevel } from './level'
-import type { DeviceSpawn, ElevatorShaft, Interior, Lamp, Prop, Room, Stairwell, TimeOfDay } from './site'
+import { createProps, type PropState } from './cover'
+import { createElevators, type ElevatorCar } from './elevators'
+import { createHazards, type HazardState } from './hazards/hazards'
+import { createSecurity, type SecurityState } from './security/dispatch'
+import type { DeviceSpawn, ElevatorShaft, Interior, Lamp, Room, Stairwell, TimeOfDay } from './site'
 import { mirrorLevel } from './mirror'
 import { createPlayer, type Player } from './player'
 import type { Projectile } from './projectiles'
@@ -51,7 +55,12 @@ export type World = {
   elevators: ElevatorShaft[]
   devices: Device[]
   lamps: Lamp[]
-  props: Prop[]
+  props: PropState[]
+  hazards: HazardState
+  security: SecurityState
+  elevatorCars: ElevatorCar[]
+  /** Lighting circuits whose fuse box has been cut. */
+  deadCircuits: Set<number>
   time: TimeState
   alarm: boolean
   shake: number
@@ -88,7 +97,11 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     elevators: level.elevators,
     devices: level.devices.map((device, id) => ({ ...device, id, disabled: false, hacked: false })),
     lamps: level.lamps,
-    props: level.props,
+    props: createProps(level.props),
+    hazards: createHazards(),
+    security: createSecurity(),
+    elevatorCars: createElevators(level.elevators),
+    deadCircuits: new Set(),
     time: createTime(),
     alarm: false,
     shake: 0,

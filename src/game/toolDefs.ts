@@ -1,8 +1,8 @@
-export type ToolId = 'pistol' | 'rifle' | 'shotgun' | 'sniper' | 'rocket' | 'c4' | 'drill' | 'drone'
+export type ToolId = 'pistol' | 'rifle' | 'shotgun' | 'sniper' | 'rocket' | 'c4' | 'drill' | 'drone' | 'smoke' | 'flash'
 
 export type ToolDef = { id: ToolId; name: string; ammo: number; cooldown: number; auto: boolean; quiet: boolean }
 
-/** The player's kit, in hotkey order (1-8). For guns, `ammo` is the spare rounds beyond the first magazine. */
+/** The player's kit, in hotkey order (1-9, then 0). For guns, `ammo` is the spare rounds beyond the first magazine. */
 export const TOOLS: readonly ToolDef[] = [
   { id: 'pistol', name: 'Pistol', ammo: 60, cooldown: 0.2, auto: false, quiet: true },
   { id: 'rifle', name: 'Rifle', ammo: 210, cooldown: 0.085, auto: true, quiet: false },
@@ -12,6 +12,8 @@ export const TOOLS: readonly ToolDef[] = [
   { id: 'c4', name: 'C4', ammo: 8, cooldown: 0.4, auto: false, quiet: true },
   { id: 'drill', name: 'Drill', ammo: Number.POSITIVE_INFINITY, cooldown: 0, auto: true, quiet: true },
   { id: 'drone', name: 'Drone', ammo: 3, cooldown: 0.5, auto: false, quiet: true },
+  { id: 'smoke', name: 'Smoke', ammo: 4, cooldown: 0.6, auto: false, quiet: true },
+  { id: 'flash', name: 'Flash', ammo: 4, cooldown: 0.6, auto: false, quiet: false },
 ]
 
 export function toolIndex(id: ToolId): number {

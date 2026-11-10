@@ -38,7 +38,8 @@ export function attachInput(canvas: HTMLCanvasElement, toolCount: number): Input
   return {
     read(camera) {
       let selectTool: number | null = null
-      for (let index = 0; index < toolCount; index += 1) if (pressed.has(`Digit${index + 1}`)) selectTool = index
+      // Keys 1-9 pick the first nine tools and 0 picks the tenth.
+      for (let index = 0; index < toolCount; index += 1) if (pressed.has(`Digit${(index + 1) % 10}`)) selectTool = index
       if (wheel !== 0) selectTool = (tool + wheel + toolCount) % toolCount
       if (selectTool !== null) tool = selectTool
       const scaleX = canvas.width / canvas.clientWidth

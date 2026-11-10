@@ -1,5 +1,9 @@
 import { stepCharges } from './charges'
 import { stepCollapse } from './collapse'
+import { stepDevices } from './devices/devices'
+import { stepElevators } from './elevators'
+import { stepHazards } from './hazards/hazards'
+import { stepSecurity } from './security/dispatch'
 import { stepDrone } from './drone'
 import { stepEffects } from './effects'
 import { raiseAlarm, updateGuard } from './guards'
@@ -37,6 +41,10 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   stepProjectiles(world, dt)
   stepCharges(world, input.detonatePressed, dt)
   stepCollapse(world, dt)
+  stepHazards(world, dt)
+  stepDevices(world, input, dt)
+  stepElevators(world, input, dt)
+  stepSecurity(world, dt)
   for (const guard of world.guards) updateGuard(world, guard, dt)
   if (!alarmBefore && world.alarm) raiseAlarm(world)
 

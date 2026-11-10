@@ -82,7 +82,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     draw(world, view, aim) {
       if (grid !== world.grid || !stage) buildStage(world)
       stage!.level.refresh()
-      stage!.actors.update(world, aim)
+      stage!.actors.update(world, aim, view)
       lights.update(world, view)
 
       const jolt = world.shake * world.shake * MAX_SHAKE_TILES

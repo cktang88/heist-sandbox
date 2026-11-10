@@ -151,7 +151,7 @@ export function muzzleOf(body: Skeleton, held: ToolId): Vec {
   return { x: body.grip.x + Math.cos(body.gunAngle) * length, y: body.grip.y + Math.sin(body.gunAngle) * length }
 }
 
-const GUN_LENGTH: Record<ToolId, number> = { pistol: 0.6, rifle: 0.95, shotgun: 0.9, sniper: 1.3, rocket: 0.85, c4: 0.2, drill: 0.6, drone: 0.2 }
+const GUN_LENGTH: Record<ToolId, number> = { pistol: 0.6, rifle: 0.95, shotgun: 0.9, sniper: 1.3, rocket: 0.85, c4: 0.2, drill: 0.6, drone: 0.2, smoke: 0.2, flash: 0.2 }
 
 function drawGun(c: Ctx, grip: Vec, angle: number, facing: number, held: ToolId): void {
   c.save()
@@ -203,6 +203,10 @@ function drawGun(c: Ctx, grip: Vec, angle: number, facing: number, held: ToolId)
     case 'c4':
       part(0, -0.08, 0.26, 0.18, '#b9b08c')
       part(0.08, -0.03, 0.1, 0.07, '#c4352b')
+      break
+    case 'smoke':
+    case 'flash':
+      part(0, -0.08, 0.14, 0.2, '#48553f')
       break
     case 'drone':
       part(-0.02, -0.07, 0.26, 0.15, '#252a33')

@@ -1,5 +1,5 @@
 import type { Lamp } from '../game/level'
-import { isSolidAt } from '../game/tiles'
+import { lampIsLit } from '../game/light'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
 import type { Camera } from './camera'
@@ -28,9 +28,7 @@ export type Lighting = {
   drawGlows(context: CanvasRenderingContext2D, world: World): void
 }
 
-export function lampIsLit(world: World, lamp: Lamp): boolean {
-  return !lamp.hung || isSolidAt(world.grid, lamp.x, lamp.y - 0.7)
-}
+export { lampIsLit } from '../game/light'
 
 export function createLighting(): Lighting {
   const map = document.createElement('canvas')

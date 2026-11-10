@@ -1,6 +1,6 @@
 import { Group, Mesh } from 'three'
 import type { Guard } from '../game/guards'
-import { isSolidAt, type TileKind } from '../game/tiles'
+import type { TileKind } from '../game/tiles'
 import { TOOLS } from '../game/toolDefs'
 import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
@@ -10,10 +10,20 @@ import { createEffects3d } from './fx3d'
 import type { SurfaceMaterials, SurfaceName } from './levelMesh'
 import { lampIsLit } from './lights'
 import { Figure } from './people3d'
-import { BOX, buildDrone, buildLamp, buildLoot, buildParachute, buildPickup, buildProp, buildVan, CHARGE_LIGHT, CHARGE_MATERIAL, LAMP_OFF, LAMP_ON } from './props3d'
+import { BOX, buildDrone, buildLamp, buildLoot, buildParachute, buildPickup, buildVan, CHARGE_LIGHT, CHARGE_MATERIAL, LAMP_OFF, LAMP_ON } from './props3d'
+import { createDevicesLayer } from './devicesLayer'
+import { createFixturesLayer } from './fixturesLayer'
+import { createHazardsLayer } from './hazardsLayer'
+import { DRAW_DISTANCE, type Layer } from './layer'
+import { createPropsLayer } from './propsLayer'
+import { createRoomsLayer } from './roomsLayer'
+import { createStructureLayer } from './structureLayer'
 
 /** Everything that moves or can be picked up: people, props, shots and effects. */
-export type Actors = { group: Group; update(world: World, aim: Vec): void; dispose(): void }
+export type Actors = { group: Group; update(world: World, aim: Vec, view: Vec): void; dispose(): void }
+
+/** People on a staircase are drawn further back, on the stairs behind the walking lane. */
+const STAIR_LANE = -1.5
 
 const FALLING_SURFACE: Partial<Record<TileKind, SurfaceName>> = {
   dirt: 'dirt', brick: 'brick', concrete: 'concrete', steel: 'steel', wood: 'wood', door: 'door', glass: 'glass',
@@ -23,18 +33,15 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
   const group = new Group()
   const effects = createEffects3d()
   group.add(effects.group)
+  // Each layer owns one slice of the scene. They are independent, so they can be worked on separately.
+  const layers: Layer[] = [createRoomsLayer, createPropsLayer, createFixturesLayer, createDevicesLayer, createStructureLayer, createHazardsLayer].map((create) => create(world, materials))
+  for (const layer of layers) group.add(layer.group)
 
   const player = new Figure('operative')
   const parachute = buildParachute()
   group.add(player.group, parachute)
   const guards = new Map<Guard, Figure>()
 
-  const props = world.props.map((prop) => {
-    const model = buildProp(prop.kind, materials)
-    model.position.set(prop.x + 0.5, -prop.y, 0)
-    group.add(model)
-    return { prop, model }
-  })
   const lamps = world.lamps.map((lamp) => {
     const built = buildLamp(lamp)
     built.group.position.set(lamp.x, -lamp.y, 0)
@@ -63,7 +70,8 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
 
   return {
     group,
-    update(now, aim) {
+    update(now, aim, view) {
+      const near = (x: number, y: number) => Math.abs(x - view.x) < DRAW_DISTANCE && Math.abs(y - view.y) < DRAW_DISTANCE * 0.62
       const hero = now.player
       const feet = { x: hero.x + hero.w / 2, y: hero.y + hero.h }
       const hand = handOf(now)
@@ -74,16 +82,23 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       }
       const body = poseHuman(motion)
       player.pose(body, hero.facing, now.drone ? 'drone' : TOOLS[hero.tool].id)
+      player.group.position.z = hero.stairs ? STAIR_LANE : 0
       parachute.visible = hero.chute
       parachute.position.set(body.shoulder.x, -body.shoulder.y, 0)
 
       for (const guard of now.guards) {
         let figure = guards.get(guard)
+        // Only people near the view get a body; a big site has far more guards than fit on screen.
+        if (!near(guard.x, guard.y)) {
+          if (figure) figure.group.visible = false
+          continue
+        }
         if (!figure) {
           figure = new Figure(guard.armored ? 'responder' : 'guard')
           guards.set(guard, figure)
           group.add(figure.group)
         }
+        figure.group.visible = true
         if (guard.state === 'dead') {
           if (guard.ragdoll) figure.poseRagdoll(guard.ragdoll)
           continue
@@ -96,9 +111,9 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
           mode: guard.climbing ? 'ladder' : 'normal',
           aim: guard.state === 'alert' ? Math.atan2(target.y - (guard.y + 0.5), target.x - base.x) : relaxed, kick: guard.kick,
         }), guard.facing, guard.armored ? 'rifle' : 'pistol', guard.hitFlash > 0)
+        figure.group.position.z = guard.stairs ? STAIR_LANE : 0
       }
 
-      for (const { prop, model } of props) model.visible = isSolidAt(now.grid, prop.x, prop.y)
       for (const { lamp, bulb } of lamps) bulb.material = lampIsLit(now, lamp) ? LAMP_ON : LAMP_OFF
 
       loot.visible = !now.loot.taken
@@ -137,7 +152,9 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       })
       for (let index = now.falling.length; index < falling.length; index += 1) falling[index].visible = false
 
-      effects.update(now, Math.max(0, now.clock - lastClock))
+      const dt = Math.max(0, now.clock - lastClock)
+      effects.update(now, dt)
+      for (const layer of layers) layer.update(now, { dt, view, aim })
       lastClock = now.clock
     },
     dispose() {},

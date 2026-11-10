@@ -1,5 +1,7 @@
 import { burst } from './effects'
 import { openDoor } from './interact'
+import { sightBlockedByProps } from './cover'
+import { smokeBetween } from './hazards/hazards'
 import { nextHop } from './nav'
 import type { GuardRole } from './site'
 import { climbStairs, type OnStairs } from './stairs'
@@ -120,11 +122,14 @@ export function canSee(world: World, guard: Guard, target: Vec): boolean {
   const dy = target.y - eye.y
   if (Math.hypot(dx, dy) > (alert || world.alarm ? ALERT_SIGHT_RANGE : SIGHT_RANGE)) return false
   if (!alert && (dx * guard.facing <= 0 || Math.abs(dy) > Math.abs(dx) * 0.8 + 0.8)) return false
+  if (guard.blindSeconds > 0 || smokeBetween(world, eye, target) > 0.6 || sightBlockedByProps(world, eye, target)) return false
   return hasLineOfSight(world.grid, eye, target)
 }
 
 export function updateGuard(world: World, guard: Guard, dt: number): void {
   guard.kick *= Math.exp(-14 * dt)
+  guard.blindSeconds = Math.max(0, guard.blindSeconds - dt)
+  guard.deafSeconds = Math.max(0, guard.deafSeconds - dt)
   guard.hitFlash = Math.max(0, guard.hitFlash - dt)
   if (guard.state === 'dead') {
     guard.deadSeconds += dt

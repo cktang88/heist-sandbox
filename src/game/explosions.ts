@@ -1,6 +1,7 @@
 import { hurtTile } from './destruction'
 import { burst, flash } from './effects'
 import { hurtGuard } from './guards'
+import { igniteAt } from './hazards/hazards'
 import { emitNoise } from './noise'
 import { pushRagdoll } from './ragdoll'
 import { playSound } from './sounds'
@@ -55,6 +56,7 @@ export function explode(world: World, at: Vec, blast: Blast): void {
   burst(world.effects, world.rng, at, 14, '#55504a', 9)
   world.shake = Math.min(1, world.shake + blast.radius * 0.2)
   emitNoise(world, at, 45)
+  igniteAt(world, at, 1)
   playSound(world, 'explosion', at)
   if (killed > 0) triggerSlowmo(world.time, 0.45, 0.18)
 }

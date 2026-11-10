@@ -1,6 +1,5 @@
 import { AdditiveBlending, BufferGeometry, CanvasTexture, ConeGeometry, Float32BufferAttribute, DirectionalLight, DoubleSide, Group, HemisphereLight, Mesh, MeshBasicMaterial, Object3D, PointLight, SpotLight } from 'three'
-import type { Lamp } from '../game/level'
-import { isSolidAt } from '../game/tiles'
+import { lampIsLit } from '../game/light'
 import { centerOf, type Vec } from '../game/types'
 import { visionCone } from '../render/cone'
 import type { World } from '../game/world'
@@ -24,9 +23,7 @@ const FLASH_COLOR = 0xffb060
 
 export type LightRig = { group: Group; update(world: World, view: Vec): void }
 
-export function lampIsLit(world: World, lamp: Lamp): boolean {
-  return !lamp.hung || isSolidAt(world.grid, lamp.x, lamp.y - 0.7)
-}
+export { lampIsLit } from '../game/light'
 
 function spot(color: number, angle: number, distance: number, shadowSize: number): SpotLight {
   // A gentle falloff keeps a small room evenly lit instead of scorching whatever stands under the lamp.

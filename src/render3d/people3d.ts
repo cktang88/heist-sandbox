@@ -97,6 +97,10 @@ function buildGun(held: ToolId): Group {
     case 'drone':
       add(BLACK_KIT, -0.02, -0.07, 0.26, 0.15, 0.1)
       break
+    case 'smoke':
+    case 'flash':
+      add(held === 'smoke' ? OLIVE : GUN_METAL, 0, -0.07, 0.14, 0.2, 0.14)
+      break
   }
   return gun
 }

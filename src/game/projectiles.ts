@@ -1,3 +1,4 @@
+import { shotHitsProp } from './cover'
 import { hurtTile } from './destruction'
 import { burst, flash } from './effects'
 import { explode, ROCKET_BLAST } from './explosions'
@@ -72,6 +73,8 @@ function hitSomething(world: World, projectile: Projectile): boolean {
     }
     return true
   }
+
+  if (shotHitsProp(world, projectile, projectile.damage)) return true
 
   if (!projectile.fromPlayer) {
     if (contains(world.player, projectile)) {

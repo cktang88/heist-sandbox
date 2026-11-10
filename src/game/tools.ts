@@ -3,6 +3,7 @@ import { hurtTile } from './destruction'
 import { launchDrone } from './drone'
 import { burst, ejectShell } from './effects'
 import { GUNS, MAX_BLOOM } from './guns'
+import { throwGrenade } from './hazards/hazards'
 import type { Input } from './input'
 import { emitNoise } from './noise'
 import { fireShot } from './projectiles'
@@ -45,6 +46,7 @@ export function useTool(world: World, input: Input, dt: number): void {
     if (tool.id === 'c4') throwCharge(world, hand, aim)
     else if (tool.id === 'drill') drill(world, hand, aim, dt)
     else if (tool.id === 'drone') launchDrone(world)
+    else if (tool.id === 'smoke' || tool.id === 'flash') throwGrenade(world, tool.id, hand, aim)
     return
   }
 
