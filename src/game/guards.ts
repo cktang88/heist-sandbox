@@ -289,7 +289,10 @@ export function raiseAlarm(world: World): void {
     guard.awareness = Math.max(guard.awareness, 0.7)
   }
   for (let index = 0; index < RESPONDERS; index += 1) {
-    const responder = createGuard({ x: world.grid.width - 4 - index * 2, y: GROUND, facing: -1 }, true)
+    // Backup drives in from the end of the street opposite the getaway van.
+    const fromRight = world.extraction.x < world.grid.width / 2
+    const x = fromRight ? world.grid.width - 4 - index * 2 : 3 + index * 2
+    const responder = createGuard({ x, y: GROUND, facing: fromRight ? -1 : 1 }, true)
     becomeAlert(responder, at)
     world.guards.push(responder)
   }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createLevel, GROUND } from './level'
+import { mirrorLevel } from './mirror'
 import { isSolidAt, tileAt } from './tiles'
 
 describe('createLevel', () => {
@@ -17,6 +18,16 @@ describe('createLevel', () => {
     expect(tileAt(grid, 70, GROUND - 1)).toBe('door')
     expect(tileAt(grid, 20, GROUND)).toBe('ladder')
     expect(tileAt(grid, 88, 48)).toBe('door')
+  })
+
+  it('keeps everything on solid footing when mirrored', () => {
+    const level = mirrorLevel(createLevel(5))
+    for (const spot of [...level.guards, level.loot, ...level.pickups]) {
+      expect(isSolidAt(level.grid, spot.x, spot.y)).toBe(true)
+      expect(isSolidAt(level.grid, spot.x, spot.y - 1)).toBe(false)
+    }
+    expect(tileAt(level.grid, 149 - 70, GROUND - 1)).toBe('door')
+    expect(level.extraction.x).toBeGreaterThan(130)
   })
 
   it('is the same for the same seed', () => {
