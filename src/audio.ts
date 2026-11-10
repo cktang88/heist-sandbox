@@ -109,6 +109,12 @@ export function createAudio(): GameAudio {
   }
   window.addEventListener('pointerdown', unlock)
   window.addEventListener('keydown', unlock)
+  // A hidden tab stops drawing frames, so the game stands still; without this the alarm siren droned on in the background.
+  document.addEventListener('visibilitychange', () => {
+    if (!context) return
+    if (document.hidden) void context.suspend()
+    else void context.resume()
+  })
 
   /** Where a sound goes: straight to the mix, or through a dull filter when a wall is in the way. */
   function outlet(muffled: boolean): AudioNode {
