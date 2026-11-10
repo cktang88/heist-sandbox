@@ -18,6 +18,11 @@ const BAND: Partial<Record<PropKind, Band>> = {
 }
 
 const MIN_WALL_ITEMS = 4
+/**
+ * Highest an eye-level item's middle sits above the floor: a notice or whiteboard stays within reading reach (2 tiles,
+ * intel/sources.ts) of a standing player's middle, 0.8 above his feet.
+ */
+const EYE_MAX = 2.75
 /** Floor and wall pieces together that keep even a small room from looking bare. */
 const MIN_DRESSING = 6
 const SERVICE_RUNS: readonly PropKind[] = ['conduitRun', 'ventGrille', 'roomNumber', 'pipeRun', 'exitSign', 'fireExtinguisher', 'wallClock']
@@ -33,7 +38,7 @@ function bandTop(rng: Rng, room: Room, kind: PropKind, eyeLine: number): number 
     case 'high': return room.y + between(rng, 0.35, 0.9)
     case 'low': return room.floorY - 1.3 - h / 2 + between(rng, -0.1, 0.1)
     case 'floor': return room.floorY - h
-    case 'eye': return eyeLine - h / 2 + between(rng, -0.12, 0.12)
+    case 'eye': return Math.max(eyeLine - h / 2 + between(rng, -0.12, 0.12), room.floorY - EYE_MAX - h / 2)
   }
 }
 
