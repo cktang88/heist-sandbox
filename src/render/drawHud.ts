@@ -1,3 +1,4 @@
+import { revealedRooms } from '../game/devices/devices'
 import { GUNS } from '../game/guns'
 import { lightLevelAt } from '../game/light'
 import { MAX_FOCUS_SECONDS } from '../game/player'
@@ -95,7 +96,7 @@ function drawSituation(context: CanvasRenderingContext2D, world: World, unit: nu
   const level = Math.max(0, Math.min(4, world.security.level))
   const alert = ALERT_LEVELS[level]
   const right = width - unit
-  const goal = world.player.hasLoot ? 'Get back to the van' : 'Steal the gold case from the vault'
+  const goal = objectiveLine(world)
   const place = locationLine(world)
   const textWidth = Math.max(measure(context, goal, unit * 0.85), measure(context, place, unit * 0.75), unit * 15)
   panel(context, right - textWidth - unit * 0.5, unit * 0.5, textWidth + unit, unit * 5.4)
@@ -123,11 +124,23 @@ function roomAt(world: World, at: Vec): Room | null {
   return lastRoom
 }
 
+function storeyName(storey: number): string {
+  return storey < 0 ? `BASEMENT ${-storey}` : storey === 0 ? 'GROUND FLOOR' : `FLOOR ${storey}`
+}
+
 function locationLine(world: World): string {
   const room = roomAt(world, centerOf(world.player))
   if (!room) return world.player.y > world.groundY ? 'UNDERGROUND' : 'OUTSIDE'
-  const floor = room.storey < 0 ? `BASEMENT ${-room.storey}` : room.storey === 0 ? 'GROUND FLOOR' : `FLOOR ${room.storey}`
-  return `${room.building.toUpperCase()}  ·  ${floor}  ·  ${ROOM_LABELS[room.kind].toUpperCase()}`
+  return `${room.building.toUpperCase()}  ·  ${storeyName(room.storey)}  ·  ${ROOM_LABELS[room.kind].toUpperCase()}`
+}
+
+/** The objective, naming where the vault is once a terminal has shown it. */
+export function objectiveLine(world: World): string {
+  if (world.player.hasLoot) return 'Get back to the van'
+  const revealed = revealedRooms(world)
+  const vault = revealed.size > 0 ? world.rooms.find((room) => room.kind === 'vault' && revealed.has(room.id)) : undefined
+  if (!vault) return 'Steal the gold case from the vault'
+  return `Steal the gold case: vault in ${vault.building}, ${storeyName(vault.storey).toLowerCase()}`
 }
 
 /** The action available right now, near the bottom centre, with its key picked out. */
