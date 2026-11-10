@@ -1,3 +1,4 @@
+import { footstepMasking } from '../director/masking'
 import { emitNoise } from '../noise'
 import { playSound } from '../sounds'
 import type { Body, Vec } from '../types'
@@ -49,7 +50,8 @@ export function trackLanding(feet: Feet, fallSpeed: number): void {
 /** Lets guards hear, and the speakers play, what the player's feet did since the last call. */
 export function emitMovementNoise(world: World): void {
   for (const footfall of world.player.footfalls) {
-    emitNoise(world, footfall, footfall.radius)
+    // Rain and loud music swallow part of a footstep.
+    emitNoise(world, footfall, footfall.radius * (1 - footstepMasking(world, footfall)))
     playSound(world, footfall.hard ? 'impact' : 'footstep', footfall)
   }
   world.player.footfalls.length = 0
