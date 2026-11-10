@@ -2,6 +2,7 @@ import { HIDES } from '../furnish/hides'
 import { PLACE_ROOMS } from '../intel/places'
 import { createLevel } from '../level'
 import { mirrorLevel } from '../mirror'
+import { boxHitsSolid } from '../physics'
 import { propSpec, type PropKind } from '../propCatalog'
 import type { Level, Room } from '../site'
 import { landingX } from '../stairs'
@@ -163,7 +164,14 @@ export function fixtureProblems(level: Level): string[] {
       if (typeof target !== 'object' || tileAt(grid, target.x, target.y) !== 'door') problems.push(`${where} guards no door`)
     }
   }
-  for (const pickup of level.pickups) if (!standable(grid, pickup.x, pickup.y)) problems.push(`${pickup.kind} at ${pickup.x},${pickup.y} not on a floor`)
+  const supplies = new Set<string>()
+  for (const pickup of level.pickups) {
+    const where = `${pickup.kind} at ${pickup.x},${pickup.y}`
+    if (!standable(grid, pickup.x, pickup.y)) problems.push(`${where} not on a floor`)
+    if (hatchAt(grid, pickup.x, pickup.y)) problems.push(`${where} lies on a hatch`)
+    if (supplies.has(`${pickup.x}:${pickup.y}`)) problems.push(`${where} on top of another`)
+    supplies.add(`${pickup.x}:${pickup.y}`)
+  }
   const posts = new Set<string>()
   for (const guard of level.guards) {
     const where = `${guard.role ?? 'guard'} at ${guard.x},${guard.y}`
@@ -398,8 +406,23 @@ export function caseRoomProblems(level: Level): string[] {
     if (!vanFloor(level).some((spot) => reachedSpot(level, back, spot.x, spot.y))) problems.push(`${where} has no way back to the van`)
     const ways = quietWaysInto(level.grid, level.devices, room)
     if (ways.length < 2) problems.push(`${where} has only ${ways.join(', ') || 'no way'} in`)
+    const spot = caseSpot(level, room)
+    if (spot === null) problems.push(`${where} has no floor for the case`)
+    else if (hatchAt(level.grid, spot, room.floorY)) problems.push(`${where} would rest the case on a hatch`)
   }
   return problems
+}
+
+/** The column the case would rest on in a room, found as intel/places.ts finds it: nearest the middle, floor under it. */
+function caseSpot(level: Level, room: Room): number | null {
+  const middle = Math.floor(room.x + room.w / 2)
+  for (let offset = 0; offset < room.w; offset += 1) {
+    for (const x of [middle + offset, middle - offset]) {
+      if (x < room.x || x + 1 > room.x + room.w) continue
+      if (!boxHitsSolid(level.grid, { x: x + 0.1, y: room.floorY - 0.81, w: 0.8, h: 0.8 }) && solid(level.grid, x, room.floorY)) return x
+    }
+  }
+  return null
 }
 
 /** The sewer joins up: down a street manhole from the van, along to the tower's basement hatch and up into the tower. */

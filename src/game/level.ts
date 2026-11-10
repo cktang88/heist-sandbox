@@ -31,7 +31,7 @@ export function createLevel(seed: number): Level {
   fillTiles(grid, 0, GROUND, WORLD_WIDTH - 1, WORLD_HEIGHT - 3, 'dirt')
   fillTiles(grid, 0, WORLD_HEIGHT - 2, WORLD_WIDTH - 1, WORLD_HEIGHT - 1, 'bedrock')
 
-  buildTower(grid, rng, storeys, guards, lamps, props)
+  const roofHatch = buildTower(grid, rng, storeys, guards, lamps, props)
   buildBasement(grid)
   buildSewer(grid)
 
@@ -57,7 +57,7 @@ export function createLevel(seed: number): Level {
       { x: 86, y: BASEMENT.bottom + 1, kind: 'medkit' },
       { x: 92, y: BASEMENT.bottom + 1, kind: 'ammo' },
       { x: 40, y: SEWER.bottom + 1, kind: 'ammo' },
-      { x: randomInt(rng, BUILDING.left + 3, BUILDING.right - 3), y: roof, kind: 'medkit' },
+      { x: offHatch(randomInt(rng, BUILDING.left + 3, BUILDING.right - 3), roofHatch), y: roof, kind: 'medkit' },
     ],
     interiors: [
       { kind: 'room', x: BUILDING.left, y: roof, w: BUILDING.right - BUILDING.left + 1, h: GROUND - roof },
@@ -69,7 +69,13 @@ export function createLevel(seed: number): Level {
   }
 }
 
-function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[], lamps: Lamp[], props: Prop[]): void {
+/** A spot on the roof beside the hatch rather than on its lid. */
+function offHatch(x: number, hatch: number): number {
+  return x !== hatch ? x : x < BUILDING.right - 5 ? x + 2 : x - 2
+}
+
+/** Raises the building, returning the column of the hatch in its roof. */
+function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[], lamps: Lamp[], props: Prop[]): number {
   const { left, right } = BUILDING
   const roof = GROUND - storeys * STOREY
   fillTiles(grid, left, roof, right, GROUND - 1, 'air')
@@ -125,6 +131,7 @@ function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[],
   const skylight = randomInt(rng, left + 6, right - 10)
   fillTiles(grid, skylight, roof, skylight + 3, roof, 'glass')
   guards.push({ x: Math.abs(holeX - (right - 6)) > 1 ? right - 6 : right - 9, y: roof, facing: -1 })
+  return holeX
 }
 
 /** Picks a column that is not a wall, a ladder, or a hole in the floor. */
