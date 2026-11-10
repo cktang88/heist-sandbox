@@ -1,7 +1,7 @@
 import { createAudio } from './audio'
 import type { Input } from './game/input'
 import { stepWorld } from './game/step'
-import { HOTKEYS, TOOLS } from './game/toolDefs'
+import { HOTKEYS } from './game/toolDefs'
 import { centerOf } from './game/types'
 import { createWorld, type SiteKind, type World } from './game/world'
 import { attachInput } from './inputDevice'
