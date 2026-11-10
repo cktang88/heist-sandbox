@@ -42,6 +42,7 @@ function isQuiet(hazards: HazardState): boolean {
 
 export function stepHazards(world: World, dt: number): void {
   const hazards = world.hazards
+  wearOff(world.player, dt)
   if (isQuiet(hazards)) {
     hazards.fireClock = 0
     hazards.smokeClock = 0
@@ -56,6 +57,12 @@ export function stepHazards(world: World, dt: number): void {
   hazards.fireClock = runTicks(hazards.fireClock + dt, FIRE_TICK, () => fireTick(world))
   hazards.smokeClock = runTicks(hazards.smokeClock + dt, SMOKE_TICK, () => stepSmoke(world, SMOKE_TICK))
   hazards.harmClock = runTicks(hazards.harmClock + dt, HARM_TICK, () => harmPeople(world, HARM_TICK))
+}
+
+/** The player's flash and foam blindness and deafness fade with time (guards.ts does the same for guards). */
+function wearOff(player: World['player'], dt: number): void {
+  player.blindSeconds = Math.max(0, player.blindSeconds - dt)
+  player.deafSeconds = Math.max(0, player.deafSeconds - dt)
 }
 
 function runTicks(clock: number, tick: number, run: () => void): number {

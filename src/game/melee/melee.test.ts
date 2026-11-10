@@ -2,7 +2,8 @@ import { fireShot } from '../projectiles'
 import { describe, expect, it } from 'vitest'
 import type { Guard } from '../guards'
 import { addProp } from '../hazards/testWorld'
-import { propCenter } from '../hazards/props'
+import { propBox, propCenter } from '../hazards/props'
+import { boxHitsSolid } from '../physics'
 import { enterCombat, colleagueInLine } from '../security/combat'
 import { eyeOf } from '../security/model'
 import { addGuard, addWall, arena, GROUND, putPlayer, run } from '../security/testArena'
@@ -252,5 +253,22 @@ describe('throwing', () => {
     putPlayer(world, 10.5)
     run(world, 1 / 60, { throwPressed: true })
     expect([...world.physProps.loose.values()].some((loose) => loose.flying)).toBe(false)
+  })
+})
+
+describe('throwing against a wall', () => {
+  it.each([1, -1])('a chair thrown point-blank into the wall the player leans on (side %i) drops to the floor, not into the wall', (side) => {
+    const world = arena()
+    const wallX = 20
+    addWall(world, wallX)
+    // Leaning on the wall: the chair, wider than the player, sticks out into it once it is in his hands.
+    const playerX = side > 0 ? wallX - 0.351 : wallX + 1.351
+    const chair = addProp(world, 'officeChair', Math.floor(playerX - side * 1.2), GROUND)
+    putPlayer(world, playerX)
+    run(world, 1 / 60, { throwPressed: true, aim: { x: playerX + side * 5, y: world.player.y + 0.5 } })
+    run(world, 2)
+    const box = propBox(chair)
+    expect(boxHitsSolid(world.grid, { x: box.x + 0.01, y: box.y + 0.01, w: box.w - 0.02, h: box.h - 0.02 })).toBe(false)
+    expect(chair.y).toBe(GROUND)
   })
 })
