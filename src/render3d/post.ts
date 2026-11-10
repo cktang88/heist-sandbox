@@ -11,64 +11,14 @@ import { LOOKS } from './core/looks'
 import type { QualityLevel } from './core/quality'
 import { TILES_TALL, CAMERA_DISTANCE, type CameraRig } from './style/cameraRig'
 import { EdgePass } from './style/edges'
+import { gradeShader } from './style/grade'
+import { instrumentPasses, labelPass } from './core/passTimings'
 import { LayeredRenderPass } from './style/layeredRenderPass'
 import { PaintPass } from './style/paintFinish'
 import { createPixelPasses, type PixelPasses } from './style/pixelFinish'
 import type { PixelGrid, Snap } from './style/pixelGrid'
 import { createSketchPass, type SketchPass } from './style/sketchFinish'
 import type { Style } from './style/styles'
-
-/**
- * Colour grade and lens, on the finished, tone-mapped frame (display values 0..1):
- * split toning (teal shadows, warm highlights), lift, contrast and saturation, then a soft dark edge,
- * slight colour fringing toward the corners, film grain, a red pulse on alarm and a cool cast in slow motion.
- * It runs after edge smoothing, so the grain stays crisp. `lens` scales fringing and grain: art styles with
- * their own surface texture (pixels, pencil, paint) turn them off.
- */
-const GradeShader = {
-  uniforms: {
-    tDiffuse: { value: null },
-    time: { value: 0 },
-    slow: { value: 0 },
-    alarm: { value: 0 },
-    lens: { value: 1 },
-    shadowTint: { value: new Vector3(1, 1, 1) },
-    highlightTint: { value: new Vector3(1, 1, 1) },
-    lift: { value: new Vector3() },
-    saturation: { value: 1 },
-    contrast: { value: 1 },
-    vignette: { value: 0.5 },
-  },
-  vertexShader: /* glsl */ `
-    varying vec2 vUv;
-    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse; uniform float time; uniform float slow; uniform float alarm; uniform float lens;
-    uniform vec3 shadowTint; uniform vec3 highlightTint; uniform vec3 lift;
-    uniform float saturation; uniform float contrast; uniform float vignette;
-    varying vec2 vUv;
-    float grain(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233)) + time * 43.0) * 43758.5453); }
-    float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
-    void main() {
-      vec2 fromCentre = vUv - 0.5;
-      float fringe = dot(fromCentre, fromCentre) * (0.004 + slow * 0.012) * lens;
-      vec3 colour = vec3(
-        texture2D(tDiffuse, vUv + fromCentre * fringe).r,
-        texture2D(tDiffuse, vUv).g,
-        texture2D(tDiffuse, vUv - fromCentre * fringe).b);
-      float grey = luma(colour);
-      colour *= mix(shadowTint, highlightTint, smoothstep(0.05, 0.75, grey));
-      colour += lift * (1.0 - grey) * (1.0 - grey);
-      colour = (colour - 0.42) * contrast + 0.42;
-      colour = mix(vec3(luma(colour)), colour, saturation);
-      colour += vec3(0.07, -0.01, -0.015) * alarm * (1.0 - grey);
-      colour *= 1.0 - smoothstep(0.35, 0.95, length(fromCentre)) * vignette;
-      grey = luma(colour);
-      colour = mix(colour, vec3(grey) * vec3(0.85, 0.97, 1.15), slow * 0.28);
-      colour += (grain(vUv * 900.0) - 0.5) * 0.022 * (0.35 + grey) * lens;
-      gl_FragColor = vec4(clamp(colour, 0.0, 1.0), 1.0);
-    }`,
-}
 
 /** Ambient occlusion reach in world units (about 1.2 m): soft darkening into room corners, under desks and along ceilings. */
 const AO_RADIUS = 1.1
@@ -104,12 +54,11 @@ type Finisher = {
   dispose(): void
 }
 
-function addFinish(composer: EffectComposer, style: Style, edges: EdgePass | null): Finisher {
+function addFinish(composer: EffectComposer, style: Style, edges: EdgePass | null, grade: ShaderPass): Finisher {
   const finish = style.finish
   if (finish.kind === 'pixel' && edges) {
-    const passes: PixelPasses = createPixelPasses(finish, edges.target.texture)
-    composer.addPass(passes.quantise)
-    composer.addPass(passes.upscale)
+    const passes: PixelPasses = createPixelPasses(finish, edges.target.texture, grade.material.uniforms as Parameters<typeof createPixelPasses>[2])
+    composer.addPass(passes.pass)
     return {
       setSize(_w, _h, screenWidth, screenHeight, grid) {
         if (grid) passes.setGrid(grid, screenWidth, screenHeight)
@@ -140,7 +89,9 @@ function addFinish(composer: EffectComposer, style: Style, edges: EdgePass | nul
 /**
  * Pass order: scene (HDR, half float, optional multisampling) -> line finding (styled looks) -> ambient
  * occlusion -> bloom -> tone mapping and sRGB (OutputPass) -> SMAA when not multisampling (smooth looks only)
- * -> grade -> the style's finish (palette and upscale, pencil, or paint).
+ * -> grade -> the style's finish (pencil or paint). The pixel looks end in one pass instead of the last three
+ * (tone mapping, grade, palette and the upscale to the screen; see pixelFinish.ts), and everything before it runs
+ * on the art pixels. With `?debug=1` each pass is timed (see core/passTimings.ts).
  */
 export function createPost(renderer: WebGLRenderer, scene: Scene, cameras: CameraRig, style: Style): PostChain {
   const pixel = style.finish.kind === 'pixel'
@@ -166,14 +117,15 @@ export function createPost(renderer: WebGLRenderer, scene: Scene, cameras: Camer
 
   const bloom = new UnrealBloomPass(new Vector2(256, 256), 0.5, 0.6, 1.1)
   composer.addPass(bloom)
-  composer.addPass(new OutputPass())
+  if (!pixel) composer.addPass(new OutputPass())
   // Edge smoothing only where edges are meant to be smooth: pixels are hard by design and paint smooths its own.
   const smaa = style.finish.kind === 'real' || style.finish.kind === 'sketch' ? new SMAAPass() : null
   if (smaa) composer.addPass(smaa)
-  const grade = new ShaderPass(GradeShader)
+  const grade = labelPass(new ShaderPass(gradeShader()), 'Grade')
   grade.uniforms.lens.value = style.lens
-  composer.addPass(grade)
-  const finisher = addFinish(composer, style, edges)
+  if (!pixel) composer.addPass(grade)
+  const finisher = addFinish(composer, style, edges, grade)
+  instrumentPasses(composer, style.name)
 
   let size = { width: 1, height: 1, screenWidth: 1, screenHeight: 1 }
   let grid: PixelGrid | null = null
