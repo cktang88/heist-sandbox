@@ -91,7 +91,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     const sky = createSkyShading(world.grid)
     const level = createLevelMesh(world.grid, world.interiors, world.groundY, materials)
     const actors = createActors(world, materials)
-    group.add(level.group, actors.group, createSky(world.grid.width, world.groundY))
+    group.add(level.group, actors.group, createSky(world.grid.width, world.groundY, world.timeOfDay))
     // The building is drawn cut open, so invisible sheets stand in for its missing front and keep moonlight out.
     const blocker = new MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: DoubleSide })
     for (const area of world.interiors) {
