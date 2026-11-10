@@ -1,4 +1,5 @@
 import type { Input } from './game/input'
+import { wheelSelection } from './game/toolDefs'
 import { screenToWorld, type Camera } from './render/camera'
 
 /** Thin adapter: turns keyboard and mouse events into the Input the game core understands. */
@@ -9,7 +10,6 @@ export function attachInput(canvas: HTMLCanvasElement, toolCount: number): Input
   const pressed = new Set<string>()
   const mouse = { x: 0, y: 0, down: false, pressed: false }
   let wheel = 0
-  let tool = 0
   let restart = false
 
   window.addEventListener('keydown', (event) => {
@@ -42,8 +42,7 @@ export function attachInput(canvas: HTMLCanvasElement, toolCount: number): Input
       let selectTool: number | null = null
       // Keys 1-9 pick the first nine tools and 0 picks the tenth.
       for (let index = 0; index < toolCount; index += 1) if (pressed.has(`Digit${(index + 1) % 10}`)) selectTool = index
-      if (wheel !== 0) selectTool = (tool + wheel + toolCount) % toolCount
-      if (selectTool !== null) tool = selectTool
+      if (wheel !== 0) selectTool = wheelSelection(wheel)
       const scaleX = canvas.width / canvas.clientWidth
       const scaleY = canvas.height / canvas.clientHeight
       const input: Input = {

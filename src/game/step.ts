@@ -49,8 +49,10 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
     useTool(world, terminalConsumesInput(world) ? { ...input, selectTool: null } : input, dt)
   }
   aimAtCables(world)
-  stepMelee(world, input, dt)
-  stepPhysProps(world, input, dt)
+  // While the drone is flown, the keys steer it: the body does not punch, kick, grab or throw.
+  const hands = world.drone ? idleInput(input.aim) : input
+  stepMelee(world, hands, dt)
+  stepPhysProps(world, hands, dt)
   stepProjectiles(world, dt)
   stepCharges(world, input.detonatePressed, dt)
   stepCollapse(world, dt)

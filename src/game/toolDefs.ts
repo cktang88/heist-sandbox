@@ -42,13 +42,23 @@ function slotOf(index: number): number {
   return TOOLS[index].slot ?? index
 }
 
-/**
- * The tool a hotkey press picks. Pressing the key of the tool in hand swaps to the next tool on that key.
- * A number past the hotkeys is read as a key too (the input device counts all tools and wraps its digits).
- */
+/** The tool a hotkey press picks. Pressing the key of the tool in hand swaps to the next tool on that key. */
 export function toolForKey(key: number, current: number): number {
-  const slot = key % HOTKEYS
-  const onKey = TOOLS.map((_, index) => index).filter((index) => slotOf(index) === slot)
+  const onKey = TOOLS.map((_, index) => index).filter((index) => slotOf(index) === key)
   const at = onKey.indexOf(current)
   return at < 0 ? onKey[0] : onKey[(at + 1) % onKey.length]
+}
+
+/**
+ * The mouse wheel steps through every tool in order, second page included. `Input.selectTool` carries it as a number
+ * past the hotkeys, so it never reads as a key (or as a choice in an open terminal menu).
+ */
+export function wheelSelection(steps: number): number {
+  return HOTKEYS + (((steps % TOOLS.length) + TOOLS.length) % TOOLS.length)
+}
+
+/** The tool an `Input.selectTool` picks: 0-9 is a hotkey, anything past that is a step of the wheel. */
+export function toolForSelection(selection: number, current: number): number {
+  if (selection >= HOTKEYS) return (current + selection - HOTKEYS) % TOOLS.length
+  return toolForKey(selection, current)
 }

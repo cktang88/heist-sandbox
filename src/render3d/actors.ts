@@ -52,7 +52,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
   group.add(van, loot, drone, ...pickups.map((entry) => entry.model))
 
   // Small pools for things that come and go: C4 blocks and falling chunks of wall.
-  const charges = Array.from({ length: 8 }, () => {
+  const charges = Array.from({ length: 24 }, () => {
     const block = new Mesh(BOX, CHARGE_MATERIAL)
     const light = new Mesh(BOX, CHARGE_LIGHT)
     block.castShadow = true
