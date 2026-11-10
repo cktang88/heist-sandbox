@@ -113,6 +113,20 @@ describe('tonight\'s conditions', () => {
     expect(world.chronicle.beats.some((beat) => beat.kind === 'event' && beat.detail === 'shiftChange')).toBe(true)
   })
 
+  it('a shift change that runs out of time sends nobody on walking to a post or the quarters all night', () => {
+    const world = directedWorld(3, 'complex', [])
+    const change = CONDITIONS.find((condition) => condition.id === 'shiftChange')!.start(world, () => 0)
+    const at = Number(change.line.match(/at (\d+):(\d\d)/)!.slice(1).reduce((minutes, seconds) => String(Number(minutes) * 60 + Number(seconds))))
+    for (const clock of [at - 39, at, at + 1]) {
+      world.clock = clock
+      change.step!(world, 1)
+    }
+    expect(world.guards.filter((guard) => guard.station !== null).length).toBeGreaterThan(0)
+    world.clock = at + 151
+    change.step!(world, 1)
+    expect(world.guards.filter((guard) => guard.station !== null)).toEqual([])
+  })
+
   it('a delivery opens the depot and keeps guards busy at the loading dock', () => {
     const world = directedWorld(8, 'complex', ['delivery'])
     const [minutes, seconds] = nightConditions(world)[0].match(/at (\d+):(\d\d)/)!.slice(1).map(Number)
