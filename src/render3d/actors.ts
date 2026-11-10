@@ -4,6 +4,7 @@ import type { TileKind } from '../game/tiles'
 import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import { guardMotion, playerMotion } from '../render/human/motion'
+import { chargePose } from './chargePose'
 import { runBuildJobs } from './core/buildQueue'
 import { lastFrameMs, noteFramePart } from './core/frameProbe'
 import { createGpuProbe, uploadSpread } from './core/gpu'
@@ -177,9 +178,10 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
         block.visible = Boolean(charge)
         light.visible = Boolean(charge) && blink
         if (!charge) return
-        block.position.set(charge.x + charge.w / 2, -(charge.y + charge.h / 2), 0.1)
-        block.scale.set(charge.w, charge.h, 0.3)
-        light.position.set(charge.x + charge.w / 2, -charge.y, 0.2)
+        const pose = chargePose(charge)
+        block.position.set(pose.x, pose.y, pose.z)
+        block.scale.set(pose.sx, pose.sy, pose.sz)
+        light.position.set(pose.light.x, pose.light.y, pose.light.z)
         light.scale.setScalar(0.08)
       })
 
