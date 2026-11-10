@@ -8,7 +8,11 @@ import { showHint } from './hint'
 import { createLayerStack } from './layers'
 import './menu.css'
 import { pauseMenu } from './pauseMenu'
+import { dossier } from '../game/people/dossier'
+import { tonightBlock } from './briefing'
+import { h } from './dom'
 import { pastHeistsButton, pastHeistsModal } from './debrief'
+import { dossierModal } from './dossier'
 import { settingsModal } from './settingsModal'
 
 /** What the menus need from the game loop. */
@@ -17,6 +21,8 @@ export type MenuHost = {
   site: string
   /** Starts a fresh heist on this seed, in place. */
   newHeist(seed: number): void
+  /** The heist in progress, for the pause menu's "Tonight" lines and the dossier of guards met so far. */
+  world(): World
 }
 
 export type Menus = {
@@ -26,7 +32,7 @@ export type Menus = {
   afterStep(world: World): void
 }
 
-type ModalName = 'controls' | 'help' | 'settings' | 'past'
+type ModalName = 'controls' | 'help' | 'settings' | 'past' | 'dossier'
 
 /**
  * The pause menu and the controls, help and settings screens, drawn as page elements over the game.
@@ -52,6 +58,7 @@ export function createMenus(host: MenuHost): Menus {
     if (name === 'controls') stack.push(name, controlsModal())
     if (name === 'help') stack.push(name, helpModal())
     if (name === 'past') stack.push(name, pastHeistsModal())
+    if (name === 'dossier') stack.push(name, dossierModal(dossier(host.world())))
     if (name === 'settings') stack.push(name, settingsModal(settings, {
       live: (chosen) => {
         settings = chosen
@@ -70,7 +77,11 @@ export function createMenus(host: MenuHost): Menus {
       sameSeed: () => startHeist(currentSeed()),
       newSeed: () => startHeist(randomSeed()),
     })
-    pause.querySelector('.sg-rule')?.before(pastHeistsButton(() => openModal('past')))
+    const rule = pause.querySelector('.sg-rule')
+    rule?.before(pastHeistsButton(() => openModal('past')))
+    rule?.before(h('button', { class: 'sg-item', attrs: { type: 'button' }, on: { click: () => openModal('dossier') } }, h('span', { text: 'Dossier' })))
+    const tonight = tonightBlock(host.world())
+    if (tonight) pause.querySelector('.sg-items')?.after(tonight)
     stack.push('pause', pause)
   }
 

@@ -148,7 +148,7 @@ if (new URLSearchParams(location.search).get('debug') === '1') {
   enableStepTimings(true)
   ;(globalThis as { __stepTimings?: unknown }).__stepTimings = stepTimings
 }
-const menus = createMenus({ audio, site: siteKind, newHeist: startHeist })
+const menus = createMenus({ audio, site: siteKind, newHeist: startHeist, world: () => world })
 if (scene.draw3d) onLookChange((look) => scene.draw3d?.setLook(look))
 
 function resize(): void {
