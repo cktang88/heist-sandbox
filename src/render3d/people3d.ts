@@ -3,6 +3,7 @@ import { JOINT, type Ragdoll } from '../game/ragdoll'
 import type { ToolId } from '../game/toolDefs'
 import type { Vec } from '../game/types'
 import { advanceStride, BONES, poseHuman, type Limb, type Motion, type Skeleton } from '../render/human/pose'
+import { blobShadow, placeBlob } from './people/blobShadow'
 import { bodyParts } from './people/body'
 import type { Outfit } from './people/looks'
 import { FAR_SURFACE, HIT_SURFACE, NEAR_SURFACE } from './people/surface'
@@ -51,6 +52,7 @@ export class Figure {
   private held: ToolId | null = null
   private flashing = false
   private origin = 0
+  private readonly blob = blobShadow()
   private stride = 0
   private squash = 0
   private flinch = 0
@@ -63,9 +65,8 @@ export class Figure {
   constructor(readonly outfit: Outfit) {
     const parts = bodyParts(outfit)
     const part = (geometry: BufferGeometry, material: Material = NEAR_SURFACE) => {
-      const mesh = new Mesh(geometry, material)
-      mesh.castShadow = true
-      return mesh
+      // People leave a soft patch on the floor (see blobShadow.ts) rather than drawing into shadow maps.
+      return new Mesh(geometry, material)
     }
     this.head = part(parts.head)
     this.torso = part(parts.torso)
@@ -85,7 +86,7 @@ export class Figure {
       this.thighs[0], this.shins[0], this.boots[0], this.weapon, this.upperArms[0], this.forearms[0],
     ]
     this.body.add(...this.meshes)
-    this.group.add(this.body)
+    this.group.add(this.body, this.blob)
   }
 
   /** Lays a part from joint `from` toward joint `to`. Parts are built hanging along -y at rest length `rest`. */
@@ -147,7 +148,6 @@ export class Figure {
     const at = body.offHand?.at
     if (at && !this.shield) {
       this.shield = new Mesh(shieldGeometry(), NEAR_SURFACE)
-      this.shield.castShadow = true
       this.body.add(this.shield)
     }
     if (!this.shield) return
@@ -206,6 +206,7 @@ export class Figure {
       land: Math.sin(this.squash * Math.PI * 0.5), flinch: Math.sin(this.flinch * Math.PI * 0.5),
     })
     this.pose(body, motion.facing, held, flash)
+    placeBlob(this.blob, motion.x, motion.feetY, motion.onGround && motion.mode !== 'ladder')
     return body
   }
 
@@ -213,6 +214,7 @@ export class Figure {
   poseRagdoll(ragdoll: Ragdoll): void {
     if (this.limp?.ragdoll !== ragdoll) this.limp = { ragdoll, facing: limpFacing(ragdoll), body: limpSkeleton(ragdoll) }
     const { facing, body } = this.limp
+    this.blob.visible = false
     const at = (joint: number) => ragdoll.points[joint]
     const neck = at(JOINT.neck)
     const hip = at(JOINT.hip)

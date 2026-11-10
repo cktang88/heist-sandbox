@@ -1,6 +1,6 @@
 import { Color, PointLight, SpotLight, type Group } from 'three'
 import type { Lamp } from '../../game/site'
-import type { Body, Vec } from '../../game/types'
+import type { Vec } from '../../game/types'
 import type { World } from '../../game/world'
 import { DRAW_DISTANCE } from '../layer'
 import { Beam } from './beams'
@@ -96,22 +96,6 @@ function importance(lamp: Lamp, view: Vec, playerX: number, playerY: number, ala
 
 function inLightRange(lamp: Lamp, view: Vec): boolean {
   return Math.abs(lamp.x - view.x) <= LIGHT_RANGE_X && Math.abs(lamp.y - view.y) <= LIGHT_RANGE_Y
-}
-
-/** The floor-to-floor height, in tiles: a lamp's light stops at the slab below it. */
-const STOREY = 6
-
-/**
- * Is the player or a guard moving in this lamp's light (below it, on its floor)? Only then can its shadow map be
- * out of date: someone standing still casts the same shadow as last time.
- */
-function someoneMovingUnder(world: World, lamp: Lamp): boolean {
-  const reach = Math.min(lamp.radius, 8)
-  const moving = (body: Body) =>
-    Math.abs(body.vx) + Math.abs(body.vy) > 0.05 && Math.abs(body.x - lamp.x) < reach && body.y > lamp.y - 1 && body.y < lamp.y + STOREY - 1
-  if (moving(world.player)) return true
-  for (const guard of world.guards) if (moving(guard)) return true
-  return false
 }
 
 export function createLampLights(group: Group): LampLights {
@@ -211,7 +195,10 @@ export function createLampLights(group: Group): LampLights {
     light.position.set(lamp.x, -lamp.y + spec.lightY, Math.max(spec.z + 0.1, WALL_LIGHT_Z))
   }
 
-  /** Shadow maps are only redrawn when they would be wrong: a new lamp, a changed level, or someone moving in the light. */
+  /**
+   * Shadow maps are only redrawn when they would be wrong: a new lamp or a changed level. People do not draw into
+   * them (they leave a soft patch on the floor instead), so someone walking under a lamp costs no redraw.
+   */
   function refreshShadows(world: World): void {
     const pool = site!.shadowPool
     if (world.grid.version !== gridVersion) {
@@ -231,7 +218,7 @@ export function createLampLights(group: Group): LampLights {
       const slot = (shadowTurn + turn) % SHADOW_SPOTS
       const lampIndex = pool.lamp[slot]
       if (lampIndex < 0 || shadowSpots[slot].shadow.needsUpdate) continue
-      if (!shadowStale[slot] && !someoneMovingUnder(world, site!.lamps[lampIndex])) continue
+      if (!shadowStale[slot]) continue
       shadowSpots[slot].shadow.needsUpdate = true
       shadowStale[slot] = 0
       refreshes += 1
