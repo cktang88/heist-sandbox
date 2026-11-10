@@ -3,7 +3,7 @@ import type { World } from '../world'
 import type { AlertLevel, SecurityEvent } from './events'
 import { COMMS, RESPONSE } from './tuning'
 import { broadcastContact, sendPair } from './orders'
-import { floorBelow, floorName, roomOf, unitName } from './places'
+import { floorBelow, floorName, roomOf, storeyAt, unitName } from './places'
 import { deployResponders } from './response'
 import { assignStations } from './stations'
 
@@ -26,6 +26,37 @@ export function log(world: World, line: string): void {
   const seconds = Math.floor(world.clock % 60).toString().padStart(2, '0')
   entries.push(`${minutes}:${seconds} ${line}`)
   if (entries.length > COMMS.logLines) entries.shift()
+}
+
+/** Faults reported within this long of each other in one building are the same outage. */
+const POWER_FAULT_GROUP = 60
+
+/**
+ * "Power fault on floor 5". A fault taking out many floors of one building at once (a blackout, a storm) is one line
+ * that counts the floors, brought up to date as reports come in, instead of a line per floor pushing everything else out of the log.
+ */
+export function logPowerFault(world: World, at: Vec, tail: string): void {
+  const below = { x: at.x, y: at.y + 1 }
+  const building = roomOf(world, below)?.building ?? roomOf(world, at)?.building ?? 'site'
+  const key = `${building} ${tail}`
+  const lines = world.security.powerFaultLines
+  const last = lines.get(key)
+  const storey = storeyAt(world, below)
+  if (!last || world.clock - last.at > POWER_FAULT_GROUP) {
+    const text = `Control: Power fault on ${floorName(world, at)}. ${tail}`
+    lines.set(key, { text, storeys: new Set([storey]), at: world.clock })
+    log(world, text)
+    return
+  }
+  last.storeys.add(storey)
+  last.at = world.clock
+  const text = last.storeys.size === 1 ? last.text : `Control: Power fault on ${last.storeys.size} floors of the ${building}. ${tail}`
+  // The old line gives way to the new count, so the log still holds only one line for the outage.
+  const entries = world.security.log
+  const index = entries.findIndex((entry) => entry.endsWith(` ${last.text}`))
+  if (index >= 0) entries.splice(index, 1)
+  last.text = text
+  log(world, text)
 }
 
 /** Raises the site level (never lowers it). Level 3 and up keeps the old `world.alarm` flag on. */
@@ -122,7 +153,7 @@ export function reportEvent(world: World, event: SecurityEvent): void {
         log(world, `Control: Lost a camera feed on ${floorName(world, event.at)}. Sending someone.`)
         sendPair(world, floorBelow(world, event.at))
       } else {
-        log(world, `Control: Power fault on ${floorName(world, event.at)}. Noted.`)
+        logPowerFault(world, event.at, 'Noted.')
       }
       raiseLevel(world, 1)
       return

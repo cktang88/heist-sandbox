@@ -4,8 +4,8 @@ import { bark, nearPlayer, pickLine } from './barks'
 import { hasOwnRadio, radioWorks } from './comms'
 import { eyeOf, feetOf, isActive, setMode, type Guard } from './model'
 import { nearestFree } from './orders'
-import { deviceBuilding, deviceFeet, floorName, roomOf, unitName } from './places'
-import { log, reportEvent } from './report'
+import { deviceBuilding, deviceFeet, roomOf, unitName } from './places'
+import { log, logPowerFault, reportEvent } from './report'
 import { COMMS } from './tuning'
 import { ringPocketRadio, unansweredCall } from '../stealth/radio'
 
@@ -130,7 +130,7 @@ export function noticeDeadCircuits(world: World): void {
     if (!sent) continue
     security.circuitsNoticed.add(circuit)
     const at = box ? deviceFeet(world, box) : feetOf(sent)
-    if (!witness) log(world, `Control: Power fault on ${floorName(world, at)}. Check the breaker.`)
+    if (!witness) logPowerFault(world, at, 'Check the breaker.')
     sent.interest = { at, kind: 'lightsOut', priority: 1, reached: false, circuit }
     setMode(sent, 'noticed')
   }

@@ -78,6 +78,8 @@ export type SecurityState = {
   /** Dead lighting circuits the guards have already reacted to, and since when each dead circuit has been dead. */
   circuitsNoticed: Set<number>
   circuitsDeadSince: Map<number, number>
+  /** The power-fault line last written per building and kind of line, so faults on many floors at once share one line. */
+  powerFaultLines: Map<string, PowerFaultLine>
   /** Room id (or -1 outside rooms) to the clock time a fire there was last reported. */
   firesReported: Map<number, number>
   /** Rooms whose fire alarm has rung, and when: the sprinklers reopening ring it again, which is not news. */
@@ -143,10 +145,13 @@ export type SecurityState = {
   caseAskedAt: number
 }
 
+/** A power-fault line in the radio log: the text it was written with, the storeys it covers, and when it was last added to. */
+export type PowerFaultLine = { text: string; storeys: Set<number>; at: number }
+
 export function createSecurity(): SecurityState {
   return {
     level: 0, lastKnown: null, lastContactAt: -Infinity, levelSince: 0, peak: 0, log: [], barks: [], polls: [],
-    searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(), circuitsDeadSince: new Map(), firesReported: new Map(), fireAlarms: new Map(),
+    searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(), circuitsDeadSince: new Map(), powerFaultLines: new Map(), firesReported: new Map(), fireAlarms: new Map(),
     reportedBodies: new Set(), shooters: [], campSpot: null, campSeconds: 0,
     confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, stations: new Map(), responders: 0, responseSent: false,
     deaths: [], unseenDeaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), burntDoors: new Set(), openDoorsFound: 0, camerasDeadSince: new Map(), camerasReported: new Set(),
