@@ -71,7 +71,8 @@ Press **Esc** in the game for the full list, help and settings.
 | 1-9, 0 or wheel | Pick a tool. Press 9 again for Frag; 7 again for Rope, then Grapple |
 | E | Do the thing in reach: break in through a window (tap to smash, hold to cut quietly), pick locks, take down, tie up, question, hack, cut wires, switches, call elevators |
 | F / V | Punch / kick (a kick also tips tables and bursts doors) |
-| Hold G | Drag furniture, or hold a guard from behind as a shield |
+| G | Drag furniture (hold), hold a guard from behind as a shield (hold), pick up or drop a body |
+| X | Whistle to lure the nearest guard |
 | T | Throw the nearest small object where you aim |
 | Q or right-click | Set off all C4 |
 | Shift | Focus: slow motion, slowest when you hold still |
@@ -100,6 +101,22 @@ Press **Esc** in the game for the full list, help and settings.
 | 0 | Flash | No | Blinds and deafens anyone looking |
 
 The crosshair ring widens as a gun gets less accurate, so spread is never a surprise.
+
+## Staying quiet
+
+| Option | How |
+|---|---|
+| Kill or choke out | Behind an unaware guard: **E** kills at once (a small sound, blood). Crouched, hold **E** to choke him out silently; he wakes in 3 minutes unless tied |
+| Move bodies | **G** picks up and drops, **T** throws. While carrying, **E** hides the body in a locker, wardrobe, stall, dumpster, or under a desk or bed |
+| Hide yourself | **E** at a locker, wardrobe or bathroom stall; crouch + **E** to crawl under a desk. From inside, **E** grabs a guard walking past |
+| The surprise window | A lone guard who finds you up close is startled for about 3 seconds (less for veterans). Subdue him in that time and nobody hears about it |
+| Disguise | Hold **E** on a body to put on his uniform. It fools guards at a distance, not officers or anyone close for long |
+| Keycards and radios | Take a keycard from a body to open keypad doors silently. Take his radio to answer his check-ins (two bluffs) |
+| Lures | **X** whistles; switching on a TV or vending machine draws the nearest guard. Overuse brings them in pairs |
+| Dart gun | Press **1** twice: a quiet dart that knocks a guard out after a few seconds |
+| Cameras and power | Loop a camera from a terminal for 90 seconds; crouch + hold **E** on a fuse box to make it trip 20 seconds later |
+
+The top-left HUD says why you are or are not seen (IN DARKNESS, IN COVER, DISGUISED, NOISY), and the end screen rates the run: Ghost, Silent or Loud.
 
 ## Things the world lets you do
 
