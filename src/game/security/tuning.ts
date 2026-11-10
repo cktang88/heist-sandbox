@@ -34,10 +34,10 @@ export const AWARENESS = {
   peripheralRate: 0.35,
   /** How fast the meter drains when nothing is seen (per second). */
   decay: 0.12,
-  crouchFactor: 0.55,
+  crouchFactor: 0.4,
   stillFactor: 0.7,
   runFactor: 1.4,
-  dimFactor: 0.35,
+  dimFactor: 0.2,
   darkCloseFactor: 0.3,
 } as const
 
@@ -85,8 +85,8 @@ export const COMMS = {
   /** A colleague reported contact this recently: no need to call it in again. */
   freshReport: 6,
   shoutRadius: 12,
-  checkInMin: 60,
-  checkInMax: 90,
+  checkInMin: 90,
+  checkInMax: 140,
   /** A missed check-in is polled after this long before a pair is sent. */
   pollSeconds: 10,
   /** All relays in a building down for this long, and the control room notices. */

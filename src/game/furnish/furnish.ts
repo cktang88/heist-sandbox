@@ -1,8 +1,10 @@
 import { circuitOf, type SiteDraft } from '../complex/kit'
+import { propSpec } from '../propCatalog'
 import { createRng, type Rng } from '../rng'
 import type { Room } from '../site'
 import { addLightSwitch, addPickups, deviceRects, seatDevices } from './fittings'
 import { layFloor, layRug, topUpCover } from './floor'
+import { addHides, fillOut } from './hides'
 import { lightRoom } from './lamps'
 import { ROOM_LIGHTING } from './lighting'
 import { floorSpans, type Span } from './space'
@@ -41,6 +43,7 @@ function furnishRoom(rng: Rng, site: SiteDraft, room: Room): Span[] {
 
   const floor = layFloor(rng, room, spans, style)
   topUpCover(rng, room, spans, floor, style, coverNeeded(room))
+  addHides(room, spans, floor)
   const rug = style.rug ? layRug(rng, room, spans, floor, style.rug) : null
 
   if (!NO_SWITCH.has(room.kind)) addLightSwitch(rng, site, room, circuit)
@@ -51,6 +54,24 @@ function furnishRoom(rng: Rng, site: SiteDraft, room: Room): Span[] {
   site.props.push(...(rug ? [rug] : []), ...floor, ...wall, ...ceiling)
   site.lamps.push(...lightRoom(rng, room, ROOM_LIGHTING[room.kind], [...floor, ...wall], outdoor ? undefined : circuit))
   return spans
+}
+
+/**
+ * The last word on dressing, once ducts and hatches are in (a duct takes the fittings in its way, a ladder the clutter
+ * over it): any indoor room left looking bare gets a locker, boxes or a poster.
+ */
+export function fillOutBareRooms(site: SiteDraft): void {
+  for (const room of site.rooms) {
+    const mine = site.props.filter((prop) => prop.roomId === room.id)
+    if (mine.length >= 6) continue
+    const floor = mine.filter((prop) => propSpec(prop.kind).mount === 'floor')
+    const wall = mine.filter((prop) => propSpec(prop.kind).mount === 'wall')
+    fillOut(site.grid, room, floorSpans(site, room), floor, wall, mine.length - floor.length - wall.length)
+    // Whatever was cleared away to make space goes; whatever was added joins the site.
+    const kept = new Set([...floor, ...wall])
+    site.props = site.props.filter((prop) => prop.roomId !== room.id || kept.has(prop) || propSpec(prop.kind).mount === 'ceiling')
+    site.props.push(...[...floor, ...wall].filter((prop) => !mine.includes(prop)))
+  }
 }
 
 /** Drops the stand-in ceiling panels that every room was given when it was laid out. */

@@ -124,6 +124,15 @@ export function topUpCover(rng: Rng, room: Room, spans: Span[], props: Prop[], s
   }
 }
 
+/**
+ * Stands one of these kinds (tried in a shuffled order) on open floor, clearing away a piece of light furniture if the
+ * floor is full. Returns false when nothing fits even then.
+ */
+export function placeOnOpenFloor(rng: Rng, room: Room, spans: Span[], props: Prop[], kinds: readonly PropKind[]): boolean {
+  const order = shuffled(rng, kinds)
+  return order.some((kind) => addInGap(rng, room, spans, props, kind)) || makeRoom(rng, room, spans, props, order)
+}
+
 /** Puts a piece of cover in the open stretch farthest from other cover. */
 function addInGap(rng: Rng, room: Room, spans: Span[], props: Prop[], kind: PropKind): boolean {
   const w = propSpec(kind).w

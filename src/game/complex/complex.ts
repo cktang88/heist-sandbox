@@ -1,9 +1,12 @@
 import { createRng, randomInt } from '../rng'
 import { LIGHT, roomAt, type Level, type Room, type RoomKind } from '../site'
 import { createGrid, setTile, tileAt } from '../tiles'
-import { furnishSite } from '../furnish/furnish'
+import { fillOutBareRooms, furnishSite } from '../furnish/furnish'
+import { propSpec } from '../propCatalog'
 import { buildBlock, staff } from './block'
 import { addDucts } from './ducts'
+import { finishDoorways } from './doorways'
+import { secondWays } from './secondWay'
 import { addRoom, chance, circuitOf, createDraft, fill, pick, ROOM_HEIGHT, STOREY, type SiteDraft } from './kit'
 
 export const COMPLEX_WIDTH = 300
@@ -86,9 +89,14 @@ export function createComplex(seed: number): Level {
   const vault = placeVault(site)
   roamingPatrols(site)
   assignGuardRooms(site)
-  // Furnish first, so the ducts can re-hang whatever ceiling fittings end up under them.
+  // Furnish first, so the ducts can re-hang whatever ceiling fittings end up under them. The stealth routes come
+  // last, around what is already there: the hatch where no furniture stands, open doorways where no duct rests.
   furnishSite(site)
   addDucts(site)
+  serviceHatch(site)
+  finishDoorways(site)
+  secondWays(site)
+  fillOutBareRooms(site)
 
   return {
     name: 'Blackmoor Complex',
@@ -125,6 +133,71 @@ function buildSewer(site: SiteDraft): void {
     setTile(site.grid, x, ground, 'door')
   }
   site.guards.push({ x: 120, y: SEWER.bottom + 1, facing: -1, role: 'patrol', route: [{ x: 60, y: SEWER.bottom + 1 }, { x: 200, y: SEWER.bottom + 1 }] })
+}
+
+/**
+ * A maintenance hatch in the floor of one of the tower's lowest basement rooms, with a ladder down through the earth
+ * into the sewer: the quiet way into the tower from below, for whoever came in by a manhole. It sits a step in from a
+ * wall, clear of the frame's beams, in a room nobody is posted in.
+ */
+function serviceHatch(site: SiteDraft): void {
+  const lowest = Math.min(...site.rooms.filter((room) => room.building === 'tower').map((room) => room.storey))
+  const posted = new Set(site.guards.filter((guard) => guard.role !== 'patrol').map((guard) => guard.roomId))
+  const rooms = site.rooms.filter((room) => room.building === 'tower' && room.storey === lowest && room.kind !== 'stairwell' && room.kind !== 'vault')
+  const all = rooms.flatMap((room) => hatchColumns(site, room).map((x) => ({ room, x, route: serviceWalls(site, room) !== null })))
+  // Right beside a doorway only if nowhere else will do: climbing out there means stepping into the wall.
+  const inside = all.filter(({ room, x }) => x > room.x && x < room.x + room.w - 1)
+  const spots = inside.length > 0 ? inside : all
+  // Best a room nobody is posted in with a way to the stairs that does not pass the vault; failing that, either one.
+  const best = [(spot: typeof spots[number]) => spot.route && !posted.has(spot.room.id), (spot: typeof spots[number]) => spot.route, () => true]
+    .map((wanted) => spots.filter(wanted)).find((list) => list.length > 0)!
+  // Its own dice, so nothing generated after it comes out differently.
+  const { room, x } = pick(createRng(spots.length * 7919 + site.rooms.length), best)
+  fill(site, x, room.floorY + 1, x, SEWER.bottom, 'ladder')
+  setTile(site.grid, x, room.floorY, 'door')
+  // The way from the hatch to the main stairs is a service route: its doors are propped open, so using it leaves no
+  // picked lock behind for a patrol to find.
+  for (const wall of serviceWalls(site, room) ?? []) {
+    const shut = [1, 2, 3].every((up) => tileAt(site.grid, wall, room.floorY - up) === 'door')
+    const keypad = site.devices.some((device) => device.kind === 'keypad' && typeof device.target === 'object' && device.target.x === wall && device.target.y === room.floorY - 1)
+    if (shut && !keypad) fill(site, wall, room.floorY - 3, wall, room.floorY - 1, 'air')
+  }
+  // Sewer clutter and ceiling dressing where the ladder comes down are cleared away.
+  const sewer = site.rooms.find((other) => other.kind === 'sewer')?.id
+  site.props = site.props.filter((prop) => prop.roomId !== sewer || propSpec(prop.kind).mount === 'wall' || Math.abs(prop.x - x) >= propSpec(prop.kind).w / 2 + 0.5)
+}
+
+/**
+ * The wall columns between a room and the nearest tower stair lobby on its floor, or null when the vault (or no lobby)
+ * lies that way.
+ */
+function serviceWalls(site: SiteDraft, room: Room): number[] | null {
+  const lobbies = site.rooms.filter((other) => other.building === room.building && other.floorY === room.floorY && other.kind === 'stairwell')
+  if (lobbies.length === 0) return null
+  const lobby = lobbies.reduce((best, other) => (Math.abs(other.x - room.x) < Math.abs(best.x - room.x) ? other : best))
+  const [from, to] = lobby.x > room.x ? [room.x + room.w, lobby.x - 1] : [lobby.x + lobby.w, room.x - 1]
+  const between = site.rooms.filter((other) => other.floorY === room.floorY && other.building === room.building && other.x > from - 1 && other.x < to)
+  if (between.some((other) => other.kind === 'vault')) return null
+  const walls: number[] = []
+  for (let x = from; x <= to; x += 1) if (!between.some((other) => x >= other.x && x < other.x + other.w)) walls.push(x)
+  return walls
+}
+
+/**
+ * Columns of bare floor (no furniture standing over them, no beam) with no sewer lamp hanging under them, a step in
+ * from either wall so the doorway itself stays clear, nearest the walls first.
+ */
+function hatchColumns(site: SiteDraft, room: Room): number[] {
+  const sewerLamps = site.lamps.filter((lamp) => lamp.y > SEWER.top - 1 && lamp.y < SEWER.bottom)
+  const inTheWay = site.props.filter((prop) => prop.roomId === room.id && propSpec(prop.kind).mount === 'floor' && propSpec(prop.kind).h > 0.1)
+  const clear = (x: number) => tileAt(site.grid, x, room.floorY) === 'concrete'
+    && !inTheWay.some((prop) => Math.abs(prop.x - x) < propSpec(prop.kind).w / 2 + 0.5)
+    && !sewerLamps.some((lamp) => Math.abs(lamp.x - (x + 0.5)) < 1.5)
+  const columns: number[] = []
+  // The first column inside a doorway is always kept clear of furniture, so it is the last resort.
+  for (let x = room.x; x < room.x + room.w; x += 1) if (clear(x)) columns.push(x)
+  const fromWall = (x: number) => Math.min(x - room.x, room.x + room.w - 1 - x) || Infinity
+  return columns.sort((a, b) => fromWall(a) - fromWall(b)).slice(0, 2)
 }
 
 /** A glazed walkway from the tower to the living quarters, several storeys up. */
@@ -184,7 +257,7 @@ function buildPerimeter(site: SiteDraft): void {
   site.interiors.push({ kind: 'room', x: 36, y: ground - STOREY, w: 8, h: STOREY })
   const gatehouse = addRoom(site, 'gatehouse', 'gatehouse', 0, 36, 42, ground)
   site.guards.push({ x: 39, y: ground, facing: -1, role: 'post', roomId: gatehouse.id })
-  site.devices.push({ kind: 'alarmButton', x: 41, y: ground - 2, roomId: gatehouse.id })
+  site.devices.push({ kind: 'alarmButton', x: 39, y: ground - 2, roomId: gatehouse.id })
   site.devices.push({ kind: 'camera', x: 36, y: ground - 5, roomId: gatehouse.id, facing: -1 })
   site.devices.push({ kind: 'computer', x: 38, y: ground, roomId: gatehouse.id })
 
