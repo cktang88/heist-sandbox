@@ -166,7 +166,9 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
     }
     if (zone.kind === 'stairs') {
       const lobby = addRoom(site, 'stairwell', spec.name, storey, zone.from, zone.to, floorY)
-      site.devices.push({ kind: 'fusebox', x: zone.from + 1, y: floorY - 2, roomId: lobby.id, circuit: circuitOf(spec.name, storey) })
+      // Mid-lobby, out of reach of both doorways: by a door it took the E key and the door could not be opened from inside.
+      const middle = zone.from + Math.floor((zone.to - zone.from) / 2)
+      site.devices.push({ kind: 'fusebox', x: middle, y: floorY - 2, roomId: lobby.id, circuit: circuitOf(spec.name, storey) })
     }
     cursor = zone.to + 2
     if (cursor - 1 <= right) partition(site, zone.to + 1, floorY, zone.kind === 'void' ? 'overlook' : 'door')
