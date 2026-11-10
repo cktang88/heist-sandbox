@@ -130,9 +130,11 @@ export function hangCeiling(rng: Rng, grid: Grid, room: Room, style: RoomStyle, 
     for (let x = Math.floor(span.left); x < span.right; x += 1) if (!isSolidAt(grid, x, room.y - 1)) return true
     return false
   }
+  const clashes = (span: { left: number; right: number }) => taken.some((other) => span.left < other.right - 0.05 && other.left < span.right - 0.05)
   for (const prop of floor) {
     const kind = ABOVE[prop.kind]
-    if (!kind || hole(extent({ kind, x: prop.x }))) continue
+    // A stove right beside one with a hood goes without, rather than two hoods hanging through each other.
+    if (!kind || hole(extent({ kind, x: prop.x })) || clashes(extent({ kind, x: prop.x }))) continue
     out.push({ kind, x: prop.x, y: room.y, roomId: room.id })
     taken.push(extent({ kind, x: prop.x }))
   }

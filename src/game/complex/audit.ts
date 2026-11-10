@@ -58,6 +58,7 @@ export function propProblems(level: Level): string[] {
   const problems: string[] = []
   const seen = new Set<string>()
   const roomById = new Map(level.rooms.map((room) => [room.id, room]))
+  problems.push(...hangingClashes(level))
   for (const prop of level.props) {
     const spec = propSpec(prop.kind)
     const half = spec.w / 2
@@ -97,6 +98,29 @@ export function propProblems(level: Level): string[] {
         if (solid(grid, x, prop.y)) problems.push(`${where} inside ${tileAt(grid, x, prop.y)}`)
         if (!solid(grid, x, prop.y - 1)) problems.push(`${where} with no ceiling above at ${x}`)
         if (tileAt(grid, x, prop.y + 1) === 'duct') problems.push(`${where} up inside a duct's crawl space at ${x}`)
+      }
+    }
+  }
+  return problems
+}
+
+/** Wall items hanging into each other, and ceiling items hanging through each other, in one room. */
+function hangingClashes(level: Level): string[] {
+  const problems: string[] = []
+  const byRoom = new Map<number, Level['props']>()
+  for (const prop of level.props) {
+    if (prop.roomId === undefined || propSpec(prop.kind).mount === 'floor') continue
+    byRoom.set(prop.roomId, [...(byRoom.get(prop.roomId) ?? []), prop])
+  }
+  for (const props of byRoom.values()) {
+    for (let a = 0; a < props.length; a += 1) {
+      for (let b = a + 1; b < props.length; b += 1) {
+        const [p, q] = [props[a], props[b]]
+        const [ps, qs] = [propSpec(p.kind), propSpec(q.kind)]
+        if (ps.mount !== qs.mount) continue
+        const across = Math.min(p.x + ps.w / 2, q.x + qs.w / 2) - Math.max(p.x - ps.w / 2, q.x - qs.w / 2)
+        const down = Math.min(p.y + ps.h, q.y + qs.h) - Math.max(p.y, q.y)
+        if (across > 0.2 && down > 0.1) problems.push(`${p.kind} at ${p.x},${p.y} and ${q.kind} at ${q.x},${q.y} hang through each other`)
       }
     }
   }
