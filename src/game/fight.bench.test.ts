@@ -24,6 +24,7 @@ import { stepMelee } from './melee/melee'
 import { stepIntel } from './intel/intel'
 import { stepPhysProps } from './physprops/physprops'
 import { stepGaps } from './gaps/gaps'
+import { forgetSeenChanges } from './tiles'
 import { useTool } from './tools'
 import { createWorld, type World } from './world'
 
@@ -90,6 +91,7 @@ function step(world: World, input: Input, totals: Totals): void {
     pickup.vy += GRAVITY * dt
     moveBody(world.grid, pickup, dt)
   }
+  forgetSeenChanges(world.grid)
   world.sounds.length = 0
 }
 
