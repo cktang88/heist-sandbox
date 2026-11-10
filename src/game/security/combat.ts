@@ -404,6 +404,21 @@ function tryFire(world: World, guard: Guard, known: Vec): void {
   guard.shootCooldown = aimed ? COMBAT.aimedCooldownMin + world.rng() * (COMBAT.aimedCooldownMax - COMBAT.aimedCooldownMin) : COMBAT.suppressCooldown
 }
 
+/**
+ * A deliberate shot at a spot he cannot see (into a room below through a hole in the floor, through a door): only when
+ * his gun is up, nobody is in the line, and at the slow aimed rate. Returns true if he fired.
+ */
+export function fireAt(world: World, guard: Guard, at: Vec): boolean {
+  if (guard.drawSeconds > 0 || guard.shootCooldown > 0 || guard.radio || guard.reloadSeconds > 0) return false
+  if (colleagueInLine(world, guard, eyeOf(guard), at)) {
+    guard.shootCooldown = 0.3
+    return false
+  }
+  shoot(world, guard, at, SHELTER.returnSpread * TIERS[guard.tier].spread)
+  guard.shootCooldown = COMBAT.aimedCooldownMin + world.rng() * (COMBAT.aimedCooldownMax - COMBAT.aimedCooldownMin)
+  return true
+}
+
 function shoot(world: World, guard: Guard, at: Vec, spread: number): void {
   const eye = eyeOf(guard)
   fireShot(world, eye, normalize(at.x - eye.x, at.y - eye.y), { kind: 'bullet', fromPlayer: false, ...SHOT, spread, penetration: gunPower(guard) })

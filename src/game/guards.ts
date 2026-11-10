@@ -23,6 +23,7 @@ export { shieldBlocks } from './security/shieldTeam'
 export { restrainGuard } from './security/fear'
 export { scrapeNoise } from './security/hearing'
 export { canSee, visionOf } from './security/perception'
+export { guardDropsThrough } from './security/holeDrop'
 
 const UNAWARE_DAMAGE_BONUS = 3
 

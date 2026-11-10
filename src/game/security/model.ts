@@ -190,6 +190,11 @@ export type Guard = Body & {
   stackSlot: number
   /** Clock time he last threw a grenade to clear a spot before going through it. */
   clearedAt: number
+  /**
+   * The hole in the floor (column, slab row) he is about to drop through, when he has done softening up the room below,
+   * and whether he did it with a flashbang (otherwise he fires down until then).
+   */
+  dropPrep: { x: number; y: number; readyAt: number; flashed: boolean } | null
 }
 
 const BASE_HP = 100
@@ -216,7 +221,7 @@ export function createGuard(spawn: GuardSpawn, armored = false): Guard {
     rounds: magazineOf(tough), reloadSeconds: 0, diveSeconds: 0, hesitateSeconds: 0, hesitatedRoom: null, partnerWait: 0, backupAt: -Infinity,
     blindFiring: false, bounding: false, boundSince: 0, draggedBy: null, dragSeconds: 0, blindReaction: null, droppedWeapon: null, unwatchedSeconds: 0, restrained: false,
     aim: { x: spawn.facing, y: 0 }, heardAt: -Infinity, underFireAt: -Infinity, shelter: null, peeking: false, peekSeconds: 0,
-    shield: false, stackLeader: null, stackSlot: 0, clearedAt: -Infinity,
+    shield: false, stackLeader: null, stackSlot: 0, clearedAt: -Infinity, dropPrep: null,
   }
 }
 

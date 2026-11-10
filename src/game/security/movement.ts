@@ -10,6 +10,7 @@ import { isSolidAt, tileAt } from '../tiles'
 import type { Vec } from '../types'
 import type { World } from '../world'
 import { doorKeyAt } from './discoveries'
+import { holesFor, readyToDrop } from './holeDrop'
 import { feetOf, type Guard } from './model'
 
 /**
@@ -27,6 +28,8 @@ const CLIMB_SPEED = 5
 const JUMP_SPEED = 13
 const QUIET_DOOR_NOISE = 2
 const KICKED_DOOR_NOISE = 16
+/** Feet this close to the middle of a hole he means to drop through are at its edge (closer and he is over it). */
+const DROP_EDGE = 1.4
 
 /** Stands still (finishing any staircase flight first, since nobody stops halfway up). */
 export function hold(world: World, guard: Guard, dt: number): void {
@@ -51,7 +54,8 @@ export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: num
     return 'moving'
   }
   const level = Math.abs(to.y - feet.y) < SAME_FLOOR
-  const hop = nextHop(world.stairwells, feet, to)
+  // Only a guard in a hurry takes the quick way down through a hole; a calm one keeps to the floors and stairs.
+  const hop = nextHop(world.stairwells, feet, to, careful ? undefined : holesFor(world, guard))
   if (hop.kind === 'stairs' && !level) {
     guard.stairs = { well: hop.well.id, u: hop.stop }
     return 'moving'
@@ -63,8 +67,14 @@ export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: num
     }
     return startLadder(world, guard, to, speed, dt)
   }
-  const goalX = hop.kind === 'walk' ? hop.x : to.x
+  const goalX = hop.kind === 'walk' || hop.kind === 'drop' ? hop.x : to.x
   const dx = goalX - feet.x
+  if (hop.kind === 'drop' && Math.abs(dx) < DROP_EDGE && !readyToDrop(world, guard, hop.x)) {
+    // At the edge, not yet over it: he deals with the room below first.
+    walk(world, guard, 0, dt)
+    guard.facing = dx > 0 ? 1 : -1
+    return 'moving'
+  }
   if (Math.abs(dx) < ARRIVE) {
     walk(world, guard, 0, dt)
     return level ? 'arrived' : 'moving'
