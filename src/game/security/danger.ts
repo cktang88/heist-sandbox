@@ -1,4 +1,5 @@
 import { isBurningAt, nearestFire, smokeDensityAt } from '../hazards/hazards'
+import { toxicAt } from '../hazards/smoke'
 import type { Vec } from '../types'
 import type { World } from '../world'
 import { barkLine } from './barks'
@@ -17,6 +18,8 @@ import { PATROL } from './tuning'
 const ESCAPE_DISTANCE = 4
 /** Smoke this thick at head height chokes and blinds: get out. Matches where it starts to hurt (hazards/harm.ts). */
 const SMOKE_ESCAPE = 0.5
+/** Fire smoke this poisonous hurts (hazards/harm.ts): nobody stays in it, fight or no fight. */
+const TOXIC = 0.2
 /** How far either side to compare the smoke, to leave by the clearer side. */
 const SMOKE_PROBE = 3
 /** A guard notices flames this far off in his central cone. */
@@ -49,7 +52,8 @@ export function escapeHazard(world: World, guard: Guard, dt: number): boolean {
   const feet = feetOf(guard)
   const eye = eyeOf(guard)
   const fire = fireOnBody(world, feet)
-  const smoky = !fire && smokeDensityAt(world, eye) > SMOKE_ESCAPE
+  // In a fight, a screen of smoke that does not choke (his own side's grenade, often) is cover to push through, not flee.
+  const smoky = !fire && smokeDensityAt(world, eye) > SMOKE_ESCAPE && (guard.mode !== 'combat' || toxicAt(world, eye) > TOXIC)
   if (!fire && !smoky) return keepOffCharges(world, guard, dt)
   barkLine(world, guard, fire ? 'fire' : 'cough')
   const away = fire ? lessFire(world, feet, guard.facing) : clearerSide(world, eye, guard)
