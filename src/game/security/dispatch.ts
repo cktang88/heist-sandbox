@@ -1,32 +1,73 @@
-import type { Vec } from '../types'
 import type { World } from '../world'
+import { expireBarks } from './barks'
+import { stepCameras } from './cameras'
+import { noticeDeadCircuits, stepCheckIns, watchRelays } from './checkins'
+import type { AlertLevel } from './events'
+import { log, raiseLevel } from './report'
+import { organiseSquad } from './squad'
+import { assignStations } from './stations'
+import { LEVELS } from './tuning'
 
 /**
- * The security force as an organisation: the site alert level and what the control room knows.
- * (Placeholder: only tracks the level.)
+ * The security force as an organisation: the control room (dispatcher) that holds the one shared picture
+ * of the intruder, the site alert level, check-ins, cameras and the squad layer over fighting guards.
+ * Guards only know what they saw, heard or were told; the control room only knows what was reported.
  */
-export type AlertLevel = 0 | 1 | 2 | 3 | 4
-export type SecurityEvent =
-  | { kind: 'sighting'; at: Vec; by: number }
-  | { kind: 'noise'; at: Vec; loud: boolean }
-  | { kind: 'body'; at: Vec; by: number }
-  | { kind: 'missedCheckIn'; guard: number }
-  | { kind: 'camera'; at: Vec; device: number }
-  | { kind: 'alarmButton'; at: Vec }
-  | { kind: 'commsDown'; at: Vec }
+export type { AlertLevel, Bark, SecurityEvent, SecurityState } from './events'
+export { createSecurity } from './events'
+export { reportEvent } from './report'
+export { cameraView, type CameraView } from './cameras'
 
-/** A line a guard says out loud, shown above them for a moment. Barks explain what the guards are about to do. */
-export type Bark = Vec & { text: string; life: number }
+const SLOW_CHECKS_PER_SECOND = 2
+const RESTATION_SECONDS = 20
+const LOCKDOWN_CONTACT = 30
 
-export type SecurityState = { level: AlertLevel; lastKnown: Vec | null; log: string[]; barks: Bark[] }
+export function stepSecurity(world: World, dt: number): void {
+  const security = world.security
+  expireBarks(world, dt)
+  // Something else (a tripped sensor, an old code path) rang the alarm: that is a confirmed intruder.
+  if (world.alarm && security.level < 3) raiseLevel(world, 3)
+  stepLevel(world)
+  if (security.level >= 3) world.alarm = true
 
-export function createSecurity(): SecurityState {
-  return { level: 0, lastKnown: null, log: [], barks: [] }
+  stepCheckIns(world)
+  if (Math.floor(world.clock * SLOW_CHECKS_PER_SECOND) !== Math.floor((world.clock - dt) * SLOW_CHECKS_PER_SECOND)) {
+    watchRelays(world)
+    noticeDeadCircuits(world)
+  }
+  stepCameras(world, dt)
+  organiseSquad(world, dt)
+  if (security.level >= 2 && world.clock - security.stationsAt > RESTATION_SECONDS) assignStations(world)
 }
 
-export function stepSecurity(world: World, _dt: number): void {
-  if (world.alarm && world.security.level < 3) world.security.level = 3
+/** Steps up to lockdown when an alert drags on, and down one level at a time after a quiet spell, never back to normal once raised. */
+function stepLevel(world: World): void {
+  const security = world.security
+  const recentContact = world.clock - security.lastContactAt < LOCKDOWN_CONTACT
+  const dragging = security.level === 3 && world.clock - security.confirmedAt > LEVELS.lockdownAfter
+  if (security.level === 3 && recentContact && (dragging || world.player.hasLoot)) {
+    raiseLevel(world, 4)
+    return
+  }
+  if (world.clock - security.levelSince <= LEVELS.decaySeconds[security.level]) return
+  if (security.level <= levelFloor(security.peak)) return
+  security.level = (security.level - 1) as AlertLevel
+  security.levelSince = world.clock
+  log(world, `Control: Stepping down to level ${security.level}. Stay sharp.`)
+  if (security.level < 3) {
+    world.alarm = false
+    security.confirmedAt = -Infinity
+  }
+  if (security.level < 2) assignStations(world)
 }
 
-/** Tells the control room something happened. Guards, cameras and alarm buttons all report through this. */
-export function reportEvent(_world: World, _event: SecurityEvent): void {}
+/** What the guards will not forget: once anything happened the site stays uneasy, and after a confirmed intruder, suspicious. */
+export function levelFloor(peak: AlertLevel): AlertLevel {
+  if (peak >= 3) return 2
+  return peak >= 1 ? 1 : 0
+}
+
+/** At level 4 the site is locked down: the elevator system should freeze its cars. */
+export function isLockedDown(world: World): boolean {
+  return world.security.level >= 4
+}
