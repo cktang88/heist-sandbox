@@ -1,7 +1,7 @@
 import type { Input } from './input'
 import { trackLanding, trackStride, type Footfall } from './movement/footsteps'
 import { findLedge, letGo, startMantle, stepMantle, type Mantle } from './movement/ledge'
-import { slideVelocity, STAND_HEIGHT, updatePosture } from './movement/posture'
+import { CROUCH_HEIGHT, setHeight, slideVelocity, STAND_HEIGHT, updatePosture } from './movement/posture'
 import { GRAVITY, moveBody, slipPastCorner } from './physics'
 import type { Stairwell } from './site'
 import { climbStairs, findLanding, stepOffFlight, type OnStairs } from './stairs'
@@ -228,7 +228,14 @@ function takeStairs(grid: Grid, player: Player, input: Input, dt: number, stairw
     return false
   }
   player.stairsHeading = direction
+  // Crouch held, he creeps up the flight low (the flight is clear of walls, so there is always room to stand).
+  player.crouching = input.crouch
+  player.crouchWasHeld = input.crouch
+  setHeight(player, input.crouch ? CROUCH_HEIGHT : STAND_HEIGHT)
+  const from = { x: player.x, y: player.y }
   if (!climbStairs(player, player.stairs, well, direction, climb !== 0, dt)) player.stairs = null
+  // Steps on a flight are heard like steps on a floor (and crouching on them is as quiet).
+  trackStride(player, Math.hypot(player.x - from.x, player.y - from.y))
   return true
 }
 

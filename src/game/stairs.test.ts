@@ -149,3 +149,19 @@ describe('shooting on the stairs', () => {
     expect(body.player.bloom).toBe(0)
   })
 })
+
+describe('footsteps on the stairs', () => {
+  function climbing(crouch: boolean) {
+    const world = bareWorld(40, 120)
+    world.stairwells = [well]
+    Object.assign(world.player, { x: 10 - world.player.w / 2, y: 100 - world.player.h, onGround: true })
+    for (let frame = 0; frame < 60; frame += 1) movePlayer(world.grid, world.player, { ...idleInput({ x: 30, y: 90 }), up: true, crouch }, 1 / 60, world.stairwells)
+    expect(world.player.stairs).not.toBeNull()
+    return world.player.footfalls
+  }
+
+  it('running up a flight is heard step by step; creeping up crouched is silent', () => {
+    expect(climbing(false).length).toBeGreaterThanOrEqual(2)
+    expect(climbing(true)).toEqual([])
+  })
+})
