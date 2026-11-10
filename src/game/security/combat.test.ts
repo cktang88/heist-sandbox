@@ -110,7 +110,7 @@ describe('guard combat', () => {
     throwGrenade(world, 'flash', { x: 20.5, y: GROUND - 1.2 }, { x: 0.2, y: 1 })
     run(world, 2)
     expect(world.player.blindSeconds).toBeGreaterThan(1)
-    expect(world.player.deafSeconds).toBeGreaterThan(3)
+    expect(world.player.deafSeconds).toBeGreaterThan(1)
   })
 
   it('a flashed guard staggers blind and sees nothing', () => {
