@@ -20,7 +20,7 @@ import { createLevelMesh, FRONT, type LevelMesh } from './levelMesh'
 import { createLights } from './lights'
 import { createSurfaceMaterials, setWetness } from './materials'
 import { createPost, type PostChain } from './post'
-import { createSky } from './sky'
+import { createSky, setSkyStyle } from './sky'
 import { createCameraRig, TILES_TALL } from './style/cameraRig'
 import { pixelGrid, type PixelGrid } from './style/pixelGrid'
 import { STYLES, styleFromQuery, type Style, type StyleName } from './style/styles'
@@ -84,6 +84,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   function setStyle(name: StyleName): void {
     post.dispose()
     style = STYLES[name]
+    if (stage) setSkyStyle(stage.backdrop, style)
     // The cameras' clip planes depend on the look, and the new passes read them when built.
     fitCameras()
     post = createPost(renderer, scene, cameras, style)
@@ -144,7 +145,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     yield
     const actors = createActors(world, materials)
     while (!actors.buildNext()) yield
-    const backdrop = createSky(world.grid.width, world.groundY, world.timeOfDay, world.lamps.length)
+    const backdrop = createSky(world.grid.width, world.groundY, world.timeOfDay, world.lamps.length, style)
     group.add(level.group, actors.group, backdrop)
     // The building is drawn cut open, so invisible sheets stand in for its missing front and keep moonlight out.
     const blocker = new MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: DoubleSide })
