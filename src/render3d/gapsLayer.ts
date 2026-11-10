@@ -1,4 +1,5 @@
-import { CylinderGeometry, Group, InstancedMesh, Object3D, type Material } from 'three'
+import { CylinderGeometry, Group, InstancedMesh, Object3D } from 'three'
+import { coreMaterial } from './breaks'
 import { inView, type LayerFactory } from './layer'
 import { BACK } from './levelMesh'
 import { BOX, matte } from './props/kit'
@@ -18,7 +19,9 @@ const SEAM = 0.002
 const REBAR = new CylinderGeometry(1, 1, 1, 5)
 const REBAR_STEEL = matte(0x5a4032, 0.7, 0.6)
 const RUBBLE = matte(0x77736c, 0.95)
-const FALLBACK_CONCRETE = matte(0x8d9199, 0.9)
+/** Share of tiles that get each hanging chunk or bar: not every tile, so the edge does not repeat like a stencil. */
+const CHUNK_CHANCE = 0.45
+const BAR_CHANCE = 0.4
 
 /** A steady pseudo-random number in 0..1 for one tile, so a hole looks the same every frame. */
 function grain(tile: number, salt: number): number {
@@ -32,10 +35,10 @@ function grain(tile: number, salt: number): number {
  * It shows the player (and explains why guards can) walk past the hole on the back of the slab.
  * Only walk-past holes near the view are drawn, as three instanced meshes picked again only when the holes change.
  */
-export const createGapsLayer: LayerFactory = (_world, materials) => {
+export const createGapsLayer: LayerFactory = () => {
   const group = new Group()
-  const concrete: Material = materials.concrete ?? FALLBACK_CONCRETE
-  const strips = new InstancedMesh(BOX, concrete, MAX_TILES * PIECES)
+  // The same rough broken-concrete look as the cut faces around the hole, so the strip reads as part of the break.
+  const strips = new InstancedMesh(BOX, coreMaterial(), MAX_TILES * PIECES)
   const chunks = new InstancedMesh(BOX, RUBBLE, MAX_TILES * CHUNKS)
   const bars = new InstancedMesh(REBAR, REBAR_STEEL, MAX_TILES * BARS)
   for (const mesh of [strips, chunks, bars]) {
@@ -72,7 +75,7 @@ export const createGapsLayer: LayerFactory = (_world, materials) => {
         strips.setMatrixAt(slot * PIECES + piece, place.matrix)
       }
       for (let chunk = 0; chunk < CHUNKS; chunk += 1) {
-        const size = 0.16 + grain(tile, 10 + chunk) * 0.16
+        const size = grain(tile, 15 + chunk) < CHUNK_CHANCE ? 0.12 + grain(tile, 10 + chunk) * 0.2 : 0
         place.position.set(x + 0.2 + grain(tile, 20 + chunk) * 0.6, top - 0.75 - grain(tile, 30 + chunk) * 0.25, EDGE_Z + 0.05)
         place.rotation.set(grain(tile, 40 + chunk) * 3, grain(tile, 50 + chunk) * 3, grain(tile, 60 + chunk) * 3)
         place.scale.set(size, size * 0.8, size)
@@ -83,8 +86,9 @@ export const createGapsLayer: LayerFactory = (_world, materials) => {
         const length = 0.3 + grain(tile, 70 + bar) * 0.35
         // Bars run front to back in the slab; the blast bent their broken ends down a little.
         place.rotation.set(Math.PI / 2 + 0.15 + grain(tile, 80 + bar) * 0.4, 0, (grain(tile, 90 + bar) - 0.5) * 0.5)
-        place.position.set(x + 0.25 + bar * 0.5, top - 0.35 - bar * 0.3, EDGE_Z + length / 2 - 0.05)
-        place.scale.set(0.025, length, 0.025)
+        place.position.set(x + 0.15 + grain(tile, 85 + bar) * 0.7, top - 0.35 - bar * 0.3, EDGE_Z + length / 2 - 0.05)
+        const thick = grain(tile, 95 + bar) < BAR_CHANCE ? 0.025 : 0
+        place.scale.set(thick, length, thick)
         place.updateMatrix()
         bars.setMatrixAt(slot * BARS + bar, place.matrix)
       }
