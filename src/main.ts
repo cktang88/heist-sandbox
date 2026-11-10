@@ -30,6 +30,8 @@ import { hideBriefing, showBriefing } from './ui/briefing'
 import { showDebrief } from './ui/debrief'
 import { rememberHeist } from './ui/debriefStore'
 import { createWeather } from './ui/weather'
+import { createFrameGuard } from './ui/frameGuard'
+import { showCrashPanel } from './ui/crashPanel'
 
 const MAX_FRAME_SECONDS = 1 / 30
 
@@ -124,6 +126,8 @@ function updateLoading(now: number): void {
 
 // Menus (src/ui): pause, controls, help and settings. While one is open the heist does not step.
 function startHeist(seed: number): void {
+  closeCrashPanel()
+  guard.reset()
   writeSeed(seed)
   loading.show(0.06, 'Generating the complex')
   world = withNemeses(createWorld(seed, siteKind))
@@ -168,14 +172,34 @@ function fastForward(target: World, seconds: number, held: Input): void {
   for (let elapsed = 0; elapsed < seconds; elapsed += 1 / 60) stepWorld(target, { ...held, firePressed: held.fire, jumpPressed: false, interactPressed: false, detonatePressed: false, reloadPressed: false, selectTool: null }, 1 / 60)
 }
 
-/** Times one part of the frame for the frame probe (`?debug=1`, `__renderInfo.worstFrames`). */
+// One frame that throws must not stop the loop for good: the part is skipped and logged, and only errors on
+// every frame for a couple of seconds stop the heist behind a small panel (src/ui/frameGuard.ts).
+const guard = createFrameGuard(console.error)
+let closeCrashPanel = () => {}
+let crashed = false
+
+/** Times one part of the frame for the frame probe (`?debug=1`, `__renderInfo.worstFrames`); errors are caught. */
 function timed(cause: string, work: () => void): void {
   const start = performance.now()
-  work()
+  guard.attempt(cause, work)
   noteFramePart(cause, performance.now() - start)
 }
 
 function frame(now: number): void {
+  try {
+    guard.attempt('frame', () => frameBody(now))
+    const state = guard.endFrame(now / 1000)
+    if (state === 'stopped' && !crashed) {
+      crashed = true
+      closeCrashPanel = showCrashPanel(guard.details(), { newHeist: () => startHeist(randomSeed()) })
+    }
+    if (state === 'running') crashed = false
+  } finally {
+    requestAnimationFrame(frame)
+  }
+}
+
+function frameBody(now: number): void {
   const frameStart = performance.now()
   const realDt = Math.min(MAX_FRAME_SECONDS, (now - lastTime) / 1000)
   lastTime = now
@@ -188,7 +212,7 @@ function frame(now: number): void {
     startHeist(randomSeed())
   } else input.consumeRestart()
 
-  if (!menus.paused() && !starting) {
+  if (!menus.paused() && !starting && !crashed) {
     timed('simulation', () => {
       stepWorld(world, frameInput, realDt)
       rememberNemeses(world)
@@ -215,6 +239,5 @@ function frame(now: number): void {
   endFrame(performance.now() - frameStart)
   if (countFramesNext) startCountingFrames()
   countFramesNext = false
-  requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)
