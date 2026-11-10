@@ -19,6 +19,7 @@ import { clearOfDoorway, dragWounded } from './selfPreservation'
 import { GUARD_PISTOL, GUARD_RIFLE, roundReaches } from './lineOfFire'
 import { ducked, takeShelter } from './takingFire'
 import { respectKillZones } from './killZones'
+import { goBreach } from './blockedDoors'
 import { moveInStack, stackBroken } from './shieldTeam'
 import { COMBAT, PATROL, SHELTER, SHIELD, TIERS, TIMING, UNDER_FIRE } from './tuning'
 
@@ -130,7 +131,9 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
   const pinned = guard.suppression > UNDER_FIRE.duckAbove
   askForBackup(world, guard, alone, pinned)
   if (!world.security.shooters.includes(world.guards.indexOf(guard)) && dragWounded(world, guard, known, dt)) return
-  if (takeShelter(world, guard, known, dt)) {
+  if (!guard.seesPlayer && goBreach(world, guard, dt)) {
+    // On his way to (or shooting through) a barricaded door he was called to.
+  } else if (takeShelter(world, guard, known, dt)) {
     if (pinned) barkLine(world, guard, 'pinned')
   } else if (pinned) keepHeadDown(world, guard, known, dt)
   else {

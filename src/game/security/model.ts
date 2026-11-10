@@ -195,6 +195,25 @@ export type Guard = Body & {
    * and whether he did it with a flashbang (otherwise he fires down until then).
    */
   dropPrep: { x: number; y: number; readyAt: number; flashed: boolean } | null
+  /** What he decided to do about the furniture-blocked door he last walked into (blockedDoors.ts). */
+  doorPlan: DoorPlan | null
+  /** A barricaded door (tile) a colleague has called him, a heavy, to breach. */
+  breachAt: Vec | null
+}
+
+/**
+ * A guard's decision at a door held shut by furniture: go `around` it by other stairs (walking `waypoints` in turn),
+ * `shove` it open, or, in a fight, `breach` it. `side` is the side of the door he wants to get to, on floor `floorY`.
+ */
+export type DoorPlan = {
+  key: string
+  door: Vec
+  floorY: number
+  side: number
+  choice: 'around' | 'shove' | 'breach'
+  waypoints: Vec[]
+  index: number
+  since: number
 }
 
 const BASE_HP = 100
@@ -221,7 +240,7 @@ export function createGuard(spawn: GuardSpawn, armored = false): Guard {
     rounds: magazineOf(tough), reloadSeconds: 0, diveSeconds: 0, hesitateSeconds: 0, hesitatedRoom: null, partnerWait: 0, backupAt: -Infinity,
     blindFiring: false, bounding: false, boundSince: 0, draggedBy: null, dragSeconds: 0, blindReaction: null, droppedWeapon: null, unwatchedSeconds: 0, restrained: false,
     aim: { x: spawn.facing, y: 0 }, heardAt: -Infinity, underFireAt: -Infinity, shelter: null, peeking: false, peekSeconds: 0,
-    shield: false, stackLeader: null, stackSlot: 0, clearedAt: -Infinity, dropPrep: null,
+    shield: false, stackLeader: null, stackSlot: 0, clearedAt: -Infinity, dropPrep: null, doorPlan: null, breachAt: null,
   }
 }
 

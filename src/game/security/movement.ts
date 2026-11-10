@@ -3,7 +3,6 @@ import { nextHop } from '../nav'
 import { emitNoise } from '../noise'
 import { boxHitsSolid, GRAVITY, moveBody } from '../physics'
 import { canWalkAcross } from '../gaps/gaps'
-import { doorBlockedAt } from '../physprops/physprops'
 import { playSound } from '../sounds'
 import { climbStairs } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
@@ -11,6 +10,7 @@ import type { Body, Vec } from '../types'
 import type { World } from '../world'
 import { doorKeyAt } from './discoveries'
 import { holesFor, readyToDrop } from './holeDrop'
+import { detourStep, doorHeld, reachedDetourStep } from './blockedDoors'
 import { feetOf, type Guard } from './model'
 
 /**
@@ -46,8 +46,19 @@ export function hold(world: World, guard: Guard, dt: number): void {
   walk(world, guard, 0, dt)
 }
 
-/** Walks (or runs) toward a feet position. `careful` guards do not drop off ledges or use ladders. */
+/**
+ * Walks (or runs) toward a feet position. `careful` guards do not drop off ledges or use ladders. A guard going round
+ * a barricaded door (blockedDoors.ts) walks his detour first.
+ */
 export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: number, careful: boolean): MoveStatus {
+  const detour = guard.doorPlan ? detourStep(world, guard, to) : null
+  if (!detour) return route(world, guard, to, speed, dt, careful)
+  const status = route(world, guard, detour, speed, dt, careful)
+  if (status === 'arrived') reachedDetourStep(guard)
+  return status === 'blocked' ? 'blocked' : 'moving'
+}
+
+function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, careful: boolean): MoveStatus {
   if (guard.stairs) {
     stepStairs(world, guard, to.y, dt)
     return 'moving'
@@ -91,7 +102,7 @@ export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: num
     return 'blocked'
   }
   const pace = Math.min(speed, Math.abs(dx) * 5 + 0.5)
-  return walk(world, guard, guard.facing * pace, dt) && !openDoorAhead(world, guard, !careful && speed > 3) ? 'blocked' : 'moving'
+  return walk(world, guard, guard.facing * pace, dt) && !openDoorAhead(world, guard, !careful && speed > 3, to) ? 'blocked' : 'moving'
 }
 
 /**
@@ -161,7 +172,7 @@ function openHatch(world: World, at: Vec): void {
  * Opens the door the guard has walked into. A calm guard opens it with a click; a guard in a hurry kicks it in, loudly.
  * Returns true if there was a door.
  */
-function openDoorAhead(world: World, guard: Guard, kick: boolean): boolean {
+function openDoorAhead(world: World, guard: Guard, kick: boolean, goal: Vec): boolean {
   const feet = feetOf(guard)
   const column = Math.floor(feet.x + guard.facing * 0.8)
   const row = [1, 2, 3].map((up) => Math.floor(feet.y - up)).find((y) => tileAt(world.grid, column, y) === 'door')
@@ -170,7 +181,7 @@ function openDoorAhead(world: World, guard: Guard, kick: boolean): boolean {
     return false
   }
   const at = { x: column, y: row }
-  if (doorBlockedAt(world, at)) return true
+  if (doorHeld(world, guard, at, goal)) return true
   // Remembered, so colleagues who find it open later know it was one of their own.
   world.security.guardDoors.add(doorKeyAt(world, column, row))
   openDoor(world.grid, at)
@@ -225,7 +236,7 @@ function startLadder(world: World, guard: Guard, to: Vec, speed: number, dt: num
     return 'moving'
   }
   guard.facing = offset > 0 ? 1 : -1
-  if (walk(world, guard, guard.facing * speed, dt)) openDoorAhead(world, guard, true)
+  if (walk(world, guard, guard.facing * speed, dt)) openDoorAhead(world, guard, true, to)
   return 'moving'
 }
 
