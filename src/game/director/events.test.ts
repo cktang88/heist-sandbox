@@ -171,4 +171,16 @@ describe('director events, each through public game state', () => {
     expect(event('deal').start(world, rng)!.outcome()).toMatch(/keycard/)
     expect(deviceState(world).unlockedDoors.size).toBeGreaterThanOrEqual(unlocked)
   })
+
+  it('a loyal guard who gave up offers his keycard, never "what he knows" only to refuse it', () => {
+    const world = directedWorld(2, 'complex', [])
+    const guard = world.guards.find((candidate) => candidate.role === 'patrol' && world.people?.byGuard.get(candidate)?.roster)!
+    world.people!.byGuard.get(guard)!.traits.push('loyal')
+    surrender(world, guard)
+    guard.nerve = 0.5
+    Object.assign(world.player, standingAt(world, { x: feetOf(guard).x + 1, y: feetOf(guard).y }))
+    const clues = world.intel.clues.length
+    expect(event('deal').start(world, rng)!.outcome()).toMatch(/keycard/)
+    expect(world.intel.clues.length).toBe(clues)
+  })
 })
