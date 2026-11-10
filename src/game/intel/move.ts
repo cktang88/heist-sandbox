@@ -4,7 +4,7 @@ import { isActive } from '../security/model'
 import { centerOf, distance, type Vec } from '../types'
 import type { World } from '../world'
 import { markAllStale } from './clues'
-import { putLootIn } from './places'
+import { putLootIn, spotIn } from './places'
 import type { Place } from './types'
 
 /**
@@ -35,21 +35,26 @@ export function stepLootMove(world: World, dt: number): void {
   }
   move.alertSeconds += dt
   if (move.alertSeconds < (tippedOff ? 0 : MOVE_DELAY)) return
-  if (move.to === null) orderMove(world)
+  if (move.to === null && !orderMove(world)) return
   const to = intel.places[move.to ?? intel.real]
   if (watched(world, centerOf(world.loot)) || watched(world, spotOf(to))) return
   relocate(world, to)
 }
 
-/** The guard nearest the case calls it, so the player can hear that it is about to go. */
-function orderMove(world: World): void {
+/**
+ * The guard nearest the case calls it, so the player can hear that it is about to go. Only a room with somewhere to
+ * set the case down will do (not one blown out or filled with rubble); with none left it stays put.
+ */
+function orderMove(world: World): boolean {
   const intel = world.intel
-  const others = intel.places.filter((place) => place.id !== intel.real)
+  const others = intel.places.filter((place) => place.id !== intel.real && spotIn(world, place) !== null)
+  if (others.length === 0) return false
   intel.move.to = others[Math.floor(world.rng() * others.length)].id
   intel.move.ordered = true
   const loot = centerOf(world.loot)
   const caller = world.guards.filter(isActive).sort((a, b) => distance(centerOf(a), loot) - distance(centerOf(b), loot))[0]
   if (caller) bark(world, caller, 'Move the package! Now!', true)
+  return true
 }
 
 function watched(world: World, at: Vec): boolean {
