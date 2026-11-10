@@ -2,6 +2,7 @@ import type { World } from '../world'
 import { bodyAt } from '../stealth/bodies'
 import { bark } from './barks'
 import { startRadio } from './comms'
+import { nextCheckIn } from './checkins'
 import type { Guard } from './model'
 import { startSearch } from './orders'
 import { floorBelow } from './places'
@@ -19,6 +20,10 @@ function getUp(world: World, guard: Guard): void {
   guard.ragdoll = null
   guard.hiddenIn = null
   Object.assign(guard, { x: feet.x - guard.w / 2, y: feet.y - guard.h, vx: 0, vy: 0, awareness: 0.6 })
+  // Back on the radio: he answers check-ins again, so going silent a second time is noticed too.
+  Object.assign(guard, { missing: false, checkInAt: nextCheckIn(world) })
+  const index = world.guards.indexOf(guard)
+  world.security.polls = world.security.polls.filter((poll) => poll.guard !== index)
   if (world.stealth.carried === world.guards.indexOf(guard)) world.stealth.carried = null
 }
 
