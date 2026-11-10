@@ -52,14 +52,16 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   world.clock += dt
 
   const alarmBefore = world.alarm
+  // A stunned player's hands and feet do nothing; the stun wears off whether or not the drone is out.
+  const stunned = world.player.stunSeconds > 0
+  world.player.stunSeconds = Math.max(0, world.player.stunSeconds - dt)
   if (world.drone) {
     movePlayer(world.grid, world.player, idleInput(input.aim), dt, world.stairwells)
     stepDrone(world, input, dt)
     lap('drone')
   } else {
     // Knocked off his feet or jolted: for that moment the keys do nothing.
-    const control = world.player.stunSeconds > 0 ? idleInput(input.aim) : input
-    world.player.stunSeconds = Math.max(0, world.player.stunSeconds - dt)
+    const control = stunned ? idleInput(input.aim) : input
     movePlayer(world.grid, world.player, control, dt, world.stairwells)
     emitMovementNoise(world)
     lap('player')
@@ -73,7 +75,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   aimAtCables(world)
   lap('grapple')
   // While the drone is flown, the keys steer it: the body does not punch, kick, grab or throw.
-  const hands = world.drone ? idleInput(input.aim) : input
+  const hands = world.drone || stunned ? idleInput(input.aim) : input
   stepMelee(world, hands, dt)
   lap('melee')
   stepPhysProps(world, hands, dt)

@@ -110,7 +110,7 @@ The crosshair ring widens as a gun gets less accurate, so spread is never a surp
 | Close doors | **E** closes a door you opened (crouched: silently). A picked lock closed again leaves no trace |
 | Kill or choke out | Behind an unaware guard: **E** kills at once (a small sound, blood). Crouched, hold **E** to choke him out silently; he wakes in 3 minutes unless tied |
 | Move bodies | **G** picks up and drops, **T** throws. While carrying, **E** hides the body in a locker, wardrobe, stall, dumpster, or under a desk or bed |
-| Hide yourself | **E** at a locker, wardrobe or bathroom stall; crouch + **E** to crawl under a desk. From inside, **E** grabs a guard walking past |
+| Hide yourself | **E** at a locker, wardrobe or bathroom stall; **E** to crawl under a desk. From inside, **E** grabs a guard walking past |
 | The surprise window | A lone guard who finds you up close is startled for about 3 seconds (less for veterans). Subdue him in that time and nobody hears about it |
 | Disguise | Hold **E** on a body to put on his uniform. It fools guards at a distance, not officers or anyone close for long |
 | Keycards and radios | Take a keycard from a body to open keypad doors silently. Take his radio to answer his check-ins (two bluffs) |
