@@ -3,6 +3,7 @@ import { addGuard, bareWorld } from '../../game/hazards/testWorld'
 import { actionIndex } from '../../game/toolDefs'
 import { captiveNeck, draggedCollar } from './acts'
 import { guardMotion, playerMotion } from './motion'
+import { createWorld } from '../../game/world'
 
 const FLOOR = 22
 const feetOf = (body: { x: number; y: number; w: number; h: number }) => ({ x: body.x + body.w / 2, y: body.y + body.h })
@@ -92,5 +93,17 @@ describe('guardMotion', () => {
     expect(guardMotion(w, guard, 'rifle').motion.act).toEqual({ kind: 'reload', t: expect.closeTo(0, 3) })
     guard.diveSeconds = 0.01
     expect(guardMotion(w, guard, 'rifle').motion.act).toEqual({ kind: 'dive', t: expect.closeTo(0.98, 1) })
+  })
+})
+
+describe('guards at ease', () => {
+  it('a calm guard on the phone holds a hand to his face; once the moment is over he just stands', () => {
+    const w = createWorld(1)
+    const guard = w.guards[0]
+    const person = w.people!.byGuard.get(guard)!
+    person.act = { name: 'phone', until: w.clock + 5, with: null }
+    expect(guardMotion(w, guard, 'pistol').motion.act).toEqual({ kind: 'radio' })
+    w.clock += 6
+    expect(guardMotion(w, guard, 'pistol').motion.act).toBeUndefined()
   })
 })

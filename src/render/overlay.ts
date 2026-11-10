@@ -38,6 +38,7 @@ export function drawOverlay(context: CanvasRenderingContext2D, world: World, cam
   for (const guard of world.guards) {
     if (guard.state === 'dead' || guard.out || guard.startle || !onScreen(camera, guard, 2)) continue
     drawGuardStatus(context, world, camera, guard, unit)
+    drawGuardName(context, world, camera, guard, unit)
   }
   drawBarks(context, world, camera, unit)
   drawStealthScreen(context, world, camera, unit)
@@ -112,6 +113,20 @@ function drawGuardStatus(context: CanvasRenderingContext2D, world: World, camera
   else if (icon === 'searching') magnifier(context, centre, radius)
   else if (icon === 'radio') radio(context, centre, radius, world.clock)
   else burst(context, centre, radius)
+}
+
+/** Close to the player, or saying something, a guard's name shows small and dim under his feet. */
+const NAME_REACH = 8
+
+function drawGuardName(context: CanvasRenderingContext2D, world: World, camera: Camera, guard: Guard, unit: number): void {
+  const name = world.people?.nameOf(guard)
+  if (!name) return
+  const head = { x: guard.x + guard.w / 2, y: guard.y }
+  const close = Math.abs(head.x - centerOf(world.player).x) < NAME_REACH && Math.abs(guard.y - world.player.y) < 3
+  const speaking = world.security.barks.some((bark) => Math.abs(bark.x - head.x) < 1 && Math.abs(bark.y - head.y) < 2.5)
+  if (!close && !speaking) return
+  const feet = worldToScreen(camera, { x: head.x, y: guard.y + guard.h })
+  caption(context, name, feet.x, feet.y + unit * 0.9, 'rgba(220,228,240,0.55)', unit * 0.75, 'center')
 }
 
 function magnifier(context: CanvasRenderingContext2D, at: Vec, radius: number): void {

@@ -2,6 +2,7 @@ import { deviceState } from '../../game/devices/state'
 import { onLine } from '../../game/grapple/state'
 import { guardMood, type Guard } from '../../game/guards'
 import { propBox, propById } from '../../game/hazards/props'
+import { actOf } from '../../game/people/tick'
 import { UNDER_FIRE } from '../../game/security/tuning'
 import { TOOLS, type ToolId } from '../../game/toolDefs'
 import { handOf } from '../../game/tools'
@@ -172,5 +173,18 @@ function guardAct(world: World, guard: Guard): Act | undefined {
   if (guard.radio) return { kind: 'radio' }
   if (guard.mode === 'searching') return { kind: 'torch' }
   if ((guard.mode === 'noticed' || guard.mode === 'investigating') && Math.abs(guard.vx) < 0.3) return { kind: 'scan' }
+  return idlePose(world, guard)
+}
+
+/**
+ * A calm man's idle moment (people/), shown with the poses there already are: a hand up to his face for a phone call,
+ * a cigarette or a coffee; a look round for a yawn or a stretch; leaning in to read a noticeboard. Talking and leaning
+ * need nothing more than standing.
+ */
+function idlePose(world: World, guard: Guard): Act | undefined {
+  const idle = actOf(world, guard)
+  if (idle === 'phone' || idle === 'smoke' || idle === 'coffee') return { kind: 'radio' }
+  if (idle === 'yawn' || idle === 'stretch') return { kind: 'scan' }
+  if (idle === 'noticeboard') return { kind: 'work', how: 'hunch', at: { x: feetOf(guard).x + guard.facing * 0.7, y: feetOf(guard).y - 1.3 } }
   return undefined
 }
