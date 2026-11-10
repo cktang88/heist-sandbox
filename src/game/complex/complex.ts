@@ -118,9 +118,12 @@ function buildSewer(site: SiteDraft): void {
   const sewer = addRoom(site, 'sewer', 'sewer', -5, SEWER.left, SEWER.right, SEWER.bottom + 1, 4)
   // The sewer lights' fuse box, on the wall at the foot of the yard manhole.
   site.devices.push({ kind: 'fusebox', x: 83, y: sewer.floorY - 2, roomId: sewer.id, circuit: circuitOf('sewer', sewer.storey) })
-  // Manholes on the street, in the yard and behind the rear fence. The ladders reach down into the water,
-  // so someone standing on the sewer floor can take hold of them.
-  for (const x of [22, 82, 285]) fill(site, x, ground, x, SEWER.bottom, 'ladder')
+  // Manholes on the street, in the yard and behind the rear fence: a cover people walk over, opened like a hatch.
+  // The ladders reach down into the water, so someone standing on the sewer floor can take hold of them.
+  for (const x of [22, 82, 285]) {
+    fill(site, x, ground + 1, x, SEWER.bottom, 'ladder')
+    setTile(site.grid, x, ground, 'door')
+  }
   site.guards.push({ x: 120, y: SEWER.bottom + 1, facing: -1, role: 'patrol', route: [{ x: 60, y: SEWER.bottom + 1 }, { x: 200, y: SEWER.bottom + 1 }] })
 }
 
@@ -223,8 +226,7 @@ function outdoorAreas(site: SiteDraft, storeys: number): void {
   const openRooms = site.rooms.filter((room) => outdoor.has(room.kind))
   site.lamps = site.lamps.filter((lamp) => !openRooms.some((room) => lamp.fixture === 'ceilingPanel' && Math.abs(lamp.y - (room.y + 0.2)) < 0.01 && lamp.x >= room.x && lamp.x <= room.x + room.w))
   site.guards.push({ x: 150, y: ground - storeys * STOREY, facing: 1, role: 'patrol', route: [{ x: 100, y: ground - storeys * STOREY }, { x: 176, y: ground - storeys * STOREY }] })
-  // The depot patrol turns back short of the yard manhole, which a calm guard takes for a ledge.
-  site.guards.push({ x: 66, y: ground, facing: 1, role: 'patrol', route: [{ x: 53, y: ground }, { x: 80, y: ground }] })
+  site.guards.push({ x: 66, y: ground, facing: 1, role: 'patrol', route: [{ x: 53, y: ground }, { x: 84, y: ground }] })
   // The quarters have no door on the silo side, so this patrol walks through their ground floor and back.
   site.guards.push({ x: 190, y: ground, facing: -1, role: 'patrol', route: [{ x: 188, y: ground }, { x: 225, y: ground }] })
 }
