@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from '../game/input'
 import { stepWorld } from '../game/step'
 import { createWorld, type World } from '../game/world'
-import { intelTop, objectiveLine, visibility } from './drawHud'
+import { helpTop, hudUnit, intelTop, objectiveLine, visibility } from './drawHud'
 
 const FRAME = 1 / 60
 
@@ -44,5 +44,18 @@ describe('the vitals', () => {
     const tagBottom = unit * 5.9 + unit * 0.62 * 0.45
     expect(intelTop(unit, true)).toBeGreaterThan(tagBottom)
     expect(intelTop(unit, false)).toBeGreaterThan(unit * 5.1)
+  })
+})
+
+describe('the first-seconds help panel', () => {
+  it('stays below the middle of the screen, where the player falls, and above the action prompt', () => {
+    for (const [width, height] of [[1280, 720], [900, 700], [1920, 1080], [2560, 1440]]) {
+      const unit = hudUnit(height)
+      const panelHeight = Math.min(unit, (width - unit * 4) / 62) * 13.2
+      const top = helpTop(unit, height, panelHeight)
+      expect(top, `${width}x${height}`).toBeGreaterThan(height / 2 + unit * 2)
+      // The prompt's panel reaches up to 6.3 units above the bottom.
+      expect(top + panelHeight, `${width}x${height}`).toBeLessThanOrEqual(height - unit * 6.3)
+    }
   })
 })

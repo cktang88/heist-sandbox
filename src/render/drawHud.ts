@@ -63,8 +63,8 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   drawSituation(context, world, unit, width)
   drawTools(context, world, unit, width, height)
   drawCrosshair(context, world, camera, aim)
-  if (world.drone) caption(context, `DRONE  ${Math.ceil(world.drone.battery)}s   click: detonate   E: recall`, width / 2, unit * 2, '#6fd0ff', unit, 'center')
-  if (world.charges.length > 0) caption(context, `C4 SET x${world.charges.length}   Q or right-click: detonate all`, width / 2, unit * (world.drone ? 3.3 : 2), '#ffb347', unit, 'center')
+  if (world.drone) statusCaption(context, `DRONE  ${Math.ceil(world.drone.battery)}s`, 'click: detonate   E: recall', unit * 1.6, '#6fd0ff', unit, width)
+  if (world.charges.length > 0) statusCaption(context, `C4 SET x${world.charges.length}`, 'Q or right-click: detonate all', unit * (world.drone ? 3.9 : 1.6), '#ffb347', unit, width)
   if (world.prompt && world.status === 'playing') drawPrompt(context, world.prompt, unit, width, height)
   if (world.stealth.hint && world.status === 'playing') caption(context, world.stealth.hint, width / 2, height - unit * 3.55, DIM, unit * 0.75, 'center')
   if (world.terminal && world.status === 'playing') drawTerminal(context, world.terminal, unit, width, height)
@@ -288,11 +288,30 @@ function drawTools(context: CanvasRenderingContext2D, world: World, unit: number
   }
 }
 
+/**
+ * A drone or C4 status between the vitals and the alert panel: its name, and under it in smaller type the keys.
+ * Two short lines rather than one long one, so it fits between the corner panels on a narrow window too.
+ */
+function statusCaption(context: CanvasRenderingContext2D, title: string, keys: string, top: number, colour: string, unit: number, width: number): void {
+  const w = Math.max(measure(context, title, unit * 0.95), measure(context, keys, unit * 0.68)) + unit
+  panel(context, width / 2 - w / 2, top, w, unit * 2.05)
+  caption(context, title, width / 2, top + unit * 0.95, colour, unit * 0.95, 'center')
+  caption(context, keys, width / 2, top + unit * 1.75, TEXT, unit * 0.68, 'center')
+}
+
+/** The first seconds' key list, low in the middle: clear of the player, who starts at the centre falling from the plane. */
 function drawHelp(context: CanvasRenderingContext2D, unit: number, width: number, height: number): void {
   const size = Math.min(unit, (width - unit * 4) / 62)
   const w = Math.min(width - unit * 2, size * 50)
-  panel(context, width / 2 - w / 2, height * 0.28 - size * 1.8, w, size * (HELP.length * 1.5 + 1.2))
-  HELP.forEach((line, index) => caption(context, line, width / 2, height * 0.28 + index * size * 1.5, 'rgba(255,255,255,0.88)', size * 0.82, 'center'))
+  const h = size * (HELP.length * 1.5 + 1.2)
+  const top = helpTop(unit, height, h)
+  panel(context, width / 2 - w / 2, top, w, h)
+  HELP.forEach((line, index) => caption(context, line, width / 2, top + size * 1.8 + index * size * 1.5, 'rgba(255,255,255,0.88)', size * 0.82, 'center'))
+}
+
+/** Where the help panel starts: its bottom sits above the action prompt, and it never rises into the screen's middle. */
+export function helpTop(unit: number, height: number, panelHeight: number): number {
+  return Math.max(height * 0.56, height - unit * 6.6 - panelHeight)
 }
 
 function drawEndScreen(context: CanvasRenderingContext2D, world: World, width: number, height: number, unit: number): void {
