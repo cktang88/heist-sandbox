@@ -1,6 +1,8 @@
 import type { SoundKind } from './game/sounds'
 import { SOUNDS } from './render3d/assetManifest'
 import { centerOf } from './game/types'
+import { hasLineOfSight } from './game/vision'
+import { heardAt } from './soundFalloff'
 import type { World } from './game/world'
 
 /**
@@ -58,8 +60,8 @@ const RECORDINGS: Partial<Record<SoundKind, { files: string[]; gain: number }>> 
   kill: { files: [SOUNDS.body_fall_1, SOUNDS.body_fall_2], gain: 0.5 },
 }
 
-const HEARING_TILES = 14
 const PAN_TILES = 22
+const MUFFLED_HZ = 900
 
 export function createAudio(): GameAudio {
   let context: AudioContext | null = null
@@ -97,8 +99,19 @@ export function createAudio(): GameAudio {
   window.addEventListener('pointerdown', unlock)
   window.addEventListener('keydown', unlock)
 
-  function play(kind: SoundKind, loudness: number, pan: number, pitch: number): void {
+  /** Where a sound goes: straight to the mix, or through a dull filter when a wall is in the way. */
+  function outlet(muffled: boolean): AudioNode {
+    if (!muffled) return master!
+    const wall = context!.createBiquadFilter()
+    wall.type = 'lowpass'
+    wall.frequency.value = MUFFLED_HZ
+    wall.connect(master!)
+    return wall
+  }
+
+  function play(kind: SoundKind, loudness: number, pan: number, pitch: number, muffled: boolean): void {
     if (!context || !master || !noise) return
+    const exit = outlet(muffled)
     const takes = samples.get(kind)
     if (takes && takes.length > 0) {
       const source = context.createBufferSource()
@@ -108,7 +121,7 @@ export function createAudio(): GameAudio {
       level.gain.value = (RECORDINGS[kind]?.gain ?? 1) * loudness
       const side = context.createStereoPanner()
       side.pan.value = pan
-      source.connect(level).connect(side).connect(master)
+      source.connect(level).connect(side).connect(exit)
       source.start()
       return
     }
@@ -117,7 +130,7 @@ export function createAudio(): GameAudio {
     const length = voice.seconds / pitch
     const out = context.createStereoPanner()
     out.pan.value = pan
-    out.connect(master)
+    out.connect(exit)
 
     const hiss = context.createBufferSource()
     hiss.buffer = noise
@@ -175,8 +188,9 @@ export function createAudio(): GameAudio {
       master.frequency.value = 500 + world.time.scale * world.time.scale * 19500
       const ear = centerOf(world.drone ?? world.player)
       for (const event of events) {
-        const gap = Math.hypot(event.x - ear.x, event.y - ear.y)
-        play(event.kind, 1 / (1 + gap / HEARING_TILES), Math.max(-1, Math.min(1, (event.x - ear.x) / PAN_TILES)), pitch)
+        // Only what is near is heard; a wall or floor in between dulls it.
+        const heard = heardAt(event.kind, Math.hypot(event.x - ear.x, event.y - ear.y), !hasLineOfSight(world.grid, ear, event))
+        if (heard) play(event.kind, heard.loudness, Math.max(-1, Math.min(1, (event.x - ear.x) / PAN_TILES)), pitch, heard.muffled)
       }
       setSiren(world.alarm && world.status === 'playing', pitch)
     },
