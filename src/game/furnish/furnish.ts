@@ -45,7 +45,7 @@ function furnishRoom(rng: Rng, site: SiteDraft, room: Room): Span[] {
 
   if (!NO_SWITCH.has(room.kind)) addLightSwitch(rng, site, room, circuit)
   const wall = hangWall(rng, site.grid, room, style, floor, deviceRects(site, room))
-  const ceiling = hangCeiling(rng, room, style, floor)
+  const ceiling = hangCeiling(rng, site.grid, room, style, floor)
   seatDevices(site, room, floor)
 
   site.props.push(...(rug ? [rug] : []), ...floor, ...wall, ...ceiling)

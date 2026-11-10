@@ -115,12 +115,17 @@ export function hangWall(rng: Rng, grid: Grid, room: Room, style: RoomStyle, flo
 }
 
 /** Dresses the ceiling: hoods and projectors over what they serve, then ducts, cables, sprinklers and detectors. */
-export function hangCeiling(rng: Rng, room: Room, style: RoomStyle, floor: Prop[]): Prop[] {
+export function hangCeiling(rng: Rng, grid: Grid, room: Room, style: RoomStyle, floor: Prop[]): Prop[] {
   const out: Prop[] = []
   const taken: { left: number; right: number }[] = []
+  // Nothing hangs under a hole in the ceiling, such as a manhole a ladder comes down through.
+  const hole = (span: { left: number; right: number }) => {
+    for (let x = Math.floor(span.left); x < span.right; x += 1) if (!isSolidAt(grid, x, room.y - 1)) return true
+    return false
+  }
   for (const prop of floor) {
     const kind = ABOVE[prop.kind]
-    if (!kind) continue
+    if (!kind || hole(extent({ kind, x: prop.x }))) continue
     out.push({ kind, x: prop.x, y: room.y, roomId: room.id })
     taken.push(extent({ kind, x: prop.x }))
   }
@@ -132,7 +137,7 @@ export function hangCeiling(rng: Rng, room: Room, style: RoomStyle, floor: Prop[
     for (let tries = 0; tries < 12; tries += 1) {
       const centre = between(rng, room.x + w / 2 + 0.2, room.x + room.w - w / 2 - 0.2)
       const span = { left: centre - w / 2, right: centre + w / 2 }
-      if (taken.some((other) => span.left < other.right + 0.3 && other.left < span.right + 0.3)) continue
+      if (hole(span) || taken.some((other) => span.left < other.right + 0.3 && other.left < span.right + 0.3)) continue
       taken.push(span)
       out.push({ kind, x: Math.round((centre - 0.5) * 20) / 20, y: room.y, flip: rng() < 0.5, roomId: room.id })
       break
