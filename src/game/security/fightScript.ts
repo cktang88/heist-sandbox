@@ -40,7 +40,8 @@ export type FightReport = { idle: string[]; engaged: number; guardShots: number;
 
 /**
  * Runs a fight for `seconds` with the player held at feet position `spot`, firing short rough bursts at whoever he can hit.
- * `onFrame` runs after every step, for tests that look closer at one guard.
+ * It stops early at the first guard caught idle, which already decides the test. `onFrame` runs after every step, for
+ * tests that look closer at one guard.
  */
 export function scriptedFight(world: World, spot: Vec, seconds: number, onFrame?: (world: World) => void): FightReport {
   world.player.hp = 1e6
@@ -83,6 +84,8 @@ export function scriptedFight(world: World, spot: Vec, seconds: number, onFrame?
       }
     }
     if (Math.floor(world.clock) !== Math.floor(world.clock - FRAME)) log.push(snapshot(world))
+    // One man caught idle decides the test: no need to play the fight out.
+    if (idle.size > 0) break
   }
   return { idle: [...idle], engaged: engaged.size, guardShots, log }
 }

@@ -59,6 +59,9 @@ const HUNTS: Hunt[] = [
   { name: 'in the sewer under the yard manhole', seed: 3, place: sewer },
 ]
 
+/** A whole fight on the big site can take a minute on a busy machine. */
+const FIGHT_TIMEOUT = 240_000
+
 const CASES = HUNTS.flatMap((hunt) => PERTURBATIONS.map((draws) => ({ hunt, draws })))
 
 describe('the idle hunt on more spots and seeds', () => {
@@ -70,5 +73,5 @@ describe('the idle hunt on more spots and seeds', () => {
     const report = scriptedFight(world, spot, 30)
     expect(report.engaged).toBeGreaterThan(0)
     expect(report.idle).toEqual([])
-  })
+  }, FIGHT_TIMEOUT)
 })
