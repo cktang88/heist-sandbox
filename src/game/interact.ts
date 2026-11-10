@@ -61,7 +61,9 @@ export function interact(world: World, input: Input, dt: number): void {
     world.prompt = busy || null
     return
   }
-  if (!takedownAction(world) && world.terminal) return useTerminal(world, input)
+  // A man walking up within reach takes the player's eyes off the screen: the menu shuts and E is for him.
+  if (world.terminal && takedownAction(world)) closeTerminal(world)
+  if (world.terminal) return useTerminal(world, input)
   const action = bestAction(world)
   const acted = perform(world, input, dt, action)
   // The hint shows what E does next, so it is chosen again after anything changed.

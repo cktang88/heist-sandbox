@@ -7,6 +7,8 @@ import { fillTiles, tileAt } from './tiles'
 import { damageProp } from './cover'
 import { propBox } from './hazards/props'
 import { enterSpot } from './stealth/hide'
+import { openTerminal } from './devices/terminal'
+import { addDevice as addArenaDevice, addGuard as addArenaGuard, arena, GROUND as ARENA_GROUND, putPlayer, run as runArena } from './security/testArena'
 import { pickUp } from './stealth/carry'
 import { addGuard } from './hazards/testWorld'
 import { deviceState, doorKey } from './devices/state'
@@ -255,5 +257,19 @@ describe('E while carrying a body', () => {
     expect(world.prompt).toMatch(/open door/)
     press(world)
     expect(tileAt(world.grid, 70, GROUND - 1)).toBe('air')
+  })
+})
+
+describe('an open terminal with a guard walking up', () => {
+  it('a guard in reach for a takedown closes the menu, so the prompt names what E does', () => {
+    const world = arena()
+    const computer = addArenaDevice(world, { kind: 'computer', x: 18, y: ARENA_GROUND - 1, hacked: true })
+    putPlayer(world, 18.5)
+    openTerminal(world, computer)
+    expect(world.terminal).not.toBeNull()
+    addArenaGuard(world, 19.6, 1)
+    runArena(world, 0.05)
+    expect(world.terminal).toBeNull()
+    expect(world.prompt).toBe('E: take down')
   })
 })
