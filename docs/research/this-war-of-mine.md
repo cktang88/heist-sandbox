@@ -166,7 +166,7 @@ Not viewed (listed so they are not lost): 4 further War Child / soundtrack scree
 ### 2.2 My inference from screenshots (not confirmed by developers)
 These are what I can see in the images and are labelled as inference.
 - **Hatching is screen-aligned and applied to everything, including the sky and UI backdrops.** The rain in A1, A5, B15 is a layer of thin diagonal strokes that does not move with the geometry, and the sky in A1/A8 shows the same stroke direction as the walls. That suggests a full-screen post-process overlay (strokes whose density follows luminance) rather than per-mesh hatch textures. [seen]
-- **Lighting is baked-looking plus a few dynamic lights.** Rooms have a flat base tone from a single colour grade, then local pools from hanging bulbs, windows and fires, with soft falloff and visible light shafts (A11, B1 world images). [seen]
+- **Lighting is baked-looking plus a few dynamic lights.** Rooms have a flat base tone from a single colour grade, then local pools from hanging bulbs, windows and fires, with soft falloff and visible light shafts (A7, A11). [seen]
 - **Near-monochrome grade with spot colour.** Almost all pixels are grey; colour appears only where it means something: fire/pink-orange glow, a red child's coat (B25), red trams (B5), orange UI accent, the red noise rings. [seen]
 - **Heavy dark vignette and black "unseen" areas.** Cutaway edges and unseen rooms fall to near-black (A4 bottom basement, A1 ground floor). [seen]
 - **Tiny characters with a hand-animated scale.** Characters are about one-third of a storey high. [seen]
@@ -180,14 +180,14 @@ No GDC/Digital Dragons talk on the shader exists in what I could reach. The GDC 
 ### 3.1 Two-phase loop and how the building is used
 - **Day:** snipers outside force you to stay in the shelter (a multi-storey, ruined house shown as a cutaway). You craft, cook, heal, trade and manage mood. At **night** one survivor scavenges a location; the shelter stays visible via a different mode. [read] Steam store text; Wikipedia, https://en.wikipedia.org/api/rest_v1/page/html/This_War_of_Mine
 - **Shelter layout.** In A1 and B7, the shelter is 3 storeys + attic/cellar with one stair/ladder connecting each pair of floors; rooms are 1-3 "screens" wide and each one has a function (bedroom, kitchen, workshop). Houses are sliced vertically; the missing wall is not drawn at all, floors/walls are thick dark mass. [seen]
-- **Vertical links.** Visible in the images: diagonal stairs with railings (A1, A3, A6, A7, A10), ladders (A1 attic, A7 hatch, B27/B26 cellar), open void/hall (A11), collapsed stairs with rubble (A11), exterior stair blocks (A3), and "house + arrow" icons to move between floors/exits. [seen]
+- **Vertical links.** Visible in the images: diagonal stairs with railings (A1, A4, A7, A10, A11), ladders (A1 attic, A7 hatch, B27/B26 cellar), open void/hall (A11), collapsed stairs with rubble (A11), exterior stair blocks (A4), and "house + arrow" icons to move between floors/exits. [seen]
 - **Obstacles inside buildings.** Boarded-up doors ("This door is boarded up", A4), rubble that needs a tool, locked doors (padlock icon, B29), sandbag-filled basement (A4). Per the Gamepressure guide: you need crowbars, saws or lockpicks (or a shovel/hatchet) for some of these; items like saw blades and lockpicks are single-use while hatchets, crowbars and shovels double as weapons. [guide] https://gamesfuze.com/guides/this-war-of-mine-where-to-scavenge/ and https://www.gamepressure.com/thiswarofmine/equipment-slection-and-location-types/z06d3c
 - **Hiding spots.** "Hiding in shadows in specific places (there are specific action symbols above them)" - i.e. alcoves/corners with their own icon. [guide] Gamepressure good-picker page. Player-reported caveat: hiding does nothing once an enemy has already seen you. [player] Steam thread https://steamcommunity.com/app/282070/discussions/0/1368380934251647511
 
 ### 3.2 Stealth and noise (night scavenging)
 - PC Gamer review: scavenging "inspiration has been taken from Mark of the Ninja. Everything outside line of sight is enveloped in a fog... Walking is silent but slow, while running comes at the risk of making noise, denoted by emanating circles of sound. Enemies emit these same tells, as do rats scurrying around. NPCs that hear the sounds or spot you in their line of sight will investigate. The defenseless cower, some propose a barter, others respond with deadly force." [read] https://www.pcgamer.com/this-war-of-mine-review
 - Gamepressure: "only the nearest surroundings will be completely visible"; avoid running; look through the **keyhole** at a door before entering; "red, pulsating circles" show enemies through walls but the system works both ways. Searching a container while its owner sees you is flagged by a changed icon as **theft**; old residents flee upstairs and beg, armed ones fight. [guide] https://www.gamepressure.com/thiswarofmine/good-picker-tactic-searching-through-location/z16d3d
-- Player forum: red indicators are noise through walls; most noise travels about one storey up or down; looting makes a small noise; open doors alert residents; stealth-kill from behind works only for some characters, always from an alcove; a hatchet is loud and a knife quiet; enemies can still shoot you through gaps like stairs if visible; a game-over card ("You are caught") is not stated. [player] same Steam thread. Treat as anecdote.
+- Player forum: red indicators are noise through walls; most noise travels about one storey up or down; looting makes a small noise; open doors alert residents; stealth-kill from behind works only for some characters, always from an alcove; a hatchet is loud and a knife quiet; enemies can still shoot you through gaps like stairs if visible. [player] same Steam thread. Treat as anecdote.
 - Time limit: reaching the exit after 5 AM means the survivor stays out and may be wounded or killed; inventory is a hard cap, so locations get revisited; a percentage of loot taken is shown next to each location name. [guide] gamesfuze above.
 - Characters differ in sneak/run/carry stats (Boris/Marko carry more, Arica sneaks, Pavle runs fast). [guide] gamesfuze.
 
@@ -238,8 +238,8 @@ Locations are randomly selected per world generation; there are "different layer
 ## 5. Twenty things Orcfall Command should take from it
 
 Each point cites the evidence.
-1. **Draw the cutaway as black structural mass, not outlined walls.** Floors and party walls are thick near-black slabs with the front wall absent; this makes every room read as a lit box. [A1, A2, A3, A6]
-2. **Keep floor-to-floor rhythm regular** (storey height consistent, slabs as a horizontal grid), with the vertical walls varying the rooms. [A2, A6, A10]
+1. **Draw the cutaway as black structural mass, not outlined walls.** Floors and party walls are thick near-black slabs with the front wall absent; this makes every room read as a lit box. [A1, A2, A4, A7]
+2. **Keep floor-to-floor rhythm regular** (storey height consistent, slabs as a horizontal grid), with the vertical walls varying the rooms. [A2, A7, A10]
 3. **Leave one or two big double-height voids** (grand hall, stairwell) so the player sees several floors at once. [A11, B22]
 4. **Show an exterior facade slice** in the middle of a cutaway (courtyard tower, fire escapes) for depth. [A2]
 5. **Use the same strong direction of rain/hatching strokes over the whole screen** including backgrounds to unify art. Do it as a single post-process pass in three.js, driven by luminance. (Inference from [A1, A5, B15], and the confirmed "pencil-like sketch" aim in the IGF interview.)
@@ -251,7 +251,7 @@ Each point cites the evidence.
 11. **Keyhole peek at doors** to see the next room before entering. [Gamepressure good-picker page]
 12. **Barricades as visible props with tooltips** (boards across doors, sandbags, rubble) that require a tool or time. [A4; Gamepressure equipment page]
 13. **Hiding alcoves carry their own icon**, and fail if the enemy already saw you. [Gamepressure; Steam thread]
-14. **Tiny characters (about one third storey)** so rooms can be dense with props without hiding the player. [A1, A3, A10]
+14. **Tiny characters (about one third storey)** so rooms can be dense with props without hiding the player. [A1, A4, A10]
 15. **Dense lived-in dressing per room:** pendant bulbs, fridge, radiators, wires, cardboard boxes, bikes, washing lines, ladders, chandeliers, rubble heaps. Each room should have a story prop (easel, projector, tram). [A7, B7, B8, B13, B24, B28]
 16. **Paper/Polaroid/torn-tape UI** with one accent colour, matching the sketch world. [A3, A6, B20, B4, A12]
 17. **Distinct locations by mood and rule**, not just layout: safe cottage, hospital, rich supermarket, sniper junction, military outpost, brothel, construction site that changes on second visit. Give every Orcfall zone one signature rule. [Gamepressure location guide]
