@@ -7,6 +7,8 @@ import { tileAt } from '../tiles'
 import { centerOf, type Vec } from '../types'
 import type { World } from '../world'
 import { blown, feet, FRAME, guardsOnFloor, holdBack, note, pressE, tick, type Run } from './kit'
+import { chokeOut, hideUntilPassed, seizeStartled, stashBody } from './moves'
+import { takedownTarget } from '../stealth/takedown'
 
 /**
  * Walking somewhere the way a patient stealth player does: crouched, by the game's own route planner (nav.ts),
@@ -73,6 +75,9 @@ export function walkTo(run: Run, goal: Vec, options: WalkOptions = {}): WalkResu
   let cornered = 0
   let flight: { well: number; to: number; up: boolean } | null = null
   let lastX = world.player.x
+  let behind: Behind | null = null
+  let hidAt = -Infinity
+  const hides = new Map<Guard, number>()
   while (run.log.seconds < until) {
     if (blown(run, maxAlert)) return 'blown'
     const at = feet(world)
@@ -92,10 +97,20 @@ export function walkTo(run: Run, goal: Vec, options: WalkOptions = {}): WalkResu
     }
     const targetX = hop.kind === 'walk' || hop.kind === 'drop' ? hop.x : goal.x
     const direction = hop.kind === 'stairs' ? 0 : (Math.sign(targetX - at.x) as 1 | -1 | 0)
-    const plan = choose(world, direction, takedowns, takedownRoom)
+    if (behind && closeBehind(run, behind)) behind = null
+    if (seizeStartled(run, maxAlert)) continue
+    const due = run.log.seconds - hidAt > HIDE_AGAIN ? patrolDue(world, (guard) => (hides.get(guard) ?? 0) < PATIENCE) : null
+    if (due) {
+      hidAt = run.log.seconds
+      hides.set(due, (hides.get(due) ?? 0) + 1)
+      if (hideUntilPassed(run, due, maxAlert)) continue
+    }
+    if (blown(run, maxAlert)) return 'blown'
+    const plan = choose(world, direction, (guard) => takedowns || (takedownRoom !== null && guard.roomId === takedownRoom) || (hides.get(guard) ?? 0) >= PATIENCE)
     if (plan === 'takedown') {
-      pressE(run)
-      note(run, `took down a guard at ${feet(world).x.toFixed(0)},${feet(world).y.toFixed(0)}`)
+      const target = takedownTarget(world)?.guard
+      if (target && chokeOut(run, target, maxAlert)) stashBody(run, target, maxAlert)
+      else tick(run)
       continue
     }
     const backingOff = plan !== 0 && plan !== direction
@@ -124,8 +139,10 @@ export function walkTo(run: Run, goal: Vec, options: WalkOptions = {}): WalkResu
         tick(run)
         continue
       }
-      note(run, `opened the door at ${Math.floor(feet(world).x + plan * 0.9)},${Math.round(feet(world).y)}`)
+      const column = Math.floor(feet(world).x + plan * 0.9)
+      note(run, `opened the door at ${column},${Math.round(feet(world).y)}`)
       if (!openAhead(run, plan, maxAlert)) return 'blown'
+      behind = { x: column + 0.5, y: feet(world).y, dir: plan }
       pushing = 0
       continue
     }
@@ -134,6 +151,42 @@ export function walkTo(run: Run, goal: Vec, options: WalkOptions = {}): WalkResu
   run.log.failure ??= `timed out walking to ${goal.x.toFixed(0)},${goal.y.toFixed(0)}`
   note(run, run.log.failure)
   return 'timeout'
+}
+
+/** A door the player opened and walked through, to shut behind him once he is past it. */
+type Behind = { x: number; y: number; dir: number }
+
+/** Clear of the doorway on the far side: shut it, crouched (silent). Returns true once it is done with (shut, or left behind). */
+function closeBehind(run: Run, door: Behind): boolean {
+  const at = feet(run.world)
+  const past = (at.x - door.x) * door.dir
+  if (Math.abs(at.y - door.y) > SAME_FLOOR || past < -0.5 || past > 2.5) return true
+  if (past < 1.2 || run.world.prompt !== 'E: ease the door shut (silent)') return false
+  pressE(run)
+  note(run, `shut the door at ${Math.floor(door.x)},${Math.round(door.y)}`)
+  return true
+}
+
+/** Hidden from the same patrol this often, the player stops waiting for him and takes him down from behind. */
+const PATIENCE = 2
+/** Out of a hiding place, the player gets on with it for this long before hiding again. */
+const HIDE_AGAIN = 20
+/** How far off a patrol is still worth hiding from. */
+const DUE = 10
+
+/**
+ * A patrol on this floor, his back to the player, whose beat takes him past where the player stands: he will turn
+ * and come this way. Hide now, while he cannot see the player climb in.
+ */
+function patrolDue(world: World, worthIt: (guard: Guard) => boolean): Guard | null {
+  const player = centerOf(world.player)
+  return guardsOnFloor(world).find((guard) => {
+    if (!worthIt(guard) || guard.role !== 'patrol' || (guard.mode !== 'calm' && guard.mode !== 'caution') || guard.route.length < 2) return false
+    const gap = player.x - feetOf(guard).x
+    const xs = guard.route.map((point) => point.x)
+    const covers = player.x > Math.min(...xs) - 1 && player.x < Math.max(...xs) + 1
+    return covers && Math.abs(gap) < DUE && Math.abs(gap) > 3 && gap * guard.facing < 0 && clearView(world, eyeOf(guard), player)
+  }) ?? null
 }
 
 /** Cornered on a floor with a guard coming: take the stairs a flight away from him, wait, and come back. */
@@ -161,7 +214,7 @@ function evadeByStairs(run: Run, maxAlert: number): boolean | 'blown' {
  * What to do this frame: move toward the goal (its direction), hold (0), back off from a guard who is facing this
  * way or looking for the player, or take down the guard in reach whose back is turned.
  */
-function choose(world: World, direction: 1 | -1 | 0, anyone: boolean, room: number | null): 1 | -1 | 0 | 'takedown' {
+function choose(world: World, direction: 1 | -1 | 0, mayTakeDown: (guard: Guard) => boolean): 1 | -1 | 0 | 'takedown' {
   const px = centerOf(world.player).x
   let move = direction
   for (const guard of guardsOnFloor(world)) {
@@ -179,8 +232,8 @@ function choose(world: World, direction: 1 | -1 | 0, anyone: boolean, room: numb
     }
     // He is looking for something, back turned or not: keep well clear.
     if (looking && gap < sightReach(world, guard) + MARGIN) return away
-    const takedowns = anyone || (room !== null && guard.roomId === room && guard.role !== 'patrol')
-    if (takedowns && gap < 1.2 && world.prompt === 'E: take down') return 'takedown'
+    const takedowns = mayTakeDown(guard)
+    if (takedowns && gap < 1.2 && /choke out|lift his keycard/.test(world.prompt ?? '') && unwatched(world, guard)) return 'takedown'
     if (!ahead) continue
     const walkingAway = Math.abs(guard.vx) > 0.3 && Math.sign(guard.vx) === direction && guard.wait <= 0
     if (takedowns) {
@@ -195,17 +248,34 @@ function choose(world: World, direction: 1 | -1 | 0, anyone: boolean, room: numb
   return move
 }
 
+/** Nobody but the man himself can see the player from here: a takedown in front of a colleague is no takedown. */
+function unwatched(world: World, target: Guard): boolean {
+  const player = centerOf(world.player)
+  return guardsOnFloor(world).every((guard) => {
+    if (guard === target) return true
+    const gap = player.x - feetOf(guard).x
+    return Math.abs(gap) > VISION.alertRange || !clearView(world, eyeOf(guard), player) || (gap * guard.facing < 0 && Math.abs(gap) > 3)
+  })
+}
+
 /** How far beyond a door the walker peeks for a guard facing it before opening it. */
 const PEEK = 16
 
 /** A guard beyond the door ahead, on this floor, who faces it or is walking toward it. */
 function doorWatched(world: World, move: number): boolean {
   const px = feet(world).x
+  // Opening takes a while: a man standing post just beyond must not be due to turn round before it is open and passed.
+  const needed = DOOR_WORK + DOOR_SLACK
   return guardsOnFloor(world).some((guard) => {
     const beyond = (feetOf(guard).x - px) * move
-    return beyond > 0 && beyond < PEEK && guard.facing === -move
+    if (beyond <= 0 || beyond >= PEEK) return false
+    return guard.facing === -move || (guard.role !== 'patrol' && Math.abs(guard.vx) < 0.3 && beyond < 8 && guard.wait < needed)
   })
 }
+
+/** Seconds of work on a lock or keypad, at most, and a little to step through after. */
+const DOOR_WORK = 3
+const DOOR_SLACK = 2
 
 function doorAhead(world: World, move: number): boolean {
   const at = feet(world)

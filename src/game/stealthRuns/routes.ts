@@ -63,11 +63,12 @@ export function climbLadder(run: Run, x: number, toY: number, maxAlert = 1): boo
     // Off the top toward whichever side has room to stand.
     const offRight = !isSolidAt(world.grid, x + 1, toY - 1)
     const side = atTop ? (offRight ? { right: true } : { left: true }) : Math.abs(offCentre) > 0.15 ? (offCentre > 0 ? { right: true } : { left: true }) : {}
-    tick(run, { up: up && !atTop, down: !up, crouch: false, ...side })
+    // Keep climbing until the feet are level with the floor at the top, or the step off runs into its edge.
+    tick(run, { up: up && (!atTop || at.y > toY), down: !up, crouch: false, ...side })
     stalled = Math.abs(world.player.y - lastY) < 0.001 ? stalled + FRAME : 0
     lastY = world.player.y
     if (stalled > 6) {
-      note(run, `stalled on the ladder at ${at.x.toFixed(1)},${at.y.toFixed(1)}`)
+      note(run, `stalled on the ladder at ${at.x.toFixed(1)},${at.y.toFixed(1)} (${world.prompt ?? "no prompt"})`)
       return false
     }
   }

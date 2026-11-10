@@ -2,7 +2,7 @@ import { matches } from '../intel/describe'
 import { searchFilter } from '../intel/area'
 import type { Place } from '../intel/types'
 import { isActive } from '../security/model'
-import { tileAt } from '../tiles'
+import { isSolidAt, tileAt } from '../tiles'
 import { centerOf, type Vec } from '../types'
 import type { World } from '../world'
 import { blown, feet, holdE, note, pressE, tick, type Run } from './kit'
@@ -93,9 +93,13 @@ function leaveBySewer(run: Run, options: WalkOptions): string | null {
   const hatch = basementHatch(world)
   const manhole = streetManhole(world)
   const sewer = sewerFloor(world)
-  if (walkTo(run, { x: hatch.x + 0.5 + 1.2, y: hatch.y }, options) !== 'arrived') return 'walking to the basement hatch'
-  // Step onto the open hatch and climb down.
-  if (walkTo(run, { x: hatch.x + 0.5, y: hatch.y }, { ...options, timeout: 5 }) !== 'arrived' && !world.player.onLadder) return 'stepping onto the hatch'
+  // With the case in hand, a guard in the way down in the basement is choked and stowed rather than waited out.
+  const out = { ...options, takedowns: true }
+  // Beside the hatch on whichever side there is floor to stand on (one side may be the tower's outer wall).
+  const side = isSolidAt(world.grid, hatch.x + 1.5, hatch.y - 0.5) ? -1 : 1
+  if (walkTo(run, { x: hatch.x + 0.5 + side * 1.2, y: hatch.y }, out) !== 'arrived') return 'walking to the basement hatch'
+  // Step onto the hatch and climb down.
+  if (walkTo(run, { x: hatch.x + 0.5, y: hatch.y }, { ...out, timeout: 30 }) !== 'arrived' && !world.player.onLadder) return 'stepping onto the hatch'
   if (!climbLadder(run, hatch.x, sewer, options.maxAlert)) return 'climbing down to the sewer'
   if (walkTo(run, { x: manhole.x + 0.5, y: sewer }, options) !== 'arrived') return 'walking the sewer back'
   if (!climbLadder(run, manhole.x, manhole.y, options.maxAlert)) return 'climbing out of the manhole'

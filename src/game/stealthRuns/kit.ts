@@ -52,12 +52,22 @@ export function tick(run: Run, input: Partial<Input> = {}): void {
   const aim = { x: player.x + player.w / 2 + (player.vx >= 0 ? 5 : -5), y: player.y + 0.5 }
   stepWorld(world, { ...idleInput(aim), crouch: run.crouch, ...input }, FRAME)
   log.seconds += FRAME
+  if (world.stats.timesSpotted > log.spotted) noteSighting(run)
   log.spotted = world.stats.timesSpotted
   log.peakAlert = Math.max(log.peakAlert, world.security.level)
   if (Math.abs(player.vx) > 0.6) {
     log.movingFrames += 1
     if (playerLight(world) >= VISION.lit) log.litFrames += 1
   }
+}
+
+/** Who saw the player and from where, for the notes of a failing run. */
+function noteSighting(run: Run): void {
+  const { world } = run
+  const at = feet(world)
+  const by = world.guards.map((guard, index) => ({ guard, index })).filter(({ guard }) => guard.mode === 'combat' && guard.seesPlayer)
+    .map(({ guard, index }) => `${index} ${guard.role} ${(feetOf(guard).x - at.x).toFixed(1)},${(feetOf(guard).y - at.y).toFixed(1)}`)
+  note(run, `SEEN at ${at.x.toFixed(1)},${at.y.toFixed(1)} light ${playerLight(world).toFixed(2)}${world.player.crouching ? ' crouched' : ''} by ${by.join('; ') || '?'}`)
 }
 
 /** Ticks for a while, stopping early when `until` says so. Returns true if `until` was met. */
