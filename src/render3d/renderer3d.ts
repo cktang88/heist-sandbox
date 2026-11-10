@@ -1,4 +1,4 @@
-import { DoubleSide, Group, Mesh, MeshBasicMaterial, PCFShadowMap, PlaneGeometry, Scene, SRGBColorSpace, WebGLRenderer } from 'three'
+import { DoubleSide, Group, type Light, Mesh, MeshBasicMaterial, PCFShadowMap, PlaneGeometry, Scene, SRGBColorSpace, WebGLRenderer } from 'three'
 // First, so its material hook is in place before any module below creates a material with its own hook.
 import { setSurfaceStyle } from './style/materialStyle'
 import type { Grid } from '../game/tiles'
@@ -21,7 +21,7 @@ import { createSurfaceMaterials, setWetness } from './materials'
 import { createPost, type PostChain } from './post'
 import { setPeopleOutdoorFill } from './people/surface'
 import { createSky, setSkyStyle } from './sky'
-import { createCameraRig, TILES_TALL } from './style/cameraRig'
+import { BACKDROP_LAYER, createCameraRig, TILES_TALL } from './style/cameraRig'
 import { pixelGrid, type PixelGrid } from './style/pixelGrid'
 import { STYLES, styleFromQuery, type Style, type StyleName } from './style/styles'
 
@@ -61,6 +61,11 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   const cameras = createCameraRig()
   const lights = createLights()
   lights.group.name = 'lights'
+  // Lights shine on every layer, so the backdrop pass of the pixel look counts the same lights as the building pass
+  // and its shader is the one already compiled (the light counts are part of every program's key).
+  lights.group.traverse((child) => {
+    if ((child as Light).isLight) child.layers.enableAll()
+  })
   scene.add(lights.group)
   const materials = createSurfaceMaterials(renderer.capabilities.getMaxAnisotropy())
   let style: Style = styleFromQuery(location.search)
@@ -84,7 +89,10 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   function setStyle(name: StyleName): void {
     post.dispose()
     style = STYLES[name]
-    if (stage) setSkyStyle(stage.backdrop, style)
+    if (stage) {
+      setSkyStyle(stage.backdrop, style)
+      onBackdropLayer(stage.backdrop)
+    }
     // The cameras' clip planes depend on the look, and the new passes read them when built.
     fitCameras()
     post = createPost(renderer, scene, cameras, style)
@@ -147,7 +155,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     yield
     const actors = createActors(world, materials)
     while (!actors.buildNext()) yield
-    const backdrop = createSky(world.grid.width, world.groundY, world.timeOfDay, world.lamps.length, style)
+    const backdrop = onBackdropLayer(createSky(world.grid.width, world.groundY, world.timeOfDay, world.lamps.length, style))
     level.group.name = 'level'
     actors.group.name = 'actors'
     backdrop.name = 'backdrop'
@@ -229,4 +237,10 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       applySize(LADDER[appliedLevel].scale)
     },
   }
+}
+
+/** Moves the backdrop and everything in it to its own layer (see `BACKDROP_LAYER`). */
+function onBackdropLayer(backdrop: Group): Group {
+  backdrop.traverse((child) => child.layers.set(BACKDROP_LAYER))
+  return backdrop
 }
