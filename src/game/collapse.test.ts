@@ -3,6 +3,9 @@ import { findUnsupported, stepCollapse } from './collapse'
 import { hurtGuard } from './guards'
 import { propBox } from './hazards/props'
 import { addProp } from './hazards/testWorld'
+import { throwGrenade } from './hazards/hazards'
+import { throwFrag } from './frag/frag'
+import { throwCharge } from './charges'
 import { loosen } from './physprops/state'
 import { boxHitsSolid } from './physics'
 import { createRagdoll, stepRagdoll } from './ragdoll'
@@ -78,6 +81,22 @@ describe('collapse', () => {
     expect(world.falling).toEqual([])
     expect(boxHitsSolid(world.grid, world.player)).toBe(false)
     for (const point of body.ragdoll.points) expect(isSolidAt(world.grid, point.x, point.y)).toBe(false)
+  })
+
+  it('rubble coming down on a grenade, a frag or a C4 charge lying on the floor breaks up on it', () => {
+    const world = createWorld(1)
+    world.guards = []
+    world.grid = createGrid(12, 12)
+    fillTiles(world.grid, 0, 10, 11, 11, 'bedrock')
+    Object.assign(world.player, { x: 10, y: 10 - world.player.h - 0.001, hp: 1e6 })
+    throwGrenade(world, 'smoke', { x: 2.5, y: 9.8 }, { x: 0, y: 1 })
+    throwFrag(world, { x: 4.5, y: 9.8 }, { x: 0, y: 1 })
+    throwCharge(world, { x: 6.5, y: 9.8 }, { x: 0, y: 1 })
+    for (const thrown of [...world.hazards.grenades, ...world.frags, ...world.charges]) Object.assign(thrown, { vx: 0, vy: 0, y: 10 - thrown.h - 0.001 })
+    for (const x of [2, 4, 6]) world.falling.push({ x, y: 3, vy: 0, kind: 'concrete' })
+    for (let frame = 0; frame < 90; frame += 1) stepCollapse(world, 1 / 60)
+    expect(world.falling).toEqual([])
+    for (const thrown of [...world.hazards.grenades, ...world.frags, ...world.charges]) expect(boxHitsSolid(world.grid, thrown)).toBe(false)
   })
 
   it('rubble coming down on a piece of furniture breaks up on it instead of burying it', () => {

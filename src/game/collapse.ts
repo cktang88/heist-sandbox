@@ -157,7 +157,7 @@ function dropTile(world: World, tile: FallingTile, dt: number): boolean {
   if (!TILE_DEFS[under].solid) return false
   // Rubble breaks up on the frame: a cut-off beam holds nothing up, so a tile left lying on it would hang unsupported.
   if (under === 'reinforced' || tileAt(world.grid, tile.x, below - 1) !== 'air') return shatter(world, tile)
-  // Setting solid around a person, a body, the loot or furniture would bury them in the tile; it breaks up on them instead.
+  // Setting solid around a person, a body, the loot, furniture or a thrown charge would bury it; it breaks up on them instead.
   if (occupied(world, { x: tile.x, y: below - 1, w: 1, h: 1 })) return shatter(world, tile)
   setTile(world.grid, tile.x, below - 1, tile.kind)
   burst(world.effects, world.rng, { x: tile.x + 0.5, y: below }, 3, '#8a8f98', 4)
@@ -177,6 +177,7 @@ function shatter(world: World, tile: FallingTile): boolean {
 function occupied(world: World, cell: Rect): boolean {
   if (touches(cell, world.player) || (!world.loot.taken && touches(cell, world.loot))) return true
   if (world.pickups.some((pickup) => !pickup.taken && touches(cell, pickup))) return true
+  if ([...world.hazards.grenades, ...world.frags, ...world.charges].some((thrown) => touches(cell, thrown))) return true
   if (propsAt(world, cell.x, cell.y).some((id) => standsIn(world, propById(world, id), cell))) return true
   return world.guards.some((guard) => guard.ragdoll
     ? guard.ragdoll.points.some((point) => point.x >= cell.x && point.x < cell.x + 1 && point.y >= cell.y && point.y < cell.y + 1)
