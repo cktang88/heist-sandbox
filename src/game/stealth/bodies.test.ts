@@ -5,6 +5,8 @@ import { addProp } from '../hazards/testWorld'
 import { addGuard, addLamp, addWall, arena, GROUND, putPlayer, run } from '../security/testArena'
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
+import { restrainGuard } from '../guards'
+import { canBeQuestioned } from '../intel/interrogate'
 import { bodyInOpen, knockOutCold } from './bodies'
 import { CARRY } from './tuning'
 
@@ -78,6 +80,25 @@ describe('carrying bodies', () => {
     run(world, 15)
     expect(body.out).toBe(false)
     expect(world.security.level).toBe(1)
+  })
+})
+
+describe('carrying a man tied up awake', () => {
+  it('he hangs limp on the shoulder, and once set down he is awake and tied again, ready to be questioned', () => {
+    const world = arena()
+    const prisoner = addGuard(world, 20, 1)
+    restrainGuard(world, prisoner)
+    putPlayer(world, 20.4)
+    run(world, 0.2)
+    press(world, 'grab')
+    expect(world.stealth.carried).toBe(0)
+    run(world, 1, { right: true })
+    press(world, 'grab')
+    run(world, 3)
+    expect(prisoner.out).toBe(false)
+    expect(prisoner.restrained).toBe(true)
+    expect(canBeQuestioned(world, prisoner)).toBe(true)
+    expect(prisoner.y + prisoner.h).toBeCloseTo(GROUND, 1)
   })
 })
 

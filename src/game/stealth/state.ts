@@ -32,6 +32,8 @@ export type Lure = Vec & { clock: number }
 
 export type StealthState = {
   carried: number | null
+  /** Tied men who were carried while awake: limp on the shoulder, they kneel up again once set down and still. */
+  awakeTied: Set<number>
   /** Whether grab was held last frame: picking up and dropping are on the press, not the hold. */
   grabWas: boolean
   choke: Choke | null
@@ -71,7 +73,7 @@ export type StealthState = {
 
 export function createStealth(): StealthState {
   return {
-    carried: null, grabWas: false, choke: null, hiding: null, watched: new Map(), opened: new Map(), found: new Set(), blood: [], bleeding: new Map(), lastDrop: null,
+    carried: null, awakeTied: new Set(), grabWas: false, choke: null, hiding: null, watched: new Map(), opened: new Map(), found: new Set(), blood: [], bleeding: new Map(), lastDrop: null,
     radios: new Set(), uniforms: new Set(), keycards: new Set(), checkIn: null, bluffs: 0, disguise: null, uniformKnownAt: -Infinity,
     darts: [], noisemakers: [], noisemakerUses: new Map(), lures: [], rigged: [], looped: new Map(), hint: null,
   }
