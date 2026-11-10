@@ -1,0 +1,94 @@
+import { describe, expect, it } from 'vitest'
+import { stepCollapse } from '../collapse'
+import { explode } from '../explosions'
+import { stepHazards } from '../hazards/hazards'
+import { addGuard, addProp, bareWorld } from '../hazards/testWorld'
+import { fillTiles } from '../tiles'
+import type { World } from '../world'
+import { stepFallingProps } from './fallingProps'
+
+const FRAME = 1 / 60
+const UPPER = 14
+const GROUND = 28
+
+/** A garage deck on row 14, held up by walls at both ends, over a ground floor on row 28. */
+function garage(): World {
+  const world = bareWorld(60, 30)
+  fillTiles(world.grid, 1, UPPER, 58, UPPER, 'concrete')
+  return world
+}
+
+function run(world: World, seconds: number): void {
+  for (let frame = 0; frame < Math.round(seconds / FRAME); frame += 1) {
+    world.clock += FRAME
+    stepCollapse(world, FRAME)
+    stepHazards(world, FRAME)
+    stepFallingProps(world, FRAME)
+  }
+}
+
+describe('falling props', () => {
+  it('a car whose deck is blown away drops to the floor below, crushes whoever is under it, burns and explodes', () => {
+    const world = garage()
+    const car = addProp(world, 'car', 20, UPPER)
+    const guard = addGuard(world, 20, GROUND, 1)
+    run(world, FRAME)
+    fillTiles(world.grid, 16, UPPER, 24, UPPER, 'air')
+    run(world, 1.2)
+    expect(car.y).toBe(GROUND)
+    expect(guard.hp).toBeLessThanOrEqual(0)
+    expect(world.hazards.burningProps.has(car.id) || car.broken).toBe(true)
+    expect(world.sounds.some((sound) => sound.kind === 'explosion')).toBe(false)
+    run(world, 5)
+    expect(car.broken).toBe(true)
+    expect(world.sounds.some((sound) => sound.kind === 'explosion')).toBe(true)
+  })
+
+  it('drops when an explosion and the collapse after it take the floor away', () => {
+    const world = garage()
+    const van = addProp(world, 'van', 30, UPPER)
+    run(world, FRAME)
+    // Cut the deck at both ends: the whole span between falls, and the van with it.
+    fillTiles(world.grid, 10, UPPER, 10, UPPER, 'air')
+    fillTiles(world.grid, 50, UPPER, 50, UPPER, 'air')
+    world.structureChanged = true
+    run(world, 2)
+    expect(van.y).toBeGreaterThan(GROUND - 2)
+  })
+
+  it('a weak prop breaks when it lands; a sturdy one only dents', () => {
+    const world = garage()
+    const chair = addProp(world, 'officeChair', 30, UPPER)
+    const safe = addProp(world, 'safeSmall', 34, UPPER)
+    const turnstile = addProp(world, 'turnstile', 38, UPPER)
+    run(world, FRAME)
+    fillTiles(world.grid, 28, UPPER, 40, UPPER, 'air')
+    run(world, 1.5)
+    expect(chair.broken).toBe(true)
+    expect([safe.y, turnstile.y]).toEqual([GROUND, GROUND])
+    expect(safe.broken).toBe(false)
+    expect(turnstile.broken).toBe(false)
+    expect(turnstile.hp).toBeLessThan(150)
+  })
+
+  it('stays put while most of its floor is still there, and ignores wall props', () => {
+    const world = garage()
+    const car = addProp(world, 'car', 20, UPPER)
+    const poster = addProp(world, 'whiteboard', 30, UPPER + 1)
+    run(world, FRAME)
+    fillTiles(world.grid, 18, UPPER, 18, UPPER, 'air')
+    fillTiles(world.grid, 29, UPPER + 1, 31, UPPER + 1, 'air')
+    run(world, 0.5)
+    expect(car.y).toBe(UPPER)
+    expect(poster.y).toBe(UPPER + 1)
+  })
+
+  it('a blast through the deck sends a parked car down', () => {
+    const world = garage()
+    const car = addProp(world, 'car', 20, UPPER)
+    run(world, FRAME)
+    explode(world, { x: 20.5, y: UPPER + 1.5 }, { radius: 4, tileDamage: 400, bodyDamage: 10 })
+    run(world, 2)
+    expect(car.y).toBeGreaterThan(UPPER)
+  })
+})
