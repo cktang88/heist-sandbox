@@ -153,8 +153,13 @@ function deviceAction(world: World, rank: DeviceRank): Action | null {
   let bestGap = Number.POSITIVE_INFINITY
   for (const device of world.devices) {
     if (rankOf(device) !== rank) continue
-    const gap = distance(center, deviceCenter(device))
-    if (gap > (device.kind === 'camera' ? CAMERA_REACH : DEVICE_REACH) || gap >= bestGap) continue
+    // Ruled out on each axis first: a site has hundreds of devices and only a handful are ever near.
+    const reach = device.kind === 'camera' ? CAMERA_REACH : DEVICE_REACH
+    const dx = device.x + 0.5 - center.x
+    const dy = device.y + 0.5 - center.y
+    if (dx > reach || dx < -reach || dy > reach || dy < -reach) continue
+    const gap = Math.hypot(dx, dy)
+    if (gap > reach || gap >= bestGap) continue
     const action = actionFor(world, device)
     if (!action) continue
     best = action

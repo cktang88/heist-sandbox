@@ -182,6 +182,11 @@ function segmentHitsBox(ax: number, ay: number, bx: number, by: number, box: Box
 const NONE: readonly number[] = []
 const coverIndex = new WeakMap<World, PropBuckets>()
 
+/** Files the cover props now, during loading, rather than on the first shot. */
+export function indexCover(world: World): void {
+  coverBuckets(world)
+}
+
 /** Floor props that can give cover, filed by column band. Follows props that move without rebuilding. */
 function coverBuckets(world: World): PropBuckets {
   const buckets = currentBuckets(coverIndex.get(world) ?? null, world.props, coverKeyOf)

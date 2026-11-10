@@ -1,3 +1,4 @@
+import { propById, propsAt } from '../hazards/props'
 import { propSpec, type PropKind } from '../propCatalog'
 import { sayAt } from '../security/barks'
 import type { RoomKind } from '../site'
@@ -32,18 +33,29 @@ export function chooseDocuments(world: World): Set<number> {
   return chosen
 }
 
+/**
+ * The nearest unread paper in reach. Its reading point is the middle of the prop, which lies in a tile the prop covers,
+ * so only the props filed under the tiles in reach are asked, not every prop on the site. Of two equally near, the
+ * one listed first wins, as when every prop was asked in order.
+ */
 export function readAction(world: World): IntelAction | null {
   if (world.intel.places.length === 0) return null
   const center = centerOf(world.player)
   let best: World['props'][number] | null = null
   let bestGap = READ_REACH
-  for (const prop of world.props) {
-    if (prop.broken || !READABLE.includes(prop.kind) || world.intel.used.has(`prop:${prop.id}`)) continue
-    const spec = propSpec(prop.kind)
-    const gap = distance(center, { x: prop.x + 0.5, y: spec.mount === 'floor' ? prop.y - spec.h / 2 : prop.y + spec.h / 2 })
-    if (gap >= bestGap) continue
-    best = prop
-    bestGap = gap
+  const reach = Math.ceil(READ_REACH)
+  for (let y = Math.floor(center.y) - reach; y <= Math.floor(center.y) + reach; y += 1) {
+    for (let x = Math.floor(center.x) - reach; x <= Math.floor(center.x) + reach; x += 1) {
+      for (const id of propsAt(world, x, y)) {
+        const prop = propById(world, id)
+        if (!prop || prop.broken || !READABLE.includes(prop.kind)) continue
+        const spec = propSpec(prop.kind)
+        const gap = distance(center, { x: prop.x + 0.5, y: spec.mount === 'floor' ? prop.y - spec.h / 2 : prop.y + spec.h / 2 })
+        if (gap > bestGap || (gap === bestGap && (best === null || prop.id >= best.id)) || world.intel.used.has(`prop:${prop.id}`)) continue
+        best = prop
+        bestGap = gap
+      }
+    }
   }
   if (!best) return null
   const prop = best

@@ -13,6 +13,7 @@ import { createHazards, type HazardState } from './hazards/hazards'
 import { createSecurity, type SecurityState } from './security/dispatch'
 import type { DeviceSpawn, ElevatorShaft, Interior, Lamp, Room, Stairwell, TimeOfDay } from './site'
 import { mirrorLevel } from './mirror'
+import { prepareWorld } from './prepare'
 import { createPlayer, type Player } from './player'
 import type { Projectile } from './projectiles'
 import { createRng, type Rng } from './rng'
@@ -151,5 +152,6 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     intel: createIntel(),
   }
   setupIntel(world)
+  prepareWorld(world)
   return world
 }

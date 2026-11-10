@@ -32,7 +32,30 @@ export const CHUNK_TILES = 16
  * `lane` holds, per tile, flags for how it sits in depth (see `CLEAR_OF_LANE` and `RUBBLE`). Setting a tile clears
  * them: a new tile is full depth until whoever placed it says otherwise.
  */
-export type Grid = { width: number; height: number; kinds: Uint8Array; hp: Float32Array; lane: Uint8Array; dirtyChunks: Set<number>; version: number }
+export type Grid = {
+  width: number
+  height: number
+  kinds: Uint8Array
+  hp: Float32Array
+  lane: Uint8Array
+  dirtyChunks: Set<number>
+  version: number
+  changes: TileChanges
+}
+
+/**
+ * The indices of tiles whose kind has changed, oldest first, so systems that react to destruction look only at what
+ * changed instead of the whole grid. Each reader keeps its own position (`changeMark`) and reads on from it with
+ * `changesFrom`. `stepWorld` calls `forgetSeenChanges` at the end of every step, which drops the changes that were
+ * already listed at the previous call: by then every system that runs each step has had a full step to see them.
+ */
+export type TileChanges = {
+  tiles: number[]
+  /** How many changes have been dropped from the front of `tiles` since the grid was made. */
+  dropped: number
+  /** The mark at the last `forgetSeenChanges`: what the next call drops. */
+  seenUpTo: number
+}
 
 /**
  * The tile stands beside the walking lane in depth (a low heap of rubble, a post, a shaft wall behind the corridor):
@@ -44,7 +67,51 @@ export const RUBBLE = 2
 
 export function createGrid(width: number, height: number): Grid {
   const size = width * height
-  return { width, height, kinds: new Uint8Array(size), hp: new Float32Array(size), lane: new Uint8Array(size), dirtyChunks: new Set(), version: 0 }
+  return {
+    width,
+    height,
+    kinds: new Uint8Array(size),
+    hp: new Float32Array(size),
+    lane: new Uint8Array(size),
+    dirtyChunks: new Set(),
+    version: 0,
+    changes: { tiles: [], dropped: 0, seenUpTo: 0 },
+  }
+}
+
+/** A reader's position in the change list: everything changed so far is before it. */
+export function changeMark(grid: Grid): number {
+  return grid.changes.dropped + grid.changes.tiles.length
+}
+
+/**
+ * Where in `grid.changes.tiles` the changes after `mark` start, or -1 when some of them have already been dropped
+ * (the reader has not looked for over a step), in which case it must look at the whole grid.
+ */
+export function changesFrom(grid: Grid, mark: number): number {
+  const at = mark - grid.changes.dropped
+  return at < 0 ? -1 : Math.min(at, grid.changes.tiles.length)
+}
+
+/** Drops the changes every system has had a step to see. Called once at the end of each step. */
+export function forgetSeenChanges(grid: Grid): void {
+  const changes = grid.changes
+  const seen = changes.seenUpTo - changes.dropped
+  if (seen > 0) {
+    // Shifted by hand: splice would allocate an array of the dropped entries.
+    const { tiles } = changes
+    for (let index = seen; index < tiles.length; index += 1) tiles[index - seen] = tiles[index]
+    tiles.length -= seen
+    changes.dropped += seen
+  }
+  changes.seenUpTo = changeMark(grid)
+}
+
+/** Drops every change listed so far: building a site sets every tile, and nothing has to react to that. */
+export function forgetAllChanges(grid: Grid): void {
+  grid.changes.dropped += grid.changes.tiles.length
+  grid.changes.tiles.length = 0
+  grid.changes.seenUpTo = grid.changes.dropped
 }
 
 export function inBounds(grid: Grid, x: number, y: number): boolean {
@@ -57,10 +124,15 @@ export function tileAt(grid: Grid, x: number, y: number): TileKind {
   return TILE_KINDS[grid.kinds[y * grid.width + x]]
 }
 
+/** Each kind's number in `Grid.kinds`. */
+const TILE_CODES = Object.fromEntries(TILE_KINDS.map((kind, code) => [kind, code])) as Record<TileKind, number>
+
 export function setTile(grid: Grid, x: number, y: number, kind: TileKind): void {
   if (!inBounds(grid, x, y)) return
   const index = y * grid.width + x
-  grid.kinds[index] = TILE_KINDS.indexOf(kind)
+  const code = TILE_CODES[kind]
+  if (grid.kinds[index] !== code) grid.changes.tiles.push(index)
+  grid.kinds[index] = code
   grid.hp[index] = TILE_DEFS[kind].hp
   grid.lane[index] = 0
   markDirty(grid, x, y)
@@ -93,10 +165,16 @@ export function chunkIndex(grid: Grid, chunkX: number, chunkY: number): number {
 /** Flags the tile's chunk, and its neighbours' when the tile sits on a chunk edge, since edges shade each other. */
 function markDirty(grid: Grid, x: number, y: number): void {
   grid.version += 1
-  for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    if (!inBounds(grid, x + dx, y + dy)) continue
-    grid.dirtyChunks.add(chunkIndex(grid, Math.floor((x + dx) / CHUNK_TILES), Math.floor((y + dy) / CHUNK_TILES)))
-  }
+  const chunkX = Math.floor(x / CHUNK_TILES)
+  const chunkY = Math.floor(y / CHUNK_TILES)
+  grid.dirtyChunks.add(chunkIndex(grid, chunkX, chunkY))
+  // Only a tile on the edge of its chunk has a neighbour in another chunk; inside, the one chunk is all there is.
+  const column = x - chunkX * CHUNK_TILES
+  const row = y - chunkY * CHUNK_TILES
+  if (column === 0 && x > 0) grid.dirtyChunks.add(chunkIndex(grid, chunkX - 1, chunkY))
+  if (column === CHUNK_TILES - 1 && x + 1 < grid.width) grid.dirtyChunks.add(chunkIndex(grid, chunkX + 1, chunkY))
+  if (row === 0 && y > 0) grid.dirtyChunks.add(chunkIndex(grid, chunkX, chunkY - 1))
+  if (row === CHUNK_TILES - 1 && y + 1 < grid.height) grid.dirtyChunks.add(chunkIndex(grid, chunkX, chunkY + 1))
 }
 
 /**

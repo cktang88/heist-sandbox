@@ -25,6 +25,7 @@ const DOORWAY_STEP = 1.5
 
 /** A live frag, flashbang or smoke grenade of the player's close by and in view: dive away from it and shout. Returns true if he dove. */
 export function watchForGrenades(world: World, guard: Guard): boolean {
+  if (world.frags.length === 0 && world.hazards.grenades.length === 0) return false
   if (guard.diveSeconds > 0 || !isActive(guard) || guard.mode === 'panic' || guard.blindSeconds > 0) return false
   const body = centerOf(guard)
   const close = (item: Body) => {

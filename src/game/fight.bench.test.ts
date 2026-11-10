@@ -24,13 +24,15 @@ import { stepMelee } from './melee/melee'
 import { stepIntel } from './intel/intel'
 import { stepPhysProps } from './physprops/physprops'
 import { stepGaps } from './gaps/gaps'
+import { forgetSeenChanges } from './tiles'
 import { useTool } from './tools'
 import { createWorld, type World } from './world'
 
 /**
  * The research note's "big fight" on the big site, timed system by system. Skipped unless asked for, because
  * it takes a couple of minutes: `FIGHT_BENCH=1 npx vitest run src/game/fight.bench.test.ts` (add
- * `NODE_OPTIONS=--expose-gc` for steadier allocation numbers; FIGHT_RUNS and FIGHT_SECONDS change the length). The timers live here, not in shipped code, so
+ * `NODE_OPTIONS=--expose-gc` for steadier allocation numbers; FIGHT_RUNS and FIGHT_SECONDS change the length;
+ * FIGHT_CPU=<file> writes a CPU profile of the fight). The timers live here, not in shipped code, so
  * the system list below mirrors `stepWorld` and must follow it when a system is added.
  */
 const FRAME = 1 / 60
@@ -89,6 +91,7 @@ function step(world: World, input: Input, totals: Totals): void {
     pickup.vy += GRAVITY * dt
     moveBody(world.grid, pickup, dt)
   }
+  forgetSeenChanges(world.grid)
   world.sounds.length = 0
 }
 
@@ -109,11 +112,13 @@ function mayhem(world: World, second: number): void {
 }
 
 /** What one run measured. Steps are numbered, so runs of the same scenario can be compared step by step. */
-type Measured = { frames: number[]; biggest: string[]; totals: Totals; allocations: number[]; pauses: number[]; cpu: number }
+/** `cpuFrames` is the process's CPU time per step: unlike wall time, it does not grow while other jobs hold the processor. */
+type Measured = { frames: number[]; cpuFrames: number[]; biggest: string[]; totals: Totals; allocations: number[]; pauses: number[]; cpu: number }
 
 async function measure(world: World, seconds: number, each?: (second: number) => void): Promise<Measured> {
   const totals: Totals = {}
   const frames: number[] = []
+  const cpuFrames: number[] = []
   const biggest: string[] = []
   const allocations: number[] = []
   const pauses: number[] = []
@@ -128,9 +133,12 @@ async function measure(world: World, seconds: number, each?: (second: number) =>
       const input = idleInput({ x: world.player.x + 5, y: world.player.y })
       const before = { ...totals }
       const heapBefore = process.memoryUsage().heapUsed
+      const cpuStarted = process.cpuUsage()
       const started = performance.now()
       step(world, input, totals)
       frames.push(performance.now() - started)
+      const cpuSpent = process.cpuUsage(cpuStarted)
+      cpuFrames.push((cpuSpent.user + cpuSpent.system) / 1000)
       const grown = process.memoryUsage().heapUsed - heapBefore
       biggest.push(biggestSystem(before, totals))
       // A collection during the step makes the difference meaningless, so those steps are left out.
@@ -141,18 +149,14 @@ async function measure(world: World, seconds: number, each?: (second: number) =>
   // The loop never yields, and collections are only reported once it does.
   await new Promise((resolve) => setTimeout(resolve, 100))
   observer.disconnect()
-  return { frames, biggest, totals, allocations, pauses, cpu: (usage.user + usage.system) / 1000 }
+  return { frames, cpuFrames, biggest, totals, allocations, pauses, cpu: (usage.user + usage.system) / 1000 }
 }
 
-/** The system that took longest in one step, with its time, to say what a slow step was busy with. */
+/** The two systems that took longest in one step, with their times, to say what a slow step was busy with. */
 function biggestSystem(before: Totals, after: Totals): string {
-  let name = ''
-  let most = 0
-  for (const [system, total] of Object.entries(after)) {
-    const spent = total - (before[system] ?? 0)
-    if (spent > most) [name, most] = [system, spent]
-  }
-  return `${name} ${most.toFixed(1)}`
+  const spent = Object.entries(after).map(([system, total]) => [system, total - (before[system] ?? 0)] as const)
+  spent.sort((a, b) => b[1] - a[1])
+  return spent.slice(0, 2).map(([system, ms]) => `${system} ${ms.toFixed(1)}`).join(', ')
 }
 
 /**
@@ -163,10 +167,11 @@ function fastestOf(runs: Measured[]): Measured {
   const fastest = runs[0].frames.map((_, index) => runs.reduce((best, run) => (run.frames[index] < best.frames[index] ? run : best)))
   const frames = fastest.map((run, index) => run.frames[index])
   const biggest = fastest.map((run, index) => run.biggest[index])
+  const cpuFrames = runs[0].cpuFrames.map((_, index) => Math.min(...runs.map((run) => run.cpuFrames[index])))
   const totals: Totals = {}
   for (const name of Object.keys(runs[0].totals)) totals[name] = Math.min(...runs.map((run) => run.totals[name]))
   const quietest = runs.reduce((best, run) => (sum(run.pauses) < sum(best.pauses) ? run : best))
-  return { frames, biggest, totals, allocations: runs[0].allocations, pauses: quietest.pauses, cpu: Math.min(...runs.map((run) => run.cpu)) }
+  return { frames, cpuFrames, biggest, totals, allocations: runs[0].allocations, pauses: quietest.pauses, cpu: Math.min(...runs.map((run) => run.cpu)) }
 }
 
 function sum(values: readonly number[]): number {
@@ -179,8 +184,11 @@ function summary(measured: Measured): string[] {
   const count = frames.length
   const at = (fraction: number) => frames[Math.min(count - 1, Math.floor(count * fraction))].toFixed(2)
   const kilobytes = (bytes: number) => (bytes / 1024).toFixed(0)
+  const cpuFrames = [...measured.cpuFrames].sort((a, b) => a - b)
+  const cpuAt = (fraction: number) => cpuFrames[Math.min(count - 1, Math.floor(count * fraction))].toFixed(2)
   const lines = [
     `mean ${(sum(frames) / count).toFixed(2)} ms  p50 ${at(0.5)}  p95 ${at(0.95)}  p99 ${at(0.99)}  max ${at(1)}  cpu/step ${(measured.cpu / count).toFixed(2)} ms`,
+    `cpu time per step: mean ${(sum(cpuFrames) / count).toFixed(2)} ms  p95 ${cpuAt(0.95)}  p99 ${cpuAt(0.99)}  max ${cpuAt(1)}`,
     `allocated per step: mean ${kilobytes(sum(allocations) / Math.max(1, allocations.length))} KB, median ${kilobytes(allocations[allocations.length >> 1])} KB  (${allocations.length} clean samples)`,
     `gc: ${measured.pauses.length} pauses, ${sum(measured.pauses).toFixed(0)} ms total, worst ${Math.max(0, ...measured.pauses).toFixed(1)} ms`,
   ]
@@ -189,6 +197,8 @@ function summary(measured: Measured): string[] {
   }
   const slowest = measured.frames.map((ms, index) => ({ ms, index })).sort((a, b) => b.ms - a.ms).slice(0, 8)
   lines.push(`slowest steps: ${slowest.map(({ ms, index }) => `#${index} ${ms.toFixed(1)} ms (${measured.biggest[index]})`).join(', ')}`)
+  const busiest = measured.cpuFrames.map((ms, index) => ({ ms, index })).sort((a, b) => b.ms - a.ms).slice(0, 8)
+  lines.push(`most cpu: ${busiest.map(({ ms, index }) => `#${index} ${ms.toFixed(1)} ms (${measured.biggest[index]})`).join(', ')}`)
   return lines
 }
 
@@ -203,7 +213,7 @@ function print(lines: string[]): void {
  */
 async function sampleAllocations(work: () => Promise<void>): Promise<void> {
   const file = process.env.FIGHT_HEAP
-  if (!file) return work()
+  if (!file) return profileCpu(work)
   const { Session } = process.getBuiltinModule('node:inspector/promises') as { Session: new () => InspectorSession }
   const { writeFileSync } = process.getBuiltinModule('node:fs') as { writeFileSync(path: string, data: string): void }
   const session = new Session()
@@ -211,6 +221,26 @@ async function sampleAllocations(work: () => Promise<void>): Promise<void> {
   await session.post('HeapProfiler.startSampling', { samplingInterval: 16384, includeObjectsCollectedByMajorGC: true, includeObjectsCollectedByMinorGC: true })
   await work()
   const { profile } = await session.post('HeapProfiler.stopSampling') as { profile: object }
+  writeFileSync(file, JSON.stringify(profile))
+  session.disconnect()
+}
+
+/**
+ * With FIGHT_CPU=<file>, records a CPU profile of `work` and writes a .cpuprofile DevTools can open. Done through the
+ * inspector because the test runner ends its workers before Node's own --cpu-prof gets to write.
+ */
+async function profileCpu(work: () => Promise<void>): Promise<void> {
+  const file = process.env.FIGHT_CPU
+  if (!file) return work()
+  const { Session } = process.getBuiltinModule('node:inspector/promises') as { Session: new () => InspectorSession }
+  const { writeFileSync } = process.getBuiltinModule('node:fs') as { writeFileSync(path: string, data: string): void }
+  const session = new Session()
+  session.connect()
+  await session.post('Profiler.enable')
+  await session.post('Profiler.setSamplingInterval', { interval: 200 })
+  await session.post('Profiler.start')
+  await work()
+  const { profile } = await session.post('Profiler.stop') as { profile: object }
   writeFileSync(file, JSON.stringify(profile))
   session.disconnect()
 }
