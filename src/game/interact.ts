@@ -17,7 +17,7 @@ import type { Device, World } from './world'
 import { bodyAction, hideAction, noisemakerAction, stashAction, takedownAction, tieUpAction } from './stealth/actions'
 import { hidingPrompt, stealthControls } from './stealth/controls'
 import { leaveSpot } from './stealth/hide'
-import { spotProp } from './stealth/spots'
+import { spotFeet, spotProp } from './stealth/spots'
 import { rigBreaker, rigSecondsLeft } from './stealth/sabotage'
 import { SABOTAGE } from './stealth/tuning'
 import { doorTooHot, systemsAction, touchHotDoor } from './systems/systems'
@@ -81,12 +81,21 @@ function handsOn(world: World, input: Input, dt: number): void {
   world.stealth.hint = world.terminal ? null : next?.hint ?? null
 }
 
+/** Feet this far below the floor the hiding place stands on: that floor has gone. */
+const FELL_OUT = 0.5
+
+/** The floor each hiding place stood on when the player got in, so a hiding place that falls with its floor is noticed. */
+const hidingFloor = new WeakMap<object, number>()
+
 /** The hiding place was smashed, or the floor dropped away under it: he is out in the open. */
 function leaveLostHidingPlace(world: World): void {
   const hiding = world.stealth.hiding
   if (!hiding) return
   const prop = spotProp(world, hiding.prop)
-  if (!prop || prop.broken || !world.player.onGround) leaveSpot(world)
+  if (!prop || prop.broken) return leaveSpot(world)
+  if (!hidingFloor.has(hiding)) hidingFloor.set(hiding, spotFeet(prop).y)
+  const player = world.player
+  if (player.y + player.h > hidingFloor.get(hiding)! + FELL_OUT) leaveSpot(world)
 }
 
 function bestAction(world: World): Action | null {

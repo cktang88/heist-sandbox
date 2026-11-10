@@ -6,7 +6,7 @@ import { stepWorld } from './step'
 import { fillTiles, tileAt } from './tiles'
 import { damageProp } from './cover'
 import { propBox } from './hazards/props'
-import { enterSpot } from './stealth/hide'
+import { enterSpot, leaveSpot } from './stealth/hide'
 import { openTerminal } from './devices/terminal'
 import { addDevice as addArenaDevice, addGuard as addArenaGuard, arena, GROUND as ARENA_GROUND, putPlayer, run as runArena } from './security/testArena'
 import { pickUp } from './stealth/carry'
@@ -173,6 +173,16 @@ describe('hiding when the hiding place is lost', () => {
     expect(world.player.hidden).toBe(false)
     expect(world.stealth.hiding).toBeNull()
     expect(world.prompt).not.toBe('E: get out')
+  })
+
+  it('getting in from up on a table top, the player settles to the floor of the hiding place and stays hidden', () => {
+    const { world, prop, box } = hidden()
+    leaveSpot(world)
+    world.player.y -= 1.2
+    enterSpot(world, prop)
+    play(world, 0.5)
+    expect(world.player.hidden).toBe(true)
+    expect(world.player.y + world.player.h).toBeCloseTo(Math.round(box.y + box.h), 1)
   })
 
   it('the floor blown away under a hiding place drops the player out of it instead of leaving him hanging', () => {
