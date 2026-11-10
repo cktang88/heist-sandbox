@@ -122,7 +122,9 @@ describe('the E key with several things in reach', () => {
   it('opens a tap at a sink when nothing else is in reach', () => {
     const world = createWorld(1, 'complex')
     world.guards = []
-    const sink = world.props.find((prop) => prop.kind === 'sink' && prop.roomId !== undefined)!
+    // A sink with no other furniture beside it: a stall or locker next to it would take E to hide.
+    const alone = (prop: World['props'][number]) => !world.props.some((other) => other !== prop && other.y === prop.y && Math.abs(other.x - prop.x) < 2.5)
+    const sink = world.props.find((prop) => prop.kind === 'sink' && prop.roomId !== undefined && alone(prop))!
     placePlayer(world, sink.x + 0.5, world.rooms[sink.roomId!].floorY)
     play(world, 0.1)
     expect(world.prompt).toBe('E: open valve')
