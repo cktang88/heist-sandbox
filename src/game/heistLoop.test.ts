@@ -143,6 +143,8 @@ describe('the whole site', () => {
       if (problems.length > 0) break
     }
     expect(problems).toEqual([])
+    // Guards' own footsteps, doors and radio chatter never set colleagues investigating each other.
+    expect(world.guards.filter((guard) => guard.mode !== 'calm').map((guard) => `${guard.role} ${guard.mode} ${guard.interest?.kind}`)).toEqual([])
     expect(world.security.level).toBe(0)
     expect(world.status).toBe('playing')
     // A frame of the whole idle site costs a few reference workloads (benchmark.ts); budget well above that.
