@@ -173,6 +173,14 @@ describe('computers', () => {
     expect(camera.disabled).toBe(false)
   })
 
+  it('closes when the computer is wrecked under the player\'s hands', () => {
+    const { world, computer } = hackedTerminal()
+    expect(world.terminal).not.toBeNull()
+    computer.disabled = true
+    run(world, FRAME)
+    expect(world.terminal).toBeNull()
+  })
+
   it('closes when E is pressed again or the player walks away', () => {
     const { world } = hackedTerminal()
     press(world)
