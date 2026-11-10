@@ -115,6 +115,7 @@ The crosshair ring widens as a gun gets less accurate, so spread is never a surp
 - A blast only removes what it destroys: the floor and ceiling around the hole stay. A storey comes down, in one piece, only when nothing is left holding it.
 - Blow the legs off a watchtower and it falls.
 - Swing on the grapple and crash through a window.
+- Climb floors the loud way: throw C4 up onto the ceiling, set it off, fire the grapple through the hole, reel up with W and let go. You land on the floor above; hold S to drop back.
 
 ## The guards
 
