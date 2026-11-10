@@ -11,6 +11,7 @@ export type Drone = Body & { battery: number }
 
 const FLY_SPEED = 9
 const BATTERY_SECONDS = 18
+export const DRONE_PROMPT = 'Click: detonate drone, E: bring it back'
 
 export function launchDrone(world: World): void {
   const player = world.player
@@ -26,6 +27,10 @@ export function stepDrone(world: World, input: Input, dt: number): void {
   drone.vy += (moveY * FLY_SPEED - drone.vy) * Math.min(1, dt * 8)
   moveBody(world.grid, drone, dt)
   drone.battery -= dt
+  // The hands are on the remote: nothing else is in reach, and E and the trigger work the drone.
+  world.player.pick = 0
+  world.prompt = DRONE_PROMPT
+  world.stealth.hint = null
 
   if (input.firePressed) {
     world.drone = null
@@ -37,4 +42,5 @@ export function stepDrone(world: World, input: Input, dt: number): void {
     world.drone = null
     burst(world.effects, world.rng, centerOf(drone), 8, '#8a8f98', 4)
   }
+  if (!world.drone) world.prompt = null
 }

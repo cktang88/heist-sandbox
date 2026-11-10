@@ -3,6 +3,7 @@ import { hurtGuard, type Guard } from './guards'
 import { igniteAt } from './hazards/hazards'
 import type { Input } from './input'
 import { clearShaftDoorway } from './gaps/aside'
+import { bodyControl } from './movement/control'
 import { currentHoles } from './gaps/state'
 import { heldUpByHoles } from './gaps/walk'
 import { emitNoise } from './noise'
@@ -175,6 +176,7 @@ export function shaftDoorAt(world: World, body: Body): { car: ElevatorCar; stop:
 
 /** Moves every car: answers calls and its buttons, obeys the dispatcher, carries riders and pushes whatever is underneath. */
 export function stepElevators(world: World, input: Input, dt: number): void {
+  const keys = bodyControl(world, input)
   for (const car of world.elevatorCars) {
     const shaft = shaftOf(world, car)
     if (car.cut) {
@@ -183,8 +185,8 @@ export function stepElevators(world: World, input: Input, dt: number): void {
     }
     if (!car.moving && car.floorTiles.length === 0) placeFloor(world, car, shaft)
     car.dwell = Math.max(0, car.dwell - dt)
-    if (car.moving) travel(world, car, shaft, input, dt)
-    else stayOrLeave(world, car, shaft, input)
+    if (car.moving) travel(world, car, shaft, keys, dt)
+    else stayOrLeave(world, car, shaft, keys)
   }
 }
 

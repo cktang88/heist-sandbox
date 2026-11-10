@@ -12,6 +12,8 @@ import { roomAt } from './site'
 import { stepWorld } from './step'
 import { isSolidAt, tileAt } from './tiles'
 import { createWorld, type World } from './world'
+import { DRONE_PROMPT } from './drone'
+import { toolIndex } from './toolDefs'
 
 const FRAME = 1 / 60
 
@@ -174,6 +176,26 @@ describe('elevators', () => {
     expect(world.player.onGround).toBe(true)
     expect(Math.abs(feet(world) - stalledAt)).toBeLessThan(0.05)
     expect(car.riders).toHaveLength(0)
+  })
+
+  it('ignores W while the keys fly the drone or the rider is knocked down', () => {
+    const { world, shaft, car } = setUp()
+    Object.assign(world.player, { x: shaft.x + 0.5, y: shaft.stops[car.stop!] - world.player.h - 0.01, vx: 0, vy: 0 })
+    run(world, 0.3)
+    expect(world.prompt).toBe('W/S: ride elevator')
+    world.player.tool = toolIndex('drone')
+    run(world, FRAME, { fire: true, firePressed: true })
+    run(world, 1, { up: true })
+    expect(car.moving).toBe(false)
+    expect(world.prompt).toBe(DRONE_PROMPT)
+
+    run(world, FRAME, { interact: true, interactPressed: true })
+    expect(world.drone).toBeNull()
+    world.player.stunSeconds = 1
+    run(world, 0.5, { up: true })
+    expect(car.moving).toBe(false)
+    run(world, 1, { up: true })
+    expect(car.moving).toBe(true)
   })
 
   it('carries a guard standing in the car and crushes one underneath it', () => {
