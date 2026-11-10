@@ -67,6 +67,12 @@ export function stepFallingProps(world: World, dt: number): void {
   state.falling = state.falling.filter((item) => !dropProp(world, item, dt))
 }
 
+/** Takes the copy of the grid and files the floor props now, during loading, rather than on the first step. */
+export function prepareFallingProps(world: World): void {
+  remember(world, world.fallingProps)
+  indexStanding(world, world.fallingProps)
+}
+
 /** Bit set when a tile is solid: what a vehicle needs under it. */
 const HOLDS_VEHICLE = 1
 /**

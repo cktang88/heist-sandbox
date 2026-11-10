@@ -50,6 +50,11 @@ const CELL = 8
 const NO_LAMPS: readonly Lamp[] = []
 const lampCells = new WeakMap<readonly Lamp[], { count: number; cells: Map<number, Lamp[]> }>()
 
+/** Files the lamps by the cells they light now, during loading, rather than on the first look. */
+export function indexLampLight(world: World): void {
+  lampsAround(world.lamps, { x: 0, y: 0 })
+}
+
 /** Lamps that may light a spot: those whose circle touches its cell. Built once per lamp list. */
 function lampsAround(lamps: readonly Lamp[], at: Vec): readonly Lamp[] {
   let index = lampCells.get(lamps)

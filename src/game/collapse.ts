@@ -145,8 +145,11 @@ const watches = new WeakMap<Grid, Watch>()
  * something is already loose, the next step drops it.
  */
 export function prepareCollapse(world: World): void {
-  if (findUnsupported(world.grid, slabRows(world)).length > 0) world.structureChanged = true
+  const slabs = slabRows(world)
+  if (findUnsupported(world.grid, slabs).length > 0) world.structureChanged = true
   else watches.set(world.grid, { mark: changeMark(world.grid), pending: [] })
+  // Sizes the local check's buffers to this grid now, not on the first blast.
+  findUnsupportedNear(world.grid, slabs, [])
 }
 
 /** Turns unsupported tiles into falling ones, then moves everything that is falling. */

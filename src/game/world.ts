@@ -1,6 +1,6 @@
 import { setupIntel } from './intel/intel'
 import type { Charge } from './charges'
-import { prepareCollapse, type FallingTile } from './collapse'
+import type { FallingTile } from './collapse'
 import type { Drone } from './drone'
 import type { Effects } from './effects'
 import type { Guard } from './guards'
@@ -13,10 +13,11 @@ import { createHazards, type HazardState } from './hazards/hazards'
 import { createSecurity, type SecurityState } from './security/dispatch'
 import type { DeviceSpawn, ElevatorShaft, Interior, Lamp, Room, Stairwell, TimeOfDay } from './site'
 import { mirrorLevel } from './mirror'
+import { prepareWorld } from './prepare'
 import { createPlayer, type Player } from './player'
 import type { Projectile } from './projectiles'
 import { createRng, type Rng } from './rng'
-import { forgetAllChanges, type Grid } from './tiles'
+import type { Grid } from './tiles'
 import type { SoundEvent } from './sounds'
 import { createTime, type TimeState } from './time'
 import type { Body, Rect } from './types'
@@ -151,8 +152,6 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     intel: createIntel(),
   }
   setupIntel(world)
-  // Building the site set every tile; play reacts only to what changes from here on.
-  forgetAllChanges(world.grid)
-  prepareCollapse(world)
+  prepareWorld(world)
   return world
 }

@@ -75,6 +75,13 @@ function planFor(wells: readonly Stairwell[]): Plan {
   return plan
 }
 
+/** Plans every building's staircases now, during loading, rather than on each building's first route. */
+export function planStairs(wells: readonly Stairwell[]): void {
+  const plan = planFor(wells)
+  graphOf(plan, null)
+  for (const building of plan.buildings) graphOf(plan, building.name)
+}
+
 /**
  * The building a spot is in: between its outer walls and between its lowest and highest stair stops. Null outdoors
  * (the street, the sewer under everything), and on a site whose staircases carry no bounds.
