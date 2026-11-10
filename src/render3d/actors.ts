@@ -47,6 +47,10 @@ function leadOf(world: World, view: Vec): Vec {
   return { x: view.x + ahead(body.vx), y: view.y + ahead(body.vy) }
 }
 
+/** The gold case's model size (see `buildLoot`), and how much smaller it is drawn strapped to the player's back. */
+const CASE_SIZE = { w: 0.8, h: 0.6 }
+const CARRIED_CASE = 0.6
+
 /** People on a staircase are drawn further back, on the stairs behind the walking lane. */
 const STAIR_LANE = -1.5
 
@@ -163,8 +167,16 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       }
 
 
-      loot.visible = !now.loot.taken
-      loot.position.set(now.loot.x, -(now.loot.y + now.loot.h), 0)
+      // Once taken, the case rides on the player's back (as in the flat view) instead of vanishing.
+      const carrying = hero.hasLoot && !hero.hidden
+      loot.visible = !now.loot.taken || carrying
+      if (carrying) {
+        loot.scale.setScalar(CARRIED_CASE)
+        loot.position.set(body.shoulder.x - hero.facing * 0.42 - CASE_SIZE.w * CARRIED_CASE / 2, -(body.shoulder.y + 0.05 + CASE_SIZE.h * CARRIED_CASE), player.group.position.z - 0.3)
+      } else {
+        loot.scale.setScalar(1)
+        loot.position.set(now.loot.x, -(now.loot.y + now.loot.h), 0)
+      }
       for (const { pickup, model } of pickups) {
         model.visible = !pickup.taken
         model.position.set(pickup.x, -(pickup.y + pickup.h), 0)
