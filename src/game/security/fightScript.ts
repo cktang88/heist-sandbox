@@ -27,8 +27,11 @@ type Watch = { at: Vec; rounds: number; since: number }
 
 export type FightReport = { idle: string[]; engaged: number; guardShots: number; log: string[] }
 
-/** Runs a fight for `seconds` with the player held at feet position `spot`, firing short rough bursts at whoever he can hit. */
-export function scriptedFight(world: World, spot: Vec, seconds: number): FightReport {
+/**
+ * Runs a fight for `seconds` with the player held at feet position `spot`, firing short rough bursts at whoever he can hit.
+ * `onFrame` runs after every step, for tests that look closer at one guard.
+ */
+export function scriptedFight(world: World, spot: Vec, seconds: number, onFrame?: (world: World) => void): FightReport {
   world.player.hp = 1e6
   const watches = new Map<Guard, Watch>()
   const idle = new Set<string>()
@@ -51,6 +54,7 @@ export function scriptedFight(world: World, spot: Vec, seconds: number): FightRe
     const before = world.projectiles.filter((shot) => !shot.fromPlayer).length
     stepWorld(world, idleInput({ x: spot.x + 5, y: spot.y - 1 }), FRAME)
     guardShots += Math.max(0, world.projectiles.filter((shot) => !shot.fromPlayer).length - before)
+    onFrame?.(world)
     for (const guard of world.guards) {
       if (!aware(world, guard)) {
         watches.delete(guard)

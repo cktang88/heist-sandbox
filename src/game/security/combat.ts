@@ -133,10 +133,11 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
   else {
     if (guard.seesPlayer && world.player.stairs) barkLine(world, guard, 'stairs')
     // Shaken and on his own, he does not push forward: he holds and waits for help. Holding a choke point the man never
-    // comes through is no use either: after a while the holder moves up to find him.
-    const restless = guard.combatRole === 'hold' && !guard.seesPlayer && guard.lostSeconds > COMBAT.holdPatience
-    const role = guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : restless ? 'assault' : guard.combatRole
-    moveForRole(world, guard, known, role, dt)
+    // comes through is no use either: after a while the holder moves up to find him, and at once when the man has dug in
+    // somewhere (he is not on his way to the door, so there is nothing to wait for).
+    const restless = guard.combatRole === 'hold' && !guard.seesPlayer && (guard.lostSeconds > COMBAT.holdPatience || dugIn(world))
+    if (restless) moveUp(world, guard, known, dt)
+    else moveForRole(world, guard, known, guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : guard.combatRole, dt)
   }
   faceThreat(guard, known)
   if (isShielded(world, guard)) {
@@ -318,6 +319,19 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
       return
     }
   }
+}
+
+/** The man has stayed put long enough that he is fighting from there, not moving through the building. */
+function dugIn(world: World): boolean {
+  return world.security.campSeconds >= COMBAT.campSeconds / 2
+}
+
+/** Off the spot he was holding and straight toward the man to get eyes on him, short of any doorway where men just died. */
+function moveUp(world: World, guard: Guard, known: Vec, dt: number): void {
+  const threat = groundUnder(world, feetOf(guard), known)
+  if (respectKillZones(world, guard, threat, dt)) return
+  guard.cover = null
+  goTo(world, guard, threat, PATROL.runSpeed, dt, false)
 }
 
 /**
