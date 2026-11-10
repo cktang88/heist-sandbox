@@ -196,10 +196,9 @@ function drawBarks(context: CanvasRenderingContext2D, world: World, camera: Came
     const at = worldToScreen(camera, bark)
     const w = measure(context, bark.text, size) + unit
     const h = size * 1.6
-    let y = at.y - unit * 3.4
     // Keep the label on screen; its tail still points at the speaker.
     const x = Math.max(w / 2 + 4, Math.min(camera.width - w / 2 - 4, at.x))
-    for (const other of placed) if (Math.abs(other.x - x) < (other.w + w) / 2 && Math.abs(other.y - y) < h) y = other.y - h - 2
+    const y = placeLabel(placed, x, w, h, at.y - unit * 3.4, h / 2 + 4)
     placed.push({ x, y, w })
     context.globalAlpha = Math.min(1, bark.life / BARK_FADE_SECONDS)
     context.fillStyle = 'rgba(12,14,18,0.82)'
@@ -214,6 +213,25 @@ function drawBarks(context: CanvasRenderingContext2D, world: World, camera: Came
     caption(context, bark.text, x, y + size * 0.36, '#f2f2ea', size, 'center')
   }
   context.globalAlpha = 1
+}
+
+type Placed = { x: number; y: number; w: number }
+
+/**
+ * Where a speech label of size `w` x `h` centred on `x` goes: at `wanted` if free, else stacked just above the labels it
+ * would cover, and if that runs off the top of the screen (above `top`), stacked below them instead.
+ */
+export function placeLabel(placed: readonly Placed[], x: number, w: number, h: number, wanted: number, top: number): number {
+  const hits = (y: number) => placed.find((other) => Math.abs(other.x - x) < (other.w + w) / 2 && Math.abs(other.y - y) < h)
+  let y = Math.max(top, wanted)
+  for (let other = hits(y); other; other = hits(y)) {
+    y = other.y - h - 2
+    if (y < top) break
+  }
+  if (y >= top && !hits(y)) return y
+  y = Math.max(top, wanted)
+  for (let other = hits(y); other; other = hits(y)) y = other.y + h + 2
+  return y
 }
 
 /** A ghost marker where security last saw the player: guards will search from here. */
