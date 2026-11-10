@@ -1,5 +1,5 @@
 import {
-  Box3, Color, FrontSide, GLSL3, LinearFilter, Matrix3, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, NoColorSpace, NormalBlending,
+  Box3, Color, DataTexture, FrontSide, GLSL3, LinearFilter, Matrix3, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, NoColorSpace, NormalBlending,
   OrthographicCamera, Scene, ShaderMaterial, SRGBColorSpace, Vector3, WebGLRenderTarget, BufferGeometry, type Material, type Texture,
   type WebGLRenderer,
 } from 'three'
@@ -131,12 +131,8 @@ const BAKE_FRAGMENT = /* glsl */ `
   uniform float alphaCut;
   uniform float frontZ;
   uniform float depthSpan;
-  #ifdef USE_MAP
-    uniform sampler2D map;
-  #endif
-  #ifdef USE_GLOWMAP
-    uniform sampler2D glowMap;
-  #endif
+  uniform sampler2D map;
+  uniform sampler2D glowMap;
   in vec2 vMapUv;
   in vec2 vGlowUv;
   in vec3 vNormal;
@@ -146,15 +142,9 @@ const BAKE_FRAGMENT = /* glsl */ `
   layout(location = 1) out vec4 outNormal;
   layout(location = 2) out vec4 outGlow;
   void main() {
-    vec4 colour = vec4(diffuse * vColor, opacity);
-    #ifdef USE_MAP
-      colour *= texture(map, vMapUv);
-    #endif
+    vec4 colour = vec4(diffuse * vColor, opacity) * texture(map, vMapUv);
     if (colour.a < alphaCut) discard;
-    vec3 light = glow;
-    #ifdef USE_GLOWMAP
-      light *= texture(glowMap, vGlowUv).rgb;
-    #endif
+    vec3 light = glow * texture(glowMap, vGlowUv).rgb;
     vec3 n = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
     outAlbedo = colour;
     outNormal = vec4(n.xy * 0.5 + 0.5, clamp((frontZ - vViewZ) / depthSpan, 0.0, 1.0), metalness);
@@ -162,6 +152,8 @@ const BAKE_FRAGMENT = /* glsl */ `
   }`
 
 const bakeMaterials = new WeakMap<Material, ShaderMaterial>()
+const WHITE = new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1)
+WHITE.needsUpdate = true
 const frame = { front: { value: 0 }, span: { value: 1 } }
 const IDENTITY_UV = new Matrix3()
 
@@ -191,7 +183,6 @@ function bakeMaterialFor(source: Material): ShaderMaterial {
     glslVersion: GLSL3,
     vertexShader: BAKE_VERTEX,
     fragmentShader: BAKE_FRAGMENT,
-    defines: { ...(map && !unlit ? { USE_MAP: '' } : {}), ...(glowMap ? { USE_GLOWMAP: '' } : {}) },
     uniforms: {
       diffuse: { value: unlit ? new Color(0, 0, 0) : (standard as MeshStandardMaterial).color },
       opacity: { value: source.opacity },
@@ -199,9 +190,10 @@ function bakeMaterialFor(source: Material): ShaderMaterial {
       roughness: { value: standard?.roughness ?? 1 },
       metalness: { value: standard?.metalness ?? 0 },
       alphaCut: { value: source.alphaTest > 0 ? source.alphaTest : 0.01 },
-      map: { value: map },
-      mapTransform: { value: textureTransform(map) },
-      glowMap: { value: glowMap },
+      // Missing maps read plain white, so every material bakes with one of a handful of shaders (loading compiles fewer).
+      map: { value: map && !unlit ? map : WHITE },
+      mapTransform: { value: textureTransform(map && !unlit ? map : null) },
+      glowMap: { value: glowMap ?? WHITE },
       glowMapTransform: { value: textureTransform(glowMap) },
       frontZ: frame.front,
       depthSpan: frame.span,

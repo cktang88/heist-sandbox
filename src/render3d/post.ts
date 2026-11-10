@@ -1,4 +1,5 @@
-import { Box3, DepthTexture, HalfFloatType, Vector2, Vector3, WebGLRenderTarget, type Scene, type WebGLRenderer } from 'three'
+import { Box3, DepthTexture, HalfFloatType, ShaderMaterial, Vector2, Vector3, WebGLRenderTarget, type Scene, type WebGLRenderer } from 'three'
+import { FullScreenQuad, type Pass } from 'three/examples/jsm/postprocessing/Pass.js'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
@@ -43,7 +44,26 @@ export type PostChain = {
   setLook(mood: Mood): void
   /** Where the snapped camera ended up this frame (pixel look only). */
   setSnap(snap: Snap | null): void
+  /**
+   * Every shader of the passes, each with whether it may draw straight to the screen (the last pass does, and a shader
+   * drawn to the screen is a different program), so they can be compiled ahead, a few per frame of loading.
+   */
+  shaderMaterials(): PassMaterial[]
   dispose(): void
+}
+
+export type PassMaterial = { material: ShaderMaterial; toScreen: boolean }
+
+/** The shader materials a pass holds (directly, in arrays, or in its full-screen quad). */
+function materialsOf(pass: Pass): ShaderMaterial[] {
+  const found = new Set<ShaderMaterial>()
+  const visit = (value: unknown): void => {
+    if (value instanceof ShaderMaterial) found.add(value)
+    else if (Array.isArray(value)) value.forEach(visit)
+    else if (value instanceof FullScreenQuad && value.material instanceof ShaderMaterial) found.add(value.material)
+  }
+  for (const value of Object.values(pass)) visit(value)
+  return [...found]
 }
 
 
@@ -196,6 +216,11 @@ export function createPost(renderer: WebGLRenderer, scene: Scene, cameras: Camer
     },
     setSnap(next) {
       snap = next
+    },
+    shaderMaterials() {
+      const enabled = composer.passes.filter((pass) => pass.enabled)
+      const last = enabled[enabled.length - 1]
+      return enabled.flatMap((pass) => materialsOf(pass).flatMap((material) => (pass === last ? [{ material, toScreen: true }, { material, toScreen: false }] : [{ material, toScreen: false }])))
     },
     dispose() {
       finisher.dispose()

@@ -8,7 +8,7 @@ import type { Camera } from '../render/camera'
 import { createActors, type Actors } from './actors'
 import { clearBuildJobs, isLoading } from './core/buildQueue'
 import { holdBackFarChunks } from './core/chunkBudget'
-import { compileScene, uploadTextures } from './core/gpu'
+import { compileScene, shaderProgress, uploadTextures } from './core/gpu'
 import { createEnvironment } from './core/environment'
 import { lookFor } from './core/looks'
 import { createQualityController, LADDER, LOW_DETAIL } from './core/quality'
@@ -186,7 +186,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     const limit = new Promise((resolve) => setTimeout(resolve, WARM_UP_LIMIT_MS))
     const work = skyReady.then(() => {
       placeCamera(world, world.player)
-      return measured('compile shaders', () => compileScene(renderer, scene, cameras.perspective))
+      return measured('compile shaders', () => compileScene(renderer, scene, cameras.perspective, post.shaderMaterials()))
     })
     const done = Promise.race([work, limit])
     void done.then(() => {
@@ -227,6 +227,10 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       // Behind the loading screen one frame is drawn (it compiles what exists and hands layers the renderer); after
       // that, frames only build, which is far quicker than building and drawing a scene nobody can see.
       if (isLoading() && drawnThisLevel) return
+      if (!drawnThisLevel && options.get('debug') === '1') {
+        const { done, total } = shaderProgress()
+        console.info(`[perf] first frame: ${done} of ${total} shaders linked, ${renderer.info.programs?.length ?? 0} programs, parallel compile ${renderer.extensions.has('KHR_parallel_shader_compile')}`)
+      }
       drawnThisLevel = true
       renderer.info.reset()
       timedPart('draw (three.js and WebGL calls)', () => post.render(now / 1000))
