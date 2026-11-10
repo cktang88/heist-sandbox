@@ -148,19 +148,21 @@ function drawBarks(context: CanvasRenderingContext2D, world: World, camera: Came
     const w = measure(context, bark.text, size) + unit
     const h = size * 1.6
     let y = at.y - unit * 3.4
-    for (const other of placed) if (Math.abs(other.x - at.x) < (other.w + w) / 2 && Math.abs(other.y - y) < h) y = other.y - h - 2
-    placed.push({ x: at.x, y, w })
+    // Keep the label on screen; its tail still points at the speaker.
+    const x = Math.max(w / 2 + 4, Math.min(camera.width - w / 2 - 4, at.x))
+    for (const other of placed) if (Math.abs(other.x - x) < (other.w + w) / 2 && Math.abs(other.y - y) < h) y = other.y - h - 2
+    placed.push({ x, y, w })
     context.globalAlpha = Math.min(1, bark.life / BARK_FADE_SECONDS)
     context.fillStyle = 'rgba(12,14,18,0.82)'
-    context.fillRect(at.x - w / 2, y - h / 2, w, h)
+    context.fillRect(x - w / 2, y - h / 2, w, h)
     context.beginPath()
     context.moveTo(at.x - unit * 0.35, y + h / 2)
     context.lineTo(at.x, y + h / 2 + unit * 0.45)
     context.lineTo(at.x + unit * 0.35, y + h / 2)
     context.fill()
     context.fillStyle = 'rgba(255,255,255,0.18)'
-    context.fillRect(at.x - w / 2, y - h / 2, w, 1)
-    caption(context, bark.text, at.x, y + size * 0.36, '#f2f2ea', size, 'center')
+    context.fillRect(x - w / 2, y - h / 2, w, 1)
+    caption(context, bark.text, x, y + size * 0.36, '#f2f2ea', size, 'center')
   }
   context.globalAlpha = 1
 }
