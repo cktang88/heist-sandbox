@@ -3,6 +3,7 @@ import { burst } from '../effects'
 import { hurtGuard } from '../guards'
 import { propById } from '../hazards/props'
 import { breakProp } from '../hazards/reactions'
+import type { Holes } from '../gaps/holes'
 import { currentHoles } from '../gaps/state'
 import { emitNoise } from '../noise'
 import { GRAVITY } from '../physics'
@@ -71,16 +72,17 @@ const HOLDS_VEHICLE = 1
  */
 const HOLDS_FURNITURE = 2
 
-function holdsUp(kinds: Uint8Array, walkable: ReadonlySet<number>, index: number): number {
+function holdsUp(kinds: Uint8Array, holes: Holes, index: number): number {
   if (SOLID[kinds[index]]) return HOLDS_VEHICLE | HOLDS_FURNITURE
-  return walkable.has(index) ? HOLDS_FURNITURE : 0
+  // Most open tiles were never floor: a byte lookup rules them out before the set is asked.
+  return holes.built[index] !== 0 && holes.walkable.has(index) ? HOLDS_FURNITURE : 0
 }
 
 function remember(world: World, state: FallingPropsState): void {
   const { kinds } = world.grid
-  const walkable = currentHoles(world).walkable
+  const holes = currentHoles(world)
   state.solid = new Uint8Array(kinds.length)
-  for (let index = 0; index < kinds.length; index += 1) state.solid[index] = holdsUp(kinds, walkable, index)
+  for (let index = 0; index < kinds.length; index += 1) state.solid[index] = holdsUp(kinds, holes, index)
   state.grid = world.grid
   state.version = world.grid.version
 }
@@ -89,11 +91,11 @@ function remember(world: World, state: FallingPropsState): void {
 function propsOnLostTiles(world: World, state: FallingPropsState): PropState[] {
   const solid = state.solid!
   const { kinds } = world.grid
-  const walkable = currentHoles(world).walkable
+  const holes = currentHoles(world)
   const found = new Set<number>()
   const standingOn = indexStanding(world, state)
   for (let index = 0; index < kinds.length; index += 1) {
-    const now = holdsUp(kinds, walkable, index)
+    const now = holdsUp(kinds, holes, index)
     if (solid[index] === now) continue
     const lost = (solid[index] & ~now) !== 0
     solid[index] = now

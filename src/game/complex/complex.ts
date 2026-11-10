@@ -195,18 +195,15 @@ function buildPerimeter(site: SiteDraft): void {
 }
 
 /**
- * A raised platform on legs with a ladder, a floodlight and a sentry. Steel all through, so it can be brought down;
- * only the feet of the legs, set in the ground, are part of the indestructible frame. The legs are posts standing at
- * the front and back corners, so people on the ground walk between them (see gaps/aside.ts).
+ * A raised platform on legs with a ladder, a floodlight and a sentry. Steel all through, so it can be brought down
+ * (it is no part of a building's indestructible frame). The legs are posts standing at the front and back corners,
+ * so people on the ground walk between them (see gaps/aside.ts).
  */
 function buildWatchtower(site: SiteDraft, x: number, facing: 1 | -1): void {
   const ground = site.groundY
   const deck = ground - 10
   fill(site, x, deck, x + 4, deck, 'steel')
-  for (const leg of [x, x + 4]) {
-    fill(site, leg, deck + 1, leg, ground - 2, 'steel')
-    setTile(site.grid, leg, ground - 1, 'reinforced')
-  }
+  for (const leg of [x, x + 4]) fill(site, leg, deck + 1, leg, ground - 1, 'steel')
   fill(site, x + 2, deck, x + 2, ground - 1, 'ladder')
   fill(site, x, deck - 5, x + 4, deck - 5, 'steel')
   // Wire mesh sides hold the roof up and still let the sentry see and shoot out.

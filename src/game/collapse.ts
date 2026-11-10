@@ -28,7 +28,6 @@ const SOLID = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid ? 1 :
 /** Ladders are bolted to the walls beside them, so they hold the two sides of a shaft together. */
 const CARRIES = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid || kind === 'ladder' ? 1 : 0))
 const DUCT = TILE_KINDS.indexOf('duct')
-const REINFORCED = TILE_KINDS.indexOf('reinforced')
 
 /**
  * One slab row of a building, columns x0..x1: where floors are also held by the back wall the side view cuts away.
@@ -39,8 +38,8 @@ export type SlabRow = { y: number; x0: number; x1: number; top: number; bottom: 
 /**
  * Finds solid tiles that are no longer held up. A tile is supported when a chain of touching solid tiles
  * (or ladders) links it to the bottom of the map, or to a building slab the back wall still holds (see `holdSlab`).
- * The reinforced frame cannot be destroyed, so it never falls, but a piece of it that is cut off holds nothing up
- * either: otherwise every floor bolted to a beam would hang there for ever.
+ * The reinforced frame cannot be destroyed, but it is held like anything else: a piece of it cut off on every side
+ * (a beam whose whole storey came down around it) falls too, rather than hanging in the air for ever.
  */
 export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): number[] {
   const { width, height, kinds } = grid
@@ -81,7 +80,7 @@ export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): num
     })
   }
   const loose: number[] = []
-  for (let index = 0; index < size; index += 1) if (!supported[index] && SOLID[kinds[index]] && kinds[index] !== REINFORCED) loose.push(index)
+  for (let index = 0; index < size; index += 1) if (!supported[index] && SOLID[kinds[index]]) loose.push(index)
   return loose
 }
 
@@ -131,7 +130,7 @@ export function stepCollapse(world: World, dt: number): void {
     for (const index of findUnsupported(world.grid, slabRows(world))) {
       const x = index % world.grid.width
       const y = Math.floor(index / world.grid.width)
-      world.falling.push({ x, y, vy: 0, kind: tileAt(world.grid, x, y) })
+      world.falling.push({ x, y, vy: 0, kind: fallsAs(tileAt(world.grid, x, y)) })
       setTile(world.grid, x, y, 'air')
     }
   }
@@ -140,6 +139,11 @@ export function stepCollapse(world: World, dt: number): void {
   // Lowest first, so a falling stack lands in order instead of on top of itself.
   world.falling.sort((a, b) => b.y - a.y)
   world.falling = world.falling.filter((tile) => !dropTile(world, tile, dt))
+}
+
+/** A piece of the reinforced frame that comes loose is wrecked by the fall: it lands as ordinary rubble. */
+function fallsAs(kind: TileKind): TileKind {
+  return kind === 'reinforced' ? 'concrete' : kind
 }
 
 /** Moves one falling tile. Returns true when it has landed or broken up. */

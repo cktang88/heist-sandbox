@@ -32,21 +32,21 @@ describe('collapse', () => {
     expect(findUnsupported(grid).length).toBe(2)
   })
 
-  it('never drops the reinforced frame, even a beam whose slab and walls are all gone, but a cut-off beam holds nothing up', () => {
+  it('drops a piece of the reinforced frame cut off on every side, with the slab beside it', () => {
     const grid = createGrid(8, 8)
     fillTiles(grid, 0, 7, 7, 7, 'bedrock')
     fillTiles(grid, 1, 2, 6, 2, 'concrete')
     setTile(grid, 3, 2, 'reinforced')
     fillTiles(grid, 1, 3, 1, 6, 'brick')
-    // Walls and slab gone: the beam stays where it is; the slab beside it falls.
+    // Walls and slab gone: the beam comes down with the slab beside it.
     fillTiles(grid, 1, 3, 1, 6, 'air')
     setTile(grid, 2, 2, 'air')
     setTile(grid, 5, 2, 'air')
     const loose = findUnsupported(grid).map((index) => [index % 8, Math.floor(index / 8)])
-    expect(loose).toEqual([[1, 2], [4, 2], [6, 2]])
+    expect(loose).toEqual([[1, 2], [3, 2], [4, 2], [6, 2]])
   })
 
-  it('rubble that lands on a cut-off piece of frame breaks up instead of hanging there unsupported', () => {
+  it('a cut-off piece of frame falls with the rubble above it, and all of it comes to rest on the ground', () => {
     const world = createWorld(1)
     world.guards = []
     world.grid = createGrid(8, 12)
@@ -57,7 +57,8 @@ describe('collapse', () => {
     world.structureChanged = true
     for (let frame = 0; frame < 120; frame += 1) stepWorld(world, idleInput(), 1 / 60)
     expect(world.falling).toEqual([])
-    expect(tileAt(world.grid, 3, 5)).toBe('air')
+    expect(tileAt(world.grid, 3, 6)).toBe('air')
+    expect(tileAt(world.grid, 3, 10)).toBe('concrete')
     expect(findUnsupported(world.grid)).toEqual([])
   })
 
