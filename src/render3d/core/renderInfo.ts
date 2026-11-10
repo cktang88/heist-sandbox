@@ -1,6 +1,9 @@
 import type { WebGLRenderer } from 'three'
 import { stepTimings, type SlowStep } from '../../game/stepTimings'
+import { cardPageCount } from '../propbatch/cardAtlas'
+import { propKindsKept3d } from '../propbatch/region'
 import { jobCount } from './buildQueue'
+import { takePassTimings, type PassTiming } from './passTimings'
 import { playStartedMs, worstFrames, type WorstFrame } from './frameProbe'
 
 /** What `globalThis.__renderInfo` holds with `?debug=1`: counts for the last frame, refreshed about once a second. */
@@ -30,6 +33,12 @@ export type RenderInfo = {
    * and style work), worst first, with the script that took longest in each. Empty where the browser lacks them.
    */
   longFrames: readonly LongFrame[]
+  /** Furniture card atlas pages (each about 48 MB of GPU memory) and the prop kinds that stayed 3D somewhere. */
+  cardPages: number
+  props3d: readonly string[]
+  /** The look and its full-screen passes: script time to issue each (ms, averaged) and the size it drew at. */
+  look: string
+  passes: readonly PassTiming[]
 }
 
 export type LongFrame = { ms: number; at: number; script: string }
@@ -81,6 +90,9 @@ export function createRenderInfo(renderer: WebGLRenderer, enabled: boolean): { p
         loadedAtMs: playStartedMs(),
         buildJobs: jobCount(),
         longFrames: longFrames.slice(),
+        ...takePassTimings(),
+        cardPages: cardPageCount(),
+        props3d: propKindsKept3d(),
       }
       ;(globalThis as { __renderInfo?: RenderInfo }).__renderInfo = info
     },

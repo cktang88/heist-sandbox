@@ -13,12 +13,18 @@ export const CAMERA_DISTANCE = TILES_TALL / 2 / Math.tan((FIELD_OF_VIEW * Math.P
 const LAYER_SPLIT = CAMERA_DISTANCE + 4
 const FAR = 400
 /**
+ * Layer of the far backdrop (sky and city). The building is on the default layer 0. The perspective camera sees
+ * both; in the pixel look the backdrop pass draws only this layer and the orthographic pass only layer 0, so no
+ * wall or prop is ever sent down both passes (the near clip plane would discard it, but only after it was drawn).
+ */
+export const BACKDROP_LAYER = 1
+/**
  * A straight-on orthographic view sees floors and ceilings exactly edge-on, so rooms read as flat boxes.
  * This leans the orthographic view a little (an oblique projection: the further back a point, the higher it
  * is drawn), which shows the tops of floors and desks like a pixel artist's three-quarter view. Points on the
  * walking lane (z = 0) do not move, so aiming stays exact. Tiles of height per tile of depth.
  */
-const OBLIQUE = 0.2
+export const OBLIQUE = 0.2
 
 /**
  * Both cameras look straight down the z axis at the walking lane from the same point. The perspective one
@@ -37,6 +43,7 @@ export type CameraRig = {
 
 export function createCameraRig(): CameraRig {
   const perspective = new PerspectiveCamera(FIELD_OF_VIEW, 1, 1, FAR)
+  perspective.layers.enable(BACKDROP_LAYER)
   const orthographic = new OrthographicCamera(-1, 1, 1, -1, 1, LAYER_SPLIT)
   return {
     perspective,

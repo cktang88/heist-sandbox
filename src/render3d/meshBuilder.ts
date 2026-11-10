@@ -48,11 +48,15 @@ export class MeshBuilder {
     this.indices.push(first, first + 1, first + 2, first, first + 2, first + 3)
   }
 
-  /** Adds all six faces of a box, textured in world space so neighbouring boxes line up. */
-  box(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, uvScale: number, shade: number): void {
+  /**
+   * Adds the faces of a box, textured in world space so neighbouring boxes line up. `back: false` leaves out the face
+   * pointing away from the camera, which it can never see: only for boxes that throw no shadow (the sun, in front of
+   * the building, draws exactly those faces into its shadow map).
+   */
+  box(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, uvScale: number, shade: number, back = true): void {
     const s = uvScale
     this.quad([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [0, 0, 1], [[x0 * s, y0 * s], [x1 * s, y0 * s], [x1 * s, y1 * s], [x0 * s, y1 * s]], shade)
-    this.quad([[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], [0, 0, -1], [[x1 * s, y0 * s], [x0 * s, y0 * s], [x0 * s, y1 * s], [x1 * s, y1 * s]], shade)
+    if (back) this.quad([[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], [0, 0, -1], [[x1 * s, y0 * s], [x0 * s, y0 * s], [x0 * s, y1 * s], [x1 * s, y1 * s]], shade)
     this.quad([[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [0, 1, 0], [[x0 * s, z1 * s], [x1 * s, z1 * s], [x1 * s, z0 * s], [x0 * s, z0 * s]], shade)
     this.quad([[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], [0, -1, 0], [[x0 * s, z0 * s], [x1 * s, z0 * s], [x1 * s, z1 * s], [x0 * s, z1 * s]], shade)
     this.quad([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], [-1, 0, 0], [[z0 * s, y0 * s], [z1 * s, y0 * s], [z1 * s, y1 * s], [z0 * s, y1 * s]], shade)

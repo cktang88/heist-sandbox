@@ -1,7 +1,7 @@
-import { BatchedMesh, BoxGeometry, Group, Matrix4, Mesh, MeshStandardMaterial, Vector3 } from 'three'
+import { BatchedMesh, Box3, BoxGeometry, Group, Matrix4, Mesh, MeshStandardMaterial, Vector3 } from 'three'
 import { describe, expect, it } from 'vitest'
 import { recipeOf, signatureOf } from './recipe'
-import { Region, type PlacedProp } from './region'
+import { Region, suitsCard, type PlacedProp } from './region'
 
 const BOX = new BoxGeometry(1, 1, 1)
 const RED = new MeshStandardMaterial({ color: 0xff0000 })
@@ -52,5 +52,23 @@ describe('a region of batched props', () => {
     plain.computeBoundingBox()
     // The seat sits 0.2 right of the prop's centre; mirrored, 0.2 left of it.
     expect(plain.boundingBox!.getCenter(new Vector3()).x).toBeCloseTo(4.8)
+  })
+})
+
+describe('which props become cards', () => {
+  const desk = new Box3(new Vector3(-1, 0, -2), new Vector3(1, 0.8, -1))
+  const sofaAtLane = new Box3(new Vector3(-1.5, 0, -1.6), new Vector3(1.5, 0.9, 0))
+
+  it('makes cards of furniture against the wall in the pixel looks', () => {
+    expect(suitsCard(desk, 0, 'oblique')).toBe(true)
+  })
+
+  it('keeps a deep prop whose front reaches the walking lane 3D', () => {
+    expect(suitsCard(sofaAtLane, 0, 'oblique')).toBe(false)
+  })
+
+  it('makes cards only of small props under perspective', () => {
+    expect(suitsCard(desk, 0, 'straight')).toBe(false)
+    expect(suitsCard(new Box3(new Vector3(-0.2, 0, -1.2), new Vector3(0.2, 0.4, -0.9)), 0, 'straight')).toBe(true)
   })
 })

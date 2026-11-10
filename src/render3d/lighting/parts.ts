@@ -10,6 +10,9 @@ export function tint(hex: number): Tint {
 }
 
 const UP = new Vector3(0, 1, 0)
+/** A fitting is a few pixels across at play distance: eight sides read as round, and thin bars need only five. */
+const SIDES = 8
+const BAR_SIDES = 5
 
 /**
  * Collects simple shapes, each with its own colour, and merges them into one geometry, so a whole lamp
@@ -28,11 +31,11 @@ export class Parts {
 
   /** An upright cylinder (or cone, when the radii differ) centred on its middle. `open` leaves the ends off, like a shade. */
   cylinder(x: number, y: number, z: number, top: number, bottom: number, h: number, color: Tint, open = false, rotation?: Euler): this {
-    return this.add(new CylinderGeometry(top, bottom, h, 12, 1, open), color, x, y, z, rotation)
+    return this.add(new CylinderGeometry(top, bottom, h, SIDES, 1, open), color, x, y, z, rotation)
   }
 
   sphere(x: number, y: number, z: number, radius: number, color: Tint, stretchY = 1): this {
-    const ball = new SphereGeometry(radius, 10, 7)
+    const ball = new SphereGeometry(radius, SIDES, 5)
     ball.scale(1, stretchY, 1)
     return this.add(ball, color, x, y, z)
   }
@@ -45,7 +48,7 @@ export class Parts {
   /** A thin round bar between two points in space. */
   bar(from: Vector3, to: Vector3, radius: number, color: Tint): this {
     const along = to.clone().sub(from)
-    const piece = new CylinderGeometry(radius, radius, along.length(), 8, 1, true)
+    const piece = new CylinderGeometry(radius, radius, along.length(), BAR_SIDES, 1, true)
     piece.applyQuaternion(new Quaternion().setFromUnitVectors(UP, along.normalize()))
     const middle = from.clone().add(to).multiplyScalar(0.5)
     return this.add(piece, color, middle.x, middle.y, middle.z)
