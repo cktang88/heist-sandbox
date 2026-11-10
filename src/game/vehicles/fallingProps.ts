@@ -235,7 +235,8 @@ function land(world: World, prop: PropState, row: number, speed: number): void {
   if (isVehicle(prop)) vehicleLanded(world, prop, speed)
 }
 
-function crush(world: World, box: Rect, damage: number): void {
+/** Hurts everyone inside a box something heavy just came down on. */
+export function crush(world: World, box: Rect, damage: number): void {
   for (const guard of world.guards) {
     if (guard.state !== 'dead' && overlaps(box, guard)) hurtGuard(world, guard, damage, { x: box.x + box.w / 2, y: box.y }, 'hazard')
   }

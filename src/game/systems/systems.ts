@@ -5,10 +5,12 @@ import { stepElectric } from './electric'
 import { stepFans } from './fans'
 import { burnFuel, watchTanks } from './fuel'
 import { stepHeat } from './heat'
+import { dropBrokenFittings, loosenFittings, stepFallingFittings } from './hanging'
 import { hitTarget } from './hits'
 import { sparkSwitchedCircuits } from './ignition'
 import { stepLiquid } from './liquid'
 import { blastPipes, watchFixtures } from './pipes'
+import { stepRolling } from './rolling'
 import { stepShocks } from './shock'
 import { followShots } from './shots'
 import { stepSources } from './sources'
@@ -19,7 +21,8 @@ import { sparkWires, wiresFromOpenedCeilings } from './wires'
 /**
  * The couplings between systems: water from burst pipes and fixtures that pools, runs downstairs, puts out fire and
  * shorts electronics; live kit and cables that electrify the water they touch until a breaker trips; gas that rises,
- * fans, backdrafts and sparks; fuel trails that burn; long fires that crack glass, heat doors and burn through floors. Fields tick a few times a second, and only where something is
+ * fans, backdrafts and sparks; fuel trails that burn; long fires that crack glass, heat doors and burn through floors;
+ * fittings that come down on whoever is under them and vehicles that roll. Fields tick a few times a second, and only where something is
  * happening.
  */
 export { createSystems, type SystemsState } from './state'
@@ -27,6 +30,7 @@ export { strikeAt } from './lightning'
 export { ignitionSourceAt, lightCigarette } from './ignition'
 export { fanAction, setFan } from './fans'
 export { doorTooHot, touchHotDoor } from './heat'
+export { handbrakeAction, releaseHandbrake } from './rolling'
 
 const LIQUID_TICK = 0.25
 /** How often people's footing and shocks are looked at. */
@@ -40,6 +44,9 @@ export function stepSystems(world: World, dt: number): void {
   const opened = openedTiles(world)
   wiresFromOpenedCeilings(world, opened)
   checkBackdrafts(world, opened)
+  loosenFittings(world, opened)
+  stepFallingFittings(world, dt)
+  stepRolling(world, dt)
   sparkSwitchedCircuits(world)
   systems.liquidClock += dt
   if (systems.liquidClock >= LIQUID_TICK) {
@@ -61,6 +68,7 @@ export function stepSystems(world: World, dt: number): void {
 function liquidTick(world: World, tick: number): void {
   watchFixtures(world)
   watchTanks(world)
+  dropBrokenFittings(world)
   stepSources(world, tick)
   stepLiquid(world, 'water', tick)
   stepLiquid(world, 'fuel', tick)

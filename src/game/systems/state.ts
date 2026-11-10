@@ -36,7 +36,7 @@ export type LiveWire = Vec & { circuit: number | undefined; top: number }
 export type FallingFitting = Vec & { w: number; h: number; vy: number; prop: number; lamp: Lamp | null; mass: number }
 
 /** A vehicle with its handbrake off, rolling along the floor. */
-export type RollingVehicle = { prop: number; vx: number; travelled: number }
+export type RollingVehicle = { prop: number; vx: number; keyedX: number }
 
 /** A loud way to know someone opened a door: a bucket or a chair wedged above it falls on whoever opens it. */
 export type RiggedDoor = Vec
@@ -86,6 +86,8 @@ export type SystemsState = {
   /** Things already set off, so each reacts once: burst pipe tiles, water fixtures, holed tanks, fallen fittings. */
   burst: Set<number>
   spentProps: Set<number>
+  /** Fittings (props and lamps) that have already come down. */
+  dropped: WeakSet<object>
   /** Electronics that have soaked long enough to short, by prop id, and seconds soaked so far. */
   soaking: Map<number, number>
   /** Tile key to seconds of fire exposure: slabs weakening, glass cracking, doors heating. */
@@ -112,7 +114,7 @@ export function createSystems(seed: number): SystemsState {
   return {
     seed, rng: createRng(seed ^ 0x5bd1e995), water: null, fuel: null, sources: [], energized: new Map(), earthing: new Map(), wires: [],
     shockedUntil: new WeakMap(), slipUntil: new WeakMap(), stepClock: new WeakMap(), wading: [], falling: [], rolling: [], rigged: [],
-    timers: [], fans: new Map(), faults: [], faultsSeeded: false, burst: new Set(), spentProps: new Set(), soaking: new Map(),
+    timers: [], fans: new Map(), faults: [], faultsSeeded: false, burst: new Set(), spentProps: new Set(), dropped: new WeakSet(), soaking: new Map(),
     heat: new Map(), hotDoors: new Map(), hissed: new Set(), trails: [], seenFlashes: new WeakSet(), deadBefore: new Set(),
     changeMark: 0, changeGrid: null, liquidClock: 0, heatClock: 0, scanClock: 0, fallClock: 0, peopleClock: 0,
   }
