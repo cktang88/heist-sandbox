@@ -8,7 +8,7 @@ describe('the help screen', () => {
   })
 
   it('covers the goal, being seen, the alert levels, the tools and the world, in short tabs', () => {
-    expect(HELP_TABS.map((tab) => tab.title)).toEqual(['The job', 'Being seen', 'Alert', 'Tools', 'The world'])
+    expect(HELP_TABS.map((tab) => tab.title)).toEqual(['The job', 'Being seen', 'Stealth', 'Alert', 'Tools', 'The world'])
     for (const tab of HELP_TABS) expect(tab.blocks.length, tab.title).toBeLessThanOrEqual(8)
   })
 

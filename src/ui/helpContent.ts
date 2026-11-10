@@ -55,11 +55,11 @@ export const HELP_TABS: readonly HelpTab[] = [
       ] },
       { kind: 'heading', text: 'Quiet or loud' },
       { kind: 'list', items: [
-        { term: 'Quiet', text: 'Pistol, takedowns from behind (E), lockpicks, the drill, smoke. Nobody hears, nobody calls it in.', tone: 'quiet' },
+        { term: 'Quiet', text: 'Pistol, darts, takedowns and chokes from behind (E), hiding bodies, lockpicks, the drill, smoke. Nobody hears, nobody calls it in.', tone: 'quiet' },
         { term: 'Loud', text: 'Rifles, rockets, C4, frags. Fast, but the whole block hears it and the site locks down.', tone: 'loud' },
       ] },
       { kind: 'example', text: 'Pick the front door lock, slip through the dark, drill down into the vault. Or blow the wall with a rocket and run.' },
-      { kind: 'text', text: 'Either works. The end screen says which you were: GHOST, QUIET or LOUD.' },
+      { kind: 'text', text: 'Either works. The end screen says which you were: GHOST, SILENT or LOUD.' },
     ],
   },
   {
@@ -75,6 +75,27 @@ export const HELP_TABS: readonly HelpTab[] = [
       ] },
       { kind: 'example', text: 'Shoot out the lamp over a corridor, then crouch through the dark patch while the guard faces away.' },
       { kind: 'example', text: 'Take a guard down quietly, then keep moving: control will soon notice he has gone silent.' },
+    ],
+  },
+  {
+    title: 'Stealth',
+    blocks: [
+      { kind: 'text', text: 'Many quiet ways through. The tags under your health say why you are or are not being seen: IN DARKNESS, IN COVER, DISGUISED, NOISY.' },
+      { kind: 'list', items: [
+        { term: 'Takedowns', text: 'Behind an unaware guard, E is a quick kill (a small sound and blood). Crouch and hold E to choke him out silently; he wakes in a few minutes unless you tie him up. From the front it is a loud wrestle; armoured heavies cannot be grabbed from the front.', tone: 'quiet' },
+        { term: 'The surprise window', text: 'A lone guard who walks into you at arm\'s length freezes for a beat (a ring shrinks over his head). Choke, punch or grab him before it runs out and nobody hears of it. Veterans and officers recover faster; a second guard watching means no window.' },
+        { term: 'Bodies', text: 'G picks a body up and puts it down; T throws it. Carrying, you walk slowly with only the pistol. Bodies lying in sight are found, by the same rules of light and cover that hide you.' },
+        { term: 'Hiding bodies', text: 'E stuffs a carried body into a locker, wardrobe, stall, dumpster, fridge, car boot, under a desk or bed, or behind tall shelves in the dark. Calm patrols walk past; searchers on a raised alert open hiding places near where they search. Blood leads them there too.' },
+        { term: 'Hiding yourself', text: 'E to get into a locker, wardrobe or stall, or crawl under a desk. A guard who saw you get in comes to open it. E again to get out, or to grab a guard walking past.' },
+        { term: 'Radios', text: 'Take a downed guard\'s radio (hold E). When control calls him, answer for him. A couple of bluffs work; then control sends someone.' },
+        { term: 'Disguise', text: 'Put on a downed guard\'s uniform. From a distance you pass as one of them; up close, to officers, running, carrying a body, with a big gun out or in a restricted room, you do not.' },
+        { term: 'Keycards', text: 'Officers and operators carry one. Crouch behind one and hold E to lift it, or take it from his body. Swipe it at keypad doors.' },
+        { term: 'Lures', text: 'X whistles; a TV or vending machine switched on (E) pulls a guard over to switch it off. Lure the same area twice and they come in pairs.' },
+        { term: 'Sabotage', text: 'Crouch at a fuse box and hold E to rig the breaker: the lights die on a timer while you are elsewhere. Loop the camera feeds from a terminal: unlike a cut cable, nobody notices until the loop runs out.' },
+        { term: 'Quiet moves', text: 'Crouch to move silently, ease doors open crouched (E), crawl through ducts. The dart gun (press 1 twice) puts a man to sleep after a few seconds.' },
+      ] },
+      { kind: 'example', text: 'Whistle from inside a locker; when the guard walks past the door, burst out and choke him, then stuff him in the locker and take his uniform.' },
+      { kind: 'text', text: 'The end screen rates the run: GHOST (never seen, nobody dead, nothing found), SILENT (the alarm never rang) or LOUD.' },
     ],
   },
   {
