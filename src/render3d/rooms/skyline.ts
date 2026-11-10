@@ -142,9 +142,9 @@ export const NIGHT_BANDS: readonly CityBand[] = [
 ]
 
 export const DAY_BANDS: readonly CityBand[] = [
-  { seed: 31, body: '#9aa2ac', haze: '#bcc2c8', hazeHeight: 110, veil: 0.55, minHeight: 30, maxHeight: 120, minWidth: 14, maxWidth: 34, pitch: 2.4, lit: 0.5, windowColours: ['#8a929c'], neon: 0, beacons: false, giants: 2 },
-  { seed: 17, body: '#7e8792', haze: '#b2b9c0', hazeHeight: 70, veil: 0.3, minHeight: 20, maxHeight: 85, minWidth: 10, maxWidth: 26, pitch: 1.8, lit: 0.6, windowColours: ['#5e6670', '#6a737e'], neon: 6, beacons: false, giants: 0 },
-  { seed: 5, body: '#5e6670', haze: '#a8b0b8', hazeHeight: 40, veil: 0.1, minHeight: 14, maxHeight: 60, minWidth: 8, maxWidth: 20, pitch: 1.5, lit: 0.65, windowColours: ['#3a424c', '#454e5a', '#7a8794'], neon: 10, beacons: false, giants: 0 },
+  { seed: 31, body: '#5e6874', haze: '#9aa4ae', hazeHeight: 110, veil: 0.32, minHeight: 30, maxHeight: 120, minWidth: 14, maxWidth: 34, pitch: 2.4, lit: 0.5, windowColours: ['#5e6874'], neon: 0, beacons: false, giants: 2 },
+  { seed: 17, body: '#56606a', haze: '#949ea8', hazeHeight: 70, veil: 0.25, minHeight: 20, maxHeight: 85, minWidth: 10, maxWidth: 26, pitch: 1.8, lit: 0.6, windowColours: ['#3e4650', '#4a535e'], neon: 6, beacons: false, giants: 0 },
+  { seed: 5, body: '#434b55', haze: '#8e98a2', hazeHeight: 40, veil: 0.08, minHeight: 14, maxHeight: 60, minWidth: 8, maxWidth: 20, pitch: 1.5, lit: 0.65, windowColours: ['#2a3038', '#323a44', '#5e6a78'], neon: 10, beacons: false, giants: 0 },
 ]
 
 const NEON = ['#ff2d95', '#19e3ff', '#ffb000', '#8a5cff', '#7cff4f']

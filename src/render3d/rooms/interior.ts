@@ -1,3 +1,4 @@
+import type { Material } from 'three'
 import type { RoomKind } from '../../game/site'
 import { isSolidAt, type Grid } from '../../game/tiles'
 import { BACK, FRONT } from '../levelMesh'
@@ -48,7 +49,7 @@ export function finishSpace(ctx: FinishContext, space: Space, finish: Finish): v
   }
 }
 
-function batchFor(place: Place, material: Parameters<ChunkedFinishes['batch']>[2]): QuadBatch {
+function batchFor(place: Place, material: Material): QuadBatch {
   return place.ctx.scene.batch(place.centre[0], place.centre[1], material)
 }
 
@@ -244,7 +245,7 @@ function logoWall(place: Place, [from, to]: [number, number]): void {
   const height = (to - from) / 4
   const y0 = place.floor + Math.min(place.h - height - 0.6, 1.8 + (place.h > 6 ? 2.5 : 0))
   batchFor(place, kit.trim).facing(x0, place.floor, x1, place.ceiling, Z_FRAME, 1, tintOf(0x1e2024))
-  batchFor(place, kit.logo).facingCell(x0 + 0.4, y0, x1 - 0.4, y0 + height, Z_TRIM, [0, 0, 1, 1], [1.6, 1.9, 2.2])
+  batchFor(place, kit.logo).facingCell(x0 + 0.4, y0, x1 - 0.4, y0 + height, Z_TRIM, [0, 0, 1, 1], [1.2, 1.45, 1.7])
 }
 
 /** Big stencilled storey numbers, the way stair cores and car parks are marked. */
@@ -267,10 +268,13 @@ export function storeyLabel(storey: number, parking: boolean): string {
 
 /** Lays out text in block letters, left to right from (x, y) at the given letter height. */
 export function letters(batch: QuadBatch, text: string, x: number, y: number, height: number, tint: Tint, z = Z_TRIM): void {
+  // Letters are drawn narrow in the middle of square cells, so cells overlap as they are spaced.
   const advance = height * GLYPH_ASPECT
+  const margin = (height - advance) / 2
   for (let index = 0; index < text.length; index += 1) {
     const cell = glyphCell(text[index])
-    if (cell) batch.facingCell(x + index * advance, y, x + index * advance + advance * 1.15, y + height, z, cell, tint)
+    const left = x + index * advance - margin
+    if (cell) batch.facingCell(left, y, left + height, y + height, z, cell, tint)
   }
 }
 

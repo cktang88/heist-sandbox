@@ -193,8 +193,8 @@ const GLYPH_COLUMNS = 8
 const GLYPH_ROWS = 5
 const GLYPH_CELL = 96
 
-/** Width of a letter as a share of its height, for spacing stencilled text. */
-export const GLYPH_ASPECT = 0.62
+/** Distance from one letter to the next as a share of letter height. */
+export const GLYPH_ASPECT = 0.56
 
 export function glyphCell(letter: string): Cell | null {
   const index = GLYPHS.indexOf(letter)
@@ -243,9 +243,11 @@ export function logoTexture(): CanvasTexture {
   c.fillStyle = '#ffffff'
   c.textBaseline = 'middle'
   c.font = 'bold 150px "DejaVu Sans", sans-serif'
+  // Squeeze the name to fit beside the mark, whatever font the browser supplies.
+  const room = 1024 - 270
   c.save()
   c.translate(258, 136)
-  c.scale(0.86, 1)
+  c.scale(Math.min(0.9, room / c.measureText(COMPANY).width), 1)
   c.fillText(COMPANY, 0, 0)
   c.restore()
   return textureOf(element)

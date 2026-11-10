@@ -53,7 +53,8 @@ function createKit(time: TimeOfDay): FinishKit {
     logo: new MeshBasicMaterial({ map: logoTexture(), vertexColors: true, transparent: true, depthWrite: false, side: DoubleSide }),
     hazard: new MeshStandardMaterial({ map: hazardTexture(), vertexColors: true, roughness: 0.7 }),
     grime: new MeshStandardMaterial({ map: grimeTexture(), transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 }),
-    mirror: new MeshStandardMaterial({ color: 0xc8d0d8, roughness: 0.06, metalness: 1 }),
+    // A true mirror would show the room, which this renderer cannot; a pale sheen reads as one instead.
+    mirror: new MeshStandardMaterial({ color: 0x9aa4ac, roughness: 0.18, metalness: 0.7, emissive: 0x3c444c }),
     puddle: new MeshStandardMaterial({
       color: 0x06080c, alphaMap: blobTexture(), transparent: true, depthWrite: false, roughness: 0.04, metalness: 0.2, envMapIntensity: 2.5,
       polygonOffset: true, polygonOffsetFactor: -3,

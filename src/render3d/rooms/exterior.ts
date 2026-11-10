@@ -1,3 +1,4 @@
+import type { Material } from 'three'
 import type { Room, TimeOfDay } from '../../game/site'
 import { isSolidAt, tileAt, type Grid } from '../../game/tiles'
 import { BACK, FRONT } from '../levelMesh'
@@ -224,7 +225,7 @@ export function dressGround(ctx: ExteriorContext, room: Room): void {
 }
 
 /** Calls `draw` once per solid ground column of the room, so each piece vanishes with the ground under it. */
-function perColumn(ctx: ExteriorContext, room: Room, material: Parameters<ChunkedFinishes['batch']>[2], draw: (batch: QuadBatch, column: number, ground: number) => void): void {
+function perColumn(ctx: ExteriorContext, room: Room, material: Material, draw: (batch: QuadBatch, column: number, ground: number) => void): void {
   for (let column = room.x; column < room.x + room.w; column += 1) {
     if (!isSolidAt(ctx.grid, column, room.floorY)) continue
     const batch = ctx.scene.batch(column, room.floorY, material)

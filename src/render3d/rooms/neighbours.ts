@@ -17,8 +17,8 @@ const ROOF_UV: [number, number] = [0.003, 0.997]
 
 type Look = { wall: string; stain: string; dark: string; lit: readonly string[]; litOdds: number; roof: string }
 const LOOK: Record<TimeOfDay, Look> = {
-  night: { wall: '#141822', stain: 'rgba(0,0,0,0.35)', dark: '#07090e', lit: ['#c89048', '#d8a868', '#e0c090', '#7a9cc8', '#c87850'], litOdds: 0.2, roof: '#0a0c12' },
-  day: { wall: '#7e848c', stain: 'rgba(40,36,30,0.25)', dark: '#323a46', lit: ['#4a5462', '#5a6a7c', '#8a96a4'], litOdds: 0.55, roof: '#5a5e64' },
+  night: { wall: '#141822', stain: 'rgba(0,0,0,0.35)', dark: '#07090e', lit: ['#8a6434', '#9a7448', '#a08460', '#526a8a', '#8a5438'], litOdds: 0.14, roof: '#0a0c12' },
+  day: { wall: '#6e737a', stain: 'rgba(30,26,20,0.3)', dark: '#3e4650', lit: ['#4e5866', '#5a6878', '#76828e'], litOdds: 0.55, roof: '#4a4e54' },
 }
 
 function facadeTexture(time: TimeOfDay): CanvasTexture {
@@ -102,12 +102,14 @@ function signTexture(): CanvasTexture {
   return texture
 }
 
+const PAINT: readonly [number, number, number][] = [[1, 1, 1], [0.95, 0.78, 0.68], [0.85, 0.85, 0.9], [0.9, 0.88, 0.8], [0.7, 0.72, 0.76]]
+
 type Block = { x0: number; x1: number; z0: number; z1: number; top: number }
 
 /** Lays out the blocks across the back street, deterministically, with lower ones nearer and taller ones further. */
 function layOut(left: number, right: number, ground: number): Block[] {
   const blocks: Block[] = []
-  for (const [row, front, depth, low, high] of [[0, -28, 9, 3, 11], [1, -52, 12, 9, 26]] as const) {
+  for (const [row, front, depth, low, high] of [[0, -28, 9, 3, 10], [1, -52, 12, 6, 18]] as const) {
     let x = left
     for (let index = 0; x < right; index += 1) {
       const width = 9 + cellHash(index, row, 61) * 16
@@ -130,7 +132,9 @@ export function addNeighbours(group: Group, left: number, right: number, ground:
   const base = ground - 30
   layOut(left, right, ground).forEach((block, index) => {
     const shade = (night ? 0.6 : 0.8) + cellHash(index, 1, 66) * 0.2
-    const tint: Tint = [shade, shade, shade * (night ? 1.05 : 1)]
+    // Some blocks are brick, some painted render, some grey concrete.
+    const hue = PAINT[Math.floor(cellHash(index, 14, 66) * PAINT.length) % PAINT.length]
+    const tint: Tint = [shade * hue[0], shade * hue[1], shade * hue[2] * (night ? 1.05 : 1)]
     const shift: [number, number] = [cellHash(index, 2, 66), cellHash(index, 3, 66)]
     walls.facing(block.x0, base, block.x1, block.top, block.z1, FACADE_TILES, tint, shift)
     walls.side(block.x0, base, block.top, block.z0, block.z1, false, FACADE_TILES, tint)

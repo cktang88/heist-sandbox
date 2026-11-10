@@ -1,11 +1,14 @@
 import { Group, Mesh, type BufferAttribute, type Material } from 'three'
 import { isSolidAt, type Grid } from '../../game/tiles'
-import { inView, type Frame } from '../layer'
+import type { Frame } from '../layer'
 import { QuadBatch } from './batch'
 
-/** Size of one chunk in tiles. A view is about 42 x 24 tiles, so at most a handful of chunks are on screen. */
-const CHUNK_W = 32
-const CHUNK_H = 24
+/** Size of one chunk in tiles. A view is about 42 x 24 tiles, so at most four chunks are on screen. */
+const CHUNK_W = 48
+const CHUNK_H = 36
+/** Half the view at the walking lane, widened for wide screens and for faces that stand in front of or behind it. */
+const REACH_X = 30
+const REACH_Y = 16
 
 /** Faces that rest on particular tiles (a strip of floor finish on its slab) and vanish once any of them is gone. */
 type Segment = { material: Material; from: number; to: number; tiles: readonly [number, number][]; gone: boolean }
@@ -64,7 +67,7 @@ export class ChunkedFinishes {
   /** Shows chunks near the view, and folds away finishes whose support has been destroyed since last looked at. */
   update(grid: Grid, frame: Frame): void {
     for (const chunk of this.chunks.values()) {
-      const visible = inView(frame, chunk.centreX, chunk.centreY, CHUNK_W * 0.6)
+      const visible = Math.abs(chunk.centreX - frame.view.x) < CHUNK_W / 2 + REACH_X && Math.abs(chunk.centreY - frame.view.y) < CHUNK_H / 2 + REACH_Y
       for (const mesh of chunk.meshes.values()) mesh.visible = visible
       if (visible && chunk.checkedVersion !== grid.version) {
         chunk.checkedVersion = grid.version
