@@ -29,6 +29,10 @@ const CHOKE_SCAN = 15
 const FLANK_BEYOND = 5
 const FLANK_SECONDS = 30
 const ESCAPE_DISTANCE = 4
+/** Line-of-fire checks start this far out from the muzzle. */
+const SHOULDER = 0.6
+/** Share of standing height a kneeling guard takes up. */
+const KNEELING_HEIGHT = 0.45
 
 /** Starts (or refreshes) a fight with the player at a position the guard has just seen. */
 export function enterCombat(world: World, guard: Guard, at: Vec): void {
@@ -113,10 +117,16 @@ function moveForRole(world: World, guard: Guard, known: Vec, dt: number): void {
         takeCover(world, guard, guard.cover, dt)
         return
       }
-      const gap = Math.abs(threat.x - feet.x)
-      if (!guard.seesPlayer) goTo(world, guard, threat, PATROL.runSpeed, dt, false)
-      else if (gap > COMBAT.keepDistance) goTo(world, guard, { x: threat.x - Math.sign(threat.x - feet.x) * COMBAT.keepDistance, y: feet.y }, PATROL.hurrySpeed, dt, false)
+      if (!guard.seesPlayer) {
+        goTo(world, guard, threat, PATROL.runSpeed, dt, false)
+        return
+      }
+      const side = Math.sign(threat.x - feet.x) || 1
+      const spot = spaced(world, guard, { x: threat.x - side * COMBAT.keepDistance, y: feet.y }, side)
+      if (Math.abs(threat.x - feet.x) > Math.abs(threat.x - spot.x) + 0.3) goTo(world, guard, spot, PATROL.hurrySpeed, dt, false)
       else hold(world, guard, dt)
+      // Kneel between shots so colleagues behind can fire over him.
+      guard.crouching = guard.shootCooldown > 0.2
       return
     }
     case 'suppress':
@@ -133,7 +143,7 @@ function moveForRole(world: World, guard: Guard, known: Vec, dt: number): void {
       return
     }
     case 'hold': {
-      guard.cover ??= { ...chokepoint(world, feet, threat), high: false }
+      guard.cover ??= { ...spaced(world, guard, chokepoint(world, feet, threat), Math.sign(threat.x - feet.x) || 1), high: false }
       takeCover(world, guard, guard.cover, dt)
       return
     }
@@ -143,6 +153,17 @@ function moveForRole(world: World, guard: Guard, known: Vec, dt: number): void {
 function takeCover(world: World, guard: Guard, spot: Vec & { high: boolean }, dt: number): void {
   const status = goTo(world, guard, spot, PATROL.runSpeed, dt, false)
   guard.crouching = status === 'arrived' && !spot.high && guard.shootCooldown > 0.2
+}
+
+/** Moves a spot back from the threat until no colleague is already standing on it, so two guards never share one place. */
+function spaced(world: World, guard: Guard, spot: Vec, side: number): Vec {
+  const result = { ...spot }
+  for (let tries = 0; tries < 4; tries += 1) {
+    const crowded = world.guards.some((other) => other !== guard && other.mode !== 'dead' && Math.abs(other.y + other.h - result.y) < 1 && Math.abs(other.x + other.w / 2 - result.x) < 0.9)
+    if (!crowded) break
+    result.x -= side * 1.2
+  }
+  return result
 }
 
 /** Aimed fire for token holders, slower wild fire for the suppressor, never through a colleague. */
@@ -168,8 +189,14 @@ function shoot(world: World, guard: Guard, at: Vec, spread: number): void {
   guard.crouching = false
 }
 
-/** Does the line of fire pass through another living guard? */
-export function colleagueInLine(world: World, shooter: Guard, from: Vec, to: Vec): boolean {
+/**
+ * Does the line of fire pass through another living guard? A kneeling colleague can be fired over,
+ * and one shoulder to shoulder with the shooter is not in the way.
+ */
+export function colleagueInLine(world: World, shooter: Guard, eye: Vec, to: Vec): boolean {
+  const reach = Math.hypot(to.x - eye.x, to.y - eye.y)
+  if (reach < SHOULDER) return false
+  const from = { x: eye.x + ((to.x - eye.x) / reach) * SHOULDER, y: eye.y + ((to.y - eye.y) / reach) * SHOULDER }
   const minX = Math.min(from.x, to.x) - 0.2
   const maxX = Math.max(from.x, to.x) + 0.2
   const minY = Math.min(from.y, to.y) - 0.2
@@ -177,7 +204,8 @@ export function colleagueInLine(world: World, shooter: Guard, from: Vec, to: Vec
   return world.guards.some((other) => {
     if (other === shooter || other.mode === 'dead') return false
     if (other.x > maxX || other.x + other.w < minX || other.y > maxY || other.y + other.h < minY) return false
-    return segmentHitsBox(from, to, { x: other.x - 0.1, y: other.y - 0.1, w: other.w + 0.2, h: other.h + 0.2 })
+    const top = other.crouching ? other.y + other.h * (1 - KNEELING_HEIGHT) : other.y
+    return segmentHitsBox(from, to, { x: other.x - 0.1, y: top - 0.1, w: other.w + 0.2, h: other.y + other.h - top + 0.2 })
   })
 }
 

@@ -70,7 +70,7 @@ export const PATROL = {
   dwellMax: 6,
   /** Chance per waypoint of an occasional variation: a pause halfway, or a check of the nearest stairwell. */
   pauseOdds: 0.15,
-  stairCheckOdds: 0.08,
+  stairCheckOdds: 0.04,
   postTurnMin: 4,
   postTurnMax: 9,
   defaultRange: 9,

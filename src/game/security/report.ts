@@ -12,10 +12,13 @@ import { assignStations } from './stations'
  * write it in the log, and send people. Levels step up on events and down on timers (see dispatch.ts).
  */
 
+const QUIET_LOG = 30
 const LEVEL_NAMES = ['all clear', 'stay sharp', 'possible intruder, posts doubled', 'intruder confirmed, response team deploying', 'lockdown, lock it all down']
 
+/** Adds a line to the radio log, unless it would only repeat the line before it. */
 export function log(world: World, line: string): void {
   const entries = world.security.log
+  if (entries.at(-1)?.endsWith(` ${line}`)) return
   const minutes = Math.floor(world.clock / 60)
   const seconds = Math.floor(world.clock % 60).toString().padStart(2, '0')
   entries.push(`${minutes}:${seconds} ${line}`)
@@ -50,11 +53,15 @@ function contact(world: World, at: Vec): void {
 export function reportEvent(world: World, event: SecurityEvent): void {
   const security = world.security
   switch (event.kind) {
-    case 'sighting':
+    case 'sighting': {
+      // Running updates during a fight only make the log when the intruder changes floor or after a lull.
+      const before = security.lastKnown
+      const update = before !== null && world.clock - security.lastContactAt < QUIET_LOG && floorName(world, before) === floorName(world, event.at)
       contact(world, event.at)
-      log(world, `${unitName(event.by)}: Contact, ${floorName(world, event.at)}.`)
+      if (!update) log(world, `${unitName(event.by)}: Contact, ${floorName(world, event.at)}.`)
       raiseLevel(world, 3)
       return
+    }
     case 'camera': {
       contact(world, event.at)
       log(world, `Control: Movement on camera ${event.device + 1}, ${floorName(world, event.at)}.`)

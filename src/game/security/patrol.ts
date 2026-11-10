@@ -35,9 +35,10 @@ export function patrolBehaviour(world: World, guard: Guard, dt: number): void {
   const goal = guard.detour ?? guard.route[guard.routeIndex]
   const status = goTo(world, guard, goal, speed, dt, true)
   if (status === 'moving') return
-  if (guard.detour) guard.detour = null
+  const wasDetour = guard.detour !== null
+  if (wasDetour) guard.detour = null
   else guard.routeIndex = (guard.routeIndex + 1) % guard.route.length
-  pickPause(world, guard, caution)
+  pickPause(world, guard, caution, !wasDetour)
 }
 
 /** Holds a spot: walk there, then turn now and then to watch both ways. */
@@ -63,8 +64,8 @@ function lookAround(guard: Guard, dt: number): void {
 }
 
 /** Predictable in structure, varied in timing: a dwell of random length, and now and then a detour. */
-function pickPause(world: World, guard: Guard, caution: boolean): void {
-  const roll = world.rng()
+function pickPause(world: World, guard: Guard, caution: boolean, mayDetour: boolean): void {
+  const roll = mayDetour ? world.rng() : 1
   const dwell = PATROL.dwellMin + world.rng() * (PATROL.dwellMax - PATROL.dwellMin)
   guard.wait = caution ? dwell * 0.5 : dwell
   if (roll < PATROL.stairCheckOdds) {
