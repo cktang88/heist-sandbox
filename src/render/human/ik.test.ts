@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { solveJoint } from './ik'
+import { reachToward, solveJoint } from './ik'
 
 describe('solveJoint', () => {
   it('keeps both bones at their set lengths', () => {
@@ -19,5 +19,18 @@ describe('solveJoint', () => {
   it('copes with a target that is out of reach', () => {
     const knee = solveJoint({ x: 0, y: 0 }, { x: 5, y: 0 }, 0.4, 0.38, 1)
     expect(Number.isFinite(knee.x) && Number.isFinite(knee.y)).toBe(true)
+  })
+})
+
+describe('reachToward', () => {
+  it('leaves a reachable target alone', () => {
+    const target = { x: 0.3, y: 0.2 }
+    expect(reachToward({ x: 0, y: 0 }, target, 1)).toBe(target)
+  })
+
+  it('pulls a far target in along the same line', () => {
+    const point = reachToward({ x: 1, y: 1 }, { x: 4, y: 5 }, 2.5)
+    expect(Math.hypot(point.x - 1, point.y - 1)).toBeCloseTo(2.5)
+    expect((point.y - 1) / (point.x - 1)).toBeCloseTo(4 / 3)
   })
 })
