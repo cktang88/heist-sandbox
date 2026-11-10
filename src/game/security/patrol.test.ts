@@ -25,7 +25,7 @@ describe('patrols looking into a stairwell', () => {
 describe('getting back across a floor cut by a void', () => {
   it.each([1, 2])('seed %i: a patrol left on the far side of a double-height void goes round by the stairs to his route', (seed) => {
     const world = createWorld(seed, 'complex')
-    const splits = world.stairwells.flatMap((well) => well.bounds?.splits.map((split) => ({ ...split, building: well.building })) ?? [])
+    const splits = world.stairwells.flatMap((well) => (well.bounds?.splits ?? []).map((split) => ({ ...split, building: well.building })))
     const cases = world.guards.flatMap((guard) => {
       if (guard.role !== 'patrol' || guard.route.length < 2) return []
       const split = splits.find((one) => Math.abs(one.y - guard.route[0].y) < 0.5 && guard.route.every((point) => point.x < one.from) && buildingAt(world, guard.route[0]) === one.building)
