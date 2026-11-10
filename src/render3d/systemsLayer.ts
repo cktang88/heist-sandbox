@@ -4,6 +4,7 @@ import { tileAt } from '../game/tiles'
 import { createLightCache } from './hazardfx/lightCache'
 import { cellSeed, createQuadPool, put4, type QuadPool } from './hazardfx/quads'
 import { DRAW_DISTANCE, type Frame, type LayerFactory } from './layer'
+import { levelDepths, type LiquidCell } from './liquidLevel'
 
 /**
  * The couplings made visible: standing water and fuel as sheets across the front of the room (rising up people's legs
@@ -46,8 +47,10 @@ const panelMaterial = () => new ShaderMaterial({
     varying vec4 vLook;
     varying vec2 vSize;
     varying float vLight;
+    varying float vX;
     void main() {
       vec3 p = vec3(aRect.xy + position.xy * aRect.zw, aLook.w);
+      vX = p.x;
       vUv = uv;
       vLook = aLook;
       vLight = aLight;
@@ -61,17 +64,19 @@ const panelMaterial = () => new ShaderMaterial({
     varying vec4 vLook;
     varying vec2 vSize;
     varying float vLight;
+    varying float vX;
     void main() {
       float kind = vLook.x;
       float seed = vLook.y;
       vec4 colour;
       if (kind < 1.5) {
-        // A sheet of water or fuel: a bright moving rim on top, clearer below, and a slow shimmer.
+        // A sheet of water or fuel: a bright moving rim on top, clearer below, and a slow shimmer. The shimmer runs
+        // in world x, so the cells of one pool join into one surface instead of repeating tile by tile.
         float fromTop = (1.0 - vUv.y) * vSize.y;
         float rim = 1.0 - smoothstep(0.0, 0.05, fromTop);
-        float ripple = 0.5 + 0.5 * sin(vUv.x * 9.0 + uTime * 2.3 + seed * 20.0);
+        float ripple = 0.5 + 0.5 * sin(vX * 2.3 + uTime * 2.3);
         vec3 body = kind < 0.5 ? vec3(0.22, 0.42, 0.55) : vec3(0.16, 0.12, 0.09);
-        vec3 sheen = kind < 0.5 ? vec3(0.75, 0.9, 1.0) : vec3(0.7 + 0.3 * sin(vUv.x * 7.0 + uTime), 0.5, 0.8);
+        vec3 sheen = kind < 0.5 ? vec3(0.75, 0.9, 1.0) : vec3(0.7 + 0.3 * sin(vX * 1.7 + uTime), 0.5, 0.8);
         colour = vec4(mix(body, sheen, rim * (0.6 + 0.4 * ripple)) * uGain, mix(0.45, 0.85, rim) * vLook.z);
       } else if (kind < 3.5) {
         // A pouring stream: streaks running down.
@@ -168,11 +173,18 @@ export const createSystemsLayer: LayerFactory = (world) => {
       const time = world.clock
       writer.count = 0
       light.begin(time)
+      const pools: Record<'water' | 'fuel', LiquidCell[]> = { water: [], fuel: [] }
       eachPuddle(world, (x, y, depth, kind) => {
-        if (!near(frame, x, y)) return
-        const h = Math.max(MIN_SHEET, Math.min(5, depth))
-        writer.add(x, y + 1 - h, 1, h, kind === 'water' ? KIND.water : KIND.fuel, cellSeed(x, y), Math.min(1, 0.5 + depth * 2), SHEET_Z, lightAt(x, y))
+        if (near(frame, x, y)) pools[kind].push({ x, y, depth })
       })
+      for (const kind of ['water', 'fuel'] as const) {
+        const cells = pools[kind]
+        const levels = levelDepths(cells)
+        cells.forEach(({ x, y }, index) => {
+          const h = Math.max(MIN_SHEET, Math.min(5, levels[index]))
+          writer.add(x, y + 1 - h, 1, h, kind === 'water' ? KIND.water : KIND.fuel, cellSeed(x, y), Math.min(1, 0.5 + levels[index] * 2), SHEET_Z, lightAt(x, y))
+        })
+      }
       eachStream(world, (fall) => {
         if (!near(frame, fall.x, fall.top)) return
         const w = Math.min(0.9, 0.2 + fall.amount * 1.5)

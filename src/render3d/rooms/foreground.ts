@@ -1,6 +1,7 @@
 import { CanvasTexture, DoubleSide, MeshBasicMaterial, RepeatWrapping, SRGBColorSpace, Vector2, type Material } from 'three'
 import type { Room, TimeOfDay } from '../../game/site'
 import { tileAt, type Grid } from '../../game/tiles'
+import { FRONT } from '../levelMesh'
 import { tintOf, WHITE, type QuadBatch, type Tint } from './batch'
 import type { Building } from './buildings'
 import type { ChunkedFinishes } from './chunks'
@@ -15,13 +16,27 @@ import { roll } from './hash'
 /** Where the player is, shared by every foreground material; updated once a frame. */
 export const playerAt = { value: new Vector2(-1000, -1000) }
 
+/**
+ * Draws a vertex at the height where the same point on the building's front plane would be seen, keeping its
+ * sideways parallax. Indoor piers and pipes hang between a floor and a ceiling: seen from their true depth they
+ * slid below the floor line (lower the further down the screen) or left a gap under the ceiling.
+ * Works for both cameras: the leaning orthographic one (its lean read from the projection) and perspective.
+ */
+const ON_FRONT_PLANE = `
+  vec4 laneWorld = modelMatrix * vec4(transformed, 1.0);
+  if (projectionMatrix[2][3] == 0.0) laneWorld.y -= projectionMatrix[2][1] / projectionMatrix[1][1] * (laneWorld.z - ${FRONT.toFixed(2)});
+  else laneWorld.y = cameraPosition.y + (laneWorld.y - cameraPosition.y) * (cameraPosition.z - laneWorld.z) / (cameraPosition.z - ${FRONT.toFixed(2)});
+  mvPosition = viewMatrix * laneWorld;
+  gl_Position = projectionMatrix * mvPosition;
+  vWorld = laneWorld.xyz;`
+
 /** Makes a material fade out where it lies between the camera and the player. */
-function fadeNearPlayer(material: MeshBasicMaterial): MeshBasicMaterial {
+function fadeNearPlayer(material: MeshBasicMaterial, onFrontPlane = false): MeshBasicMaterial {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.playerAt = playerAt
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWorld;')
-      .replace('#include <project_vertex>', '#include <project_vertex>\nvWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\n' + (onFrontPlane ? ON_FRONT_PLANE : 'vWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;'))
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWorld;\nuniform vec2 playerAt;')
       .replace('#include <dithering_fragment>', `#include <dithering_fragment>
@@ -30,17 +45,20 @@ function fadeNearPlayer(material: MeshBasicMaterial): MeshBasicMaterial {
         float apart = length((onLane - playerAt) / vec2(1.1, 1.5));
         gl_FragColor.a *= mix(0.15, 1.0, smoothstep(0.7, 1.5, apart));`)
   }
-  material.customProgramCacheKey = () => 'fade-near-player'
+  material.customProgramCacheKey = () => (onFrontPlane ? 'fade-near-player-front' : 'fade-near-player')
   return material
 }
 
-export type ForegroundKit = { dark: Material; fence: Material; coil: Material }
+/** `indoor` is `dark` for shapes that must line up with floors and ceilings (see ON_FRONT_PLANE). */
+export type ForegroundKit = { dark: Material; indoor: Material; fence: Material; coil: Material }
 
 export function foregroundKit(time: TimeOfDay): ForegroundKit {
   const shade = time === 'night' ? 0.55 : 1
-  const make = (options: ConstructorParameters<typeof MeshBasicMaterial>[0]) => fadeNearPlayer(new MeshBasicMaterial({ transparent: true, depthWrite: false, fog: false, ...options }))
+  const make = (options: ConstructorParameters<typeof MeshBasicMaterial>[0], onFrontPlane = false) =>
+    fadeNearPlayer(new MeshBasicMaterial({ transparent: true, depthWrite: false, fog: false, ...options }), onFrontPlane)
   return {
     dark: make({ vertexColors: true, opacity: 0.94 }),
+    indoor: make({ vertexColors: true, opacity: 0.94 }, true),
     fence: make({ map: wireTexture(), alphaTest: 0.05, side: DoubleSide, color: tintColor(0x1a1e24, shade) }),
     coil: make({ map: coilTexture(), alphaTest: 0.05, side: DoubleSide, color: tintColor(0x22262c, shade) }),
   }
@@ -228,7 +246,7 @@ function solidThrough(grid: Grid, column: number, floorRow: number): boolean {
 }
 
 function pier(ctx: ForegroundContext, x: number, floorRow: number, height: number, width: number): void {
-  const batch: QuadBatch = ctx.scene.batch(x, floorRow - height / 2, ctx.kit.dark)
+  const batch: QuadBatch = ctx.scene.batch(x, floorRow - height / 2, ctx.kit.indoor)
   const floor = -floorRow
   const tint = silhouette(ctx, Math.round(x) * 7 + floorRow)
   batch.box(x - width / 2, floor - 0.05, 1.5, x + width / 2, floor + height + 0.05, 1.5 + width, 1, tint)
@@ -236,7 +254,7 @@ function pier(ctx: ForegroundContext, x: number, floorRow: number, height: numbe
 
 function pipeRun(ctx: ForegroundContext, room: Room): void {
   const ceiling = -room.y
-  const batch = ctx.scene.batch(room.x + room.w / 2, room.y, ctx.kit.dark)
+  const batch = ctx.scene.batch(room.x + room.w / 2, room.y, ctx.kit.indoor)
   const tint = silhouette(ctx, room.id + 5)
   const y = ceiling - 0.35
   batch.pipeAlongX(room.x, room.x + room.w, y, 1.7, 0.14, tint)
