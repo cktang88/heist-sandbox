@@ -29,6 +29,16 @@ describe('director events, each through public game state', () => {
     expect(running.outcome()).toMatch(/cigarette/)
   })
 
+  it('a smoke break cut short by a knock on the head leaves no errand behind', () => {
+    const world = directedWorld(2, 'complex', [])
+    const running = event('smokeBreak').start(world, rng)!
+    const smoker = world.guards.find((guard) => guard.station !== null)!
+    stunGuard(smoker, 2)
+    expect(running.step(world, 0.1)).toBe(true)
+    expect(running.outcome()).toMatch(/never finished/)
+    expect(smoker.station).toBeNull()
+  })
+
   it('a blackout darkens the player\'s building for half a minute, then the power comes back', () => {
     const world = directedWorld(2, 'complex', [])
     const lobby = world.rooms.find((room) => room.building === 'tower' && room.kind === 'office')!
