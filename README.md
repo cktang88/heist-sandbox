@@ -38,13 +38,17 @@ npm run build
 | Key | Action |
 |---|---|
 | A / D | Move |
-| W / S | Climb ladders |
-| Space | Jump. Tap again in the air to double jump |
+| W / S | Climb ladders, stairs and ropes; ride elevators |
+| Space | Jump. Tap again in the air to double jump. Grabs ledges |
 | Hold Space while falling | Parachute |
+| C or Ctrl | Crouch (quieter, hides behind low cover); slide when running |
 | Mouse | Aim and use the tool in hand |
 | R | Reload |
-| 1-8 or wheel | Pick a tool |
-| E | Pick locks (hold), take down an unaware guard, recall the drone |
+| 1-9, 0 or wheel | Pick a tool. Press 9 again for Frag, 7 again for Rope |
+| E | Do the thing in reach: pick locks, take down, hack, cut wires, switches, call elevators |
+| F / V | Punch / kick (kick also tips tables and bursts doors) |
+| Hold G | Drag furniture, or hold a guard from behind as a shield |
+| T | Throw the nearest small object where you aim |
 | Q | Set off all C4 |
 | Shift | Focus: slow motion, slowest when you hold still |
 | Enter | New heist after winning or losing |
@@ -54,13 +58,23 @@ npm run build
 | # | Tool | Quiet? | Use |
 |---|---|---|---|
 | 1 | Pistol | Yes | Drops unaware guards in one shot |
-| 2 | Rifle | No | Fast fire; spread grows while you hold the trigger |
+| 2 | Rifle | No | Fast fire; goes through doors |
 | 3 | Shotgun | No | Nine pellets, huge up close, useless far away |
-| 4 | Sniper | No | One heavy, perfectly straight shot |
+| 4 | Sniper | No | One heavy shot; goes through doors, brick and people |
 | 5 | Rockets | No | Blast holes anywhere |
 | 6 | C4 | Until it goes off | Throw, then press Q. Breaks even the steel vault |
-| 7 | Drill | Mostly | Tunnel through anything, slowly |
+| 7 | Drill / Rope | Mostly | Tunnel slowly, or tie a rope at an edge and climb the outside |
 | 8 | Drone | Yes | Fly it with the move keys to scout, click to detonate |
+| 9 | Smoke / Frag | Yes / No | Hide in smoke, or roll a frag down the stairs |
+| 0 | Flash | No | Blinds and deafens anyone looking |
+
+## Things the world lets you do
+
+- Shoot out lamps, cameras, alarm buttons, radio relays and fuse boxes.
+- Push a desk against a door to block it, or under a hole in the ceiling to climb up.
+- Blow up a stair flight or cut an elevator cable to stop guards following.
+- Destroy a floor and whatever stood on it falls; cars catch fire and explode.
+- Shoot fuel drums and gas cylinders; fire spreads and sprinklers answer.
 
 The crosshair ring widens as a gun gets less accurate, so spread is never a surprise.
 
@@ -68,7 +82,8 @@ The crosshair ring widens as a gun gets less accurate, so spread is never a surp
 
 - Guards show what they can see as a torch beam. Stay out of it, or behind something solid.
 - Noise draws guards to look. Loud tools carry a long way.
-- A guard who has spotted you for a few seconds raises the alarm. Then every guard hunts you, climbing ladders and kicking doors open, and three armoured responders drive in.
+- A guard who spots you radios it in. The site alert rises in steps (0 to 4): first one guard looks, then squads search, then the alarm rings, the elevators lock down and three armoured responders drive in.
+- Cut the radio relay and guards must run to an alarm button instead. Cut the power and they go to the fuse box.
 - Slow motion kicks in briefly when you are spotted, when a bullet just misses, and when a blast takes out a guard.
 
 ## The world reacts
@@ -83,7 +98,7 @@ The crosshair ring widens as a gun gets less accurate, so spread is never a surp
 
 - The game is drawn in real 3D, viewed from the side: photo-scanned wall textures, moonlight, lamps and torches that cast shadows, glow around bright things, film-style tone mapping and a little lens grain.
 - Gunfire and explosions are real recordings. Everything else is generated.
-- All third-party assets are public domain (CC0). Sources are listed in `public/textures/LICENSE.md`.
+- Third-party assets are public domain (CC0), listed in `public/textures/LICENSE.md`, except the furniture models in `public/models2/`, which are CC BY 4.0 and credited in `public/models2/CREDITS.md`.
 
 If it runs slowly, add one of these to the address:
 
@@ -98,4 +113,4 @@ If it runs slowly, add one of these to the address:
 - `src/render3d/` draws the world in 3D: level geometry (`levelMesh.ts`), lights (`lights.ts`), people (`people3d.ts`), effects (`fx3d.ts`), lens effects (`post.ts`).
 - `src/render/` holds the 2D pieces: the HUD, the markers drawn over the 3D view (`overlay.ts`), the skeleton poses both views share (`human/pose.ts`), and the fallback flat renderer.
 - `src/inputDevice.ts` turns keyboard and mouse into the `Input` the game reads; `src/audio.ts` plays the sound events the game records.
-- Add `?seed=1` to the URL to replay the same level.
+- Add `?seed=1` to the URL to replay the same level. The default site is the big complex (a 20+ storey tower, depot, quarters, silos); add `?site=outpost` for the small one.
