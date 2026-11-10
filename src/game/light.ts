@@ -7,10 +7,15 @@ import type { World } from './world'
 const DAYLIGHT = 0.85
 const MOONLIGHT = 0.12
 
-/** Is this lamp giving light right now? It needs power, and a hung fitting needs its ceiling. */
+/** How far above itself a hanging lamp looks for the ceiling it hangs from. Pendants and chandeliers hang low. */
+const HANG_REACH = 6
+
+/** Is this lamp giving light right now? It needs power, and a hung fitting needs the ceiling it hangs from. */
 export function lampIsLit(world: World, lamp: World['lamps'][number]): boolean {
   if (!lampPowered(world, lamp)) return false
-  return !lamp.hung || isSolidAt(world.grid, lamp.x, lamp.y - 0.7)
+  if (!lamp.hung) return true
+  for (let rise = 0.7; rise <= HANG_REACH; rise += 1) if (isSolidAt(world.grid, lamp.x, lamp.y - rise)) return true
+  return false
 }
 
 /**
