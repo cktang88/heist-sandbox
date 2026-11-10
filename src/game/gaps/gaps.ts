@@ -1,3 +1,4 @@
+import { onLine } from '../grapple/state'
 import type { Input } from '../input'
 import type { World } from '../world'
 import { guardDropsThrough } from '../security/holeDrop'
@@ -21,11 +22,16 @@ export function stepGaps(world: World, input: Input): void {
     return
   }
   const player = world.player
-  if (!player.stairs && !player.mantle && !player.onLadder) {
+  // Hanging on a line or a ladder counts as footing at that height: let go above a holed floor and you step
+  // onto what is left of it; let go below it and you fall.
+  if (onLine(world.grapple) || player.onLadder) world.gaps.stoodAt.set(player, player.y + player.h)
+  else if (!player.stairs && !player.mantle) {
     const drop = !world.drone && input.down
     if (carryAcross(world, player, drop)) {
       player.chute = false
       player.airJumps = 1
+      // He has landed: a swing still being carried from a jump off the grapple line ends here.
+      world.grapple.fling = 0
     }
     rememberFooting(world, player)
   }
