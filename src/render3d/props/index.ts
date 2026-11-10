@@ -5,6 +5,7 @@ import { buildProp as buildPlainProp } from '../props3d'
 import { DECOR_PROPS } from './decor'
 import { EXTERIOR_PROPS } from './exterior'
 import { INDUSTRIAL_PROPS } from './industrial'
+import { libraryProps } from './library'
 import { LIVING_PROPS } from './living'
 import { OFFICE_PROPS } from './office'
 import { SECURITY_PROPS } from './security'
@@ -18,7 +19,8 @@ import { SECURITY_PROPS } from './security'
 export type PropBuilder = (materials: SurfaceMaterials) => Group
 export type PropSet = Partial<Record<PropKind, PropBuilder>>
 
-const BUILDERS: PropSet = { ...OFFICE_PROPS, ...LIVING_PROPS, ...INDUSTRIAL_PROPS, ...SECURITY_PROPS, ...EXTERIOR_PROPS, ...DECOR_PROPS }
+const BUILT: PropSet = { ...OFFICE_PROPS, ...LIVING_PROPS, ...INDUSTRIAL_PROPS, ...SECURITY_PROPS, ...EXTERIOR_PROPS, ...DECOR_PROPS }
+const BUILDERS: PropSet = { ...BUILT, ...libraryProps(BUILT) }
 
 export function buildProp(kind: PropKind, materials: SurfaceMaterials): Group {
   return BUILDERS[kind]?.(materials) ?? buildPlainProp(kind, materials)
