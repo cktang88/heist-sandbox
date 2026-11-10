@@ -13,6 +13,7 @@ import { assignStations } from './stations'
  */
 
 const QUIET_LOG = 30
+const TAMPER_NAMES = { door: 'open door', lock: 'forced lock', rope: 'rope on the facade' } as const
 const LEVEL_NAMES = ['all clear', 'stay sharp', 'possible intruder, posts doubled', 'intruder confirmed, response team deploying', 'lockdown, lock it all down']
 
 /** Adds a line to the radio log, unless it would only repeat the line before it. */
@@ -129,8 +130,8 @@ export function reportEvent(world: World, event: SecurityEvent): void {
       return
     case 'tamper':
       security.focus = floorBelow(world, event.at)
-      log(world, event.what === 'lock' ? `Control: Copy, forced lock on ${floorName(world, event.at)}.` : `Control: Copy, open door on ${floorName(world, event.at)}.`)
-      raiseLevel(world, event.what === 'lock' ? 2 : 1)
+      log(world, `Control: Copy, ${TAMPER_NAMES[event.what]} on ${floorName(world, event.at)}.`)
+      raiseLevel(world, event.what === 'door' ? 1 : 2)
       return
     case 'vault':
       security.focus = floorBelow(world, event.at)

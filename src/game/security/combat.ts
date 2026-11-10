@@ -127,12 +127,13 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
   else if (!pinned) tryFire(world, guard, known)
 }
 
-/**
- * Whether the player is holding a hostage in this guard's line of fire. Nobody can do that yet, so never;
- * the grab system answers this once it exists.
- */
-export function isShielded(_world: World, _guard: Guard): boolean {
-  return false
+/** Is the player holding a colleague as a human shield between himself and this guard? */
+export function isShielded(world: World, guard: Guard): boolean {
+  const shield = world.melee.shield
+  if (!shield || shield === guard || shield.mode === 'dead') return false
+  const player = world.player.x + world.player.w / 2
+  const side = Math.sign(feetOf(guard).x - player)
+  return side !== 0 && Math.sign(shield.x + shield.w / 2 - player) === side && Math.abs(shield.y - world.player.y) < 1.5
 }
 
 /** Pinned: down behind his cover, or crouched where he is, and he says so. */

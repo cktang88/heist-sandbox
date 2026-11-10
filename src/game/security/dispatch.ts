@@ -1,7 +1,7 @@
 import type { World } from '../world'
 import { expireBarks } from './barks'
 import { shotAt } from './brain'
-import { watchCameraFeeds } from './discoveries'
+import { noticeShotLamps, watchCameraFeeds } from './discoveries'
 import { watchIncomingFire } from './nerve'
 import { stepCameras } from './cameras'
 import { noticeDeadCircuits, stepCheckIns, watchRelays } from './checkins'
@@ -39,6 +39,7 @@ export function stepSecurity(world: World, dt: number): void {
     watchRelays(world)
     noticeDeadCircuits(world)
     watchCameraFeeds(world)
+    noticeShotLamps(world)
     forgetOldTrouble(world)
   }
   watchIncomingFire(world, dt, shotAt)

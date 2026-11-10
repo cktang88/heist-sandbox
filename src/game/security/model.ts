@@ -2,7 +2,7 @@ import type { Ragdoll } from '../ragdoll'
 import type { GuardRole, GuardSpawn } from '../site'
 import type { OnStairs } from '../stairs'
 import type { Body, Vec } from '../types'
-import type { SecurityEvent } from './events'
+import type { SecurityEvent, Tamper } from './events'
 import { PATROL, TIERS } from './tuning'
 
 /**
@@ -31,9 +31,9 @@ export type InterestKind = 'glimpse' | 'noise' | 'gunfire' | 'body' | 'lightsOut
 /**
  * `at` is a feet position; `reached` once the guard got there and started looking; `body` is the guard index of a body;
  * `circuit` is the dead lighting circuit a 'lightsOut' interest is about, which he switches back on when he gets there;
- * `tamper` says whether a 'tamper' interest is a door left open or a lock picked.
+ * `tamper` says whether a 'tamper' interest is a door left open, a lock picked or a rope (which he cuts when he gets to its knot).
  */
-export type Interest = { at: Vec; kind: InterestKind; priority: number; reached: boolean; body?: number; circuit?: number; tamper?: 'door' | 'lock' }
+export type Interest = { at: Vec; kind: InterestKind; priority: number; reached: boolean; body?: number; circuit?: number; tamper?: Tamper }
 
 /** A report being spoken into the radio. Killing or stunning the guard before `seconds` runs out stops it. */
 export type RadioCall = { event: SecurityEvent; seconds: number }

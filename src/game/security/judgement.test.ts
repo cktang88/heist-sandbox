@@ -53,6 +53,8 @@ describe('proportionate responses', () => {
     const spare = addGuard(world, 90, 1, 'patrol')
     spare.route = [{ x: 85.5, y: GROUND }, { x: 95.5, y: GROUND }]
     enterCombat(world, pinned, { x: 20, y: GROUND - 1 })
+    // He gets his contact report off first; one radio call at a time.
+    run(world, 5, {}, () => pinned.radio === null && world.clock > 1)
     for (let shot = 0; shot < 8; shot += 1) {
       const from = { x: 20.3, y: GROUND - 1.2 }
       const head = eyeOf(pinned)

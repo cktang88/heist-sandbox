@@ -65,6 +65,10 @@ export const LINES = {
   chute: ['Parachute! Someone\'s coming in!', 'Is that a chute?!', 'Something in the sky!'],
   scrape: ['Someone moving furniture?', 'What\'s that scraping?', 'Who\'s dragging stuff around?'],
   dark: ['Torch on.', 'Can\'t see a thing.', 'Damn lights...'],
+  rope: ['There\'s a rope on the wall!', 'Climbing rope! He came in this way.', 'Who tied that off?'],
+  cutRope: ['Cutting it down.', 'Not coming back up this way.', 'Rope\'s gone.'],
+  trick: ['Nice try.', 'Old trick. Not falling for it.', 'Throwing things now? I know you\'re there.'],
+  shotLamp: ['Somebody shot the light out!', 'Light\'s been shot out.', 'Who took out that lamp?'],
   camera: ['Camera\'s feed just died.', 'Lost a camera. Somebody check it.', 'Camera\'s gone dark.'],
 } as const
 

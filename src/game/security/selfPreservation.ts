@@ -1,5 +1,5 @@
 import { GRAVITY, moveBody } from '../physics'
-import { centerOf, distance, type Vec } from '../types'
+import { centerOf, distance, type Body, type Vec } from '../types'
 import { hasLineOfSight } from '../vision'
 import type { World } from '../world'
 import { barkLine, nameOf } from './barks'
@@ -23,15 +23,15 @@ const DRAG_HOLD = 0.9
 const DRAG_REACH_LOST = 2.5
 const DOORWAY_STEP = 1.5
 
-/** A live grenade of the player's close by and in view: dive away from it and shout. Returns true if he dove. */
+/** A live frag, flashbang or smoke grenade of the player's close by and in view: dive away from it and shout. Returns true if he dove. */
 export function watchForGrenades(world: World, guard: Guard): boolean {
   if (guard.diveSeconds > 0 || !isActive(guard) || guard.mode === 'panic' || guard.blindSeconds > 0) return false
   const body = centerOf(guard)
-  const grenade = world.hazards.grenades.find((item) => {
-    if (item.popped || item.thrower !== 'player') return false
+  const close = (item: Body) => {
     const at = centerOf(item)
     return Math.abs(at.y - body.y) < GRENADE_FLOOR && distance(at, body) < UNDER_FIRE.diveRange && hasLineOfSight(world.grid, eyeOf(guard), at)
-  })
+  }
+  const grenade = world.frags.find(close) ?? world.hazards.grenades.find((item) => !item.popped && item.thrower === 'player' && close(item))
   if (!grenade) return false
   const away = Math.sign(body.x - centerOf(grenade).x) || -guard.facing
   guard.diveSeconds = UNDER_FIRE.diveSeconds

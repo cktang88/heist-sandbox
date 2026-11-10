@@ -43,6 +43,7 @@ function callText(world: World, event: SecurityEvent): string {
     case 'explosion':
       return `Control, explosion on ${floorName(world, event.at)}!`
     case 'tamper':
+      if (event.what === 'rope') return `Control, there's a rope on the outside wall, ${floorName(world, event.at)}!`
       return event.what === 'lock' ? `Control, lock's been forced on ${floorName(world, event.at)}.` : `Control, found a door open on ${floorName(world, event.at)}.`
     case 'vault':
       return 'Control, the vault\'s been hit! The gold is gone!'

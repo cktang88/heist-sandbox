@@ -1,4 +1,8 @@
+import type { Rope } from '../rope/rope'
+import type { Lamp } from '../site'
 import type { Vec } from '../types'
+
+export type Tamper = 'door' | 'lock' | 'rope'
 
 /**
  * Site alert level, held by the control room:
@@ -19,8 +23,8 @@ export type SecurityEvent =
   /** A guard pinned down or alone under fire asking for help where he is. */
   | { kind: 'backup'; at: Vec; by: number }
   | { kind: 'explosion'; at: Vec }
-  /** A door found open that should be shut, or a lock found picked. */
-  | { kind: 'tamper'; at: Vec; what: 'door' | 'lock' }
+  /** A door found open that should be shut, a lock found picked, or a climbing rope on the facade. */
+  | { kind: 'tamper'; at: Vec; what: Tamper }
   | { kind: 'vault'; at: Vec; by: number }
   | { kind: 'parachute'; at: Vec }
   /** A fire seen by a guard (`alarm` false) or the fire alarm rung by a sprinkler opening (`alarm` true). */
@@ -94,6 +98,9 @@ export type SecurityState = {
   camerasDeadSince: Map<number, number>
   camerasReported: Set<number>
   vaultReported: boolean
+  /** Shot-out lamps and ropes a guard has already gone to look at. */
+  lampsNoticed: Set<Lamp>
+  ropesNoticed: Set<Rope>
   /** Clock time a parachute was last reported. */
   chuteReportedAt: number
   /** The last few lines spoken, so nobody repeats what was just said. */
@@ -107,6 +114,6 @@ export function createSecurity(): SecurityState {
     reportedBodies: new Set(), shooters: [], campSpot: null, campSeconds: 0,
     confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
     deaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), camerasDeadSince: new Map(), camerasReported: new Set(),
-    vaultReported: false, chuteReportedAt: -Infinity, recentLines: [],
+    vaultReported: false, lampsNoticed: new Set(), ropesNoticed: new Set(), chuteReportedAt: -Infinity, recentLines: [],
   }
 }

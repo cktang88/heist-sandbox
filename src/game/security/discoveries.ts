@@ -3,11 +3,12 @@ import { smokeDensityAt } from '../hazards/hazards'
 import { tileAt, type Grid } from '../tiles'
 import { centerOf, distance, type Vec } from '../types'
 import type { World } from '../world'
-import { freshLine, sayAt, type LineKind } from './barks'
+import { isLampShot } from '../ballistics/lampState'
+import { barkLine, freshLine, sayAt, type LineKind } from './barks'
 import { watcherFor } from './cameras'
 import { markFireReported } from './danger'
-import type { SecurityEvent } from './events'
-import { eyeOf, feetOf, type Guard, type InterestKind } from './model'
+import type { SecurityEvent, Tamper } from './events'
+import { eyeOf, feetOf, isActive, setMode, type Guard, type InterestKind } from './model'
 import { clearView, zoneOf } from './perception'
 import { deviceBuilding, deviceFeet, floorBelow, roomOf } from './places'
 import { reportEvent } from './report'
@@ -21,16 +22,19 @@ import { DISCOVERY } from './tuning'
  */
 
 /** What a guard found: where to go and look, what to say, and anything worth radioing in at once. */
-export type Finding = { at: Vec; kind: InterestKind; priority: number; line: LineKind; tamper?: 'door' | 'lock'; report?: SecurityEvent }
+export type Finding = { at: Vec; kind: InterestKind; priority: number; line: LineKind; tamper?: Tamper; report?: SecurityEvent }
 
 const CHUTE_REPORT_AGAIN = 30
 const CHUTE_BEHIND = 2
 const VAULT_SIGHT = 12
 const SMOKE_SAMPLES = [3, 6, 9]
+const ROPE_SIGHT = 14
+/** A guard this close to a shot-out lamp, on its floor, notices the dark. */
+const LAMP_WITNESS = 9
 
 /** The first thing out of place this guard can see right now, if any. Cheap: a few tiles and a handful of doors. */
 export function lookForTrouble(world: World, guard: Guard): Finding | null {
-  return vaultEmpty(world, guard) ?? chuteInSky(world, guard) ?? doorTampered(world, guard) ?? smokeAhead(world, guard)
+  return vaultEmpty(world, guard) ?? chuteInSky(world, guard) ?? ropeOnWall(world, guard) ?? doorTampered(world, guard) ?? smokeAhead(world, guard)
 }
 
 // --- Doors -------------------------------------------------------------------------------------
@@ -123,6 +127,47 @@ function chuteInSky(world: World, guard: Guard): Finding | null {
   if ((canopy.x - eye.x) * guard.facing < -CHUTE_BEHIND || distance(eye, canopy) > DISCOVERY.chuteSight || !clearView(world, eye, canopy)) return null
   world.security.chuteReportedAt = world.clock
   return { at: floorBelow(world, canopy), kind: 'glimpse', priority: 5, line: 'chute', report: { kind: 'parachute', at: centerOf(player) } }
+}
+
+/**
+ * A climbing rope hanging down the facade where he can see it. He reports it and goes to its knot to cut it.
+ * A rope seen once is not reported again.
+ */
+function ropeOnWall(world: World, guard: Guard): Finding | null {
+  if (world.ropes.length === 0) return null
+  const eye = eyeOf(guard)
+  for (const rope of world.ropes) {
+    if (world.security.ropesNoticed.has(rope)) continue
+    const nearest = { x: rope.x + 0.5, y: Math.max(rope.top, Math.min(rope.bottom + 1, eye.y)) }
+    if ((nearest.x - eye.x) * guard.facing < -1 || distance(eye, nearest) > ROPE_SIGHT || !clearView(world, eye, nearest)) continue
+    world.security.ropesNoticed.add(rope)
+    const knot = floorBelow(world, { x: rope.anchor.x + 0.5, y: rope.anchor.y - 0.5 })
+    return { at: knot, kind: 'tamper', priority: 5, line: 'rope', tamper: 'rope', report: { kind: 'tamper', at: knot, what: 'rope' } }
+  }
+  return null
+}
+
+/**
+ * Lamps shot out are noticed like a dead circuit: a calm guard near one on its floor says so and goes to look.
+ * There is nothing to switch back on, so he calls it in when he gets there.
+ */
+export function noticeShotLamps(world: World): void {
+  const noticed = world.security.lampsNoticed
+  for (const lamp of world.lamps) {
+    if (noticed.has(lamp) || !isLampShot(world, lamp)) continue
+    const under = floorBelow(world, { x: lamp.x, y: lamp.y })
+    const witness = world.guards.find((guard) => {
+      if (!isActive(guard) || (guard.mode !== 'calm' && guard.mode !== 'caution')) return false
+      const feet = feetOf(guard)
+      return Math.abs(feet.y - under.y) < 1.5 && Math.abs(feet.x - lamp.x) < LAMP_WITNESS && clearView(world, eyeOf(guard), { x: lamp.x, y: lamp.y + 0.5 })
+    })
+    if (!witness) continue
+    noticed.add(lamp)
+    witness.interest = { at: under, kind: 'lightsOut', priority: 2, reached: false }
+    setMode(witness, 'noticed')
+    witness.announced = 'noticed'
+    barkLine(world, witness, 'shotLamp', true)
+  }
 }
 
 // --- The security room ---------------------------------------------------------------------------

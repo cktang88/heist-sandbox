@@ -1,6 +1,7 @@
 import { lightLevelAt } from '../light'
+import { cutRopesNear } from '../rope/rope'
 import { triggerSlowmo } from '../time'
-import { centerOf, type Vec } from '../types'
+import { centerOf, distance, type Vec } from '../types'
 import type { Device, World } from '../world'
 import { barkLine, type LineKind } from './barks'
 import { pressAlarmButton } from '../devices/devices'
@@ -33,6 +34,8 @@ const HURRIED: readonly InterestKind[] = ['gunfire', 'body', 'shout', 'order', '
 /** Close enough to a fire to see what is burning, without walking into it. */
 const FIRE_STANDOFF = 4
 const OTHER_BUILDING = 200
+/** Standing at a rope's knot, he can reach it to cut it. */
+const ROPE_REACH = 2.5
 
 export function thinkGuard(world: World, guard: Guard, dt: number): void {
   guard.modeSeconds += dt
@@ -40,7 +43,7 @@ export function thinkGuard(world: World, guard: Guard, dt: number): void {
   if (guard.diveSeconds > 0) return stepDive(world, guard, dt)
   if (guard.draggedBy !== null && beingDragged(world, guard, dt)) return
   if (guard.mode === 'surrendered') return surrenderedBehaviour(world, guard, dt)
-  if (world.hazards.grenades.length > 0 && watchForGrenades(world, guard)) return
+  if ((world.hazards.grenades.length > 0 || world.frags.length > 0) && watchForGrenades(world, guard)) return
   if (reactToBlindness(world, guard, dt)) {
     announce(world, guard)
     return
@@ -219,6 +222,7 @@ export function hearNoise(world: World, guard: Guard, at: Vec, radius: number, s
     return
   }
   if (kind !== 'loud') {
+    if (seesThroughDistraction(world, guard, at)) return
     const priority = kind === 'faint' ? 2 : 4
     if (!answers(world, guard, at, 'noise', priority)) return
     noticeSomething(guard, { ...at }, 'noise', priority)
@@ -234,6 +238,20 @@ export function hearNoise(world: World, guard: Guard, at: Vec, radius: number, s
   }
   const fresh = world.clock - world.security.lastContactAt < COMMS.freshReport
   if (!fresh && !alreadyCalling(world, 'noise', at)) startRadio(world, guard, { kind: 'noise', at: { ...at }, loud: true })
+}
+
+/** A clatter well away from where the man must be (something thrown) is a known trick to a veteran who is already on edge. */
+const THROWN_FROM = 5
+
+function seesThroughDistraction(world: World, guard: Guard, at: Vec): boolean {
+  const onEdge = guard.mode !== 'calm' || world.security.level >= 2
+  if (guard.tier !== 'veteran' || !onEdge || distance(centerOf(world.player), at) < THROWN_FROM) return false
+  barkLine(world, guard, 'trick')
+  // He turns his back on the noise: the thrower is the other way.
+  guard.facing = at.x >= guard.x + guard.w / 2 ? -1 : 1
+  guard.awareness = Math.max(guard.awareness, AWARENESS.noticeAt)
+  if (guard.mode === 'calm') setMode(guard, 'caution')
+  return true
 }
 
 /**
@@ -310,6 +328,10 @@ function arrive(world: World, guard: Guard): void {
   if (interest.kind === 'fire') {
     markFireReported(world, interest.at)
     if (!alreadyCalling(world, 'fire', interest.at)) startRadio(world, guard, { kind: 'fire', at: { ...interest.at }, alarm: false })
+  }
+  if (interest.kind === 'tamper' && interest.tamper === 'rope') {
+    cutRopesNear(world, interest.at, ROPE_REACH)
+    barkLine(world, guard, 'cutRope')
   }
   // At the fuse box (or light switch) of a dark room: throw it back on.
   if (interest.kind === 'lightsOut' && interest.circuit !== undefined && world.deadCircuits.has(interest.circuit)) {
