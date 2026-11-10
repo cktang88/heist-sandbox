@@ -159,7 +159,8 @@ export class Figure {
     if (flash && !(last?.flash ?? false)) this.flinch = 1
     this.squash = Math.max(0, this.squash - dt / SQUASH_SECONDS)
     this.flinch = Math.max(0, this.flinch - dt / FLINCH_SECONDS)
-    this.memory = { x: motion.x, feetY: motion.feetY, clock, onGround: motion.onGround, vy: motion.vy, flash }
+    const memory = this.memory ?? (this.memory = { x: 0, feetY: 0, clock: 0, onGround: false, vy: 0, flash: false })
+    Object.assign(memory, { x: motion.x, feetY: motion.feetY, clock, onGround: motion.onGround, vy: motion.vy, flash })
 
     const body = poseHuman({
       ...motion, vx, vy, held, stride: this.stride,
