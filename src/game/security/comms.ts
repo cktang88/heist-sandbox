@@ -115,6 +115,8 @@ function hearShout(world: World, guard: Guard, event: SecurityEvent): void {
     guard.lastKnownAt = world.clock
     guard.awareness = Math.max(guard.awareness, 0.6)
   }
+  // Running to raise the alarm by hand matters more than going to look: he keeps running.
+  if (guard.mode === 'toAlarm') return
   const body = event.kind === 'body'
   guard.interest = { at: floorBelow(world, event.at), kind: body ? 'body' : 'shout', priority: 7, reached: false }
   setMode(guard, 'investigating')

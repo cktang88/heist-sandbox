@@ -1,9 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { hurtGuard } from '../guards'
 import { knockOutCold } from '../stealth/bodies'
+import { shout, startRadio } from './comms'
 import { feetOf } from './model'
 import { COMMS } from './tuning'
-import { addGuard, arena, run } from './testArena'
+import { addDevice, addGuard, arena, GROUND, run } from './testArena'
+
+describe('shouts', () => {
+  it('a guard running for the alarm button keeps running when a colleague shouts', () => {
+    const world = arena()
+    addDevice(world, { kind: 'radioRelay', x: 5, y: GROUND - 3, disabled: true })
+    addDevice(world, { kind: 'alarmButton', x: 40, y: GROUND - 2 })
+    const runner = addGuard(world, 60, -1)
+    const shouter = addGuard(world, 64, -1)
+    startRadio(world, runner, { kind: 'noise', at: { x: 70, y: GROUND - 1 }, loud: true })
+    expect(runner.mode).toBe('toAlarm')
+    shout(world, shouter, { kind: 'sighting', at: { x: 80, y: GROUND - 1 }, by: 1 })
+    run(world, 15, {}, () => world.security.level >= 3)
+    expect(world.security.level).toBeGreaterThanOrEqual(3)
+  })
+})
 
 describe('check-ins', () => {
   it('control does not poll a man it already knows is dead', () => {
