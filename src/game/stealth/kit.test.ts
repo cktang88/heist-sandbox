@@ -3,6 +3,7 @@ import { addDevice, addGuard, addLamp, addRoom, arena, GROUND, putPlayer, run } 
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
 import { knockOutCold } from './bodies'
+import { disguiseBlown } from './disguise'
 import { createProps } from '../cover'
 import { enterSpot } from './hide'
 import { DISGUISE, KEYCARD, RADIO } from './tuning'
@@ -109,8 +110,21 @@ describe('the disguise', () => {
     addLamp(running, 36)
     const watcher = addGuard(running, 44, -1)
     putPlayer(running, 28)
-    run(running, 1.2, { right: true })
+    // Jumping about is not how a guard moves (his ordinary pace is; see below).
+    run(running, 1.2, { right: true, jumpPressed: true, jumpHeld: true })
     expect(watcher.awareness).toBeGreaterThan(0)
+  })
+
+  it('walking at the ordinary pace keeps the disguise; sliding or climbing gives it away', () => {
+    const world = disguised()
+    putPlayer(world, 28)
+    run(world, 0.5, { right: true })
+    expect(Math.abs(world.player.vx)).toBeGreaterThan(8)
+    expect(disguiseBlown(world)).toBeNull()
+    run(world, 1 / 60, { right: true, crouch: true })
+    expect(disguiseBlown(world)).toBe('sliding')
+    world.player.onLadder = true
+    expect(disguiseBlown(world)).toBe('climbing')
   })
 
   it('holding a guard as a shield gives him away', () => {
