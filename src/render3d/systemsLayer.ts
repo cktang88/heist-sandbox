@@ -187,7 +187,10 @@ export const createSystemsLayer: LayerFactory = (world) => {
         writer.add(x, y, 1, 1, KIND.hotDoor, cellSeed(x, y), Math.min(1, seconds / HOT_FADE_SECONDS), HOT_DOOR_Z, 1)
       })
       for (const item of fallingFittings(world)) {
-        if (near(frame, item.x, item.y)) writer.add(item.x, item.y, item.w, item.h, KIND.fitting, item.lamp ? 1 : 0, 1, -0.6, lightAt(item.x, item.y))
+        // A falling fan, sign or chandelier prop is drawn by its own model (the props layer follows it down); only
+        // lamps, which have no model once they leave the ceiling, need a stand-in here.
+        if (!item.lamp) continue
+        if (near(frame, item.x, item.y)) writer.add(item.x, item.y, item.w, item.h, KIND.fitting, 1, 1, -0.6, lightAt(item.x, item.y))
       }
       panels.commit(writer.count)
 
