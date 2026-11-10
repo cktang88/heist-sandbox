@@ -24,6 +24,8 @@ export function attachInput(canvas: HTMLCanvasElement, toolCount: number): Input
     mouse.y = event.offsetY
   })
   canvas.addEventListener('mousedown', (event) => {
+    // Right-click sets off planted C4, the same as Q.
+    if (event.button === 2) pressed.add('KeyQ')
     if (event.button !== 0) return
     mouse.down = true
     mouse.pressed = true

@@ -2,8 +2,8 @@ import type { World } from '../game/world'
 import { caption, hudUnit, panel } from './drawHud'
 
 /** Above this many seconds of blindness the screen is fully white; below it the view fades back in. */
-const FULL_WHITE_SECONDS = 1.2
-const RECOVERY_SECONDS = 3
+const FULL_WHITE_SECONDS = 0.7
+const RECOVERY_SECONDS = 1
 /** The brightest the white-out gets, so the HUD drawn on top stays legible. */
 const MAX_WHITE = 0.97
 

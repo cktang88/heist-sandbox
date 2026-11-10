@@ -27,11 +27,12 @@ const CLOUD_DENSITY = 1.2
 const FLASH_REACH = 12
 const FLASH_NOISE = 40
 /** Blindness facing the flash at point-blank range, and facing away; deafness at point-blank range. */
-const BLIND_FACING = 4.8
+const BLIND_FACING = 3.6
 const BLIND_AWAY = 1.5
-const DEAF = 6
+const DEAF = 4
 /** The player gets a softer flash than the guards, so it never takes control away for long. */
-const PLAYER_BLIND = 3.2
+const PLAYER_BLIND = 1.4
+const PLAYER_DEAF = 2
 const FLASH_DAMAGE = 3
 const FLASH_DAMAGE_REACH = 1.5
 const FLASH_FADE_SECONDS = 0.5
@@ -115,7 +116,7 @@ export function detonateFlash(world: World, at: Vec, thrower: NoiseSource = 'pla
   const closeness = flashCloseness(world, eyeOf(player), at)
   if (closeness <= 0) return
   player.blindSeconds = Math.max(player.blindSeconds, PLAYER_BLIND * closeness)
-  player.deafSeconds = Math.max(player.deafSeconds, DEAF * closeness)
+  player.deafSeconds = Math.max(player.deafSeconds, PLAYER_DEAF * closeness)
   if (distance(centerOf(player), at) <= FLASH_DAMAGE_REACH) player.hp -= FLASH_DAMAGE
 }
 

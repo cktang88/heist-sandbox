@@ -54,6 +54,7 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   drawTools(context, world, unit, width, height)
   drawCrosshair(context, world, camera, aim)
   if (world.drone) caption(context, `DRONE  ${Math.ceil(world.drone.battery)}s   click: detonate   E: recall`, width / 2, unit * 2, '#6fd0ff', unit, 'center')
+  if (world.charges.length > 0 && !world.drone) caption(context, `C4 SET x${world.charges.length}   Q or right-click: detonate all`, width / 2, unit * 2, '#ffb347', unit, 'center')
   if (world.prompt && world.status === 'playing') drawPrompt(context, world.prompt, unit, width, height)
   if (world.terminal && world.status === 'playing') drawTerminal(context, world.terminal, unit, width, height)
   if (world.status === 'playing' && world.clock < 9 && world.security.level === 0) drawHelp(context, unit, width, height)
