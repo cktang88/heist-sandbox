@@ -4,6 +4,8 @@ A side-on heist sandbox. Parachute into a guarded complex, find a gold case, and
 
 ![Tower offices](docs/screenshots/office.png)
 
+![Dropping in](docs/screenshots/drop.png)
+
 ```
         plane drop (parachute, steer for the TARGET arrow)
                         ↓
