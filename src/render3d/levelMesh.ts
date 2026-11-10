@@ -270,8 +270,8 @@ function addTile(shaper: TileShaper, builder: (name: MeshName) => MeshBuilder, t
   const health = Number.isFinite(def.hp) ? grid.hp[ty * grid.width + tx] / def.hp : 1
   const shade = 0.45 + health * 0.55
 
-  if (kind === 'glass') return builder('glass').box(tx + 0.42, bottom, -0.05, tx + 0.58, top, 0.05, UV, 1)
-  if (kind === 'fence') return builder('fence').box(tx, bottom, -0.03, tx + 1, top, 0.03, 1, 1)
+  if (kind === 'glass') return builder('glass').box(tx + 0.42, bottom, -0.05, tx + 0.58, top, 0.05, UV, 1, false)
+  if (kind === 'fence') return builder('fence').box(tx, bottom, -0.03, tx + 1, top, 0.03, 1, 1, false)
   if (kind === 'duct') return builder('steel').box(tx, bottom + 0.7, BACK + 0.4, tx + 1, top, FRONT - 0.2, UV, 1)
   if (kind === 'door') return builder('door').box(tx, bottom, -0.22, tx + 1, top, 0.22, 1, shade)
   if (kind === 'water') {
