@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smash &amp; Grab</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #0b0d12; overflow: hidden; }
+      canvas { position: absolute; inset: 0; display: block; width: 100vw; height: 100vh; cursor: none; }
+      /* The loading screen lives here, not in a script, so it is up from the first paint. Same look as src/ui/menu.css. */
+      #loading {
+        position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px;
+        font-family: ui-monospace, "JetBrains Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+        font-size: clamp(13px, 0.5vw + 1vh, 22px); color: #d8dce4; cursor: default;
+        background:
+          repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px),
+          radial-gradient(ellipse at center, #10131a, #030406);
+      }
+      #loading[hidden] { display: none; }
+      .sg-load {
+        width: min(30em, 100%); box-sizing: border-box;
+        background: linear-gradient(180deg, rgba(255, 179, 71, 0.05), transparent 5em), #11141a;
+        border: 1px solid rgba(255, 179, 71, 0.28);
+        clip-path: polygon(0 0, calc(100% - 1.3em) 0, 100% 1.3em, 100% 100%, 1.3em 100%, 0 calc(100% - 1.3em));
+        box-shadow: 0 1.5em 4em rgba(0, 0, 0, 0.7);
+      }
+      .sg-load-strip { height: 0.35em; background: repeating-linear-gradient(-45deg, #ffb347 0 0.6em, #1a1408 0.6em 1.2em); opacity: 0.85; }
+      .sg-load-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0.9em 1.4em 0.7em; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+      .sg-load-head h1 { margin: 0; font-size: 1.55em; font-weight: 800; letter-spacing: 0.22em; text-transform: uppercase; color: #ffd27a; text-shadow: 0 0 0.6em rgba(255, 179, 71, 0.35); }
+      .sg-load-percent { font-size: 0.85em; color: #6fd0ff; letter-spacing: 0.1em; }
+      .sg-load-body { padding: 1.2em 1.4em 1.3em; }
+      .sg-load-track { height: 0.75em; background: #0a0c10; border: 1px solid rgba(255, 179, 71, 0.35); padding: 2px; }
+      .sg-load-fill { height: 100%; width: 0; background: repeating-linear-gradient(-45deg, #ffb347 0 0.5em, #e09a32 0.5em 1em); box-shadow: 0 0 0.6em rgba(255, 179, 71, 0.5); transition: width 0.2s linear; }
+      .sg-load-step { margin-top: 0.8em; font-size: 0.85em; color: #8a93a3; letter-spacing: 0.05em; min-height: 1.3em; }
+    </style>
+    <script type="module" crossorigin src="./assets/index-En8jE7GX.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Dsxs2Mna.css">
+  </head>
+  <body>
+    <canvas id="stage"></canvas>
+    <canvas id="game"></canvas>
+    <div id="loading" role="status" aria-live="polite">
+      <section class="sg-load">
+        <div class="sg-load-strip"></div>
+        <header class="sg-load-head"><h1>Smash &amp; Grab</h1><span class="sg-load-percent">0%</span></header>
+        <div class="sg-load-body">
+          <div class="sg-load-track"><div class="sg-load-fill"></div></div>
+          <div class="sg-load-step">Loading the game</div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
