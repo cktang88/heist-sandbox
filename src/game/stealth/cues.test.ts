@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { recordOf } from '../chronicle/story/record'
 import { hurtGuard } from '../guards'
+import { reportEvent } from '../security/report'
 import { addProp } from '../hazards/testWorld'
 import { addGuard, addLamp, arena, GROUND, putPlayer, run } from '../security/testArena'
 import { stealthCues } from './cues'
@@ -81,5 +83,13 @@ describe('the end-of-heist rating', () => {
     hurtGuard(world, guard, 1000, { x: 30, y: GROUND }, 'hazard')
     expect(world.stats.kills).toBe(0)
     expect(stealthRating(world).name).toBe('SILENT')
+  })
+
+  it('is not Ghost once a camera has caught the player, even if no guard ever saw him', () => {
+    const world = arena()
+    reportEvent(world, { kind: 'camera', at: { x: 20, y: GROUND - 1 }, device: 0 })
+    expect(world.stats.timesSpotted).toBe(0)
+    expect(stealthRating(world).name).toBe('SILENT')
+    expect(recordOf(world).numbers.seen).toBe(1)
   })
 })

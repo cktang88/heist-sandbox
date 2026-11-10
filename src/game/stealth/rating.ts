@@ -11,7 +11,7 @@ export function stealthRating(world: World): StealthRating {
   if (stats.alarms > 0 || world.alarm) return { name: 'LOUD', line: 'the whole block heard you' }
   // Nobody dead means nobody, however he died: shot, kicked off a roof, caught in a blast or a fire.
   const dead = world.guards.some((guard) => guard.mode === 'dead')
-  if (stats.timesSpotted === 0 && bodiesFound(world) === 0 && !dead) return { name: 'GHOST', line: 'never seen, nobody dead, nothing found' }
+  if (!everSeen(world) && bodiesFound(world) === 0 && !dead) return { name: 'GHOST', line: 'never seen, nobody dead, nothing found' }
   return { name: 'SILENT', line: 'the alarm never rang' }
 }
 
@@ -19,4 +19,9 @@ export function stealthRating(world: World): StealthRating {
 function bodiesFound(world: World): number {
   const rivals = [...world.stealth.found].filter((index) => world.director.rivalVictims.has(world.guards[index])).length
   return world.stats.bodiesFound - rivals
+}
+
+/** Seen by a guard, or caught by a camera or with his parachute: anything that told control where he was. */
+export function everSeen(world: World): boolean {
+  return world.stats.timesSpotted > 0 || world.security.lastContactAt > -Infinity
 }
