@@ -33,6 +33,12 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
 
 export const STORAGE_KEY = 'smash-and-grab.settings'
 
+/** What each choice is called on the settings screen. Typed by the value lists, so a new choice cannot go unnamed. */
+export const CHOICE_LABELS: Record<Look | Quality | View | Site, string> = {
+  real: 'Real', pixel: 'Pixel', 'pixel-hd': 'Pixel HD', sketch: 'Sketch', paint: 'Paint', auto: 'Auto', low: 'Low', high: 'High',
+  '3d': '3D', '2d': '2D (fast)', complex: 'Complex', outpost: 'Outpost',
+}
+
 /** The settings that live in the address, each with its parameter name and the value meaning "leave it out". */
 type UrlField = 'look' | 'quality' | 'view' | 'site'
 const URL_FIELDS: readonly { field: UrlField; param: string; values: readonly string[] }[] = [

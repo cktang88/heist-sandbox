@@ -1,6 +1,6 @@
 import { applyLook, currentSeed, reloadWith } from './address'
 import { h, panel } from './dom'
-import { DEFAULT_SETTINGS, LOOKS, needsReload, parseSeed, QUALITIES, SITES, VIEWS, type Settings } from './settings'
+import { CHOICE_LABELS, DEFAULT_SETTINGS, LOOKS, needsReload, parseSeed, QUALITIES, SITES, VIEWS, type Settings } from './settings'
 import { saveSettings } from './store'
 
 export type SettingsHooks = {
@@ -10,11 +10,7 @@ export type SettingsHooks = {
 }
 
 type Option<T extends string> = { value: T; label: string }
-const LABELS: Record<string, string> = {
-  real: 'Real', pixel: 'Pixel', sketch: 'Sketch', paint: 'Paint', auto: 'Auto', low: 'Low', high: 'High',
-  '3d': '3D', '2d': '2D (fast)', complex: 'Complex', outpost: 'Outpost',
-}
-const options = <T extends string>(values: readonly T[]): Option<T>[] => values.map((value) => ({ value, label: LABELS[value] }))
+const options = <T extends keyof typeof CHOICE_LABELS>(values: readonly T[]): Option<T>[] => values.map((value) => ({ value, label: CHOICE_LABELS[value] }))
 
 function row(label: string, note: string, control: HTMLElement): HTMLElement {
   return h('div', { class: 'sg-row' }, h('div', { class: 'sg-label' }, h('span', { text: label }), note ? h('small', { text: note }) : null), control)
