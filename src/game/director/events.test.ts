@@ -6,7 +6,8 @@ import { feetOf, isActive } from '../security/model'
 import { deviceFeet, roomOf } from '../security/places'
 import { createRng } from '../rng'
 import { EVENTS } from './events/registry'
-import { buildingCircuits, fuseBoxOf } from './power'
+import { restoreCircuit } from '../devices/power'
+import { buildingCircuits, fuseBoxOf, killCircuit } from './power'
 import { directedWorld, idle, standingAt } from './testWorld'
 import type { EventId } from './types'
 import { watchSignals } from './watch'
@@ -139,6 +140,18 @@ describe('director events, each through public game state', () => {
     const tech = world.guards.find((guard) => guard.station !== null)!
     const box = fuseBoxOf(world, [...world.deadCircuits][0])!
     expect(Math.abs(tech.station!.x - (box.x + 0.5))).toBeLessThan(1)
+  })
+
+  it('a breaker lightning once tripped, fixed and then cut by the player counts as the player\'s cut', () => {
+    const world = directedWorld(2, 'complex', [])
+    const box = world.devices.find((device) => device.kind === 'fusebox' && device.circuit !== undefined)!
+    killCircuit(world, box.circuit!, false)
+    watchSignals(world)
+    restoreCircuit(world, box.circuit!)
+    watchSignals(world)
+    world.deadCircuits.add(box.circuit!)
+    watchSignals(world)
+    expect(world.director.signals.powerCuts).toBe(1)
   })
 
   it('a knocked-out guard who comes round staggers for the alarm button', () => {
