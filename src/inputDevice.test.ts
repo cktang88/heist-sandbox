@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { attachInput } from './inputDevice'
 import type { Camera } from './render/camera'
+import { wheelSelection } from './game/toolDefs'
 
 /** A stand-in for the browser's event targets: records listeners and lets a test fire events at them. */
 function target() {
@@ -59,5 +60,22 @@ describe('the keyboard and mouse adapter', () => {
     expect(device.read(camera).fire).toBe(true)
     win.fire('blur')
     expect(device.read(camera).fire).toBe(false)
+  })
+})
+
+describe('the mouse wheel', () => {
+  it('steps one tool per notch, and a trackpad stream of tiny scrolls adds up to a notch instead of one step each', () => {
+    const { canvas, device } = setUp()
+    const wheel = (deltaY: number, deltaMode = 0) => canvas.fire('wheel', { deltaY, deltaMode, preventDefault: () => {} })
+    for (let event = 0; event < 10; event += 1) wheel(4)
+    expect(device.read(camera).selectTool).toBeNull()
+    for (let event = 0; event < 15; event += 1) wheel(4)
+    expect(device.read(camera).selectTool).toBe(wheelSelection(1))
+    wheel(100)
+    expect(device.read(camera).selectTool).toBe(wheelSelection(1))
+    wheel(-3, 1)
+    expect(device.read(camera).selectTool).toBe(wheelSelection(-1))
+    wheel(-100)
+    expect(device.read(camera).selectTool).toBe(wheelSelection(-1))
   })
 })
