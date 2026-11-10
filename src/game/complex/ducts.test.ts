@@ -68,7 +68,7 @@ describe('ventilation ducts', () => {
   it('hangs the ceiling lights of the rooms below under the duct floor', () => {
     const level = createComplex(1)
     const duct = findDucts(level.grid, level.rooms)[0]
-    const lamps = level.lamps.filter((lamp) => lamp.x >= duct.left && lamp.x <= duct.right + 1 && lamp.y > duct.floorY - 2 && lamp.y < duct.floorY + 3)
+    const lamps = level.lamps.filter((lamp) => lamp.hung && lamp.x >= duct.left && lamp.x <= duct.right + 1 && lamp.y > duct.floorY - 2 && lamp.y < duct.floorY + 3)
     expect(lamps.length).toBeGreaterThan(0)
     for (const lamp of lamps) {
       expect(lamp.y).toBeGreaterThan(duct.floorY + 1)

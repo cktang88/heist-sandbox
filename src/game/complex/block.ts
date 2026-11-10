@@ -1,6 +1,6 @@
 import { randomInt } from '../rng'
 import type { Room, RoomKind } from '../site'
-import { setTile, type TileKind } from '../tiles'
+import { isSolidAt, setTile, tileAt, type TileKind } from '../tiles'
 import { addRoom, chance, circuitOf, fill, pick, ROOM_HEIGHT, STOREY, type SiteDraft } from './kit'
 
 /** A stair lobby (the staircase itself runs up the back of it). `to` may be one above the top storey, meaning the roof. */
@@ -28,6 +28,11 @@ export type BlockSpec = {
 const TALL: readonly RoomKind[] = ['lobby', 'cafeteria', 'gym', 'lab', 'server', 'loadingDock', 'garage', 'lounge', 'workshop', 'mechanical']
 const BEAM_EVERY = 14
 const MIN_ROOM = 8
+/**
+ * A strip left over beside a staircase or the outer wall is still made a (small) room down to this width:
+ * walled off solid instead, it would bury the street door or doorway that opens onto it.
+ */
+const MIN_LEFTOVER = 6
 const MAX_ROOM = 22
 const TALL_ROOM_ODDS = 0.55
 const OPEN_ARCH_ODDS = 0.3
@@ -56,24 +61,45 @@ export function buildBlock(site: SiteDraft, spec: BlockSpec): void {
     fill(site, wall, roofY - 1, wall, site.groundY - 1, spec.facade)
     fill(site, wall, site.groundY, wall, bottomY, 'reinforced')
     for (let storey = 1; storey <= storeys; storey += 1) setTile(site.grid, wall, floorY(storey), 'reinforced')
-    for (let storey = 1; storey < storeys; storey += 1) {
-      fill(site, wall, floorY(storey) - 4, wall, floorY(storey) - 2, chance(site.rng, 0.6) ? 'glass' : spec.facade)
-    }
   }
   for (const side of spec.doors) fill(site, side === -1 ? x0 : x1, site.groundY - 3, side === -1 ? x0 : x1, site.groundY - 1, 'door')
 
   site.interiors.push({ kind: 'room', x: x0, y: roofY, w: x1 - x0 + 1, h: bottomY - roofY })
 
   for (const shaft of spec.shafts) carveShaft(site, spec, shaft, floorY)
+  // Shared by the building's staircases and filled in as storeys are laid out: where a void cuts a floor in two.
+  const splits: { y: number; from: number; to: number }[] = []
   for (const stair of spec.stairs) {
     const stops: number[] = []
     for (let storey = stair.from; storey <= stair.to; storey += 1) stops.push(floorY(storey))
-    site.stairwells.push({ id: site.stairwells.length, building: spec.name, leftX: stair.x + 1.5, rightX: stair.x + stair.w - 1.5, stops })
+    site.stairwells.push({
+      id: site.stairwells.length, building: spec.name, leftX: stair.x + 1.5, rightX: stair.x + stair.w - 1.5, stops,
+      bounds: { x0, x1, streetY: site.groundY, splits },
+    })
   }
 
   let voids: Span[] = []
   for (let storey = -basements; storey < storeys; storey += 1) {
+    for (const span of voids) splits.push({ y: floorY(storey), from: span.from, to: span.to })
     voids = layOutStorey(site, spec, storey, floorY(storey), voids)
+  }
+  glaze(site, spec, floorY)
+}
+
+/**
+ * Puts windows in the outer walls, three rows tall, only where someone can climb through: open room just inside
+ * with a floor under it (not a strip walled off solid, a shaft or the void over a double-height room), and no door
+ * cutting into the pane.
+ */
+function glaze(site: SiteDraft, spec: BlockSpec, floorY: (storey: number) => number): void {
+  for (const [wall, inside] of [[spec.x0, spec.x0 + 1], [spec.x1, spec.x1 - 1]]) {
+    for (let storey = 1; storey < spec.storeys; storey += 1) {
+      const y = floorY(storey)
+      const pane = chance(site.rng, 0.6)
+      const enterable = !isSolidAt(site.grid, inside, y - 2) && isSolidAt(site.grid, inside, y)
+      const doorway = [y - 4, y - 3, y - 2].some((row) => tileAt(site.grid, wall, row) === 'door')
+      if (pane && enterable && !doorway) fill(site, wall, y - 4, wall, y - 2, 'glass')
+    }
   }
 }
 
@@ -96,13 +122,7 @@ function carveShaft(site: SiteDraft, spec: BlockSpec, shaft: ShaftSpec, floorY: 
 
 /** Splits one storey into rooms. Returns the spans left open above any double-height rooms it made. */
 function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: number, voidsHere: Span[]): Span[] {
-  let left = spec.x0 + 1
-  let right = spec.x1 - 1
-  for (const shaft of spec.shafts) {
-    if (storey < shaft.from || storey > shaft.to) continue
-    if (shaft.doorSide === 1) left = Math.max(left, shaft.x + shaft.w + 1)
-    else right = Math.min(right, shaft.x - 2)
-  }
+  const { from: left, to: right } = storeySpan(spec, storey)
 
   const zones: Zone[] = [
     ...spec.stairs.filter((stair) => storey >= stair.from && storey <= stair.to).map((stair) => ({ from: stair.x, to: stair.x + stair.w - 1, kind: 'stairs' as const })),
@@ -114,6 +134,7 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
   const kinds = spec.plan(storey)
   const canGoTall = (span: Span) => storey + 1 < spec.storeys && storey >= 0
     && !spec.stairs.some((stair) => storey + 1 >= stair.from && storey + 1 <= stair.to && stair.x <= span.to + 1 && stair.x + stair.w - 1 >= span.from - 1)
+    && upperFloorStaysConnected(spec, storey + 1, span)
 
   const furnish = (span: Span): void => {
     const rooms = splitSpan(site, span)
@@ -136,7 +157,7 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
 
   let cursor = left
   for (const zone of zones) {
-    if (zone.from - 2 >= cursor + MIN_ROOM - 1) {
+    if (zone.from - 2 >= cursor + MIN_LEFTOVER - 1) {
       furnish({ from: cursor, to: zone.from - 2 })
       partition(site, zone.from - 1, floorY, zone.kind === 'void' ? 'overlook' : 'door')
     } else if (zone.from - 1 >= cursor) {
@@ -150,10 +171,37 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
     cursor = zone.to + 2
     if (cursor - 1 <= right) partition(site, zone.to + 1, floorY, zone.kind === 'void' ? 'overlook' : 'door')
   }
-  if (right >= cursor + MIN_ROOM - 1) furnish({ from: cursor, to: right })
+  if (right >= cursor + MIN_LEFTOVER - 1) furnish({ from: cursor, to: right })
   else if (right >= cursor) fill(site, cursor, floorY - ROOM_HEIGHT, right, floorY - 1, spec.facade)
 
   return voidsAbove
+}
+
+/** The columns a storey's rooms and stair lobbies take up: inside the outer walls and clear of any elevator shaft. */
+function storeySpan(spec: BlockSpec, storey: number): Span {
+  let from = spec.x0 + 1
+  let to = spec.x1 - 1
+  for (const shaft of spec.shafts) {
+    if (storey < shaft.from || storey > shaft.to) continue
+    if (shaft.doorSide === 1) from = Math.max(from, shaft.x + shaft.w + 1)
+    else to = Math.min(to, shaft.x - 2)
+  }
+  return { from, to }
+}
+
+/**
+ * A double-height room leaves a void in the storey above that splits it in two. Each side must still have a
+ * staircase, or be too narrow for a room (and so be walled off); and an elevator stopping there must open onto
+ * a side with a staircase, not onto the void or that wall. Otherwise the side is a pocket nobody can walk to.
+ */
+function upperFloorStaysConnected(spec: BlockSpec, above: number, span: Span): boolean {
+  const { from: left, to: right } = storeySpan(spec, above)
+  const stairs = spec.stairs.filter((stair) => above >= stair.from && above <= stair.to)
+  const stairsLeft = stairs.some((stair) => stair.x + stair.w - 1 < span.from)
+  const stairsRight = stairs.some((stair) => stair.x > span.to)
+  if (!stairsLeft && span.from - left > MIN_LEFTOVER) return false
+  if (!stairsRight && right - span.to > MIN_LEFTOVER) return false
+  return spec.shafts.every((shaft) => above < shaft.from || above > shaft.to || (shaft.doorSide === 1 ? stairsLeft : stairsRight))
 }
 
 /** Cuts a run of floor into rooms of varied width, with a wall and doorway between each pair. */
@@ -184,7 +232,7 @@ export function partition(site: SiteDraft, x: number, floorY: number, style: 'do
  * operator at the monitors (cameras only report when someone is watching); other secure rooms get a post,
  * and ordinary rooms sometimes a guard walking the room end to end.
  */
-function staff(site: SiteDraft, room: Room): void {
+export function staff(site: SiteDraft, room: Room): void {
   const { rng } = site
   const facing = chance(rng, 0.5) ? 1 : -1
   if (room.kind === 'security') site.guards.push({ x: room.x + 2, y: room.floorY, facing: 1, role: 'operator', roomId: room.id })
@@ -197,7 +245,8 @@ function staff(site: SiteDraft, room: Room): void {
   if (room.security >= 2 || room.kind === 'lobby') {
     site.devices.push({ kind: 'camera', x: room.x + 1, y: room.floorY - 4, roomId: room.id, facing: 1 })
   }
-  if (['office', 'executive', 'security', 'server', 'lab', 'archive'].includes(room.kind)) {
+  // Every room with a camera has a terminal on its floor that can switch it off: the guarded rooms keep one of their own.
+  if (['office', 'executive', 'security', 'server', 'lab', 'archive', 'lobby', 'armory', 'cells', 'penthouse'].includes(room.kind)) {
     site.devices.push({ kind: 'computer', x: randomInt(rng, room.x + 2, room.x + room.w - 3), y: room.floorY, roomId: room.id })
   }
   if (room.kind === 'security' || room.kind === 'lobby') {

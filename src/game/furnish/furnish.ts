@@ -9,8 +9,8 @@ import { floorSpans, type Span } from './space'
 import { OUTDOOR, ROOM_STYLES } from './styles'
 import { hangCeiling, hangWall } from './walls'
 
-/** Rooms with no doorway of their own to put a light switch by. */
-const NO_SWITCH = new Set(['sewer', 'silo', ...OUTDOOR])
+/** Rooms with no doorway of their own to put a light switch by (the sewer has a fuse box instead). */
+const NO_SWITCH = new Set(['sewer', ...OUTDOOR])
 
 /** Pieces of cover a room wider than this needs, so someone crossing it has somewhere to stop. */
 const OPEN_ROOM = 10
@@ -45,7 +45,7 @@ function furnishRoom(rng: Rng, site: SiteDraft, room: Room): Span[] {
 
   if (!NO_SWITCH.has(room.kind)) addLightSwitch(rng, site, room, circuit)
   const wall = hangWall(rng, site.grid, room, style, floor, deviceRects(site, room))
-  const ceiling = hangCeiling(rng, room, style, floor)
+  const ceiling = hangCeiling(rng, site.grid, room, style, floor)
   seatDevices(site, room, floor)
 
   site.props.push(...(rug ? [rug] : []), ...floor, ...wall, ...ceiling)

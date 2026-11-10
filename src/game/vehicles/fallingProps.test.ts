@@ -3,7 +3,12 @@ import { stepCollapse } from '../collapse'
 import { explode } from '../explosions'
 import { stepHazards } from '../hazards/hazards'
 import { addGuard, addProp, bareWorld } from '../hazards/testWorld'
+import { propBox } from '../hazards/props'
+import { boxHitsSolid } from '../physics'
 import { fillTiles } from '../tiles'
+import { idleInput } from '../input'
+import { loosen } from '../physprops/state'
+import { stepWorld } from '../step'
 import type { World } from '../world'
 import { stepFallingProps } from './fallingProps'
 
@@ -81,6 +86,32 @@ describe('falling props', () => {
     run(world, 0.5)
     expect(car.y).toBe(UPPER)
     expect(poster.y).toBe(UPPER + 1)
+  })
+
+  it('a falling prop comes to rest on rubble or a ledge under part of it instead of sinking into it', () => {
+    const world = garage()
+    const crates = addProp(world, 'crateStack', 30, UPPER)
+    // A lump of rubble on the ground floor under one edge of the crates.
+    fillTiles(world.grid, 29, GROUND - 1, 29, GROUND - 1, 'concrete')
+    run(world, FRAME)
+    fillTiles(world.grid, 26, UPPER, 34, UPPER, 'air')
+    run(world, 2)
+    const box = propBox(crates)
+    expect(boxHitsSolid(world.grid, { x: box.x + 0.05, y: box.y + 0.05, w: box.w - 0.1, h: box.h - 0.1 })).toBe(false)
+    expect(crates.y).toBe(GROUND - 1)
+  })
+
+  it('furniture the player has dragged falls with the furniture physics when its floor goes, and lands once', () => {
+    const world = garage()
+    const desk = addProp(world, 'desk', 30, UPPER)
+    stepWorld(world, idleInput(), FRAME)
+    // Some unrelated damage first, so the index of what stands where already exists.
+    fillTiles(world.grid, 5, UPPER, 5, UPPER, 'air')
+    stepWorld(world, idleInput(), FRAME)
+    loosen(world, desk)
+    fillTiles(world.grid, 28, UPPER, 32, UPPER, 'air')
+    for (let frame = 0; frame < 90; frame += 1) stepWorld(world, idleInput(), FRAME)
+    expect(desk.y).toBe(GROUND)
   })
 
   it('a blast through the deck sends a parked car down', () => {

@@ -5,6 +5,9 @@ import type { SiteDraft } from '../complex/kit'
 /** A stretch of floor, in continuous tile x: furniture may stand anywhere from `from` to `to`. */
 export type Span = { from: number; to: number }
 
+/** What the floor plan is read from: the tiles and the staircases. */
+type Layout = Pick<SiteDraft, 'grid' | 'stairwells'>
+
 /** Floor kept clear around doorways, ladders and stair landings so nobody trips on the way through. */
 export const CLEARANCE = 1.5
 
@@ -21,7 +24,7 @@ function climbsThrough(grid: Grid, room: Room, x: number): boolean {
 }
 
 /** Places where people pass through: both ends of the room, ladders and stair landings. */
-export function passages(site: SiteDraft, room: Room): Span[] {
+export function passages(site: Layout, room: Room): Span[] {
   const right = room.x + room.w
   const zones: Span[] = [
     { from: room.x - CLEARANCE, to: room.x + CLEARANCE },
@@ -40,7 +43,7 @@ export function passages(site: SiteDraft, room: Room): Span[] {
 }
 
 /** The stretches of a room's floor where furniture may stand. */
-export function floorSpans(site: SiteDraft, room: Room): Span[] {
+export function floorSpans(site: Layout, room: Room): Span[] {
   const spans: Span[] = []
   let start: number | null = null
   for (let x = room.x; x <= room.x + room.w; x += 1) {

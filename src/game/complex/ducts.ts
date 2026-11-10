@@ -1,4 +1,5 @@
-import type { Room } from '../site'
+import { propSpec } from '../propCatalog'
+import type { Prop, Room } from '../site'
 import { isSolidAt, setTile, tileAt, type Grid } from '../tiles'
 import { chance, pick, ROOM_HEIGHT, type SiteDraft } from './kit'
 
@@ -6,13 +7,14 @@ import { chance, pick, ROOM_HEIGHT, type SiteDraft } from './kit'
  * Odds that a storey which can take a duct gets one. Only some storeys can (a duct needs a long enough
  * stretch of rooms with a doorway to rest on), so this keeps the share of all storeys near half.
  */
-const DUCT_ODDS = 0.75
+const DUCT_ODDS = 0.6
 const MIN_LENGTH = 20
 const MAX_LENGTH = 45
 /** Grates sit this many tiles in from each end wall. */
 const GRATE_INSET = 2
 /** Hung fittings drop this far below the duct floor, the same as below a ceiling. */
 const HANG_DROP = 0.2
+const WALL_DROP = 0.5
 const OUTDOOR_BUILDINGS = new Set(['grounds', 'sewer', 'silo', 'gatehouse'])
 const NO_DUCT_ROOMS = new Set<Room['kind']>(['stairwell', 'vault', 'rooftop', 'elevatorLobby'])
 
@@ -26,7 +28,9 @@ type DuctRun = { left: number; right: number; crawlY: number; rooms: Room[] }
  * Ducts stay out of stair lobbies, shafts, double-height rooms and the vault.
  */
 export function addDucts(site: SiteDraft): void {
-  for (const rooms of storeys(site.rooms)) {
+  // Furniture reaching up into the duct's rows (cell bars, a truck) keeps the duct out of its room.
+  const tallFurniture = new Set(site.props.filter((prop) => propSpec(prop.kind).mount === 'floor' && propSpec(prop.kind).h > ROOM_HEIGHT - 2).map((prop) => prop.roomId))
+  for (const rooms of storeys(site.rooms.filter((room) => !tallFurniture.has(room.id)))) {
     const runs = candidateRuns(site.grid, rooms)
     if (runs.length > 0 && chance(site.rng, DUCT_ODDS)) buildDuct(site, pick(site.rng, runs))
   }
@@ -83,7 +87,8 @@ function sharesWall(grid: Grid, a: Room, b: Room): boolean {
  */
 function canCarry(grid: Grid, run: DuctRun): boolean {
   const floorY = run.crawlY + 1
-  const capped = [run.left - 1, run.right + 1].every((x) => isSolidAt(grid, x, run.crawlY) && isSolidAt(grid, x, floorY))
+  // A window is no end wall: the duct would block the top of it, and nobody inside could climb out through it.
+  const capped = [run.left - 1, run.right + 1].every((x) => isSolidAt(grid, x, run.crawlY) && isSolidAt(grid, x, floorY) && tileAt(grid, x, floorY) !== 'glass')
   const propped = run.rooms.slice(1).some((room) => isSolidAt(grid, room.x - 1, floorY + 1))
   return capped && propped
 }
@@ -97,6 +102,10 @@ function buildDuct(site: SiteDraft, run: DuctRun): void {
   const grates = [run.left + GRATE_INSET, run.right - GRATE_INSET]
   for (const x of grates) setTile(site.grid, x, floorY, 'air')
   rehang(site, run, grates)
+  const underneath = new Set(run.rooms.map((room) => room.id))
+  const affected = site.props.filter((prop) => prop.roomId !== undefined && underneath.has(prop.roomId))
+  const dropped = new Set(affected.filter((prop) => !lowerProp(affected, run, grates, prop)))
+  if (dropped.size > 0) site.props = site.props.filter((prop) => !dropped.has(prop))
 }
 
 /** Ceiling lights and wall devices that were up in the new crawl space move down under the duct floor. */
@@ -105,11 +114,41 @@ function rehang(site: SiteDraft, run: DuctRun, grates: readonly number[]): void 
   const inCrawlSpace = (spot: { x: number; y: number }) => spot.x >= run.left && spot.x < run.right + 1 && spot.y >= run.crawlY && spot.y < below
   for (const lamp of site.lamps) {
     if (!inCrawlSpace(lamp)) continue
-    lamp.y = below + HANG_DROP
-    // A lamp under a grate would have nothing to hang from.
-    if (grates.includes(Math.floor(lamp.x))) lamp.x += lamp.x < (run.left + run.right) / 2 ? 1 : -1
+    // Wall lamps sit a little lower than hung fittings, so the two never land on the same spot.
+    lamp.y = below + (lamp.hung ? HANG_DROP : WALL_DROP)
+    // A lamp under a grate (or straddling its edge) would have nothing to hang from: it moves two columns inward.
+    const grate = grates.find((x) => Math.abs(lamp.x - (x + 0.5)) < 1)
+    if (grate !== undefined) lamp.x += grate < (run.left + run.right) / 2 ? 2 : -2
   }
   for (const device of site.devices) {
     if (inCrawlSpace(device)) device.y = below
   }
+}
+
+/** Gap left between a lowered wall item and the underside of the duct. */
+const WALL_GAP = 0.05
+
+/**
+ * Moves a prop of a room under the duct (`props` are all of theirs) out of the new crawl space: ceiling items hang from the duct floor,
+ * wall items slide down below it. Returns false for one that no longer fits (it is dropped): a ceiling item
+ * under a grate, or a wall item that would reach the floor or run into another.
+ */
+function lowerProp(props: readonly Prop[], run: DuctRun, grates: readonly number[], prop: Prop): boolean {
+  const room = run.rooms.find((candidate) => candidate.id === prop.roomId)!
+  const below = run.crawlY + 2
+  const { w, h, mount } = propSpec(prop.kind)
+  const [left, right] = [prop.x + 0.5 - w / 2, prop.x + 0.5 + w / 2]
+  if (mount === 'ceiling') {
+    prop.y = below
+    return !grates.some((x) => x + 1 > left && x < right)
+  }
+  if (mount !== 'wall' || prop.y >= below) return true
+  const top = below + WALL_GAP
+  if (top + h > room.floorY - WALL_GAP) return false
+  const clashes = props.some((other) => other !== prop && other.roomId === room.id && propSpec(other.kind).mount === 'wall'
+    && other.y < top + h && top < other.y + propSpec(other.kind).h
+    && Math.abs(other.x - prop.x) < (w + propSpec(other.kind).w) / 2)
+  if (clashes) return false
+  prop.y = top
+  return true
 }

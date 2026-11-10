@@ -53,6 +53,8 @@ export function stepFallingProps(world: World, dt: number): void {
   if (state.grid !== world.grid || !state.solid) remember(world, state)
   else if (world.grid.version !== state.version) {
     for (const prop of propsOnLostTiles(world, state)) {
+      // Furniture the player has disturbed has its own physics (physprops/gravity.ts), which drops it.
+      if (world.physProps.loose.has(prop.id)) continue
       if (!state.falling.some((item) => item.id === prop.id) && !isSupported(world.grid, prop, prop.y)) state.falling.push({ id: prop.id, vy: 0 })
     }
   }
@@ -118,6 +120,10 @@ function isSupported(grid: Grid, prop: PropState, row: number): boolean {
   return solid > 0 && solid >= columns.length * SUPPORT_SHARE
 }
 
+function touchesSolid(grid: Grid, prop: PropState, row: number): boolean {
+  return footprint(prop).some((x) => TILE_DEFS[tileAt(grid, x, row)].solid)
+}
+
 /** Moves one falling prop. Returns true when it has landed. */
 function dropProp(world: World, item: FallingProp, dt: number): boolean {
   const prop = propById(world, item.id)
@@ -125,7 +131,8 @@ function dropProp(world: World, item: FallingProp, dt: number): boolean {
   item.vy = Math.min(MAX_FALL_SPEED, item.vy + GRAVITY * dt)
   const next = prop.y + item.vy * dt
   for (let row = Math.floor(prop.y) + 1; row <= Math.floor(next); row += 1) {
-    if (row < world.grid.height && !isSupported(world.grid, prop, row)) continue
+    // Once falling it stops on anything solid under it, even a lump of rubble under one edge: going on would sink it in.
+    if (row < world.grid.height && !touchesSolid(world.grid, prop, row)) continue
     land(world, prop, Math.min(row, world.grid.height - 1), item.vy)
     return true
   }
