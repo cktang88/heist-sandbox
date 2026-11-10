@@ -92,7 +92,8 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec,
     return true
   }
   onHurt(guard)
-  if (cause !== 'attack') return false
+  // Out cold, he feels nothing of it: no fight starts in a limp body.
+  if (cause !== 'attack' || guard.out) return false
   enterCombat(world, guard, from)
   markUnderFire(world, guard, from)
   return false
