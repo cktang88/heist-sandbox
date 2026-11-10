@@ -40,6 +40,8 @@ type ModalName = 'controls' | 'help' | 'settings' | 'past' | 'dossier'
  */
 export function createMenus(host: MenuHost): Menus {
   let settings = currentSettings()
+  // What the settings screen last showed, including choices not applied yet, so reopening it does not forget them.
+  let chosen = settings
   let paused = false
   const updateVolume = () => host.audio.setVolume(paused || settings.muted ? 0 : settings.volume)
   const stack = createLayerStack((open) => {
@@ -59,10 +61,13 @@ export function createMenus(host: MenuHost): Menus {
     if (name === 'help') stack.push(name, helpModal())
     if (name === 'past') stack.push(name, pastHeistsModal())
     if (name === 'dossier') stack.push(name, dossierModal(dossier(host.world())))
-    if (name === 'settings') stack.push(name, settingsModal(settings, {
-      live: (chosen) => {
-        settings = chosen
+    if (name === 'settings') stack.push(name, settingsModal(settings, chosen, {
+      live: (running) => {
+        settings = running
         updateVolume()
+      },
+      chosen: (draft) => {
+        chosen = draft
       },
       playSeed: startHeist,
     }))

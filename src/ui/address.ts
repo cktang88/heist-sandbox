@@ -38,12 +38,16 @@ export function onLookChange(apply: (look: Look) => void): void {
   liveLook = apply
 }
 
-/** Switches the art style and remembers it: live when the 3D view is running, otherwise by reloading. */
-export function applyLook(look: Look): void {
+/** Switches the art style and remembers it: live when the 3D view is running (true), otherwise by reloading. */
+export function applyLook(look: Look): boolean {
   const settings = { ...currentSettings(), look }
-  if (!liveLook) return reloadWith(settings)
+  if (!liveLook) {
+    reloadWith(settings)
+    return false
+  }
   saveSettings(settings)
   const params = paramsFor(settings, new URLSearchParams(location.search))
   history.replaceState(history.state, '', `${location.pathname}?${params.toString()}${location.hash}`)
   liveLook(look)
+  return true
 }
