@@ -4,6 +4,7 @@ import type { AlertLevel, SecurityEvent } from './events'
 import { COMMS } from './tuning'
 import { broadcastContact, sendPair } from './orders'
 import { floorBelow, floorName, unitName } from './places'
+import { deployResponders } from './response'
 import { assignStations } from './stations'
 
 /**
@@ -33,6 +34,7 @@ export function raiseLevel(world: World, to: AlertLevel): void {
     world.alarm = true
     if (!Number.isFinite(security.confirmedAt)) security.confirmedAt = world.clock
     if (security.lastKnown) broadcastContact(world, floorBelow(world, security.lastKnown))
+    deployResponders(world)
   }
   if (to >= 2) assignStations(world)
 }

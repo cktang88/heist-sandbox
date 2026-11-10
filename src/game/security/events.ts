@@ -62,8 +62,9 @@ export type SecurityState = {
   lastCasualtyAt: number
   /** Clock time stations were last handed out. */
   stationsAt: number
-  /** Response teams sent so far. */
+  /** Response teams sent so far, and whether one has been sent for the current alert. */
   responders: number
+  responseSent: boolean
 }
 
 export function createSecurity(): SecurityState {
@@ -71,6 +72,6 @@ export function createSecurity(): SecurityState {
     level: 0, lastKnown: null, lastContactAt: -Infinity, levelSince: 0, peak: 0, log: [], barks: [], polls: [],
     searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(),
     reportedBodies: new Set(), shooters: [], campSpot: null, campSeconds: 0,
-    confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0,
+    confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
   }
 }

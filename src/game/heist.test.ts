@@ -3,6 +3,7 @@ import { C4_BLAST, explode } from './explosions'
 import { idleInput, type Input } from './input'
 import { GROUND } from './level'
 import { createRng } from './rng'
+import { reportEvent } from './security/dispatch'
 import { stepWorld } from './step'
 import { tileAt } from './tiles'
 import { centerOf } from './types'
@@ -10,11 +11,17 @@ import { createWorld, type World } from './world'
 
 const FRAME = 1 / 60
 
-function run(world: World, seconds: number, input: (frame: number) => Partial<Input> = () => ({})): void {
+function run(world: World, seconds: number, input: (frame: number) => Partial<Input> = () => ({}), each?: () => void): void {
   const frames = Math.round(seconds / FRAME)
   for (let frame = 0; frame < frames; frame += 1) {
     stepWorld(world, { ...idleInput({ x: world.player.x + 5, y: world.player.y }), ...input(frame) }, FRAME)
+    each?.()
   }
+}
+
+/** The guard posted on the street in front of the outpost. */
+function streetGuard(world: World) {
+  return world.guards.find((other) => other.home.x === 64.5 && other.home.y === GROUND)!
 }
 
 /** Puts the player on the street, well away from every guard. */
@@ -55,52 +62,49 @@ describe('heist', () => {
     expect(tileAt(world.grid, 70, GROUND - 3)).toBe('air')
   })
 
-  it('gets spotted by a guard who is facing the player, and the alarm follows', () => {
+  it('gets spotted by a guard who is facing the player, who radios it in, and the alarm follows', () => {
     const world = createWorld(1)
-    const guard = world.guards.find((other) => other.homeX === 64)!
+    const guard = streetGuard(world)
     world.guards = [guard]
     guard.facing = -1
     onStreet(world, 58)
-    run(world, 1.5)
+    run(world, 3)
     expect(guard.state).toBe('alert')
     expect(world.stats.timesSpotted).toBe(1)
-    run(world, 4)
+    expect(world.alarm).toBe(false)
+    run(world, 5)
     expect(world.alarm).toBe(true)
+    expect(world.security.level).toBeGreaterThanOrEqual(3)
   })
 
-  it('sends an alerted guard up a ladder after the player', () => {
+  it('sends a searching guard up a ladder toward the last known position', () => {
     const world = createWorld(1)
-    const guard = world.guards.find((other) => other.homeX === 64)!
+    const guard = streetGuard(world)
     world.guards = [guard]
-    Object.assign(guard, { x: 72, state: 'alert', awareness: 1, lostSeconds: 99, target: { x: 90, y: GROUND - 8 } })
+    Object.assign(guard, { x: 72, mode: 'searching', state: 'suspicious', search: { points: [{ x: 90, y: GROUND - 6 }], index: 0, dwell: 0, endsAt: 1e9 } })
     Object.assign(world.player, { x: 5, y: GROUND - 1.7, hp: 1e6 })
-    world.alarm = true
-    const climbed = () => GROUND - (guard.y + guard.h)
     let highest = 0
-    for (let frame = 0; frame < 60 * 15; frame += 1) {
-      guard.target = { x: 90, y: GROUND - 8 }
-      stepWorld(world, idleInput(), FRAME)
-      highest = Math.max(highest, climbed())
-    }
+    run(world, 15, () => ({}), () => {
+      highest = Math.max(highest, GROUND - (guard.y + guard.h))
+    })
     expect(highest).toBeGreaterThan(5)
   })
 
-  it('calls armoured backup when the alarm rings', () => {
+  it('calls the armoured response team when the alarm rings', () => {
     const world = createWorld(1)
     const before = world.guards.length
-    world.guards[0].state = 'alert'
-    world.guards[0].alertSeconds = 99
-    world.guards[0].target = { x: 0, y: 0 }
     Object.assign(world.player, { x: 5, y: GROUND - 1.7, hp: 1e6 })
+    reportEvent(world, { kind: 'alarmButton', at: { x: 90, y: GROUND - 1 } })
     run(world, 0.1)
     expect(world.alarm).toBe(true)
     expect(world.guards.filter((guard) => guard.armored).length).toBe(3)
     expect(world.guards.length).toBe(before + 3)
+    expect(world.guards.filter((guard) => guard.armored).every((guard) => guard.mode === 'searching')).toBe(true)
   })
 
   it('takes down an unaware guard silently from behind', () => {
     const world = createWorld(1)
-    const guard = world.guards.find((other) => other.homeX === 64)!
+    const guard = streetGuard(world)
     world.guards = [guard]
     guard.facing = -1
     onStreet(world, centerOf(guard).x + 0.8)

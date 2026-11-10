@@ -1,0 +1,102 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createProps } from '../cover'
+import { colleagueInLine } from './combat'
+import { feetOf } from './model'
+import { addGuard, addLamp, arena, GROUND, putPlayer, run } from './testArena'
+
+const hazards = vi.hoisted(() => ({ smoke: 0, throws: [] as { kind: string; at: number }[], clock: { now: 0 } }))
+vi.mock('../hazards/hazards', async (original) => ({
+  ...(await original<typeof import('../hazards/hazards')>()),
+  smokeBetween: () => hazards.smoke,
+  throwGrenade: (_world: unknown, kind: string) => hazards.throws.push({ kind, at: hazards.clock.now }),
+}))
+
+beforeEach(() => {
+  hazards.smoke = 0
+  hazards.throws = []
+})
+
+function litStandoff(guardXs: number[]) {
+  const world = arena()
+  putPlayer(world, 20)
+  addLamp(world, 20)
+  const guards = guardXs.map((x) => addGuard(world, x, -1))
+  return { world, guards }
+}
+
+describe('guard combat', () => {
+  it('cannot see through thick smoke', () => {
+    hazards.smoke = 0.9
+    const { world, guards } = litStandoff([26])
+    run(world, 3)
+    expect(guards[0].awareness).toBe(0)
+  })
+
+  it('lets only two guards fire aimed shots at once; the others suppress or hold', () => {
+    const { world, guards } = litStandoff([28, 30, 32, 34])
+    let mostShooters = 0
+    run(world, 6, {}, () => {
+      mostShooters = Math.max(mostShooters, world.security.shooters.length)
+    })
+    expect(guards.every((guard) => guard.mode === 'combat')).toBe(true)
+    expect(mostShooters).toBe(2)
+    expect(guards.filter((guard) => guard.combatRole === 'assault').length).toBe(2)
+    expect(guards.some((guard) => guard.combatRole === 'suppress' || guard.combatRole === 'hold')).toBe(true)
+  })
+
+  it('never fires through a colleague', () => {
+    const world = arena()
+    const shooter = addGuard(world, 30, -1)
+    const between = addGuard(world, 26, -1)
+    expect(colleagueInLine(world, shooter, { x: 30, y: GROUND - 1.2 }, { x: 20, y: GROUND - 1 })).toBe(true)
+    between.y -= 10
+    expect(colleagueInLine(world, shooter, { x: 30, y: GROUND - 1.2 }, { x: 20, y: GROUND - 1 })).toBe(false)
+  })
+
+  it('takes cover behind furniture on the far side from the player', () => {
+    const { world, guards } = litStandoff([31])
+    world.props = createProps([{ kind: 'filingCabinet', x: 28, y: GROUND }])
+    run(world, 6)
+    const feet = feetOf(guards[0])
+    expect(guards[0].mode).toBe('combat')
+    expect(guards[0].combatRole).toBe('assault')
+    expect(feet.x).toBeGreaterThan(28.9)
+    expect(feet.x).toBeLessThan(29.6)
+  })
+
+  it('falls back when badly hurt', () => {
+    const { world, guards } = litStandoff([30])
+    run(world, 2.5, {}, () => guards[0].mode === 'combat')
+    guards[0].hp = 20
+    const before = feetOf(guards[0]).x
+    run(world, 2)
+    expect(guards[0].combatRole).toBe('fallback')
+    expect(feetOf(guards[0]).x).toBeGreaterThan(before + 2)
+  })
+
+  it('a heavy flushes a player who stays put with a flashbang, announced first', () => {
+    const world = arena()
+    putPlayer(world, 20)
+    addLamp(world, 20)
+    const heavy = addGuard(world, 30, -1, 'heavy')
+    let barkedAt = -1
+    run(world, 14, {}, () => {
+      hazards.clock.now = world.clock
+      if (barkedAt < 0 && world.security.barks.some((line) => line.text.startsWith('Flash'))) barkedAt = world.clock
+      return hazards.throws.length > 0
+    })
+    expect(heavy.armored).toBe(true)
+    expect(hazards.throws).toHaveLength(1)
+    expect(hazards.throws[0].kind).toBe('flash')
+    expect(barkedAt).toBeGreaterThan(0)
+    expect(hazards.throws[0].at - barkedAt).toBeGreaterThan(0.9)
+  })
+
+  it('a flashed guard staggers blind and sees nothing', () => {
+    const { world, guards } = litStandoff([26])
+    guards[0].blindSeconds = 3
+    run(world, 2)
+    expect(guards[0].awareness).toBe(0)
+    expect(world.security.barks.length).toBeGreaterThan(0)
+  })
+})

@@ -5,9 +5,10 @@ import { createWorld, type World } from '../world'
 
 const FRAME = 1 / 60
 
-function run(world: World, seconds: number, input: Partial<Input> = {}): void {
+function run(world: World, seconds: number, input: Partial<Input> = {}, each?: () => void): void {
   for (let elapsed = 0; elapsed < seconds; elapsed += FRAME) {
     stepWorld(world, { ...idleInput({ x: world.player.x + 5, y: world.player.y }), ...input }, FRAME)
+    each?.()
   }
 }
 
@@ -43,29 +44,53 @@ describe('playing in the complex', () => {
     expect(world.player.y + world.player.h).toBeCloseTo(well.stops[4], 0)
   })
 
-  it('sends a hunting guard up the stairs to the floor the player was seen on', () => {
+  it('sends a searching guard up the stairs to the floor the player was last reported on', () => {
     const { world, well } = atTowerStairs(3)
     const guard = createWorld(1, 'complex').guards[0]
+    const goal = { x: well.leftX + 4, y: well.stops[7] }
     Object.assign(guard, {
-      x: well.leftX + 6, y: well.stops[3] - guard.h - 0.01, vx: 0, vy: 0, state: 'alert', awareness: 1, lostSeconds: 999,
-      target: { x: well.leftX + 4, y: well.stops[7] - 0.8 }, role: 'patrol',
+      x: well.leftX + 6, y: well.stops[3] - guard.h - 0.01, vx: 0, vy: 0, mode: 'searching', state: 'suspicious', role: 'patrol',
+      search: { points: [goal], index: 0, dwell: 0, endsAt: 1e9 },
     })
     world.guards = [guard]
-    world.alarm = true
     Object.assign(world.player, { x: 5, y: world.groundY - 1.7 })
     let highest = well.stops[3]
-    for (let frame = 0; frame < 60 * 20; frame += 1) {
-      guard.target = { x: well.leftX + 4, y: well.stops[7] - 0.8 }
-      stepWorld(world, idleInput(), FRAME)
+    let usedStairs = false
+    run(world, 20, {}, () => {
       highest = Math.min(highest, guard.y + guard.h)
-    }
+      usedStairs ||= guard.stairs !== null
+    })
+    expect(usedStairs).toBe(true)
     expect(highest).toBeLessThanOrEqual(well.stops[7] + 0.5)
   })
 
-  it('survives thirty seconds of the whole site running', () => {
+  it('walks a calm patrol along its route and back without leaving its floor', () => {
+    const world = createWorld(1, 'complex')
+    const guard = world.guards.find((other) => other.role === 'patrol' && other.route.length >= 2 && other.roomId !== null)!
+    world.guards = [guard]
+    Object.assign(world.player, { x: 5, y: world.groundY - 1.7, hp: 1e6 })
+    const floor = guard.home.y
+    const [a, b] = guard.route
+    let nearA = false
+    let nearB = false
+    run(world, 90, {}, () => {
+      const x = guard.x + guard.w / 2
+      nearA ||= Math.abs(x - a.x) < 1
+      nearB ||= Math.abs(x - b.x) < 1
+    })
+    expect(nearA && nearB).toBe(true)
+    expect(guard.mode).toBe('calm')
+    expect(Math.abs(guard.y + guard.h - floor) < 0.1 || guard.detour !== null || guard.stairs !== null).toBe(true)
+  })
+
+  it('runs thirty seconds of the whole guarded site quickly and stays finite', () => {
     const world = createWorld(3, 'complex')
     world.player.hp = 1e6
+    const started = performance.now()
     run(world, 30, { jumpHeld: true, right: true })
+    const seconds = (performance.now() - started) / 1000
+    expect(world.guards.length).toBeGreaterThan(60)
+    expect(seconds).toBeLessThan(10)
     expect(Number.isFinite(world.player.x)).toBe(true)
     expect(world.guards.every((guard) => Number.isFinite(guard.x) && Number.isFinite(guard.y))).toBe(true)
   })

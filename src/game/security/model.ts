@@ -128,7 +128,7 @@ export function createGuard(spawn: GuardSpawn, armored = false): Guard {
   return {
     x: spawn.x + 0.15, y: spawn.y - 1.6, w: 0.7, h: 1.6, vx: 0, vy: 0, onGround: false,
     hp, maxHp: hp, facing: spawn.facing, state: 'patrol', mode: 'calm', modeSeconds: 0, awareness: 0, target: null,
-    home, homeX: home.x, route: route.map((point) => ({ x: point.x + 0.5, y: point.y })), routeIndex: 0, wait: 0, station: null, detour: null, announced: 'calm', wasBlind: false, evidenceTimer: 0,
+    home, homeX: home.x, route: route.map((point) => ({ x: point.x + 0.5, y: point.y })), routeIndex: 0, wait: route.length >= 2 ? 0 : PATROL.postTurnMin, station: null, detour: null, announced: 'calm', wasBlind: false, evidenceTimer: 0,
     interest: null, lastKnown: null, lastKnownAt: -Infinity, seesPlayer: false, radio: null, pendingReport: null, search: null, follow: null,
     combatRole: 'assault', cover: null, replan: 0, drawSeconds: 0, flashCooldown: 0, flashWindup: 0, shootCooldown: 0.4,
     alertSeconds: 0, lostSeconds: 0, checkInAt: Infinity, missing: false, stunSeconds: 0, barkCooldown: 0, thinkTimer: 0,

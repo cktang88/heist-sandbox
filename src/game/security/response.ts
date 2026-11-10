@@ -11,6 +11,7 @@ import { LEVELS } from './tuning'
  * The armoured response team. It drives in from the end of the street opposite the getaway van when the
  * site reaches alert level 3, enters the building where the intruder was last reported, and sweeps it
  * floor by floor up (or down) the stairs to that floor before searching around the last known position.
+ * One team per alert; a later alert (after the level has stepped back down) brings another, up to a limit.
  */
 
 const MAX_TEAMS = 3
@@ -18,7 +19,8 @@ const SWEEP_SECONDS = 150
 
 export function deployResponders(world: World): void {
   const security = world.security
-  if (security.responders >= MAX_TEAMS) return
+  if (security.responseSent || security.responders >= MAX_TEAMS) return
+  security.responseSent = true
   security.responders += 1
   const goal = security.lastKnown ? floorBelow(world, security.lastKnown) : security.focus
   const fromRight = world.extraction.x < world.grid.width / 2

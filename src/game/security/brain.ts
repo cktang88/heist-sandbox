@@ -230,7 +230,11 @@ function conclude(world: World, guard: Guard, at: Vec): void {
   const kind = guard.interest?.kind
   if (kind === 'body' || kind === 'gunfire' || kind === 'shout') startSearch(world, guard, at)
   else if (kind === 'order') startSearch(world, guard, at, TIMING.searchSeconds / 2)
-  else {
+  else if (guard.search && world.clock < guard.search.endsAt) {
+    // A false lead in the middle of a search: carry on with the search.
+    guard.interest = null
+    setMode(guard, 'searching')
+  } else {
     if (kind === 'lightsOut') startRadio(world, guard, { kind: 'fault', at, what: 'lights' })
     standDown(world, guard)
   }
