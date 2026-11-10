@@ -30,6 +30,8 @@ import { createPhysProps, type PhysPropsState } from './physprops/state'
 import { createMelee, type MeleeState } from './melee/state'
 import { createIntel, type IntelState } from './intel/types'
 import { createGaps, type GapState } from './gaps/state'
+import { createPeople } from './people/people'
+import type { PeopleState } from './people/types'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -99,6 +101,8 @@ export type World = {
   rng: Rng
   /** Where the case really is, and what the player has learned about it. */
   intel: IntelState
+  /** Who the guards are: names, ranks, traits, bonds and what happened to them tonight (people/). */
+  people?: PeopleState
 }
 
 export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
@@ -153,5 +157,6 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
   }
   setupIntel(world)
   prepareWorld(world)
+  world.people = createPeople(world, seed)
   return world
 }
