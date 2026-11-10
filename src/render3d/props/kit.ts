@@ -1,5 +1,6 @@
 import { BoxGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh, MeshStandardMaterial, SphereGeometry, type Material } from 'three'
 import { MODELS } from '../assetManifest'
+import { EXTRA_MODELS } from '../assetManifestExtra'
 import { SCAN_URL } from '../propbatch/recipe'
 
 /**
@@ -85,4 +86,46 @@ export function scanned(group: Group, id: string, options: ScanOptions = {}): bo
   holder.position.set(options.x ?? 0, options.lift ?? 0, options.z ?? -1.4)
   group.add(holder)
   return true
+}
+
+export type LibraryOptions = {
+  /** The space it must fit, in tiles: it is scaled evenly until its width and height both fit. */
+  w: number
+  h: number
+  /** Extra turn about the vertical axis, on top of the quarter turn a model facing sideways gets. */
+  turn?: number
+  /** Where its centre goes across; how far its back sits from the deepest spot; base height. */
+  x?: number
+  back?: number
+  lift?: number
+  /** Hangs on the back wall (wall props: top edge at y = 0, origin on the wall's face) instead of standing. */
+  onWall?: boolean
+}
+
+/** Where furniture can go deepest: just in front of the back wall. */
+const DEEPEST_Z = -2.28
+
+/**
+ * Adds a model from the extra library (`EXTRA_MODELS`, sizes in metres), turned to show its front and scaled evenly
+ * to fit within `w` by `h` tiles, standing back against the wall. Returns its scale (tiles per metre), so callers can add
+ * parts in its frame, or 0 if the id is unknown.
+ */
+export function library(group: Group, id: string, options: LibraryOptions): number {
+  const asset = EXTRA_MODELS.find((model) => model.id === id)
+  if (!asset) return 0
+  // A side view wants the long side of a table or bed, and the front of a model that faces along x.
+  const sideways = asset.tags.includes('faces-x') || asset.tags.includes('long-axis-z')
+  const [sx, sy, sz] = asset.size
+  const across = sideways ? sz : sx
+  const deep = sideways ? sx : sz
+  // Real size where the footprint allows (a little larger reads better at this distance), smaller where it must.
+  const scale = Math.min(options.w / across, options.h / sy, TILES_PER_METRE * 1.15)
+  const holder = new Group()
+  holder.userData[SCAN_URL] = asset.url
+  holder.scale.setScalar(scale)
+  holder.rotation.y = (sideways ? -Math.PI / 2 : 0) + (options.turn ?? 0)
+  if (options.onWall) holder.position.set(options.x ?? 0, (options.lift ?? 0) - sy * scale, (deep * scale) / 2 + 0.01)
+  else holder.position.set(options.x ?? 0, options.lift ?? 0, DEEPEST_Z + (options.back ?? 0) + (deep * scale) / 2)
+  group.add(holder)
+  return scale
 }
