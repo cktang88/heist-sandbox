@@ -6,7 +6,9 @@ import { hurtGuard } from './guards'
 import { emitNoise } from './noise'
 import { GRAVITY } from './physics'
 import { playSound } from './sounds'
-import { setTile, TILE_DEFS, TILE_KINDS, tileAt, type Grid, type TileKind } from './tiles'
+import { builtAs, BUILT_NONE } from './gaps/holes'
+import { currentHoles } from './gaps/state'
+import { CLEAR_OF_LANE, RUBBLE, setLaneFlags, setTile, TILE_DEFS, TILE_KINDS, tileAt, type Grid, type TileKind } from './tiles'
 import type { Interior } from './site'
 import type { Rect } from './types'
 import type { World } from './world'
@@ -165,7 +167,10 @@ function dropTile(world: World, tile: FallingTile, dt: number): boolean {
   if (under === 'reinforced' || tileAt(world.grid, tile.x, below - 1) !== 'air') return shatter(world, tile)
   // Setting solid around a person, a body, the loot, furniture or a thrown charge would bury it; it breaks up on them instead.
   if (occupied(world, { x: tile.x, y: below - 1, w: 1, h: 1 })) return shatter(world, tile)
+  // A heap that grows up into a hole in the floor above breaks up there rather than plugging it.
+  if (builtAs(currentHoles(world), tile.x, below - 1) !== BUILT_NONE) return shatter(world, tile)
   setTile(world.grid, tile.x, below - 1, tile.kind)
+  settleRubble(world.grid, tile.x, below - 1)
   burst(world.effects, world.rng, { x: tile.x + 0.5, y: below }, 3, '#8a8f98', 4)
   world.shake = Math.min(1, world.shake + 0.04)
   if (tile.vy > CRUSH_SPEED) {
@@ -173,6 +178,24 @@ function dropTile(world: World, tile: FallingTile, dt: number): boolean {
     playSound(world, 'collapse', { x: tile.x + 0.5, y: below })
   }
   return true
+}
+
+/**
+ * A heap of fallen tiles up to this many rows high is a pile people step round in depth (or over); one that grows
+ * taller fills enough of the room's height to block it, and then the whole heap blocks.
+ */
+export const LOW_PILE = 2
+
+/** Marks a tile that has just come to rest as rubble, and decides whether its heap still leaves the lane clear. */
+function settleRubble(grid: Grid, x: number, y: number): void {
+  let height = 1
+  while (height <= LOW_PILE && (grid.lane[(y + height) * grid.width + x] & RUBBLE) !== 0) height += 1
+  if (height <= LOW_PILE) {
+    setLaneFlags(grid, x, y, RUBBLE | CLEAR_OF_LANE)
+    return
+  }
+  setLaneFlags(grid, x, y, RUBBLE)
+  for (let below = 1; below < height; below += 1) setLaneFlags(grid, x, y + below, RUBBLE)
 }
 
 function shatter(world: World, tile: FallingTile): boolean {
