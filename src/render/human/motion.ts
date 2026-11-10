@@ -58,7 +58,8 @@ function playerAct(world: World, feet: Vec, hand: Vec, held: ToolId): Act | unde
   if (grabbed) return { kind: 'drag', grip: dragGrip(propBox(grabbed), feet) }
   const strike = world.melee.strike
   const since = strike ? world.clock - strike.at : Infinity
-  if (strike && since >= 0 && since < (strike.kind === 'punch' ? PUNCH_SECONDS : KICK_SECONDS)) return { kind: strike.kind, t: since }
+  const lasts = strike?.kind === 'punch' ? PUNCH_SECONDS : strike?.kind === 'kick' ? KICK_SECONDS : THROW_SECONDS
+  if (strike && since >= 0 && since < lasts) return { kind: strike.kind, t: since }
   if (hero.pick > 0 || world.terminal) {
     const work = workAct(world, feet)
     if (work) return work

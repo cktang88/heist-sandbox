@@ -13,8 +13,8 @@ export type MeleeState = {
   dazes: Map<Guard, Daze>
   /** The guard held in front of the player as a human shield. */
   shield: Guard | null
-  /** The last blow thrown, and when, so the body can be drawn mid-punch or mid-kick. */
-  strike: { kind: 'punch' | 'kick'; at: number } | null
+  /** The last blow or throw, and when, so the body can be drawn mid-punch, mid-kick or following through. */
+  strike: { kind: 'punch' | 'kick' | 'throw'; at: number } | null
 }
 
 export function createMelee(): MeleeState {

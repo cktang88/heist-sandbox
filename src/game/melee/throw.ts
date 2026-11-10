@@ -56,6 +56,7 @@ export function throwNearest(world: World, aim: Vec): boolean {
   const share = Math.min(1, Math.max(HEAVY_SPEED_SHARE, LIGHT_SPEED_SHARE - weightOf(prop.kind) * SPEED_LOST_PER_WEIGHT))
   const speed = THROW_SPEED * share
   Object.assign(loose, { flying: true, tipped: 0, vx: direction.x * speed, vy: direction.y * speed - THROW_LIFT })
+  world.melee.strike = { kind: 'throw', at: world.clock }
   return true
 }
 
