@@ -66,6 +66,8 @@ const RECORDINGS: Partial<Record<SoundKind, { files: string[]; gain: number }>> 
 
 const PAN_TILES = 22
 const MUFFLED_HZ = 900
+const DEAF_HZ = 320
+const DEAF_GAIN = 0.35
 
 export function createAudio(): GameAudio {
   let context: AudioContext | null = null
@@ -202,13 +204,15 @@ export function createAudio(): GameAudio {
       if (!context || !master) return
       // Slow motion drops the pitch and muffles everything, which sells the effect.
       const pitch = 0.45 + world.time.scale * 0.55
-      master.frequency.value = 500 + world.time.scale * world.time.scale * 19500
+      // Deafened by a flashbang, the world goes dull and distant until the ringing fades.
+      const deaf = world.player.deafSeconds > 0
+      master.frequency.value = deaf ? DEAF_HZ : 500 + world.time.scale * world.time.scale * 19500
       const ear = centerOf(world.drone ?? world.player)
       const audible = []
       for (const event of events) {
         // Only what is near is heard; a wall or floor in between dulls it.
         const heard = heardAt(event.kind, Math.hypot(event.x - ear.x, event.y - ear.y), !hasLineOfSight(world.grid, ear, event))
-        if (heard) audible.push({ ...heard, kind: event.kind, pan: Math.max(-1, Math.min(1, (event.x - ear.x) / PAN_TILES)) })
+        if (heard) audible.push({ ...heard, loudness: heard.loudness * (deaf ? DEAF_GAIN : 1), kind: event.kind, pan: Math.max(-1, Math.min(1, (event.x - ear.x) / PAN_TILES)) })
       }
       for (const sound of chooseVoices(audible, MAX_VOICES - voices)) play(sound.kind, sound.loudness, sound.pan, pitch, sound.muffled)
       setSiren(world.alarm && world.status === 'playing', pitch)

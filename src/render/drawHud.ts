@@ -63,8 +63,10 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   drawSituation(context, world, unit, width)
   drawTools(context, world, unit, width, height)
   drawCrosshair(context, world, camera, aim)
-  if (world.drone) statusCaption(context, `DRONE  ${Math.ceil(world.drone.battery)}s`, 'click: detonate   E: recall', unit * 1.6, '#6fd0ff', unit, width)
-  if (world.charges.length > 0) statusCaption(context, `C4 SET x${world.charges.length}`, 'Q or right-click: detonate all', unit * (world.drone ? 3.9 : 1.6), '#ffb347', unit, width)
+  // The DEAFENED notice (flashOverlay.ts) takes the top of the middle column while the ears ring.
+  const statusTop = unit * (world.player.deafSeconds > 0 ? 2.4 : 1.6)
+  if (world.drone) statusCaption(context, `DRONE  ${Math.ceil(world.drone.battery)}s`, 'click: detonate   E: recall', statusTop, '#6fd0ff', unit, width)
+  if (world.charges.length > 0) statusCaption(context, `C4 SET x${world.charges.length}`, 'Q or right-click: detonate all', statusTop + (world.drone ? unit * 2.3 : 0), '#ffb347', unit, width)
   if (world.prompt && world.status === 'playing') drawPrompt(context, world.prompt, unit, width, height)
   if (world.stealth.hint && world.status === 'playing') caption(context, world.stealth.hint, width / 2, height - unit * 3.55, DIM, unit * 0.75, 'center')
   if (world.terminal && world.status === 'playing') drawTerminal(context, world.terminal, unit, width, height)
