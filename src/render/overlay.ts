@@ -36,7 +36,7 @@ export function drawOverlay(context: CanvasRenderingContext2D, world: World, cam
   const unit = hudUnit(camera.height)
   if (world.security.lastKnown) drawLastKnown(context, world, camera, world.security.lastKnown, unit)
   for (const guard of world.guards) {
-    if (guard.state === 'dead' || guard.out || guard.startle || !onScreen(camera, guard, 2)) continue
+    if (guard.state === 'dead' || guard.hiddenIn !== null || guard.startle || !onScreen(camera, guard, 2)) continue
     drawGuardStatus(context, world, camera, guard, unit)
     drawGuardName(context, world, camera, guard, unit)
   }
@@ -70,26 +70,50 @@ function onScreen(camera: Camera, at: Vec, margin: number): boolean {
 }
 
 /**
- * The icon over a guard's head says what they are doing. State names are read as plain strings,
- * so new states from the security system get their icon as soon as they exist; unknown ones get none.
+ * The icon over a guard's head says what he is doing, read from his detailed `mode` (the coarse `state` lumps
+ * searching, panic and surrender together). A guard talking into his radio shows the handset whatever his mode:
+ * stopping him now contains the alert. States with no glyph are spelled out in a small tag.
  */
-type Icon = 'alert' | 'suspicious' | 'searching' | 'radio' | 'blind'
-function iconFor(guard: Guard): Icon | null {
+export type Icon = 'alert' | 'suspicious' | 'searching' | 'radio' | 'blind' | 'tied' | 'surrendered' | 'panic' | 'out'
+export function iconFor(guard: Guard): Icon | null {
+  if (guard.state === 'dead' || guard.hiddenIn !== null) return null
+  if (guard.out) return 'out'
+  if (guard.restrained) return 'tied'
   if (guard.blindSeconds > 0) return 'blind'
-  const state: string = guard.state
-  if (state === 'alert' || state === 'hostile' || state === 'combat') return 'alert'
-  if (state === 'radioing' || state === 'radio' || state === 'calling' || state === 'alarmed') return 'radio'
-  if (state === 'searching' || state === 'search') return 'searching'
-  if (state === 'suspicious' || state === 'curious' || state === 'investigating') return 'suspicious'
-  return null
+  if (guard.radio || guard.mode === 'toAlarm') return 'radio'
+  switch (guard.mode) {
+    case 'combat': return 'alert'
+    case 'searching': return 'searching'
+    case 'noticed':
+    case 'investigating': return 'suspicious'
+    case 'panic': return 'panic'
+    case 'surrendered': return 'surrendered'
+    default: return null
+  }
 }
 
-const ICON_COLOURS: Record<Icon, string> = { alert: '#ff2d3d', suspicious: '#ffd23f', searching: '#ff9a3a', radio: '#ff5a4a', blind: '#ffffff' }
+const TAGS: Partial<Record<Icon, string>> = { tied: 'TIED', surrendered: 'HANDS UP', panic: 'PANIC', out: 'OUT COLD' }
+
+const ICON_COLOURS: Record<Icon, string> = {
+  alert: '#ff2d3d', suspicious: '#ffd23f', searching: '#ff9a3a', radio: '#ff5a4a', blind: '#ffffff',
+  tied: '#9fd8ff', surrendered: '#f2f2ea', panic: '#d9a0ff', out: '#9aa4b4',
+}
 
 function drawGuardStatus(context: CanvasRenderingContext2D, world: World, camera: Camera, guard: Guard, unit: number): void {
   const head = worldToScreen(camera, { x: guard.x + guard.w / 2, y: guard.y })
   const icon = iconFor(guard)
   const meterY = head.y - unit * 0.9
+  const tag = icon ? TAGS[icon] : undefined
+  if (tag) {
+    // Down, tied or giving up: a word says it better than a glyph, and his awareness no longer matters.
+    const at = guard.out ? worldToScreen(camera, { x: guard.x + guard.w / 2, y: guard.y + guard.h - 0.6 }) : head
+    const size = unit * 0.62
+    const w = measure(context, tag, size) + unit * 0.6
+    context.fillStyle = 'rgba(6,8,12,0.7)'
+    context.fillRect(at.x - w / 2, at.y - unit * 1.75, w, size * 1.5)
+    caption(context, tag, at.x, at.y - unit * 1.75 + size * 1.1, ICON_COLOURS[icon!], size, 'center')
+    return
+  }
   if (guard.awareness > 0.05 && icon !== 'alert') {
     const w = unit * 2.6
     context.fillStyle = 'rgba(0,0,0,0.6)'
