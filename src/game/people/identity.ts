@@ -16,6 +16,9 @@ const RANKS: Record<GuardRole, Record<Tier, string>> = {
   heavy: { rookie: 'Tactical', regular: 'Tactical Officer', veteran: 'Tactical Lead' },
 }
 
+const FIRST_ACT_MIN = 15
+const FIRST_ACT_SPREAD = 60
+
 const FEMALE = new Set(['Ana', 'Bea', 'Dana', 'Eva', 'Ines', 'Juno', 'Kira', 'Lena', 'Mara', 'Nadia', 'Rosa', 'Tess', 'Vera', 'Zoe', 'Noor'])
 
 export function rankFor(guard: Guard): string {
@@ -108,10 +111,14 @@ export function drawName(rng: Rng, pool: NamePool, surname?: string): { first: s
 /** A person on the site's roster: name, rank, age, service, traits and a line of life. */
 export function createPerson(rng: Rng, pool: NamePool, id: number, guard: Guard, traits?: TraitId[]): Person {
   const { first, last } = drawName(rng, pool)
-  return blankPerson(id, guard, first, last, {
+  const person = blankPerson(id, guard, first, last, {
     roster: true, age: ageFor(rng, guard.tier), years: yearsFor(rng, guard.tier),
     traits: traits ?? pickTraits(rng, guard.tier), life: lifeLine(rng, first),
   })
+  // Nobody starts the night with a yawn on cue: first idle moments are spread over the opening minutes.
+  person.nextActAt = FIRST_ACT_MIN + rng() * FIRST_ACT_SPREAD
+  person.nextChatAt = FIRST_ACT_MIN + rng() * FIRST_ACT_SPREAD
+  return person
 }
 
 /** Someone brought in later (the response team): the radio's own name for him and a rank, nothing more. */
@@ -128,7 +135,7 @@ export function snapshotOf(guard: Guard): Snapshot {
 
 function blankPerson(id: number, guard: Guard, first: string, last: string, rest: Pick<Person, 'roster' | 'age' | 'years' | 'traits' | 'life'>): Person {
   return {
-    id, guard, first, last, rank: rankFor(guard), ...rest, memories: [], told: [], act: null, still: { x: guard.x, y: guard.y, since: 0 }, guarding: null, nextActAt: 0, nextTalkAt: 0,
+    id, guard, first, last, rank: rankFor(guard), ...rest, memories: [], told: [], act: null, still: { x: guard.x, y: guard.y, since: 0 }, guarding: null, nextActAt: 0, nextTalkAt: 0, nextChatAt: 0,
     seen: snapshotOf(guard),
     berserkUntil: -Infinity, returning: null,
     knowledge: { seen: false, named: false, questioned: false, papers: false, traits: [], bonds: [] },

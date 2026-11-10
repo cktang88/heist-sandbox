@@ -72,6 +72,8 @@ export type Person = {
   /** Clock time he may next do something idle, and next say something of his own. */
   nextActAt: number
   nextTalkAt: number
+  /** Clock time he may next wander over to a friend for a chat. */
+  nextChatAt: number
   /** What his guard looked like at his last tick, to see what changed. */
   seen: Snapshot
   /** Clock until which grief has made him fearless. */

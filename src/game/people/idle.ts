@@ -21,6 +21,9 @@ const START_ODDS = 0.25
 const CHAT_REACH = 18
 const CHAT_CLOSE = 2.2
 const CHAT_SECONDS = 9
+/** Chance, per look while paused, that he wanders over to a friend; and the least time between chats. */
+const WANDER_ODDS = 0.06
+const CHAT_GAP = 60
 const OFFICER_REACH = 5
 const SHORTEST_ACT = 2.5
 
@@ -138,11 +141,11 @@ function startChat(world: World, people: PeopleState, person: Person): boolean {
     }
     // Walk over, now and then, if nothing is in the way.
     const keen = person.traits.includes('chatty') ? 2 : 1
-    if (guard.role !== 'patrol' || guard.wait <= 1 || guard.detour || world.clock < person.nextActAt || people.rng() > 0.15 * keen) continue
+    if (guard.role !== 'patrol' || guard.wait <= 1 || guard.detour || world.clock < person.nextChatAt || people.rng() > WANDER_ODDS * keen) continue
     if (!hasLineOfSight(world.grid, { x: mine.x, y: mine.y - 1 }, { x: theirs.x, y: theirs.y - 1 })) continue
     guard.detour = { x: theirs.x + (mine.x < theirs.x ? -1.2 : 1.2), y: theirs.y }
     guard.wait = 0
-    person.nextActAt = world.clock + 20
+    person.nextChatAt = world.clock + CHAT_GAP
     return true
   }
   return false
@@ -155,6 +158,7 @@ function chat(world: World, people: PeopleState, person: Person, other: Person, 
     one.act = { name: 'chat', until, with: two.id }
     one.guard.facing = feetOf(two.guard).x >= feetOf(one.guard).x ? 1 : -1
     one.nextActAt = until + ACT_GAP_MIN
+    one.nextChatAt = until + CHAT_GAP
   }
   say(world, people, person, talk, { about: other })
   if (person.traits.includes('chatty')) reveal(world, person, 'chatty')

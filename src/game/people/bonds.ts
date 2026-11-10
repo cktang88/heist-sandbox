@@ -3,27 +3,29 @@ import { feetOf } from '../security/model'
 import type { Bond, BondKind, Person } from './types'
 
 /**
- * Who knows whom. People who work near each other (same floor of the same building, or the same beat) are the
- * ones who become friends, rivals or partners; a veteran close to a rookie takes him under his wing. A few
+ * Who knows whom. People who work near each other (the same floor, or one storey apart) are the ones who become friends, rivals or partners; a veteran close to a rookie takes him under his wing. A few
  * share a surname (brothers, made when names are drawn) or are a couple, and some owe each other money.
  */
 
-const NEAR_X = 30
-const SAME_FLOOR = 1
-/** Of the pairs that work near each other, the share that has a bond. */
-const BOND_ODDS = 0.35
+const NEAR_X = 40
+/** Feet rows apart: the same floor, or one storey up or down. */
+const NEAR_Y = 6.5
+/** Of the pairs that work near each other, the share that has a bond (fewer across floors). */
+const BOND_ODDS = 0.5
+const OTHER_FLOOR_ODDS = 0.4
 
 /** The kind of bond a pair working near each other has, if any. */
 function bondFor(rng: Rng, a: Person, b: Person): BondKind | null {
-  if (rng() > BOND_ODDS) return null
+  const sameFloor = Math.abs(feetOf(a.guard).y - feetOf(b.guard).y) < 1
+  if (rng() > BOND_ODDS * (sameFloor ? 1 : OTHER_FLOOR_ODDS)) return null
   const tiers = [a.guard.tier, b.guard.tier]
   if (tiers.includes('veteran') && tiers.includes('rookie') && rng() < 0.6) return 'mentor'
-  const both = a.guard.role === 'patrol' && b.guard.role === 'patrol'
+  const both = sameFloor && a.guard.role === 'patrol' && b.guard.role === 'patrol'
   const roll = rng()
   if (both && roll < 0.35) return 'partners'
   if (roll < 0.62) return 'friends'
-  if (roll < 0.8) return 'rivals'
-  if (roll < 0.9) return 'debt'
+  if (roll < 0.82) return 'rivals'
+  if (roll < 0.94) return 'debt'
   return 'couple'
 }
 
@@ -52,7 +54,7 @@ export function makeBonds(rng: Rng, persons: Person[]): Bond[] {
 function worksNear(a: Person, b: Person): boolean {
   const fa = feetOf(a.guard)
   const fb = feetOf(b.guard)
-  return Math.abs(fa.y - fb.y) < SAME_FLOOR && Math.abs(fa.x - fb.x) < NEAR_X
+  return Math.abs(fa.y - fb.y) < NEAR_Y && Math.abs(fa.x - fb.x) < NEAR_X
 }
 
 function already(bonds: Bond[], a: number, b: number): boolean {

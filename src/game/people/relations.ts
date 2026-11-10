@@ -68,11 +68,12 @@ function actOnBond(world: World, people: PeopleState, person: Person, other: Per
         guard.nerve = Math.min(1, guard.nerve + guard.shock - PARTNER_SHOCK_CAP)
         guard.shock = PARTNER_SHOCK_CAP
       }
-      if (them.stunSeconds > 0 && (guard.mode === 'calm' || guard.mode === 'caution') && person.guarding === null) {
+      const starts = them.stunSeconds > 0 && (guard.mode === 'calm' || guard.mode === 'caution') && person.guarding === null
+      if (starts) {
         person.guarding = other.id
         guard.station = feetOf(them)
       }
-      say(world, people, person, 'partnerStays', { about: other })
+      say(world, people, person, 'partnerStays', { about: other }, starts)
     }
   }
   // Told to partner his rival, he will not.

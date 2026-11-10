@@ -10,7 +10,7 @@ import type { PeopleState, Person, TraitId } from './types'
  * `stepPeople` (step.ts) then nudges public guard state from them; see tick.ts.
  */
 
-const BROTHER_ODDS = 0.06
+const BROTHER_ODDS = 0.04
 
 /** Identities for every guard on the site as built. Pure: the same seed gives the same people. */
 export function createPeople(world: World, seed: number): PeopleState {
@@ -44,7 +44,7 @@ const pools = new WeakMap<PeopleState, NamePool>()
 /** A few colleagues with a close bond turn out to be brothers: the second takes the first one's surname. */
 function makeBrothers(people: PeopleState, pool: NamePool): void {
   for (const bond of people.bonds) {
-    if (bond.kind !== 'friends' || people.rng() > BROTHER_ODDS * 4) continue
+    if (bond.kind !== 'friends' || people.rng() > BROTHER_ODDS * 2) continue
     const elder = people.persons[bond.a]
     const younger = people.persons[bond.b]
     const renamed = drawName(people.rng, pool, elder.last)
