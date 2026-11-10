@@ -67,10 +67,10 @@ function clouds(atlas: CanvasRenderingContext2D, map: Mapping, ground: number, m
   const c = context(layer)
   const thick = mood.name === 'overcast' || mood.name === 'wet' ? 1.6 : 1
   // High streaks, then low banks the tallest towers rise into.
-  for (let streak = 0; streak < 26 * thick; streak += 1) {
-    c.fillStyle = css(mix(mood.cloud, mood.cloudLight, 0.3), rng.range(0.08, 0.2))
+  for (let streak = 0; streak < 14 * thick; streak += 1) {
+    c.fillStyle = css(mix(mood.cloud, mood.cloudLight, 0.3), rng.range(0.06, 0.14))
     c.beginPath()
-    c.ellipse(rng.range(0, map.width), map.y(ground + rng.range(190, 330)), rng.range(40, 160), rng.range(2, 6), 0, 0, Math.PI * 2)
+    c.ellipse(rng.range(0, map.width), map.y(ground + rng.range(190, 330)), rng.range(60, 200), rng.range(5, 12), 0, 0, Math.PI * 2)
     c.fill()
   }
   for (let bank = 0; bank < 30 * thick; bank += 1) {
