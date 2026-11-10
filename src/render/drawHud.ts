@@ -332,7 +332,7 @@ function drawEndScreen(context: CanvasRenderingContext2D, world: World, width: n
   const colour = won ? '#7ee08a' : '#ff5a4a'
   context.fillStyle = colour
   context.fillRect(width / 2 - unit * 10, height * 0.36 - unit * 3.4, unit * 20, 2)
-  caption(context, won ? 'CLEAN GETAWAY' : 'CAUGHT', width / 2, height * 0.36, colour, unit * 3, 'center')
+  caption(context, won ? 'CLEAN GETAWAY' : 'OPERATIVE DOWN', width / 2, height * 0.36, colour, unit * 3, 'center')
   const peak = ALERT_LEVELS[Math.max(0, Math.min(4, world.security.level))].word
   const rating = stealthRating(world)
   const stats = world.stats
