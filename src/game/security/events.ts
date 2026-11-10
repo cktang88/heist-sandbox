@@ -97,6 +97,8 @@ export type SecurityState = {
   lastCasualtyAt: number
   /** Clock time stations were last handed out. */
   stationsAt: number
+  /** The stations the control room handed out itself, by guard: the only ones it takes back when it reassigns them. */
+  stations: Map<Guard, Vec>
   /** Response teams sent so far, and whether one has been sent for the current alert. */
   responders: number
   responseSent: boolean
@@ -146,7 +148,7 @@ export function createSecurity(): SecurityState {
     level: 0, lastKnown: null, lastContactAt: -Infinity, levelSince: 0, peak: 0, log: [], barks: [], polls: [],
     searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(), circuitsDeadSince: new Map(), firesReported: new Map(), fireAlarms: new Map(),
     reportedBodies: new Set(), shooters: [], campSpot: null, campSeconds: 0,
-    confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
+    confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, stations: new Map(), responders: 0, responseSent: false,
     deaths: [], unseenDeaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), burntDoors: new Set(), openDoorsFound: 0, camerasDeadSince: new Map(), camerasReported: new Set(),
     vaultReported: false, caseMissingAt: Infinity, lampsNoticed: new Set(), ropesNoticed: new Set(), chuteReportedAt: -Infinity, recentLines: [],
     killZones: [], shieldTeams: 0, shieldTeamAt: -Infinity, guardFrags: [],

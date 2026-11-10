@@ -18,7 +18,9 @@ const NEAR_FLOORS = 2
 export function assignStations(world: World): void {
   const security = world.security
   security.stationsAt = world.clock
-  for (const guard of world.guards) guard.station = null
+  // Only its own: a station some other errand gave a guard (standing over a partner, a director's event) stays his.
+  for (const [guard, spot] of security.stations) if (guard.station === spot) guard.station = null
+  security.stations.clear()
   const focus = security.focus
   if (security.level < 2 || !focus) return
   const spots = stationSpots(world, focus)
@@ -29,6 +31,7 @@ export function assignStations(world: World): void {
     if (!guard) break
     taken.add(guard)
     guard.station = spot
+    security.stations.set(guard, spot)
   }
 }
 
@@ -62,7 +65,7 @@ function nearestFreeTo(world: World, spot: Vec, taken: Set<Guard>): Guard | null
   let best: Guard | null = null
   let bestCost = Infinity
   for (const guard of world.guards) {
-    if (taken.has(guard) || !isFree(guard) || guard.role !== 'patrol') continue
+    if (taken.has(guard) || !isFree(guard) || guard.role !== 'patrol' || guard.station) continue
     const cost = travelCost(feetOf(guard), spot)
     if (cost < bestCost) {
       best = guard
