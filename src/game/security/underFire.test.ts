@@ -118,3 +118,22 @@ describe('self-preservation', () => {
     expect(saidAny(lines, ['Hold fire', 'No clear shot', "you'll hit him"])).toBe(true)
   })
 })
+
+describe('flashbanged', () => {
+  it('a steady fighter fires wild, a calm guard stumbles about, and a frightened one covers his face', () => {
+    const { world, guards } = standoff([28])
+    const fighter = guards[0]
+    run(world, 3, {}, () => fighter.mode === 'combat' && fighter.drawSeconds <= 0)
+    const calm = addGuard(world, 60, 1)
+    const frightened = addGuard(world, 70, 1)
+    frightened.shock = 0.6
+    run(world, 0.3)
+    for (const guard of [fighter, calm, frightened]) guard.blindSeconds = 3
+    const lines = runListening(world, 0.5)
+    expect(fighter.blindReaction).toBe('wild')
+    expect(calm.blindReaction).toBe('stumble')
+    expect(frightened.blindReaction).toBe('cover')
+    expect(frightened.crouching).toBe(true)
+    expect(saidAny(lines, ['My face', "I'm blind", "Don't hurt me"])).toBe(true)
+  })
+})
