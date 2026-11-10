@@ -17,7 +17,10 @@ export function stealthControls(world: World, input: Input, dt: number): string 
   if (input.whistlePressed) whistle(world)
   if (world.stealth.choke) {
     const going = stepChoke(world, input.interact, dt)
-    if (going) return world.stealth.choke!.struggle ? 'Keep holding E: wrestling him down (loud)' : 'Keep holding E: choking him out'
+    if (going) {
+      handsFull(input)
+      return world.stealth.choke!.struggle ? 'Keep holding E: wrestling him down (loud)' : 'Keep holding E: choking him out'
+    }
   }
   if (world.stealth.checkIn && !world.stealth.hiding) {
     if (input.interactPressed) answerRadio(world)
@@ -55,6 +58,11 @@ function carryKeys(world: World, input: Input, dt: number): void {
   pickUp(world, body)
   input.grab = false
   stepCarry(world, dt)
+}
+
+/** Both arms round a man's neck: no shooting, punching, kicking, throwing or grabbing until he is down or let go. */
+function handsFull(input: Input): void {
+  Object.assign(input, { fire: false, firePressed: false, punchPressed: false, kickPressed: false, throwPressed: false, grab: false })
 }
 
 /** In hiding: E gets out, or bursts out onto a man walking right past. */

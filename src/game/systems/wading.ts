@@ -35,7 +35,7 @@ export function stepWading(world: World, dt: number, tick: number): void {
     return
   }
   stepPlayer(world, dt)
-  for (const guard of wading) drag(guard, WADING_DEPTH, dt)
+  for (const guard of wading) drag(guard, depthUnder(world, guard), dt)
   if (tick === 0) return
   wading.length = 0
   for (const guard of world.guards) if (guard.mode !== 'dead') stepGuard(world, guard, tick)

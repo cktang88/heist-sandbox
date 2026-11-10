@@ -101,6 +101,19 @@ describe('falling props', () => {
     expect(crates.y).toBe(GROUND - 1)
   })
 
+  it('a prop dropping through a hole narrower than itself lands clear of the slab it fell through', () => {
+    const world = garage()
+    const crate = addProp(world, 'crate', 20, UPPER)
+    // A wall below holds up the right end of the hole, one row down.
+    fillTiles(world.grid, 21, UPPER + 1, 21, GROUND - 1, 'brick')
+    run(world, FRAME)
+    fillTiles(world.grid, 20, UPPER, 21, UPPER, 'air')
+    run(world, 2)
+    const box = propBox(crate)
+    expect(crate.y).toBeGreaterThan(UPPER)
+    expect(boxHitsSolid(world.grid, { x: box.x + 0.05, y: box.y + 0.05, w: box.w - 0.1, h: box.h - 0.1 })).toBe(false)
+  })
+
   it('furniture the player has dragged falls with the furniture physics when its floor goes, and lands once', () => {
     const world = garage()
     const desk = addProp(world, 'desk', 30, UPPER)

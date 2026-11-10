@@ -13,12 +13,13 @@ export function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Props = 
 }
 
 /**
- * A key cap. The same key twice ("9 9") means press it twice and shows two caps; "Hold G" shows the word
- * "hold" before the cap; anything else ("Left click") is one cap.
+ * A key cap. The same key repeated ("9 9", "7 7 7") means press it that many times and shows that many caps;
+ * "Hold G" shows the word "hold" before the cap; anything else ("Left click") is one cap.
  */
 export function keyCaps(key: string): HTMLElement {
-  const [first, second] = key.split(' ')
-  if (first === second) return h('span', { class: 'sg-keys' }, h('kbd', { text: first }), h('kbd', { text: second }))
+  const parts = key.split(' ')
+  const [first, second] = parts
+  if (parts.length > 1 && parts.every((part) => part === first)) return h('span', { class: 'sg-keys' }, ...parts.map((part) => h('kbd', { text: part })))
   if (first === 'Hold' && second) return h('span', { class: 'sg-keys' }, h('small', { text: 'hold' }), h('kbd', { text: key.slice(5) }))
   return h('span', { class: 'sg-keys' }, h('kbd', { text: key }))
 }

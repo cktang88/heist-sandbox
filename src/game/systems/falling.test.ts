@@ -47,6 +47,17 @@ describe('things that fall and roll', () => {
     expect(fan.broken).toBe(true)
   })
 
+  it('a fitting stays up while some of the ceiling over it is left', () => {
+    const world = room()
+    const fan = addProp(world, 'ceilingFan', 20, 17)
+    runAll(world, 0.1)
+    // The fan spans columns 19 to 21: only the ceiling over its right end goes.
+    fillTiles(world.grid, 21, 16, 22, 16, 'air')
+    runAll(world, 1.5)
+    expect(fan.broken).toBe(false)
+    expect(fan.y).toBe(17)
+  })
+
   it('a car with its handbrake off rolls down a guard and stoves itself in against a wall', () => {
     const world = room()
     const car = addProp(world, 'car', 10, 22)

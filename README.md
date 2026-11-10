@@ -68,7 +68,7 @@ Press **Esc** in the game for the full list, help and settings.
 | C or Ctrl | Crouch (quieter, hides behind low cover); slide when running |
 | Mouse | Aim and use the tool in hand |
 | R | Reload |
-| 1-9, 0 or wheel | Pick a tool. Press 9 again for Frag; 7 again for Rope, then Grapple |
+| 1-9, 0 or wheel | Pick a tool. Press 1 again for the Dart gun; 7 again for Rope, then Grapple; 9 again for Frag. On an open terminal the number keys pick an option instead |
 | E | Do the thing in reach: break in through a window (tap to smash, hold to cut quietly), pick locks, take down, tie up, question, hack, cut wires, switches, call elevators |
 | F / V | Punch / kick (a kick also tips tables and bursts doors) |
 | G | Drag furniture (hold), hold a guard from behind as a shield (hold), pick up or drop a body |
@@ -87,6 +87,7 @@ Press **Esc** in the game for the full list, help and settings.
 | Key | Tool | Quiet? | Use |
 |---|---|---|---|
 | 1 | Pistol | Yes | Drops unaware guards in one shot |
+| 1 ×2 | Dart gun | Yes | Puts a guard to sleep a few seconds after it hits; armour stops it |
 | 2 | Rifle | No | Fast fire; goes through doors |
 | 3 | Shotgun | No | Nine pellets, huge up close, useless far away |
 | 4 | Sniper | No | One heavy shot; goes through doors, brick and people |
@@ -95,7 +96,7 @@ Press **Esc** in the game for the full list, help and settings.
 | 7 | Drill | Mostly | Tunnel through anything, slowly |
 | 7 ×2 | Rope | Yes | Tie it at an edge and climb the outside of the building |
 | 7 ×3 | Grapple | Yes | Fire a hook at a wall or roof edge, reel with W/S, swing with A/D |
-| 8 | Drone | Yes | Fly it with the move keys to scout, click to detonate |
+| 8 | Drone | Yes | Fly it with the move keys to scout, click to detonate, E to bring it back |
 | 9 | Smoke | Yes | Blocks sight |
 | 9 ×2 | Frag | No | Rolls down stairs; destroys the stair flight |
 | 0 | Flash | No | Blinds and deafens anyone looking |
@@ -193,7 +194,7 @@ Settings are in the pause menu and are remembered. The same things can be set in
 | `?seed=1` | Replay the same heist. Even seeds flip the site left to right |
 | `?site=outpost` | A small site instead of the big complex |
 | `?quality=low` or `?quality=high` | Fewer or more graphics effects (default adjusts itself) |
-| `?render=2d` | A flat view that needs no graphics card |
+| `?render=2d` | A flat view that needs no graphics card (also used when 3D cannot start) |
 | `?debug=1` | Publishes drawing counters on `globalThis.__renderInfo` |
 
 ## Code layout
@@ -207,8 +208,8 @@ Settings are in the pause menu and are remembered. The same things can be set in
 | `src/game/physprops/`, `melee/`, `rope/`, `grapple/`, `gaps/` | Furniture you can move, close combat, ropes, the grapple, floor holes |
 | `src/game/intel/` | The hidden case and the clues that find it |
 | `src/render3d/` | The 3D view (three.js): level, lights, props, people, effects |
-| `src/render/` | The HUD, markers over the 3D view, the shared skeleton, the flat fallback view |
-| `src/ui/` | Menus: pause, controls, help, settings |
+| `src/render/` | The HUD, markers over both views, the shared skeleton, the flat fallback view |
+| `src/ui/` | Menus (pause, controls, help, settings, past heists, dossier), the loading screen, tonight's card, the weather over the view, the debrief |
 | `docs/` | Design references and research notes |
 
 Everything in `src/game/` is deterministic and covered by tests (`npm test`).

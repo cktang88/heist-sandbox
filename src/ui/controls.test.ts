@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { TOOLS } from '../game/toolDefs'
-import { CONTROLS } from './controls'
+import { CONTROLS, morePressesLine } from './controls'
 
 const rows = CONTROLS.flatMap((group) => group.rows)
 const keyFor = (action: string) => rows.find((row) => row.action.startsWith(action))?.keys
@@ -14,11 +14,17 @@ describe('the controls table', () => {
     for (const tool of TOOLS) expect(rows.filter((row) => row.action.startsWith(tool.name)).length, tool.name).toBe(1)
   })
 
-  it('puts the second-page tools on a double press of the key they share', () => {
+  it('puts the second-page tools on repeated presses of the key they share', () => {
     expect(keyFor('Frag')).toEqual(['9 9'])
     expect(keyFor('Rope')).toEqual(['7 7'])
+    expect(keyFor('Grapple')).toEqual(['7 7 7'])
+    expect(keyFor('Dart gun')).toEqual(['1 1'])
     expect(keyFor('Flash')).toEqual(['0'])
     expect(keyFor('Pistol')).toEqual(['1'])
+  })
+
+  it('sums up the extra presses in one line naming every second-page tool', () => {
+    expect(morePressesLine()).toBe('1 again: dart gun; 7 again: rope, then grapple; 9 again: frag')
   })
 
   it('names the close combat, detonation, crouch, focus and menu keys', () => {

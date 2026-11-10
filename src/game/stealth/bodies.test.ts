@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Guard } from '../guards'
+import { breakProp } from '../hazards/reactions'
 import { addProp } from '../hazards/testWorld'
 import { addGuard, addLamp, addWall, arena, GROUND, putPlayer, run } from '../security/testArena'
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
-import { knockOutCold } from './bodies'
+import { restrainGuard } from '../guards'
+import { canBeQuestioned } from '../intel/interrogate'
+import { bodyInOpen, knockOutCold } from './bodies'
 import { CARRY } from './tuning'
 
 /** A guard out cold at x 20 in the dark arena, the player standing over him. */
@@ -80,6 +83,25 @@ describe('carrying bodies', () => {
   })
 })
 
+describe('carrying a man tied up awake', () => {
+  it('he hangs limp on the shoulder, and once set down he is awake and tied again, ready to be questioned', () => {
+    const world = arena()
+    const prisoner = addGuard(world, 20, 1)
+    restrainGuard(world, prisoner)
+    putPlayer(world, 20.4)
+    run(world, 0.2)
+    press(world, 'grab')
+    expect(world.stealth.carried).toBe(0)
+    run(world, 1, { right: true })
+    press(world, 'grab')
+    run(world, 3)
+    expect(prisoner.out).toBe(false)
+    expect(prisoner.restrained).toBe(true)
+    expect(canBeQuestioned(world, prisoner)).toBe(true)
+    expect(prisoner.y + prisoner.h).toBeCloseTo(GROUND, 1)
+  })
+})
+
 describe('hiding bodies', () => {
   it('E stuffs a carried body into a locker, where a calm patrol walks past it', () => {
     const { world, body } = overBody()
@@ -95,6 +117,18 @@ describe('hiding bodies', () => {
     run(world, 4)
     expect(world.stealth.found.size).toBe(0)
     expect(patrol.mode).toBe('calm')
+  })
+
+  it('a body in a locker that is blown apart spills out where anyone can see it', () => {
+    const { world, body } = overBody()
+    const locker = addProp(world, 'wallLocker', 21, GROUND)
+    press(world, 'grab')
+    press(world, 'interact')
+    expect(body.hiddenIn).not.toBeNull()
+    breakProp(world, locker)
+    run(world, 1 / 60)
+    expect(body.hiddenIn).toBeNull()
+    expect(bodyInOpen(world, body)).toBe(true)
   })
 
   it('searchers on a raised alert open the lockers near where they search and find the body', () => {

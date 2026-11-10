@@ -11,7 +11,7 @@ import './debrief.css'
 const CARD_SECONDS = 16
 
 export function showBriefing(world: World): void {
-  document.querySelector('.sg-briefing')?.remove()
+  hideBriefing()
   const lines = nightConditions(world)
   if (lines.length === 0) return
   const card = h('div', { class: 'sg-ui sg-briefing', attrs: { 'aria-live': 'polite' } },
@@ -20,6 +20,11 @@ export function showBriefing(world: World): void {
   card.style.animationDuration = `${CARD_SECONDS}s`
   card.addEventListener('animationend', () => card.remove())
   document.body.append(card)
+}
+
+/** Takes the card away early: once the heist is over it would sit stale over the end screen. */
+export function hideBriefing(): void {
+  document.querySelector('.sg-briefing')?.remove()
 }
 
 /** The same lines as a block for a menu. Empty when the director is off. */

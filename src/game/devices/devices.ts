@@ -6,6 +6,7 @@ import type { Vec } from '../types'
 import type { Device, World } from '../world'
 import { deviceCenter } from './power'
 import { deviceState } from './state'
+import { closeTerminal } from './terminal'
 
 export type { Terminal } from './terminal'
 export { terminalConsumesInput } from './terminal'
@@ -15,9 +16,12 @@ export { isDoorUnlocked, keypadFor } from './locks'
 
 /**
  * Cameras, computers, fuse boxes, keypads and alarm buttons. The player works them through `interact`;
- * here they only tick: devices switched off for a while by a terminal come back on.
+ * here they only tick: devices switched off for a while by a terminal come back on, and a wrecked terminal closes.
  */
 export function stepDevices(world: World, _input: Input, dt: number): void {
+  // A computer shot, shorted or burnt while its menu is open takes the menu with it.
+  const open = world.terminal && world.devices.find((device) => device.id === world.terminal!.device)
+  if (open?.disabled) closeTerminal(world)
   const timers = deviceState(world).offTimers
   for (const [id, seconds] of timers) {
     if (seconds > dt) {

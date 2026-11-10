@@ -12,16 +12,22 @@ import { note } from './note'
 
 const OUT_COLD = 20
 const RECENT = 1.5
+/** A shot this recent, up close, is what killed him (the look comes round four times a second). */
+const POINT_BLANK = 0.6
 const CLOSE = 1.8
 const BLAST_REACH = 6
 
 export function watchGuards(world: World): void {
   const seen = world.chronicle.guards
   const tally = world.chronicle.tally
+  // A death the player dealt by hand or gun counts as a kill; a fall, a fire or his friends' bullets do not.
+  const attacked = world.stats.kills > seen.kills
+  seen.kills = world.stats.kills
   world.guards.forEach((guard, index) => {
     const before = seen.modes[index] ?? guard.mode
-    const out = guard.mode !== 'dead' && guard.stunSeconds > OUT_COLD
-    if (guard.mode !== before) changedMode(world, guard, index, before)
+    // Out cold by the player's hand: the rival crew's victims have their own beat (a director event).
+    const out = guard.mode !== 'dead' && guard.stunSeconds > OUT_COLD && !world.director.rivalVictims.has(guard)
+    if (guard.mode !== before) changedMode(world, guard, index, before, attacked)
     if (out && !seen.out[index]) {
       tally.knockedOut += 1
       note(world, 'down', guard, { who: guardName(world, index), detail: 'knocked out', n: downs(world) + 1 })
@@ -36,9 +42,9 @@ export function watchGuards(world: World): void {
   })
 }
 
-function changedMode(world: World, guard: Guard, index: number, before: string): void {
+function changedMode(world: World, guard: Guard, index: number, before: string, attacked: boolean): void {
   const who = guardName(world, index)
-  if (guard.mode === 'dead') note(world, 'down', guard, { who, detail: howDied(world, guard), n: downs(world) + 1 })
+  if (guard.mode === 'dead') note(world, 'down', guard, { who, detail: howDied(world, guard, attacked), n: downs(world) + 1 })
   else if (guard.mode === 'surrendered') {
     world.chronicle.tally.surrendered += 1
     note(world, 'surrender', guard, { who })
@@ -49,17 +55,21 @@ function downs(world: World): number {
   return world.chronicle.beats.filter((beat) => beat.kind === 'down').length
 }
 
-/** The likeliest cause, from what was going on around him just then. */
-export function howDied(world: World, guard: Guard): string {
+/**
+ * The likeliest cause, from what was going on around him just then. Only a death the player dealt directly
+ * (`attacked`) can be a takedown, a beating or a shot: a man held as a shield and cut down by his own side dies
+ * close to the player too.
+ */
+export function howDied(world: World, guard: Guard, attacked: boolean): string {
   const feet = feetOf(guard)
   const recently = (t: number) => world.clock - t <= RECENT
   const blast = world.chronicle.destruction.lastBlast
   if (blast && recently(blast.t) && distance(blast, centerOf(guard)) < BLAST_REACH) return 'blast'
-  if (distance(centerOf(world.player), centerOf(guard)) < CLOSE) {
-    const strike = world.melee.strike
-    return strike && recently(strike.at) ? 'beaten' : 'takedown'
-  }
-  if (recently(world.chronicle.player.lastShotAt)) return `shot:${world.chronicle.player.lastShotTool}`
   if (isBurningAt(world, { x: feet.x, y: feet.y - 0.5 })) return 'fire'
-  return 'accident'
+  if (!attacked) return 'accident'
+  const close = distance(centerOf(world.player), centerOf(guard)) < CLOSE
+  const strike = world.melee.strike
+  if (close && strike && recently(strike.at)) return 'beaten'
+  if (world.clock - world.chronicle.player.lastShotAt <= (close ? POINT_BLANK : RECENT)) return `shot:${world.chronicle.player.lastShotTool}`
+  return close ? 'takedown' : 'accident'
 }

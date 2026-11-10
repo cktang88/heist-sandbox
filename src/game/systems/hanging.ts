@@ -50,9 +50,8 @@ export function loosenFittings(world: World, opened: readonly number[]): void {
   const index = targetIndex(world)
   const width = world.grid.width
   for (const key of opened) {
-    const x = key % width
     for (const target of index.byTile.get(key + width) ?? []) {
-      if (hungFromCeiling(world, target) && !hangsFromSomething(world, target.box, x)) dropFitting(world, target)
+      if (hungFromCeiling(world, target) && !hangsFromSomething(world, target.box)) dropFitting(world, target)
     }
   }
 }
@@ -72,8 +71,11 @@ export function dropBrokenFittings(world: World): void {
   }
 }
 
-function hangsFromSomething(world: World, box: Rect, x: number): boolean {
-  for (let rise = 0.2; rise <= HANG_REACH; rise += 0.5) if (isSolidAt(world.grid, x + 0.5, box.y - rise)) return true
+/** Any of the ceiling over the fitting's width is left to hang from: a fan or chandelier is bolted along its top. */
+function hangsFromSomething(world: World, box: Rect): boolean {
+  for (let x = Math.floor(box.x); x <= Math.floor(box.x + box.w - 0.001); x += 1) {
+    for (let rise = 0.2; rise <= HANG_REACH; rise += 0.5) if (isSolidAt(world.grid, x + 0.5, box.y - rise)) return true
+  }
   return false
 }
 

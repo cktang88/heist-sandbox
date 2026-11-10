@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { Guard } from '../guards'
 import { createWorld, type World } from '../world'
 import { matches } from './describe'
-import { createIntel, setupIntel } from './intel'
+import { knockOutCold } from '../stealth/bodies'
+import { createIntel, setupIntel, talkersLeft } from './intel'
 import { interrogate, interrogateAction, truthOf } from './interrogate'
 
 function freshWorld(seed: number): World {
@@ -131,5 +132,14 @@ describe('interrogation', () => {
     Object.assign(listener, { x: guard.x + 3, y: guard.y, mode: 'calm', state: 'patrol', deafSeconds: 0, stunSeconds: 0 })
     interrogate(world, guard)
     expect(listener.mode).not.toBe('calm')
+  })
+
+  it('does not count a man tied up out cold among those who might still talk', () => {
+    const world = createWorld(1, 'complex')
+    const before = talkersLeft(world)
+    const guard = world.guards[0]
+    knockOutCold(world, guard, 1000)
+    guard.restrained = true
+    expect(talkersLeft(world)).toBe(before - 1)
   })
 })

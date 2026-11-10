@@ -1,5 +1,5 @@
 import type { World } from '../world'
-import { circuitLive } from './circuits'
+import { circuitLive, isEnergized } from './circuits'
 import type { Fall, FallingFitting, LiquidKind } from './state'
 
 /**
@@ -29,6 +29,7 @@ export function eachStream(world: World, visit: (fall: Fall) => void): void {
 export function eachLiveTile(world: World, visit: (x: number, y: number) => void): void {
   const width = world.grid.width
   for (const key of world.systems.energized.keys()) {
+    if (!isEnergized(world, key)) continue
     const x = key % width
     visit(x, (key - x) / width)
   }

@@ -152,7 +152,8 @@ function burstDoor(world: World, door: Vec): void {
   playSound(world, 'door', at)
   emitNoise(world, at, DOOR_BURST_NOISE)
   for (const guard of world.guards) {
-    if (guard.mode === 'dead' || Math.abs(guard.y + guard.h - feet) > SAME_FLOOR) continue
+    // It swings into whoever stands there; a body on the floor or in a cupboard is not in its way.
+    if (guard.mode === 'dead' || guard.out || Math.abs(guard.y + guard.h - feet) > SAME_FLOOR) continue
     const beyond = (centerOf(guard).x - at.x) * facing
     if (beyond <= 0 || beyond > DOOR_SWING) continue
     if (!hurtGuard(world, guard, DOOR_HIT_DAMAGE, centerOf(world.player))) knockGuard(world, guard, facing * DOOR_HIT_SPEED, -2, DOOR_HIT_STUN)

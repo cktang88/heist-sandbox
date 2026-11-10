@@ -1,4 +1,4 @@
-import { bandOf, CARRIES, DUCT, HANGER_ROWS, SOLID, type SlabRow } from './support'
+import { bandOf, CARRIES, carriesVertically, DUCT, HANGER_ROWS, SOLID, storeyedMask, type SlabRow } from './support'
 import type { Grid } from './tiles'
 
 /**
@@ -84,6 +84,8 @@ let bands = new Int32Array(0)
 /** For each row of the grid: the slabs whose row it is, and the slabs whose band takes it in. */
 type Rows = { slabsOnRow: number[][]; bandsOnRow: number[][] }
 let rows: Rows = { slabsOnRow: [], bandsOnRow: [] }
+/** Where ladders carry up and down (see `storeyedMask`). */
+let storeyed: Uint8Array = new Uint8Array(0)
 const rowsBySlabs = new WeakMap<readonly SlabRow[], Rows>()
 
 function begin(grid: Grid, slabs: readonly SlabRow[]): void {
@@ -109,6 +111,7 @@ function begin(grid: Grid, slabs: readonly SlabRow[]): void {
     bands[entry * 4 + 3] = band.y1
   }
   rows = rowsFor(grid, slabs)
+  storeyed = storeyedMask(grid, slabs)
   candidates.length = 0
   recheck.length = 0
   members.length = 0
@@ -209,10 +212,10 @@ function search(grid: Grid, slabs: readonly SlabRow[], start: number): number {
     }
     const x = index % width
     // Pushed last, so taken first: the ground is below.
-    if (index >= width) visit(kinds, index - width)
+    if (index >= width && carriesVertically(kinds, storeyed, index, index - width)) visit(kinds, index - width)
     if (x > 0) visit(kinds, index - 1)
     if (x < width - 1) visit(kinds, index + 1)
-    if (index + width < size) visit(kinds, index + width)
+    if (index + width < size && carriesVertically(kinds, storeyed, index, index + width)) visit(kinds, index + width)
     if (touchedGround) {
       grounded = true
       break

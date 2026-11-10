@@ -1,4 +1,5 @@
 import { lastEvent, note } from '../../chronicle/note'
+import { count } from '../../chronicle/story/choose'
 import { feetOf, type Guard } from '../../security/model'
 import { roomOf } from '../../security/places'
 import { playSound } from '../../sounds'
@@ -51,7 +52,7 @@ export const fireDrill: ConditionDef = {
           for (const walker of walkers) release(walker.guard, walker.spot)
           radio(stepWorld, `Control: Drill's over. Back inside.`)
           const beat = lastEvent(stepWorld, 'fireDrill')
-          if (beat) beat.outcome = `${stayed} guards stood about on the street`
+          if (beat) beat.outcome = stayed === 0 ? 'nobody was out there by the end of it' : `${count(stayed, 'guard')} stood about on the street`
         }
       },
     }

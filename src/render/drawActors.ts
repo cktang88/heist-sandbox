@@ -13,7 +13,6 @@ const HIT_LOOK: Look = { ...GUARD, suit: '#ffffff', limbs: '#ffffff', vest: '#ff
 const DEAD_LOOK: Look = { ...GUARD, suit: '#5d7391', skin: '#b89a80' }
 
 export function drawGuard(context: CanvasRenderingContext2D, world: World, guard: Guard): void {
-  const feet = { x: guard.x + guard.w / 2, y: guard.y + guard.h }
   const mood = guardMood(guard)
   // A body stuffed in a locker is out of sight.
   if (guard.hiddenIn !== null) return
@@ -28,13 +27,6 @@ export function drawGuard(context: CanvasRenderingContext2D, world: World, guard
 
   const { motion, held } = guardMotion(world, guard, guard.armored ? 'rifle' : 'pistol')
   drawHuman(context, poseHuman(motion), guard.facing, guard.hitFlash > 0 ? HIT_LOOK : guard.armored ? RESPONDER : GUARD, held)
-
-  if (guard.awareness > 0.05 && mood !== 'alert') {
-    context.fillStyle = 'rgba(0,0,0,0.6)'
-    context.fillRect(feet.x - 0.5, guard.y - 0.55, 1, 0.14)
-    context.fillStyle = '#ffd23f'
-    context.fillRect(feet.x - 0.5, guard.y - 0.55, guard.awareness, 0.14)
-  }
 }
 
 /** A calm guard's cone warms toward yellow as his suspicion builds, so the player sees it coming. */
@@ -44,20 +36,10 @@ function coneColor(guard: Guard, mood: 'calm' | 'suspicious' | 'alert'): string 
   return `rgba(255,${Math.round(255 - 45 * a)},${Math.round(255 - 192 * a)},${(0.05 + 0.08 * a).toFixed(3)})`
 }
 
-/** Alert marks float above the dark, so the player can always read a guard's mood. */
-export function drawGuardMarks(context: CanvasRenderingContext2D, world: World): void {
-  for (const guard of world.guards) {
-    const mood = guardMood(guard)
-    if (mood === 'alert') label(context, '!', guard.x + guard.w / 2, guard.y - 0.3, '#ff2d3d')
-    else if (mood === 'suspicious') label(context, '?', guard.x + guard.w / 2, guard.y - 0.7, '#ffd23f')
-  }
-}
-
 let playerBody: Skeleton | null = null
 
 export function drawPlayer(context: CanvasRenderingContext2D, world: World, aim: Vec): void {
   const player = world.player
-  const feet = { x: player.x + player.w / 2, y: player.y + player.h }
   const { motion, held } = playerMotion(world, aim)
   const body = poseHuman(motion)
   playerBody = body
@@ -70,13 +52,6 @@ export function drawPlayer(context: CanvasRenderingContext2D, world: World, aim:
     context.fillRect(body.shoulder.x - player.facing * 0.42 - 0.15, body.shoulder.y + 0.05, 0.3, 0.45)
   }
   drawHuman(context, body, player.facing, world.stealth.disguise ? GUARD : OPERATIVE, held)
-
-  if (player.pick > 0) {
-    context.fillStyle = 'rgba(0,0,0,0.6)'
-    context.fillRect(feet.x - 0.75, player.y - 0.5, 1.5, 0.18)
-    context.fillStyle = '#39ff6a'
-    context.fillRect(feet.x - 0.75, player.y - 0.5, 1.5 * player.pick, 0.18)
-  }
 }
 
 function drawParachute(context: CanvasRenderingContext2D, body: Skeleton): void {

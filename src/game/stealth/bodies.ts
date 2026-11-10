@@ -25,11 +25,11 @@ export function bodyInOpen(world: World, guard: Guard): boolean {
 
 /**
  * Knocks a guard out cold for `seconds`: he drops limp where he stands, his radio call cut off. Counted once as a
- * knockout for the end screen.
+ * knockout for the end screen, unless someone other than the player (`byPlayer` false) did it.
  */
-export function knockOutCold(world: World, guard: Guard, seconds: number): void {
+export function knockOutCold(world: World, guard: Guard, seconds: number, byPlayer = true): void {
   if (guard.mode === 'dead') return
-  if (!guard.out) world.stats.knockouts += 1
+  if (!guard.out && byPlayer) world.stats.knockouts += 1
   guard.out = true
   guard.stunSeconds = Math.max(guard.stunSeconds, seconds)
   guard.radio = null

@@ -184,18 +184,27 @@ function subStep(grid: Grid, ragdoll: Ragdoll, dt: number): void {
 
 /**
  * A joint that starts inside a solid tile (the body was killed on a stair flight that crosses a slab, or a wall
- * was rebuilt around it) would be held there for ever by the wall check. It steps out through the nearer of the
- * tile's top and bottom faces that is open.
+ * or door was filled in around it) would be held there for ever by the wall check. It steps out through the nearest
+ * face of the tile that is open: top or bottom first (a slab), else a side (a wall or doorway).
  */
 function popOut(grid: Grid, point: RagdollPoint): void {
   if (!isSolidAt(grid, point.x, point.y)) return
   const row = Math.floor(point.y)
+  const column = Math.floor(point.x)
   const upFirst = point.y - row < 0.5
   const up = !isSolidAt(grid, point.x, row - 1)
   const down = !isSolidAt(grid, point.x, row + 1)
   if (up && (upFirst || !down)) point.y = row - POP_GAP
   else if (down) point.y = row + 1 + POP_GAP
-  else return
+  else {
+    const leftFirst = point.x - column < 0.5
+    const left = !isSolidAt(grid, column - 1, point.y)
+    const right = !isSolidAt(grid, column + 1, point.y)
+    if (left && (leftFirst || !right)) point.x = column - POP_GAP
+    else if (right) point.x = column + 1 + POP_GAP
+    else return
+    point.vx = 0
+  }
   point.vy = 0
 }
 

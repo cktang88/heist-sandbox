@@ -1,6 +1,7 @@
 import type { World } from '../world'
+import { stepAwakeTied } from './carry'
 import { stepDarts } from './dart'
-import { stepWatched } from './hide'
+import { stepSpots, stepWatched } from './hide'
 import { stepNoisemakers } from './noisemakers'
 import { stepRigged } from './sabotage'
 import { openSpot } from './search'
@@ -15,6 +16,8 @@ export function stepStealth(world: World): void {
   stepRigged(world)
   stepNoisemakers(world)
   stepWatched(world, (guard, prop) => openSpot(world, guard, prop))
+  stepSpots(world)
+  stepAwakeTied(world)
   if (world.security.level >= 3 && !alarmCounted.has(world)) {
     alarmCounted.add(world)
     world.stats.alarms += 1

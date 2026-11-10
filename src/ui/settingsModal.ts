@@ -1,20 +1,18 @@
 import { applyLook, currentSeed, reloadWith } from './address'
 import { h, panel } from './dom'
-import { DEFAULT_SETTINGS, LOOKS, needsReload, parseSeed, QUALITIES, SITES, VIEWS, type Settings } from './settings'
+import { CHOICE_LABELS, DEFAULT_SETTINGS, LOOKS, needsReload, parseSeed, QUALITIES, SITES, VIEWS, type Settings } from './settings'
 import { saveSettings } from './store'
 
 export type SettingsHooks = {
   /** Sound and gameplay settings apply at once; this hands the new values to the game. */
   live(settings: Settings): void
+  /** Everything chosen so far, applied or not, so the screen opens on it next time. */
+  chosen(settings: Settings): void
   playSeed(seed: number): void
 }
 
 type Option<T extends string> = { value: T; label: string }
-const LABELS: Record<string, string> = {
-  real: 'Real', pixel: 'Pixel', sketch: 'Sketch', paint: 'Paint', auto: 'Auto', low: 'Low', high: 'High',
-  '3d': '3D', '2d': '2D (fast)', complex: 'Complex', outpost: 'Outpost',
-}
-const options = <T extends string>(values: readonly T[]): Option<T>[] => values.map((value) => ({ value, label: LABELS[value] }))
+const options = <T extends keyof typeof CHOICE_LABELS>(values: readonly T[]): Option<T>[] => values.map((value) => ({ value, label: CHOICE_LABELS[value] }))
 
 function row(label: string, note: string, control: HTMLElement): HTMLElement {
   return h('div', { class: 'sg-row' }, h('div', { class: 'sg-label' }, h('span', { text: label }), note ? h('small', { text: note }) : null), control)
@@ -28,10 +26,10 @@ function section(title: string, ...rows: HTMLElement[]): HTMLElement {
  * Settings. Sound and gameplay apply at once. Art style, quality, view and site are read when the page starts,
  * so they collect here and "Apply" reloads the page with the same seed.
  */
-export function settingsModal(start: Settings, hooks: SettingsHooks): HTMLElement {
-  let draft = { ...start }
-  // What the running page uses: the start-up settings until a reload, apart from the live ones.
-  let applied = { ...start }
+export function settingsModal(running: Settings, chosen: Settings, hooks: SettingsHooks): HTMLElement {
+  let draft = { ...chosen }
+  // What the running page uses: the start-up settings until a reload, apart from the live ones and a live look switch.
+  let applied = { ...running }
   const refreshers: (() => void)[] = []
   const refresh = () => refreshers.forEach((update) => update())
 
@@ -41,6 +39,7 @@ export function settingsModal(start: Settings, hooks: SettingsHooks): HTMLElemen
     saveSettings(draft)
     applied = { ...applied, volume: draft.volume, muted: draft.muted, autoSlowmo: draft.autoSlowmo, shake: draft.shake }
     hooks.live(applied)
+    hooks.chosen(draft)
     refresh()
   }
 
@@ -84,8 +83,14 @@ export function settingsModal(start: Settings, hooks: SettingsHooks): HTMLElemen
 
   const apply = h('button', { class: 'sg-btn sg-primary', text: 'Apply and restart', attrs: { type: 'button' }, on: { click: () => {
     // The art style goes through its own switch, so a live one can replace the reload later.
-    if (draft.look !== applied.look && !needsReload({ ...applied, look: draft.look }, draft)) applyLook(draft.look)
-    else reloadWith(draft)
+    if (draft.look !== applied.look && !needsReload({ ...applied, look: draft.look }, draft)) {
+      // A live switch (the 3D view) keeps the page: the look is now the running one, no longer pending.
+      if (applyLook(draft.look)) {
+        applied = { ...applied, look: draft.look }
+        hooks.live(applied)
+        refresh()
+      }
+    } else reloadWith(draft)
   } } })
   const reset = h('button', { class: 'sg-btn', text: 'Reset to defaults', attrs: { type: 'button' }, on: { click: () => change({ ...DEFAULT_SETTINGS }) } })
   refreshers.push(() => {

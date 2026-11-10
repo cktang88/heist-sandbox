@@ -2,7 +2,7 @@
  * Every control in the game, in one table, so the controls screen cannot drift from what the keys do.
  * Each row lists alternative keys; a key written with a space ("9 9") means press it twice.
  */
-import { TOOLS } from '../game/toolDefs'
+import { HOTKEYS, TOOLS, toolsOnKey } from '../game/toolDefs'
 
 export type ControlRow = { keys: readonly string[]; action: string }
 export type ControlGroup = { title: string; rows: readonly ControlRow[] }
@@ -11,15 +11,29 @@ export type ControlGroup = { title: string; rows: readonly ControlRow[] }
  * The tool keys, read from the kit itself: first-page tools sit on 1-9 then 0, and a second-page tool shares
  * the key of its `slot`, reached by pressing that key again.
  */
+const TIMES = ['once', 'twice', 'three times', 'four times']
+const keyName = (key: number) => String((key + 1) % 10)
+
 function toolRows(): ControlRow[] {
-  const keyOf = (index: number) => String((index + 1) % 10)
-  const rows = TOOLS.map((tool, index) => {
-    const slot = tool.slot ?? index
-    const key = keyOf(slot)
-    const row = tool.slot === undefined ? { keys: [key], action: tool.name } : { keys: [`${key} ${key}`], action: `${tool.name} (press ${key} again)` }
-    return { row, order: slot * 2 + (tool.slot === undefined ? 0 : 1) }
-  })
-  return rows.sort((a, b) => a.order - b.order).map(({ row }) => row)
+  const rows: ControlRow[] = []
+  for (let key = 0; key < HOTKEYS; key += 1) {
+    const name = keyName(key)
+    toolsOnKey(key).forEach((index, presses) => {
+      const tool = TOOLS[index]
+      rows.push(presses === 0 ? { keys: [name], action: tool.name } : { keys: [Array(presses + 1).fill(name).join(' ')], action: `${tool.name} (press ${name} ${TIMES[presses]})` })
+    })
+  }
+  return rows
+}
+
+/** The tools behind a second (or third) press of a key, in one line: "1 again: dart gun; 7 again: rope, then grapple". */
+export function morePressesLine(): string {
+  const parts: string[] = []
+  for (let key = 0; key < HOTKEYS; key += 1) {
+    const more = toolsOnKey(key).slice(1).map((index) => TOOLS[index].name.toLowerCase())
+    if (more.length > 0) parts.push(`${keyName(key)} again: ${more.join(', then ')}`)
+  }
+  return parts.join('; ')
 }
 
 export const CONTROLS: readonly ControlGroup[] = [
@@ -81,7 +95,7 @@ export const CONTROLS: readonly ControlGroup[] = [
     rows: [
       { keys: ['E'], action: 'Use what is in reach: pick locks, take down, hack, cut wires, switches, call elevators' },
       { keys: ['E'], action: 'While flying the drone: bring it back' },
-      { keys: ['1-9'], action: 'Choose an option on a hacked terminal' },
+      { keys: ['1-9', '0'], action: 'Choose an option on a hacked terminal (0 is the tenth)' },
     ],
   },
   {
