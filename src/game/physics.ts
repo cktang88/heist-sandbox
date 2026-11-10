@@ -1,4 +1,4 @@
-import { isSolidAt, type Grid } from './tiles'
+import { blocksLaneAt, type Grid } from './tiles'
 import type { Body, Rect } from './types'
 
 export const GRAVITY = 42
@@ -6,11 +6,15 @@ const MAX_SPEED = 45
 const MAX_STEP = 0.45
 const EPSILON = 0.001
 
+/**
+ * True when the box overlaps a tile that blocks the walking lane. Tiles standing aside in depth (see `CLEAR_OF_LANE`
+ * in tiles.ts) are passed by everything moving along the lane, though they still stop shots and sight.
+ */
 export function boxHitsSolid(grid: Grid, box: Rect): boolean {
   const x1 = Math.floor(box.x + box.w - EPSILON)
   const y1 = Math.floor(box.y + box.h - EPSILON)
   for (let y = Math.floor(box.y); y <= y1; y += 1) {
-    for (let x = Math.floor(box.x); x <= x1; x += 1) if (isSolidAt(grid, x, y)) return true
+    for (let x = Math.floor(box.x); x <= x1; x += 1) if (blocksLaneAt(grid, x, y)) return true
   }
   return false
 }

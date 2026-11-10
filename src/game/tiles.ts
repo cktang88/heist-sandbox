@@ -28,10 +28,23 @@ export const TILE_DEFS: Record<TileKind, TileDef> = {
 /** Tiles are grouped into square chunks so drawing code can redo only the parts that changed. `version` goes up on every change. */
 export const CHUNK_TILES = 16
 
-export type Grid = { width: number; height: number; kinds: Uint8Array; hp: Float32Array; dirtyChunks: Set<number>; version: number }
+/**
+ * `lane` holds, per tile, flags for how it sits in depth (see `CLEAR_OF_LANE` and `RUBBLE`). Setting a tile clears
+ * them: a new tile is full depth until whoever placed it says otherwise.
+ */
+export type Grid = { width: number; height: number; kinds: Uint8Array; hp: Float32Array; lane: Uint8Array; dirtyChunks: Set<number>; version: number }
+
+/**
+ * The tile stands beside the walking lane in depth (a low heap of rubble, a post, a shaft wall behind the corridor):
+ * it still stops shots, sight and falling tiles and holds things up, but nothing moving along the lane bumps into it.
+ */
+export const CLEAR_OF_LANE = 1
+/** The tile is fallen rubble that came to rest, not part of the building. */
+export const RUBBLE = 2
 
 export function createGrid(width: number, height: number): Grid {
-  return { width, height, kinds: new Uint8Array(width * height), hp: new Float32Array(width * height), dirtyChunks: new Set(), version: 0 }
+  const size = width * height
+  return { width, height, kinds: new Uint8Array(size), hp: new Float32Array(size), lane: new Uint8Array(size), dirtyChunks: new Set(), version: 0 }
 }
 
 export function inBounds(grid: Grid, x: number, y: number): boolean {
@@ -49,7 +62,28 @@ export function setTile(grid: Grid, x: number, y: number, kind: TileKind): void 
   const index = y * grid.width + x
   grid.kinds[index] = TILE_KINDS.indexOf(kind)
   grid.hp[index] = TILE_DEFS[kind].hp
+  grid.lane[index] = 0
   markDirty(grid, x, y)
+}
+
+/** Sets or clears depth flags on a tile (see `CLEAR_OF_LANE`). Counts as a change, so walk-past maps are redone. */
+export function setLaneFlags(grid: Grid, x: number, y: number, flags: number): void {
+  if (!inBounds(grid, x, y)) return
+  const index = y * grid.width + x
+  if (grid.lane[index] === flags) return
+  grid.lane[index] = flags
+  markDirty(grid, x, y)
+}
+
+const SOLID = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid ? 1 : 0))
+
+/** True when a body moving along the walking lane bumps into this tile: solid, and not standing aside in depth. */
+export function blocksLaneAt(grid: Grid, x: number, y: number): boolean {
+  const column = Math.floor(x)
+  const row = Math.floor(y)
+  if (!inBounds(grid, column, row)) return true
+  const index = row * grid.width + column
+  return SOLID[grid.kinds[index]] === 1 && (grid.lane[index] & CLEAR_OF_LANE) === 0
 }
 
 export function chunkIndex(grid: Grid, chunkX: number, chunkY: number): number {
