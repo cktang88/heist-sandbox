@@ -13,7 +13,7 @@ import { assignStations } from './stations'
  */
 
 const QUIET_LOG = 30
-const TAMPER_NAMES = { door: 'open door', lock: 'forced lock', rope: 'rope on the facade', line: 'grappling line on the facade', window: 'window cut open', charge: 'explosive charge, everyone keep clear', hostage: 'one of ours tied up' } as const
+const TAMPER_NAMES = { door: 'open door', lock: 'forced lock', rope: 'rope on the facade', line: 'grappling line on the facade', window: 'window cut open', charge: 'explosive charge, everyone keep clear', hostage: 'one of ours tied up', blood: 'blood on the floor', radio: 'someone on our channel who is not one of ours' } as const
 const LEVEL_NAMES = ['all clear', 'stay sharp', 'possible intruder, posts doubled', 'intruder confirmed, response team deploying', 'lockdown, lock it all down']
 
 /** Adds a line to the radio log, unless it would only repeat the line before it. */
@@ -83,6 +83,15 @@ export function reportEvent(world: World, event: SecurityEvent): void {
       log(world, `${unitName(event.by)}: Man down on ${floorName(world, event.at)}.`)
       if (body !== null && world.guards[body].missing) log(world, `Control: That's ${unitName(body)}. Intruder on site.`)
       raiseLevel(world, 2)
+      sendPair(world, floorBelow(world, event.at))
+      return
+    }
+    case 'knockedOut': {
+      // Alive is less alarming than a corpse: control suspects trouble, unless the man himself says he was jumped.
+      security.focus = floorBelow(world, event.at)
+      if (event.by === null) log(world, `${unitName(event.guard)}: Control, someone jumped me on ${floorName(world, event.at)}!`)
+      else log(world, `${unitName(event.by)}: Found ${unitName(event.guard)} out cold on ${floorName(world, event.at)}. Says someone choked him.`)
+      raiseLevel(world, event.by === null ? 2 : 1)
       sendPair(world, floorBelow(world, event.at))
       return
     }

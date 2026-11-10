@@ -70,13 +70,15 @@ export type Player = Body & {
   /** Seconds of flash blindness and deafness left. */
   blindSeconds: number
   deafSeconds: number
+  /** Inside a locker or under a desk (see stealth/hide.ts): still, unseen, and unable to shoot. */
+  hidden: boolean
 }
 
 export function createPlayer(start: Vec): Player {
   return {
     x: start.x, y: start.y, w: 0.7, h: STAND_HEIGHT, vx: 0, vy: 0, onGround: false,
     facing: 1, hp: 100, chute: false, onLadder: false, tool: 0,
-    ammo: TOOLS.map((tool) => tool.ammo), mags: TOOLS.map((tool) => GUNS[tool.id]?.magSize ?? 0), reload: 0, cooldown: 0, focus: MAX_FOCUS_SECONDS, hasLoot: false, pick: 0, kick: 0, bloom: 0, airJumps: 1, stairs: null, stairsHeading: 1, crouching: false, blindSeconds: 0, deafSeconds: 0,
+    ammo: TOOLS.map((tool) => tool.ammo), mags: TOOLS.map((tool) => GUNS[tool.id]?.magSize ?? 0), reload: 0, cooldown: 0, focus: MAX_FOCUS_SECONDS, hasLoot: false, pick: 0, kick: 0, bloom: 0, airJumps: 1, stairs: null, stairsHeading: 1, crouching: false, blindSeconds: 0, deafSeconds: 0, hidden: false,
     crouchWasHeld: false, slide: 0, mantle: null, coyote: 0, jumpBuffer: 0, stride: 0, footfalls: [],
   }
 }
@@ -86,6 +88,11 @@ export function createPlayer(start: Vec): Player {
  * hold it while falling to open the chute. Jump at a wall while pushing toward it to catch its top edge and climb up.
  */
 export function movePlayer(grid: Grid, player: Player, input: Input, dt: number, stairwells: readonly Stairwell[] = []): void {
+  if (player.hidden) {
+    player.vx = 0
+    player.vy = 0
+    return
+  }
   if (takeStairs(player, input, dt, stairwells)) return
   const center = centerOf(player)
   const move = (input.right ? 1 : 0) - (input.left ? 1 : 0)

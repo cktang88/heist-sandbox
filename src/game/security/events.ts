@@ -5,7 +5,7 @@ import type { Rope } from '../rope/rope'
 import type { Lamp } from '../site'
 import type { Vec } from '../types'
 
-export type Tamper = 'door' | 'lock' | 'rope' | 'line' | 'window' | 'charge' | 'hostage'
+export type Tamper = 'door' | 'lock' | 'rope' | 'line' | 'window' | 'charge' | 'hostage' | 'blood' | 'radio'
 
 /**
  * Site alert level, held by the control room:
@@ -32,6 +32,8 @@ export type SecurityEvent =
   | { kind: 'parachute'; at: Vec }
   /** A fire seen by a guard (`alarm` false) or the fire alarm rung by a sprinkler opening (`alarm` true). */
   | { kind: 'fire'; at: Vec; alarm: boolean }
+  /** A man found out cold (`by` the colleague who woke him), or one who came round by himself (`by` null). */
+  | { kind: 'knockedOut'; at: Vec; guard: number; by: number | null }
 
 /** A line a guard says out loud, shown above them for a moment. Barks explain what the guards are about to do. */
 export type Bark = Vec & { text: string; life: number }

@@ -11,6 +11,9 @@ import { deployResponders } from './security/response'
 import { raiseLevel } from './security/report'
 import { markUnderFire, witnessHit } from './security/takingFire'
 import { isGuardBlast } from './security/guardFrags'
+import { comeRound } from './security/wakeUp'
+import { followBody } from './stealth/bodies'
+import { addBloodPool } from './stealth/blood'
 import { centerOf, type Vec } from './types'
 import type { World } from './world'
 
@@ -37,7 +40,15 @@ export function updateGuard(world: World, guard: Guard, dt: number): void {
   guard.barkCooldown = Math.max(0, guard.barkCooldown - dt)
   if (guard.mode === 'dead') {
     guard.deadSeconds += dt
-    if (guard.ragdoll) stepRagdoll(world.grid, guard.ragdoll, dt)
+    if (guard.ragdoll && !heldStill(world, guard)) stepRagdoll(world.grid, guard.ragdoll, dt)
+    return
+  }
+  if (guard.out) {
+    if (guard.ragdoll && !heldStill(world, guard)) stepRagdoll(world.grid, guard.ragdoll, dt)
+    followBody(guard)
+    // A man tied up stays out of it for good; anyone else comes round in the end.
+    if (!guard.restrained) guard.stunSeconds = Math.max(0, guard.stunSeconds - dt)
+    if (guard.stunSeconds <= 0 && !guard.restrained) comeRound(world, guard)
     return
   }
   if (guard.stunSeconds > 0) {
@@ -68,8 +79,12 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec,
     setMode(guard, 'dead')
     guard.announced = 'dead'
     guard.radio = null
-    guard.ragdoll = createRagdoll({ x: guard.x + guard.w / 2, y: guard.y + guard.h }, { x: guard.vx, y: guard.vy }, world.rng)
+    // A man already lying limp stays where he lies.
+    if (!guard.out) guard.ragdoll = createRagdoll({ x: guard.x + guard.w / 2, y: guard.y + guard.h }, { x: guard.vx, y: guard.vy }, world.rng)
+    guard.out = false
+    guard.startle = null
     if (cause === 'attack') world.stats.kills += 1
+    addBloodPool(world, guard)
     playSound(world, 'kill', guard)
     onKilled(world, guard)
     return true
@@ -79,6 +94,11 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec,
   enterCombat(world, guard, from)
   markUnderFire(world, guard, from)
   return false
+}
+
+/** A body on the player's shoulder or in a cupboard is placed by the stealth code, not by gravity. */
+function heldStill(world: World, guard: Guard): boolean {
+  return guard.hiddenIn !== null || world.guards[world.stealth.carried ?? -1] === guard
 }
 
 /** Knocks a guard out for a while: he drops whatever he was doing, including a radio call. */
@@ -99,5 +119,7 @@ export function raiseAlarm(world: World): void {
 
 /** The broad mood renderers colour a guard by, whatever his detailed mode. */
 export function guardMood(guard: Guard): 'calm' | 'suspicious' | 'alert' | 'dead' {
+  // Out cold he lies limp like the dead, and is drawn the same way.
+  if (guard.out) return 'dead'
   return guard.state === 'patrol' ? 'calm' : guard.state
 }

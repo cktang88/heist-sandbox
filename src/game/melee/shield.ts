@@ -39,6 +39,8 @@ export function holdShield(world: World, input: Input, dt: number): void {
   const guard = held ?? (world.physProps.grabbed ? null : shieldInReach(world))
   if (!guard) return
   if (!held) {
+    // Taken in his startled beat, he never gets to shout; let go, and he fights as usual.
+    guard.startle = null
     world.melee.shield = guard
     world.player.tool = ONE_HANDED
     world.player.reload = 0
@@ -60,10 +62,11 @@ function shieldInReach(world: World): Guard | null {
   const center = centerOf(world.player)
   const feet = world.player.y + world.player.h
   return world.guards.find((guard) => {
-    if (guard.mode === 'dead' || Math.abs(guard.y + guard.h - feet) > SAME_FLOOR) return false
+    // A man out cold is a body to carry (stealth/carry.ts), not a shield.
+    if (guard.mode === 'dead' || guard.out || Math.abs(guard.y + guard.h - feet) > SAME_FLOOR) return false
     const dx = center.x - centerOf(guard).x
     const behind = dx * guard.facing < 0
-    return Math.abs(dx) < TAKE_REACH && (guard.stunSeconds > 0 || (guard.state !== 'alert' && behind))
+    return Math.abs(dx) < TAKE_REACH && (guard.stunSeconds > 0 || guard.startle !== null || (guard.state !== 'alert' && behind))
   }) ?? null
 }
 

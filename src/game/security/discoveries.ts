@@ -14,6 +14,7 @@ import { deviceBuilding, deviceFeet, floorBelow, roomOf } from './places'
 import { reportEvent } from './report'
 import { lineLeftHanging, paneMissing, tiedColleague } from './intrusions'
 import { DISCOVERY } from './tuning'
+import { bloodSeen } from './traces'
 
 /**
  * Things out of place that a guard notices on his rounds: a door standing open that should be shut (or a lock
@@ -36,7 +37,7 @@ const LAMP_WITNESS = 9
 /** The first thing out of place this guard can see right now, if any. Cheap: a few tiles and a handful of doors. */
 export function lookForTrouble(world: World, guard: Guard): Finding | null {
   return vaultEmpty(world, guard) ?? tiedColleague(world, guard) ?? chuteInSky(world, guard) ?? ropeOnWall(world, guard)
-    ?? lineLeftHanging(world, guard) ?? doorTampered(world, guard) ?? paneMissing(world, guard) ?? smokeAhead(world, guard)
+    ?? lineLeftHanging(world, guard) ?? doorTampered(world, guard) ?? paneMissing(world, guard) ?? bloodSeen(world, guard) ?? smokeAhead(world, guard)
 }
 
 // --- Doors -------------------------------------------------------------------------------------

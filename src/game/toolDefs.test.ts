@@ -18,13 +18,16 @@ describe('tool keys', () => {
     expect(toolForKey(6, rope)).toBe(actionIndex('grapple'))
     expect(toolForKey(6, actionIndex('grapple'))).toBe(6)
     expect(toolForKey(2, 2)).toBe(2)
+    expect(toolForKey(0, 0)).toBe(actionIndex('dart'))
+    expect(toolForKey(0, actionIndex('dart'))).toBe(0)
   })
 
   it('steps the wheel through every tool, second page included, and wraps round', () => {
     expect(toolForSelection(wheelSelection(1), 9)).toBe(actionIndex('frag'))
     expect(toolForSelection(wheelSelection(1), actionIndex('frag'))).toBe(actionIndex('rope'))
     expect(toolForSelection(wheelSelection(1), actionIndex('rope'))).toBe(actionIndex('grapple'))
-    expect(toolForSelection(wheelSelection(1), actionIndex('grapple'))).toBe(0)
+    expect(toolForSelection(wheelSelection(1), actionIndex('grapple'))).toBe(actionIndex('dart'))
+    expect(toolForSelection(wheelSelection(1), actionIndex('dart'))).toBe(0)
     expect(toolForSelection(wheelSelection(-1), 0)).toBe(TOOLS.length - 1)
     expect(toolForSelection(wheelSelection(2), 3)).toBe(5)
   })

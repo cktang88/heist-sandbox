@@ -30,6 +30,7 @@ import { createPhysProps, type PhysPropsState } from './physprops/state'
 import { createMelee, type MeleeState } from './melee/state'
 import { createIntel, type IntelState } from './intel/types'
 import { createGaps, type GapState } from './gaps/state'
+import { createStealth, type StealthState } from './stealth/state'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -37,7 +38,8 @@ export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
 export type Device = DeviceSpawn & { id: number; disabled: boolean; hacked: boolean }
 /** Which site to build: the full complex, or the small single building used for quick games and tests. */
 export type SiteKind = 'complex' | 'outpost'
-export type RunStats = { kills: number; tilesDestroyed: number; timesSpotted: number }
+/** `knockouts`: guards put out without killing; `bodiesFound`: bodies (dead or out cold) guards discovered; `alarms`: times the site went to level 3. */
+export type RunStats = { kills: number; tilesDestroyed: number; timesSpotted: number; knockouts: number; bodiesFound: number; alarms: number }
 
 /** Everything about one heist in progress. Systems read and change this; rendering only reads it. */
 export type World = {
@@ -99,6 +101,8 @@ export type World = {
   rng: Rng
   /** Where the case really is, and what the player has learned about it. */
   intel: IntelState
+  /** The quiet toolkit: bodies carried and hidden, chokes, hiding places, disguises, lifted radios and keycards. */
+  stealth: StealthState
 }
 
 export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
@@ -146,10 +150,11 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     alarm: false,
     shake: 0,
     clock: 0,
-    stats: { kills: 0, tilesDestroyed: 0, timesSpotted: 0 },
+    stats: { kills: 0, tilesDestroyed: 0, timesSpotted: 0, knockouts: 0, bodiesFound: 0, alarms: 0 },
     status: 'playing',
     rng: createRng(seed ^ 0x9e3779b9),
     intel: createIntel(),
+    stealth: createStealth(),
   }
   setupIntel(world)
   prepareWorld(world)

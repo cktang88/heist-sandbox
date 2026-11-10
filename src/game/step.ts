@@ -23,6 +23,7 @@ import { stepMelee } from './melee/melee'
 import { stepIntel } from './intel/intel'
 import { stepPhysProps } from './physprops/physprops'
 import { stepGaps } from './gaps/gaps'
+import { stepStealth } from './stealth/stealth'
 import { forgetSeenChanges } from './tiles'
 import { useTool } from './tools'
 import { beginStepTiming, endStepTiming, lapStepTiming as lap } from './stepTimings'
@@ -84,6 +85,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   stepSecurity(world, dt)
   lap('security')
   for (const guard of world.guards) updateGuard(world, guard, dt)
+  stepStealth(world)
   lap('guards')
   stepGaps(world, input)
   lap('gaps')

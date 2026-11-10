@@ -17,6 +17,7 @@ export const LINES = {
   searching: ['Spread out, check the rooms.', 'Sweeping the floor.', 'He can\'t have gone far.', 'Checking every room.'],
   allClear: ['All clear.', 'Area clear.', 'Nothing. Standing down.'],
   manDown: ['Man down!', 'Oh no... man down!', 'Got a body here!'],
+  blood: ['Is that... blood?', 'Blood on the floor. Fresh.', 'What the hell is this blood?'],
   gunfire: ['Shots fired!', 'Gunfire!', 'Was that a shot?'],
   orderAck: ['Copy, on my way.', 'Moving.', 'Copy that.'],
   radioDead: ['Radio\'s dead! Going for the alarm!', 'Control? Static. Hitting the alarm!', 'No signal! To the alarm!'],

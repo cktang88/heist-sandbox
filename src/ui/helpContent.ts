@@ -27,6 +27,7 @@ export const TOOL_NOTES: Readonly<Record<string, string>> = {
   Smoke: 'Quiet. A cloud nobody can see through, you included.',
   Frag: 'Loud. Roll it down the stairs or round a corner.',
   Flash: 'Blinds and deafens anyone looking at it for a few seconds.',
+  'Dart gun': 'Near silent. The man staggers for a few seconds, then sleeps for minutes. Armour stops it.',
 }
 
 function toolItems(): HelpItem[] {

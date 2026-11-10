@@ -19,6 +19,10 @@ import { goTo, hold } from './movement'
 import { frighten, isBreaking, isShaken, onBlast, updateNerve } from './nerve'
 import { startSearch } from './orders'
 import { patrolBehaviour } from './patrol'
+import { bodyAt } from '../stealth/bodies'
+import { examineBody } from './examine'
+import { searchSpotsNear } from '../stealth/search'
+import { confront, stepStartle } from './startle'
 import { detectPlayer, isAlerted, spotBody } from './perception'
 import { buildingAt, deviceFeet, floorBelow, sameFloor, travelCost } from './places'
 import { beingDragged, stepDive, watchForGrenades } from './selfPreservation'
@@ -51,6 +55,8 @@ export function thinkGuard(world: World, guard: Guard, dt: number): void {
     announce(world, guard)
     return
   }
+  // Startled at arm's length: frozen, saying nothing over the radio, until the beat runs out.
+  if (stepStartle(world, guard, dt)) return
   perceive(world, guard, dt)
   progressRadio(world, guard, dt)
   if (guard.mode === 'combat') reportContact(world, guard)
@@ -124,7 +130,9 @@ function perceive(world: World, guard: Guard, dt: number): void {
     const cap = sight.zone === 'central' || guard.mode === 'combat' ? 1 : AWARENESS.peripheralCap
     if (guard.awareness < cap) guard.awareness = Math.min(cap, guard.awareness + sight.rate * step * (primed ? 1.5 : 1))
     const seen = centerOf(world.player)
-    if (guard.awareness >= 1) {
+    if (guard.awareness >= 1 && guard.mode !== 'combat' && confront(world, guard)) {
+      // Face to face with nobody else watching: the surprise window (startle.ts) decides what comes next.
+    } else if (guard.awareness >= 1) {
       if (guard.mode !== 'combat') {
         world.stats.timesSpotted += 1
         triggerSlowmo(world.time, 0.7, 0.25)
@@ -144,14 +152,25 @@ function perceive(world: World, guard: Guard, dt: number): void {
   if (fire) noticeSomething(guard, floorBelow(world, fire), 'fire', 5)
   noticeTrouble(world, guard)
   const body = spotBody(world, guard)
-  if (body === null) return
+  if (body !== null) noticeBody(world, guard, body)
+}
+
+/**
+ * He has found a colleague's body (in the open, or in a cupboard he opened): he goes over to it. A dead man means a
+ * shout of "man down"; one merely out cold he goes to wake (examine.ts).
+ */
+export function noticeBody(world: World, guard: Guard, body: number): void {
   guard.bodiesSeen.push(body)
-  frighten(guard, NERVE.body)
+  world.stealth.found.add(body)
+  const other = world.guards[body]
+  frighten(guard, other.out ? NERVE.body / 2 : NERVE.body)
   if (world.security.reportedBodies.has(body) || guard.interest?.kind === 'body') return
-  const hip = world.guards[body].ragdoll!.points[2]
-  guard.interest = { at: floorBelow(world, hip), kind: 'body', priority: 5, reached: false, body }
+  const at = bodyAt(other)
+  guard.interest = { at: floorBelow(world, at), kind: 'body', priority: 5, reached: false, body }
+  guard.startle = null
   setMode(guard, 'investigating')
-  shout(world, guard, { kind: 'body', at: { x: hip.x, y: hip.y }, by: world.guards.indexOf(guard) })
+  if (other.out) barkLine(world, guard, 'manDown', true)
+  else shout(world, guard, { kind: 'body', at, by: world.guards.indexOf(guard) })
 }
 
 /** Something out of place (an open door, smoke, the empty vault, a parachute): stop, say it, and radio it if it matters. */
@@ -337,10 +356,7 @@ function arrive(world: World, guard: Guard): void {
   const interest = guard.interest!
   interest.reached = true
   guard.wait = TIMING.lookMin + world.rng() * (TIMING.lookMax - TIMING.lookMin)
-  if (interest.kind === 'body' && interest.body !== undefined && !world.security.reportedBodies.has(interest.body)) {
-    const hip = world.guards[interest.body].ragdoll?.points[2] ?? interest.at
-    if (!alreadyCalling(world, 'body', hip)) startRadio(world, guard, { kind: 'body', at: { x: hip.x, y: hip.y }, by: world.guards.indexOf(guard) })
-  }
+  if (interest.kind === 'body' && interest.body !== undefined) examineBody(world, guard, interest.body)
   if (interest.kind === 'fire') {
     markFireReported(world, interest.at)
     if (!alreadyCalling(world, 'fire', interest.at)) startRadio(world, guard, { kind: 'fire', at: { ...interest.at }, alarm: false })
@@ -351,6 +367,8 @@ function arrive(world: World, guard: Guard): void {
   }
   if (interest.kind === 'tamper' && interest.tamper === 'line') cutLineNear(world, guard, interest.at)
   if (interest.kind === 'tamper' && interest.tamper === 'hostage') untieNear(world, interest.at)
+  // Blood leads somewhere: he looks in every hiding place around it.
+  if (interest.kind === 'tamper' && interest.tamper === 'blood') searchSpotsNear(world, guard, interest.at, true)
   // At the fuse box (or light switch) of a dark room: throw it back on.
   if (interest.kind === 'lightsOut' && interest.circuit !== undefined && world.deadCircuits.has(interest.circuit)) {
     restoreCircuit(world, interest.circuit)
@@ -408,7 +426,11 @@ function searching(world: World, guard: Guard, dt: number): void {
     if (plan.dwell <= 0) plan.index += 1
     return
   }
-  if (goTo(world, guard, point, PATROL.hurrySpeed * 0.85, dt, false) !== 'moving') plan.dwell = TIMING.searchDwell * TIERS[guard.tier].search
+  if (goTo(world, guard, point, PATROL.hurrySpeed * 0.85, dt, false) !== 'moving') {
+    plan.dwell = TIMING.searchDwell * TIERS[guard.tier].search
+    // At each stop he looks in the lockers and under the desks around it (on a raised alert).
+    searchSpotsNear(world, guard, point)
+  }
 }
 
 function startPlanHere(world: World, guard: Guard): NonNullable<Guard['search']> {

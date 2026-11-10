@@ -10,6 +10,8 @@ import { playSound } from '../sounds'
 import { tileAt } from '../tiles'
 import { centerOf, type Vec } from '../types'
 import type { World } from '../world'
+import { knockOutCold } from '../stealth/bodies'
+import { TAKEDOWN } from '../stealth/tuning'
 import { knockGuard, smashGlass } from './knock'
 import { releaseShield } from './shield'
 import type { Daze } from './state'
@@ -30,7 +32,7 @@ const PUNCH_DAMAGE = 5
 const KICK_DAMAGE = 6
 const STAGGER_SECONDS = 0.9
 const STAGGER_SHOVE = 2
-export const KNOCKOUT_SECONDS = 45
+export const KNOCKOUT_SECONDS = TAKEDOWN.punchOutSeconds
 /** A run of punches must keep coming this often or it starts over. */
 const DAZE_FORGET = 2
 const PUNCHES_TO_DROP_UNAWARE = 2
@@ -92,9 +94,9 @@ export function kick(world: World): void {
   if (prop) kickProp(world, prop, player.facing)
 }
 
-/** Knocked cold for a long while. He drops where he stands. */
+/** Knocked cold for a couple of minutes. He drops limp where he stands, a body to hide like any other. */
 export function knockOut(world: World, guard: Guard): void {
-  knockGuard(world, guard, 0, 0, KNOCKOUT_SECONDS)
+  knockOutCold(world, guard, KNOCKOUT_SECONDS)
 }
 
 function startStrike(world: World, kind: 'punch' | 'kick', cooldown: number): boolean {
@@ -120,7 +122,7 @@ function guardInReach(world: World, reach: number): Guard | null {
   let best: Guard | null = null
   let bestGap = Infinity
   for (const guard of world.guards) {
-    if (guard.mode === 'dead') continue
+    if (guard.mode === 'dead' || guard.out) continue
     const gap = (centerOf(guard).x - center.x) * player.facing
     const sameFloor = Math.abs(guard.y + guard.h - (player.y + player.h)) < SAME_FLOOR
     if (!sameFloor || gap < -0.2 || gap > reach + guard.w / 2 || gap >= bestGap) continue

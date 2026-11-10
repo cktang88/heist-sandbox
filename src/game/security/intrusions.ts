@@ -166,7 +166,8 @@ export function keepOffCharges(world: World, guard: Guard, dt: number): boolean 
 export function tiedColleague(world: World, guard: Guard): Finding | null {
   const eye = eyeOf(guard)
   for (const other of world.guards) {
-    if (other === guard || !other.restrained || other.mode === 'dead' || world.security.tiedNoticed.has(other)) continue
+    if (other === guard || !other.restrained || other.mode === 'dead' || other.hiddenIn !== null || world.security.tiedNoticed.has(other)) continue
+    if (world.guards[world.stealth.carried ?? -1] === other) continue
     const at = centerOf(other)
     if (distance(eye, at) > TIED_SIGHT || zoneOf(guard, eye, at) === null || !clearView(world, eye, at)) continue
     world.security.tiedNoticed.add(other)
@@ -184,6 +185,12 @@ export function untieNear(world: World, at: Vec): void {
   const freed = world.guards.find((other) => other.restrained && other.mode !== 'dead' && distance(feetOf(other), at) < 2.5)
   if (!freed) return
   freed.restrained = false
+  // Tied up out cold: he is shaken awake as well.
+  if (freed.out) {
+    freed.out = false
+    freed.stunSeconds = 0
+    freed.ragdoll = null
+  }
   freed.unwatchedSeconds = 1e3
   if (world.intel.questioned.has(freed)) {
     bark(world, freed, 'He was asking about the case!', true)

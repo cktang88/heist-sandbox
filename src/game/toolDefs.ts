@@ -3,7 +3,7 @@ import { GRAPPLE_TOOL } from './grapple/tool'
 export type ToolId = 'pistol' | 'rifle' | 'shotgun' | 'sniper' | 'rocket' | 'c4' | 'drill' | 'drone' | 'smoke' | 'flash' | 'frag' | 'rope' | 'grapple'
 
 /** The second-page tools, which share a hotkey with a first-page one. `id` is the item the renderers draw in the hands. */
-export type ToolAction = 'frag' | 'rope' | 'grapple'
+export type ToolAction = 'frag' | 'rope' | 'grapple' | 'dart'
 
 /**
  * `slot` is the hotkey a second-page tool shares with a first-page one: pressing that key again swaps between them.
@@ -31,6 +31,8 @@ export const TOOLS: readonly ToolDef[] = [
   { id: 'rope', name: 'Rope', ammo: 3, cooldown: 0.5, auto: false, quiet: true, action: 'rope', slot: 6 },
   // The grapple's entry predates its own hand model; it is drawn as a grappling gun.
   { ...GRAPPLE_TOOL, id: 'grapple' },
+  // The dart gun shares the pistol key (1) and is drawn as a pistol.
+  { id: 'pistol', name: 'Dart gun', ammo: 5, cooldown: 0.9, auto: false, quiet: true, action: 'dart', slot: 0 },
 ]
 
 /** The first tool with this held item: always the first-page one. */
