@@ -14,9 +14,11 @@ export const patrolSwap: EventDef = {
   id: 'patrolSwap', kind: 'timed', mood: 'raise', cooldown: Infinity, repeats: 1, chance: 1,
   ready: () => true,
   start(world, rng) {
-    const patrols = idleGuards(world).filter((guard) => guard.role === 'patrol' && guard.route.length >= 2)
+    // Only rounds a calm man can walk to: inside one building, and never the sewer (calm guards do not climb its ladders).
+    const roomOf = (guard: Guard) => world.rooms.find((room) => room.id === guard.roomId)
+    const patrols = idleGuards(world).filter((guard) => guard.role === 'patrol' && guard.route.length >= 2 && roomOf(guard) !== undefined && roomOf(guard)?.kind !== 'sewer')
     const first = pick(patrols, rng)
-    const second = first ? pick(patrols.filter((guard) => Math.abs(guard.home.y - first.home.y) > 3), rng) : null
+    const second = first ? pick(patrols.filter((guard) => Math.abs(guard.home.y - first.home.y) > 3 && roomOf(guard)?.building === roomOf(first)?.building), rng) : null
     if (!first || !second) return null
     swapRounds(first, second)
     const [a, b] = [first, second].map((guard) => nameOf(world.guards.indexOf(guard)))
