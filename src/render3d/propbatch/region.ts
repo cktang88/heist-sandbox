@@ -1,5 +1,7 @@
 import { Group, Matrix4, type BufferGeometry, type Material } from 'three'
 import { loadShared } from '../assets'
+import type { StepResult } from '../core/buildQueue'
+import { prepare } from '../core/gpu'
 import { BatchPlan, MIRROR, showInstances, type BatchedProps } from './batchPlan'
 import { mergePieces, type BatchLook } from './merge'
 import { mirrorGeometry } from './mirror'
@@ -9,8 +11,8 @@ import { scanPieces } from './scanBatch'
 
 /**
  * The props of one large patch of the site, drawn as one batch per material (all plain colours share one), split by
- * whether they throw shadows. Three skips a region whose bounds are outside the view or a shadow camera, and culls
- * the props inside a region one by one, so drawing cost follows what is near the view, not the size of the site.
+ * whether they throw shadows. Three skips a region whose bounds are outside the view or a shadow camera, and the props
+ * layer hides regions away from the view, so drawing cost follows what is near the view, not the size of the site.
  */
 
 /**
@@ -28,27 +30,81 @@ function isMirror(matrix: Matrix4): boolean {
   return matrix.determinant() < 0
 }
 
+/** Where a region's build has got to: props still to sort into batches, batches still to make, scans still to come. */
+type Work = {
+  props: number[]
+  plans: BatchPlan[]
+  sorted: Map<string, BatchPlan>
+  scans: Set<string>
+  arrived: { url: string; scene: Group }[]
+}
+
 export class Region {
   readonly group = new Group()
   private batches: BatchedProps[] = []
   private hidden = new Set<number>()
   /** Goes up on every build, so a scanned model arriving late does not land in a build that has been replaced. */
   private generation = 0
+  private work: Work | null = null
+  /** True once every built prop is in a batch (scanned models may still be on their way). */
   built = false
+  /** What the last step did, for the frame probe. */
+  phase: 'prop' | 'batch' | 'scan' | 'idle' = 'idle'
 
   constructor(readonly props: readonly number[]) {
     this.group.matrixAutoUpdate = false
   }
 
+  /** Builds the whole region at once. The props layer uses `start` and `step` instead, to spread the work. */
   build(placed: readonly PlacedProp[], isHidden: (prop: number) => boolean): void {
+    this.start(isHidden)
+    while (this.step((prop) => placed[prop]) === 'more');
+  }
+
+  /** Throws away any earlier build and gets ready to build afresh, one `step` at a time. */
+  start(isHidden: (prop: number) => boolean): void {
     this.dispose()
-    this.built = true
     this.generation += 1
-    const plans = new Map<string, BatchPlan>()
-    for (const prop of this.props) addParts(plans, prop, placed[prop])
-    for (const plan of plans.values()) this.addBatch(plan, placed)
-    this.addScans(placed)
+    this.work = { props: [...this.props].reverse(), plans: [], sorted: new Map(), scans: new Set(), arrived: [] }
     for (const prop of this.props) if (isHidden(prop)) this.setHidden(prop, true)
+  }
+
+  /**
+   * One small piece of the build: sorting one prop's parts, making one batch, or sorting one scanned model that has
+   * arrived. `placedOf` builds a prop's recipe the first time it is asked for.
+   */
+  step(placedOf: (prop: number) => PlacedProp): StepResult {
+    const work = this.work
+    if (!work) return 'done'
+    const prop = work.props.pop()
+    if (prop !== undefined) {
+      this.phase = 'prop'
+      const entry = placedOf(prop)
+      addParts(work.sorted, prop, entry)
+      for (const scan of entry.recipe.scans) this.requestScan(work, scan.url)
+      if (work.props.length === 0) work.plans.push(...work.sorted.values())
+      return 'more'
+    }
+    const plan = work.plans.pop()
+    if (plan) {
+      this.phase = 'batch'
+      this.addBatch(plan, placedOf)
+      return 'more'
+    }
+    this.built = true
+    const arrived = work.arrived.pop()
+    if (arrived) {
+      this.phase = 'scan'
+      const plans = new Map<string, BatchPlan>()
+      const pieces = scanPieces(arrived.scene)
+      for (const member of this.props) addScanUses(plans, member, placedOf(member), arrived.url, pieces)
+      work.plans.push(...plans.values())
+      work.scans.delete(arrived.url)
+      return 'more'
+    }
+    if (work.scans.size > 0) return 'waiting'
+    this.work = null
+    return 'done'
   }
 
   isHidden(prop: number): boolean {
@@ -69,28 +125,28 @@ export class Region {
     }
     this.batches = []
     this.built = false
+    this.work = null
   }
 
-  private addBatch(plan: BatchPlan, placed: readonly PlacedProp[]): BatchedProps {
-    const batch = plan.build((prop) => placed[prop].placement)
-    for (const prop of this.hidden) showInstances(batch, prop, false)
-    this.group.add(batch.mesh)
-    this.batches.push(batch)
-    return batch
-  }
-
-  private addScans(placed: readonly PlacedProp[]): void {
-    const urls = new Set(this.props.flatMap((prop) => placed[prop].recipe.scans.map((scan) => scan.url)))
+  /** Scanned models load in the background; each one is sorted into batches by a later step once it is here. */
+  private requestScan(work: Work, url: string): void {
+    if (work.scans.has(url)) return
+    work.scans.add(url)
     const generation = this.generation
-    for (const url of urls) {
-      loadShared(url).then((scene) => {
-        if (generation !== this.generation || !this.built) return
-        const plans = new Map<string, BatchPlan>()
-        const pieces = scanPieces(scene)
-        for (const prop of this.props) addScanUses(plans, prop, placed[prop], url, pieces)
-        for (const plan of plans.values()) this.addBatch(plan, placed)
-      }).catch(() => undefined)
-    }
+    loadShared(url).then((scene) => {
+      if (generation === this.generation) work.arrived.push({ url, scene })
+    }).catch(() => work.scans.delete(url))
+  }
+
+  /** A batch joins the region once its shaders are compiled and its textures uploaded, so drawing it never stalls. */
+  private addBatch(plan: BatchPlan, placedOf: (prop: number) => PlacedProp): void {
+    const batch = plan.build((prop) => placedOf(prop).placement)
+    for (const prop of this.hidden) showInstances(batch, prop, false)
+    this.batches.push(batch)
+    const generation = this.generation
+    prepare(batch.mesh, () => {
+      if (generation === this.generation && this.batches.includes(batch)) this.group.add(batch.mesh)
+    })
   }
 }
 

@@ -3,37 +3,39 @@ import type { PropState } from '../game/cover'
 import { propSpec, type PropSpec } from '../game/propCatalog'
 import type { World } from '../game/world'
 import { loadShared } from './assets'
+import { addBuildJob } from './core/buildQueue'
+import { LITE_MODELS } from './liteModels'
 import { BACK } from './levelMesh'
 import { DRAW_DISTANCE, inView, type Frame, type LayerFactory } from './layer'
 import { placeLooseProp } from './meleeLayer'
 import { modelFromRecipe } from './propbatch/looseModel'
 import { recipeOf, signatureOf } from './propbatch/recipe'
 import { Region, type PlacedProp } from './propbatch/region'
+import { showcaseJob } from './propbatch/showcase'
 import { buildProp } from './props'
+import { pickFor } from './props/officeParts'
 
 /**
  * Furniture and clutter, about three thousand props on the big site. Each prop is still built as an ordinary model,
  * then drawn batched with its neighbours (see `propbatch/region.ts`), so a view costs a few dozen draws rather than
- * thousands. Broken props are hidden. The few props that move (dragged, kicked over, thrown, falling through a
+ * thousands. Regions are built in small steps by the build queue (`core/buildQueue.ts`), nearest the view first, so
+ * reaching a new part of the site never stalls a frame. Broken props are hidden. The few props that move (dragged, kicked over, thrown, falling through a
  * destroyed floor) leave their batch for a model of their own that follows them.
  */
 
 /** Size of a batching region in tiles: about a screen wide and six storeys tall. */
 const REGION_W = 48
 const REGION_H = 36
-/** Regions this many tiles past the drawing distance are built ahead of time, one per frame. */
-const BUILD_AHEAD = 8
-/** Half the size of the screen in tiles: regions overlapping it are built at once, so nothing pops in on screen. */
-const SCREEN_HALF_W = 23
-const SCREEN_HALF_H = 13
 const MIRROR = new Vector3(-1, 1, 1)
 
 /**
- * Only furniture at least a tile tall throws a shadow worth its cost; wall decor, ceiling fittings and small
- * clutter stay out of the shadow passes.
+ * Only tall furniture (cabinets, shelves, machines: about a person's height or more) throws a shadow worth its cost;
+ * desks, chairs, wall decor, ceiling fittings and clutter stay out of the shadow passes.
  */
+const SHADOW_MIN_HEIGHT = 1.4
+
 function throwsShadow(spec: PropSpec): boolean {
-  return spec.mount === 'floor' && spec.h >= 1
+  return spec.mount === 'floor' && spec.h >= SHADOW_MIN_HEIGHT
 }
 
 function depthOf(spec: PropSpec): number {
@@ -61,27 +63,40 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
   // The game may hand out a fresh `world.props` array later (same props, same order), so keep these references.
   const props = world.props.slice()
   const specs = props.map((prop) => propSpec(prop.kind))
-  // Built in site order, so each kind's variants come out the same as always.
-  const placed: PlacedProp[] = props.map((prop, index) => {
-    const recipe = recipeOf(buildProp(prop.kind, materials))
-    return { recipe, placement: placement(prop, specs[index]), castShadow: throwsShadow(specs[index]), shape: `${prop.kind}|${signatureOf(recipe)}` }
-  })
-  // Scanned models start loading now, as before batching, so they are ready by the time their region is built.
-  for (const url of new Set(placed.flatMap((entry) => entry.recipe.scans.map((scan) => scan.url)))) void loadShared(url).catch(() => undefined)
+  // Each prop's model is built the first time its region asks for it; its variants depend only on its id.
+  const placed: (PlacedProp | undefined)[] = []
+  const placedOf = (index: number): PlacedProp => placed[index] ?? (placed[index] = placeProp(index))
+  function placeProp(index: number): PlacedProp {
+    pickFor(props[index].id)
+    const recipe = recipeOf(buildProp(props[index].kind, materials))
+    return { recipe, placement: placement(props[index], specs[index]), castShadow: throwsShadow(specs[index]), shape: `${props[index].kind}|${signatureOf(recipe)}` }
+  }
+  // Every library model a prop may use starts loading now, so it is here by the time its region is built.
+  for (const url of LITE_MODELS.keys()) void loadShared(url).catch(() => undefined)
   const home = props.map((prop) => ({ x: prop.x, y: prop.y }))
   const indexOf = new Map(props.map((prop, index) => [prop.id, index]))
   const areas = regionsOf(props)
   const regionOf: Region[] = []
+  const loose = new Map<number, Group>()
+  const isHidden = (index: number): boolean => props[index].broken || loose.has(index)
+  addBuildJob(showcaseJob(props, placedOf, { x: world.player.x, y: world.player.y }))
   for (const area of areas) {
     group.add(area.region.group)
     for (const index of area.region.props) regionOf[index] = area.region
+    area.region.start(isHidden)
+    addBuildJob({
+      x: area.x + REGION_W / 2, y: area.y + REGION_H / 2,
+      get cause() {
+        return `props ${area.x},${area.y} ${area.region.phase}`
+      },
+      step: () => area.region.step(placedOf),
+    })
   }
-  const loose = new Map<number, Group>()
-  const isHidden = (index: number): boolean => props[index].broken || loose.has(index)
 
   function pullOut(index: number): void {
     if (loose.has(index)) return
-    const model = modelFromRecipe(placed[index].recipe, placed[index].castShadow)
+    const entry = placedOf(index)
+    const model = modelFromRecipe(entry.recipe, entry.castShadow)
     loose.set(index, model)
     group.add(model)
     regionOf[index].setHidden(index, true)
@@ -115,17 +130,9 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
         const index = indexOf.get(id)
         if (index !== undefined) pullOut(index)
       }
-      let spare = 1
+      // Regions are built by the build queue (nearest first, a few milliseconds a frame); here they are only shown.
       for (const area of areas) {
         const { region } = area
-        if (!region.built) {
-          const onScreen = overlaps(area, frame, SCREEN_HALF_W, SCREEN_HALF_H)
-          const ahead = overlaps(area, frame, DRAW_DISTANCE + BUILD_AHEAD, DRAW_DISTANCE * 0.62 + BUILD_AHEAD)
-          if (onScreen || (spare > 0 && ahead)) {
-            if (!onScreen) spare -= 1
-            region.build(placed, isHidden)
-          }
-        }
         region.group.visible = region.built && overlaps(area, frame, DRAW_DISTANCE, DRAW_DISTANCE * 0.62)
         if (region.group.visible) syncRegion(region)
       }

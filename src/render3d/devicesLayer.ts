@@ -1,6 +1,8 @@
 import { Group } from 'three'
 import { isCircuitLive } from '../game/devices/devices'
 import type { Device, World } from '../game/world'
+import { addBuildJob } from './core/buildQueue'
+import { prepare } from './core/gpu'
 import { cameraAim, cameraLens, cameraReach } from './devices/cameraAim'
 import { buildDevice, type DeviceModel, type DeviceState } from './devices/models'
 import { inView, type LayerFactory } from './layer'
@@ -9,7 +11,7 @@ import { BACK } from './levelMesh'
 /** Wall devices are drawn a little larger than life so they read at game zoom. */
 const WALL_DEVICE_SCALE = 1.35
 
-type Placed = { model: DeviceModel; key: string }
+type Placed = { model: DeviceModel; key: string; ready: boolean }
 
 function stateOf(world: World, device: Device): DeviceState {
   return { live: isCircuitLive(world, device.circuit), disabled: device.disabled, hacked: device.hacked, open: world.terminal?.device === device.id }
@@ -32,13 +34,53 @@ function aimCamera(world: World, device: Device, model: DeviceModel): void {
   parts.cone.scale.setScalar(Math.max(0.5, cameraReach(world, cameraLens(device), angle) / WALL_DEVICE_SCALE - parts.lensOffset))
 }
 
+/** Devices are built ahead of time in groups of about a screen, nearest the view first. */
+const CELL_W = 48
+const CELL_H = 36
+
 /**
  * Cameras, terminals, fuse boxes, keypads, alarm buttons and the rest, mounted on the back wall or standing in the room.
- * Models are built the first time they come near the view and only redrawn when their state changes.
+ * Models are built ahead of the camera by the build queue, a few at a time; one that comes into view before its turn is
+ * built at once. Each is only redrawn when its state changes.
  */
-export const createDevicesLayer: LayerFactory = () => {
+export const createDevicesLayer: LayerFactory = (world) => {
   const group = new Group()
   const placed = new Map<Device, Placed>()
+
+  function place(device: Device): Placed {
+    const known = placed.get(device)
+    if (known) return known
+    const model = buildDevice(device.kind)
+    if (model.anchor === 'wall') {
+      model.root.position.set(device.x + 0.5, -(device.y + 0.5), BACK)
+      model.root.scale.setScalar(WALL_DEVICE_SCALE)
+    } else model.root.position.set(device.x + 0.5, -device.y, 0)
+    const entry: Placed = { model, key: '', ready: false }
+    placed.set(device, entry)
+    // It joins the scene (when near the view) only once its shaders and textures are ready.
+    prepare(model.root, () => {
+      entry.ready = true
+    })
+    return entry
+  }
+
+  const cells = new Map<string, Device[]>()
+  for (const device of world.devices) {
+    const key = `${Math.floor(device.x / CELL_W)},${Math.floor(device.y / CELL_H)}`
+    const list = cells.get(key) ?? cells.set(key, []).get(key)!
+    list.push(device)
+  }
+  for (const [key, list] of cells) {
+    const [column, row] = key.split(',').map(Number)
+    addBuildJob({
+      x: (column + 0.5) * CELL_W, y: (row + 0.5) * CELL_H, cause: `devices ${key}`,
+      step() {
+        const device = list.pop()
+        if (device) place(device)
+        return list.length > 0 ? 'more' : 'done'
+      },
+    })
+  }
 
   return {
     group,
@@ -47,20 +89,12 @@ export const createDevicesLayer: LayerFactory = () => {
         const near = inView(frame, device.x, device.y, 2)
         let entry = placed.get(device)
         if (!near) {
-          if (entry) entry.model.root.visible = false
+          // Out of the scene graph entirely, not just hidden: three still updates the matrices of hidden objects.
+          if (entry) group.remove(entry.model.root)
           continue
         }
-        if (!entry) {
-          const model = buildDevice(device.kind)
-          if (model.anchor === 'wall') {
-            model.root.position.set(device.x + 0.5, -(device.y + 0.5), BACK)
-            model.root.scale.setScalar(WALL_DEVICE_SCALE)
-          } else model.root.position.set(device.x + 0.5, -device.y, 0)
-          group.add(model.root)
-          entry = { model, key: '' }
-          placed.set(device, entry)
-        }
-        entry.model.root.visible = true
+        entry ??= place(device)
+        if (entry.ready && !entry.model.root.parent) group.add(entry.model.root)
         const state = stateOf(world, device)
         const key = keyOf(state)
         if (key !== entry.key) {

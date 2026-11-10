@@ -12,7 +12,7 @@ import { createLampLights } from './lighting/lampLights'
  * every material. So the scene has a fixed set, handed each frame to whatever matters most near the view, and every
  * other lit lamp is faked with its glowing fitting and a soft pool of light on the wall behind it.
  *
- * The whole set: the sun or moon and a sky fill; 6 lamp spots (3 with shadow maps) and 6 lamp points
+ * The whole set: the sun or moon and a sky fill; 6 lamp spots (2 with shadow maps) and 6 lamp points
  * (lamp lights); 3 guard torches; 4 points for flashes, explosions, fires and flashbangs; a faint fill at the
  * player. That is 9 spots and 11 points, about what the original 17 punctual lights cost, spent more wisely.
  */
@@ -42,7 +42,7 @@ export function createLights(): LightRig {
       const dt = Math.min(MAX_FADE_STEP, Math.max(0, world.clock - lastClock))
       lastClock = world.clock
       const alarm = inAlarm(world)
-      const daylight = sky.update(world.timeOfDay, view, alarm)
+      const daylight = sky.update(world.timeOfDay, view, alarm, world.grid.version)
       lamps.update(world, view, dt, alarm, daylight.outdoorGlow)
       guards.update(world, view)
       events.update(world, view)

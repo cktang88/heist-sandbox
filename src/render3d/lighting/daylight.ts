@@ -56,14 +56,23 @@ export function applyAtmosphere(timeOfDay: TimeOfDay, scene: Scene, renderer: We
 /** In alarm the whole place takes on a faint red cast, as if from the beacons. */
 const ALARM_RED = new Color(0x6a0c0c)
 
-export type SkyLights = { update(timeOfDay: TimeOfDay, view: Vec, alarm: boolean): Sky }
+export type SkyLights = { update(timeOfDay: TimeOfDay, view: Vec, alarm: boolean, gridVersion: number): Sky }
+
+/**
+ * The sun's shadow map is not redrawn every frame. Its camera moves in steps of this many tiles (the map covers well
+ * beyond the screen, so a step never uncovers the view), and the map is redrawn when it steps, when the level
+ * changes shape, or every few frames for people moving outdoors.
+ */
+const SUN_STEP = 6
+const SUN_REDRAW_FRAMES = 4
 
 /** The sun or moon (one shadowed light fitted to the view) and the sky fill. */
 export function createSkyLights(group: Group): SkyLights {
   const fill = new HemisphereLight(NIGHT.skyColor, NIGHT.groundColor, NIGHT.skyIntensity)
   const sun = new DirectionalLight(NIGHT.sunColor, NIGHT.sunIntensity)
   sun.castShadow = true
-  sun.shadow.mapSize.set(2048, 2048)
+  // The map covers about one screen; 1024 texels is still finer than a pixel per texel at this zoom, at a quarter of the cost.
+  sun.shadow.mapSize.set(1024, 1024)
   sun.shadow.camera.left = -34
   sun.shadow.camera.right = 34
   sun.shadow.camera.top = 26
@@ -72,14 +81,28 @@ export function createSkyLights(group: Group): SkyLights {
   sun.shadow.camera.far = 140
   sun.shadow.bias = -0.0008
   sun.shadow.normalBias = 0.05
+  sun.shadow.autoUpdate = false
+  sun.shadow.needsUpdate = true
   group.add(fill, sun, sun.target)
+  let anchor = { x: NaN, y: NaN }
+  let version = -1
+  let frames = 0
   return {
-    update(timeOfDay, view, alarm) {
+    update(timeOfDay, view, alarm, gridVersion) {
+      const x = Math.round(view.x / SUN_STEP) * SUN_STEP
+      const y = Math.round(view.y / SUN_STEP) * SUN_STEP
+      frames += 1
+      if (x !== anchor.x || y !== anchor.y || gridVersion !== version || frames >= SUN_REDRAW_FRAMES) {
+        sun.shadow.needsUpdate = true
+        anchor = { x, y }
+        version = gridVersion
+        frames = 0
+      }
       const sky = skyFor(timeOfDay)
       sun.color.setHex(sky.sunColor)
       sun.intensity = sky.sunIntensity
-      sun.position.set(view.x + sky.sunOffset[0], -view.y + sky.sunOffset[1], sky.sunOffset[2])
-      sun.target.position.set(view.x, -view.y, 0)
+      sun.position.set(anchor.x + sky.sunOffset[0], -anchor.y + sky.sunOffset[1], sky.sunOffset[2])
+      sun.target.position.set(anchor.x, -anchor.y, 0)
       sun.target.updateMatrixWorld()
       fill.color.setHex(sky.skyColor)
       fill.groundColor.setHex(sky.groundColor)

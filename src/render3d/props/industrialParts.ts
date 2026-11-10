@@ -118,7 +118,7 @@ export const FRUSTUM = once('frustum', () => {
   return shape
 })
 /** An open tube with no end caps, for labels wrapped round barrels and cylinders. */
-export const SLEEVE = new CylinderGeometry(1, 1, 1, 24, 1, true)
+export const SLEEVE = new CylinderGeometry(1, 1, 1, 14, 1, true)
 
 /** Turns off shadow casting for small parts, which cost more than they add. */
 export function quiet<T extends Mesh>(mesh: T): T {

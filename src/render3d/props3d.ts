@@ -6,8 +6,8 @@ import type { SurfaceMaterials } from './levelMesh'
 const BOX = new BoxGeometry(1, 1, 1)
 // Wall materials tint by a per-corner colour, so plain boxes need a white one to show their texture.
 BOX.setAttribute('color', new Float32BufferAttribute(new Float32Array(BOX.attributes.position.count * 3).fill(1), 3))
-const BALL = new SphereGeometry(1, 12, 10)
-const WHEEL = new CylinderGeometry(1, 1, 1, 18)
+const BALL = new SphereGeometry(1, 10, 7)
+const WHEEL = new CylinderGeometry(1, 1, 1, 12)
 
 const matte = (color: number, roughness = 0.8, metalness = 0) => new MeshStandardMaterial({ color, roughness, metalness })
 const glow = (color: number, strength: number) => new MeshStandardMaterial({ color: 0x050505, emissive: color, emissiveIntensity: strength })

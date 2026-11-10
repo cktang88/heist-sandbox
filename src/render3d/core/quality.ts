@@ -16,17 +16,18 @@ export type QualityLevel = {
 }
 
 /**
- * Most expensive effects go first: multisampling and resolution, then ambient occlusion, then bloom
- * resolution, then shadows. Resolution steps are few, because every change reallocates render targets.
+ * Most expensive effects go first. Multisampling is not used at all: a multisampled half-float scene target costs a
+ * lot of bandwidth for every triangle edge, and the cheap edge-smoothing pass looks nearly the same in a side view.
+ * Resolution then comes down in small steps (each change reallocates render targets, so not too many), ambient
+ * occlusion goes early (it redraws the whole scene once more for normals), then bloom resolution, then shadows.
  */
 export const LADDER: readonly QualityLevel[] = [
-  { scale: 1, ambientOcclusion: true, multisample: true, bloomScale: 1, shadows: true },
   { scale: 1, ambientOcclusion: true, multisample: false, bloomScale: 1, shadows: true },
-  { scale: 0.85, ambientOcclusion: true, multisample: false, bloomScale: 1, shadows: true },
-  { scale: 0.85, ambientOcclusion: false, multisample: false, bloomScale: 1, shadows: true },
+  { scale: 0.9, ambientOcclusion: true, multisample: false, bloomScale: 1, shadows: true },
+  { scale: 0.8, ambientOcclusion: false, multisample: false, bloomScale: 1, shadows: true },
   { scale: 0.7, ambientOcclusion: false, multisample: false, bloomScale: 0.5, shadows: true },
-  { scale: 0.55, ambientOcclusion: false, multisample: false, bloomScale: 0.5, shadows: true },
-  { scale: 0.55, ambientOcclusion: false, multisample: false, bloomScale: 0.5, shadows: false },
+  { scale: 0.6, ambientOcclusion: false, multisample: false, bloomScale: 0.5, shadows: true },
+  { scale: 0.5, ambientOcclusion: false, multisample: false, bloomScale: 0.5, shadows: false },
 ]
 
 /** The forced low mode (`?quality=low`). */

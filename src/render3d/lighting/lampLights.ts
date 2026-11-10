@@ -13,15 +13,15 @@ import { WashBounds } from './washes'
 
 /**
  * Real lights for lamps. Budget, for a mid laptop GPU in forward shading (docs/research/rendering.md, 2.2):
- * 6 spots for ceiling and outdoor fittings, 3 of them with shadow maps, and 6 short-range points for small lamps.
+ * 6 spots for ceiling and outdoor fittings, 2 of them with (small, cached) shadow maps, and 6 short-range points for small lamps.
  * Lamp shadow maps are drawn once when a light moves to a lamp, then reused; they are redrawn only while someone
- * moves in that light or the level changes shape, at most two a frame.
+ * moves in that light or the level changes shape, at most one a frame.
  */
-export const SHADOW_SPOTS = 3
-export const PLAIN_SPOTS = 3
+export const SHADOW_SPOTS = 2
+export const PLAIN_SPOTS = 4
 export const LAMP_POINTS = 6
-const SHADOW_SIZE = 1024
-const MAX_SHADOW_REFRESHES = 2
+const SHADOW_SIZE = 512
+const MAX_SHADOW_REFRESHES = 1
 
 /** Lamps this far from the view centre can still get a real light (they light the screen edge), in tiles. */
 const LIGHT_RANGE_X = 30
