@@ -1,6 +1,7 @@
 import { floorAt } from '../../devices/floor'
 import { unlockFloorDoors } from '../../devices/locks'
 import { interrogate } from '../../intel/interrogate'
+import { talkTerms } from '../../people/tick'
 import { feetOf, type Guard } from '../../security/model'
 import { roomOf } from '../../security/places'
 import { distance } from '../../types'
@@ -22,7 +23,8 @@ export const deal: EventDef = {
     const guard = pleading(world)
     if (!guard) return null
     world.director.signals.dealt.add(guard)
-    const talks = world.intel.places.length > 0 && !world.intel.questioned.has(guard)
+    // A loyal man keeps what he knows even now, and buys his life with the keycard instead.
+    const talks = world.intel.places.length > 0 && !world.intel.questioned.has(guard) && !talkTerms(world, guard).refuses
     if (talks) {
       say(world, guard, 'Wait! Don\'t shoot! I know where they keep it!')
       interrogate(world, guard)

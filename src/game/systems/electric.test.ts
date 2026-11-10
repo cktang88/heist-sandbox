@@ -6,9 +6,11 @@ import { addGuard, addProp, bareWorld } from '../hazards/testWorld'
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
 import { footingAt } from './footing'
+import { isLive } from './shock'
 import { strikeAt } from './lightning'
 import { addSource } from './sources'
 import { addRoomOf, freshSystems, runAll } from './testKit'
+import { stepFallingProps } from '../vehicles/fallingProps'
 
 const CIRCUIT = circuitOf('test', 0)
 
@@ -40,6 +42,10 @@ describe('electricity', () => {
     restoreCircuit(world, CIRCUIT)
     runAll(world, 0.5)
     expect(footingAt(world, { x: 16.5, y: 21.5 })).toBe('live')
+    // Cut again (a fuse box shot out): the water is safe that same moment, not at the next look at the puddles.
+    world.deadCircuits.add(CIRCUIT)
+    expect(footingAt(world, { x: 16.5, y: 21.5 })).not.toBe('live')
+    expect(isLive(world, { x: 16.2, y: 22 - 1.7, w: 0.7, h: 1.7, vx: 0, vy: 0, onGround: true })).toBe(false)
   })
 
   it('a server rack soaking in water shorts out, and its sparks light the gas leaking beside it', () => {
@@ -69,6 +75,19 @@ describe('electricity', () => {
     Object.assign(world.player, { x: 32.2, y: 22 - world.player.h, vx: 0, vy: 0, hp: 100, onGround: true })
     runAll(world, 0.6)
     expect(world.player.hp).toBeLessThan(100)
+  })
+
+  it('switchgear that falls through a blown floor into the flooded room below electrifies the water there', () => {
+    const world = plantRoom()
+    const gear = addProp(world, 'switchgear', 10, 16, 0)
+    addSource(world, 'water', { x: 14, y: 21 }, 1, 4, 'test')
+    runAll(world, 4, () => stepFallingProps(world, 1 / 60))
+    expect(world.systems.energized.size).toBe(0)
+    fillTiles(world.grid, 8, 16, 12, 16, 'air')
+    runAll(world, 1.5, () => stepFallingProps(world, 1 / 60))
+    expect(gear.y).toBe(22)
+    expect(gear.broken).toBe(false)
+    expect(world.systems.energized.size).toBeGreaterThan(0)
   })
 
   it('lightning striking a puddle shocks whoever is standing in it', () => {

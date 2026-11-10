@@ -44,8 +44,15 @@ export const shiftChange: ConditionDef = {
           if (handovers.length === 0) phase = 'over'
         } else if (phase === 'walking') {
           for (const handover of handovers) stepHandover(handover)
-          if (handovers.every((handover) => handover.done) || stepWorld.clock > at + GIVE_UP) {
+          const settled = handovers.every((handover) => handover.done && !onErrand(handover.tired, handover.home))
+          if (settled || stepWorld.clock > at + GIVE_UP) {
             phase = 'over'
+            // Whoever is still on the way when it is called (a tired man who cannot reach the quarters, a relief who
+            // cannot reach his post) is not left walking there all night.
+            for (const handover of handovers) {
+              release(handover.tired, handover.home)
+              release(handover.fresh, handover.post.home)
+            }
             const taken = handovers.filter((handover) => handover.taken).length
             const beat = lastEvent(stepWorld, 'shiftChange')
             if (beat) beat.outcome = taken === handovers.length ? 'every post was handed over' : `only ${taken} of ${handovers.length} posts were handed over`

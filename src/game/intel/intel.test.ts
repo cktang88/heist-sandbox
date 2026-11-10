@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from '../input'
 import { stepWorld } from '../step'
+import { setTile } from '../tiles'
 import { centerOf } from '../types'
 import { createWorld, type World } from '../world'
 import { searchFilter } from './area'
@@ -153,5 +154,36 @@ describe('going loud', () => {
     world.security.level = 3
     for (let time = 0; time < 25; time += FRAME) stepIntel(world, FRAME)
     expect(world.intel.move.moves).toBe(0)
+  })
+
+  it('moves it once when a freed guard says the intruder asked about it, not again a minute later', () => {
+    const world = freshWorld(1)
+    Object.assign(world.player, { x: 5, y: world.groundY - 2 })
+    world.security.caseAskedAt = 0
+    for (let time = 0; time < 1; time += FRAME) stepIntel(world, FRAME)
+    expect(world.intel.move.moves).toBe(1)
+    for (let time = 0; time < 120; time += FRAME) stepIntel(world, FRAME)
+    expect(world.intel.move.moves).toBe(1)
+  })
+
+  it('does not move it while it is on the player\'s screen, even across the room', () => {
+    const world = freshWorld(1)
+    Object.assign(world.player, { x: world.loot.x + 18, y: world.loot.y - 1 })
+    world.security.level = 3
+    for (let time = 0; time < 25; time += FRAME) stepIntel(world, FRAME)
+    expect(world.intel.move.moves).toBe(0)
+  })
+
+  it.each([1, 2, 3])('seed %i: moves it only to a room with floor left to set it down on', (seed) => {
+    const world = freshWorld(seed)
+    const keep = world.intel.places.filter((place) => place.id !== world.intel.real).at(-1)!
+    for (const place of world.intel.places) {
+      if (place.id === world.intel.real || place === keep) continue
+      for (let x = place.x; x < place.x + place.w; x += 1) setTile(world.grid, x, place.floorY, 'air')
+    }
+    Object.assign(world.player, { x: 5, y: world.groundY - 2 })
+    world.security.level = 3
+    for (let time = 0; time < 25; time += FRAME) stepIntel(world, FRAME)
+    expect(world.intel.real).toBe(keep.id)
   })
 })

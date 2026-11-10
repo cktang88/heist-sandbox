@@ -6,7 +6,8 @@ import { addGuard, addProp, bareWorld } from '../hazards/testWorld'
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
 import { footingAt } from './footing'
-import { liquidAt, liquidVolume } from './liquid'
+import { liquidAt, liquidField, liquidVolume } from './liquid'
+import { stepWading } from './wading'
 import { addRoomOf, freshSystems, runAll, shoot } from './testKit'
 
 /**
@@ -53,6 +54,22 @@ describe('water', () => {
     guard.vx = 4
     runAll(world, 0.5)
     expect(Math.abs(guard.vx)).toBeLessThan(1)
+  })
+
+  it('a guard in water too deep to stand in is held back as hard as the player would be', () => {
+    const world = twoStoreys()
+    const field = liquidField(world, 'water')
+    for (let x = 20; x <= 30; x += 1) {
+      const key = 21 * world.grid.width + x
+      field.depth[key] = 2
+      field.live[key] = 1
+      field.active.push(key)
+    }
+    const guard = addGuard(world, 25, 22, 1)
+    stepWading(world, 1 / 60, 0.1)
+    guard.vx = 4
+    for (let frame = 0; frame < 10; frame += 1) stepWading(world, 1 / 60, 0)
+    expect(guard.vx).toBeCloseTo(4 * Math.exp(-9 * (10 / 60)), 2)
   })
 
   it('water left in a stair lobby runs down to the lobby below', () => {

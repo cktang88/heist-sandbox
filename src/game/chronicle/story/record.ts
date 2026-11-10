@@ -1,5 +1,6 @@
 import { nightConditions } from '../../director/director'
 import type { ConditionId } from '../../director/types'
+import { everSeen } from '../../stealth/rating'
 import type { World } from '../../world'
 import type { Beat } from '../types'
 
@@ -47,7 +48,8 @@ export function recordOf(world: World): HeistRecord {
     briefing: nightConditions(world),
     carrying: world.player.hasLoot,
     numbers: {
-      seen: world.stats.timesSpotted,
+      // A camera or a glimpse of the parachute counts as being seen, even if no guard ever looked him in the face.
+      seen: Math.max(world.stats.timesSpotted, everSeen(world) ? 1 : 0),
       seenBy: tally.seenBy.size,
       alarms: tally.alarms,
       peakLevel: tally.peakLevel,

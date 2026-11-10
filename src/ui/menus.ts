@@ -4,7 +4,6 @@ import { currentSeed, currentSettings, randomSeed } from './address'
 import { controlsModal } from './controlsModal'
 import { applyGameplay } from './gameplay'
 import { helpModal } from './helpModal'
-import { showHint } from './hint'
 import { createLayerStack } from './layers'
 import './menu.css'
 import { pauseMenu } from './pauseMenu'
@@ -40,6 +39,8 @@ type ModalName = 'controls' | 'help' | 'settings' | 'past' | 'dossier'
  */
 export function createMenus(host: MenuHost): Menus {
   let settings = currentSettings()
+  // What the settings screen last showed, including choices not applied yet, so reopening it does not forget them.
+  let chosen = settings
   let paused = false
   const updateVolume = () => host.audio.setVolume(paused || settings.muted ? 0 : settings.volume)
   const stack = createLayerStack((open) => {
@@ -59,10 +60,13 @@ export function createMenus(host: MenuHost): Menus {
     if (name === 'help') stack.push(name, helpModal())
     if (name === 'past') stack.push(name, pastHeistsModal())
     if (name === 'dossier') stack.push(name, dossierModal(dossier(host.world())))
-    if (name === 'settings') stack.push(name, settingsModal(settings, {
-      live: (chosen) => {
-        settings = chosen
+    if (name === 'settings') stack.push(name, settingsModal(settings, chosen, {
+      live: (running) => {
+        settings = running
         updateVolume()
+      },
+      chosen: (draft) => {
+        chosen = draft
       },
       playSeed: startHeist,
     }))
@@ -91,6 +95,8 @@ export function createMenus(host: MenuHost): Menus {
     const top = stack.top()
     const plain = !event.ctrlKey && !event.metaKey && !event.altKey
     if (!top) {
+      // The loading screen covers the menus: one opened now would sit unseen behind it and pause the heist that follows.
+      if (document.querySelector<HTMLElement>('#loading')?.hidden === false) return
       if (event.code === 'Escape' || (event.code === 'KeyP' && plain)) openPause()
       else if (event.code === 'KeyH' && plain) openModal('help')
       else if ((event.code === 'KeyK' && plain) || event.code === 'F1') openModal('controls')
@@ -113,7 +119,6 @@ export function createMenus(host: MenuHost): Menus {
     }
   })
 
-  showHint()
   return {
     paused: () => paused,
     afterStep: (world) => applyGameplay(world, settings),

@@ -75,8 +75,8 @@ export type ChronicleState = {
   tally: Tally
   player: { landed: boolean; inside: boolean; rounds: number; lowHealth: boolean; hasLoot: boolean; status: string; lastShotAt: number; lastShotTool: string; nearby: Set<object> }
   security: { level: number; spotted: number; bodies: number; clues: number; moves: number; lastSpottedBeat: number }
-  /** Per guard index: mode at the last look, and whether he was out cold or tied up. */
-  guards: { modes: string[]; out: boolean[]; tied: boolean[] }
+  /** Per guard index: mode at the last look, and whether he was out cold or tied up; and the player's kills by then. */
+  guards: { modes: string[]; out: boolean[]; tied: boolean[]; kills: number }
   /** Before the player is first inside: a copy of the tile kinds and the recent changes near him, to tell how he got in. */
   entry: { kinds: Uint8Array | null; mark: number; openings: Opening[] }
   destruction: { blasts: WeakSet<object>; lastBlast: (Vec & { t: number }) | null; lastBlastBeat: number; falling: boolean; lastFireAt: number; blaze: boolean; vehicles: number[] | null; wrecked: Set<number> }
@@ -91,7 +91,7 @@ export function createChronicle(): ChronicleState {
     tally: { knockedOut: 0, tiedUp: 0, alarms: 0, peakLevel: 0, seenBy: new Set(), shots: 0, explosions: 0, maxFire: 0, collapses: 0, vehiclesLost: 0, closeCalls: 0, surrendered: 0 },
     player: { landed: false, inside: false, rounds: -1, lowHealth: false, hasLoot: false, status: 'playing', lastShotAt: -Infinity, lastShotTool: '', nearby: new Set() },
     security: { level: 0, spotted: 0, bodies: 0, clues: 0, moves: 0, lastSpottedBeat: -Infinity },
-    guards: { modes: [], out: [], tied: [] },
+    guards: { modes: [], out: [], tied: [], kills: 0 },
     entry: { kinds: null, mark: 0, openings: [] },
     destruction: { blasts: new WeakSet(), lastBlast: null, lastBlastBeat: -Infinity, falling: false, lastFireAt: -Infinity, blaze: false, vehicles: null, wrecked: new Set() },
     hide: null,

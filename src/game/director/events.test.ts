@@ -6,7 +6,8 @@ import { feetOf, isActive } from '../security/model'
 import { deviceFeet, roomOf } from '../security/places'
 import { createRng } from '../rng'
 import { EVENTS } from './events/registry'
-import { buildingCircuits, fuseBoxOf } from './power'
+import { restoreCircuit } from '../devices/power'
+import { buildingCircuits, fuseBoxOf, killCircuit } from './power'
 import { directedWorld, idle, standingAt } from './testWorld'
 import type { EventId } from './types'
 import { watchSignals } from './watch'
@@ -27,6 +28,16 @@ describe('director events, each through public game state', () => {
     }
     expect(done).toBe(true)
     expect(running.outcome()).toMatch(/cigarette/)
+  })
+
+  it('a smoke break cut short by a knock on the head leaves no errand behind', () => {
+    const world = directedWorld(2, 'complex', [])
+    const running = event('smokeBreak').start(world, rng)!
+    const smoker = world.guards.find((guard) => guard.station !== null)!
+    stunGuard(smoker, 2)
+    expect(running.step(world, 0.1)).toBe(true)
+    expect(running.outcome()).toMatch(/never finished/)
+    expect(smoker.station).toBeNull()
   })
 
   it('a blackout darkens the player\'s building for half a minute, then the power comes back', () => {
@@ -116,6 +127,16 @@ describe('director events, each through public game state', () => {
     expect(deviceState(world).unlockedDoors.size).toBeGreaterThan(unlocked)
   })
 
+  it('an evacuation with nobody on those floors does not tell of "0 guards" filing out', () => {
+    const world = directedWorld(2, 'complex', [])
+    const room = world.rooms.find((candidate) => candidate.building === 'tower' && candidate.storey === 6 && candidate.kind === 'office')!
+    world.hazards.roomFire.set(room.id, 10)
+    for (const guard of world.guards) guard.station = { x: 0, y: 0 }
+    const running = event('evacuation').start(world, rng)!
+    running.step(world, 100)
+    expect(running.outcome()).toMatch(/^nobody/)
+  })
+
   it('cutting the power twice brings the engineer to the dead fuse box', () => {
     const world = directedWorld(2, 'complex', [])
     const boxes = world.devices.filter((device) => device.kind === 'fusebox' && device.circuit !== undefined)
@@ -129,6 +150,18 @@ describe('director events, each through public game state', () => {
     const tech = world.guards.find((guard) => guard.station !== null)!
     const box = fuseBoxOf(world, [...world.deadCircuits][0])!
     expect(Math.abs(tech.station!.x - (box.x + 0.5))).toBeLessThan(1)
+  })
+
+  it('a breaker lightning once tripped, fixed and then cut by the player counts as the player\'s cut', () => {
+    const world = directedWorld(2, 'complex', [])
+    const box = world.devices.find((device) => device.kind === 'fusebox' && device.circuit !== undefined)!
+    killCircuit(world, box.circuit!, false)
+    watchSignals(world)
+    restoreCircuit(world, box.circuit!)
+    watchSignals(world)
+    world.deadCircuits.add(box.circuit!)
+    watchSignals(world)
+    expect(world.director.signals.powerCuts).toBe(1)
   })
 
   it('a knocked-out guard who comes round staggers for the alarm button', () => {
@@ -160,5 +193,17 @@ describe('director events, each through public game state', () => {
     const unlocked = deviceState(world).unlockedDoors.size
     expect(event('deal').start(world, rng)!.outcome()).toMatch(/keycard/)
     expect(deviceState(world).unlockedDoors.size).toBeGreaterThanOrEqual(unlocked)
+  })
+
+  it('a loyal guard who gave up offers his keycard, never "what he knows" only to refuse it', () => {
+    const world = directedWorld(2, 'complex', [])
+    const guard = world.guards.find((candidate) => candidate.role === 'patrol' && world.people?.byGuard.get(candidate)?.roster)!
+    world.people!.byGuard.get(guard)!.traits.push('loyal')
+    surrender(world, guard)
+    guard.nerve = 0.5
+    Object.assign(world.player, standingAt(world, { x: feetOf(guard).x + 1, y: feetOf(guard).y }))
+    const clues = world.intel.clues.length
+    expect(event('deal').start(world, rng)!.outcome()).toMatch(/keycard/)
+    expect(world.intel.clues.length).toBe(clues)
   })
 })

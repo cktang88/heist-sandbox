@@ -10,6 +10,8 @@ const OUT_COLD = 20
 
 export function watchSignals(world: World): void {
   const signals = world.director.signals
+  // A circuit the director killed and someone has since switched back on is nobody's doing any more.
+  for (const circuit of signals.ownDead) if (!world.deadCircuits.has(circuit)) signals.ownDead.delete(circuit)
   for (const circuit of world.deadCircuits) {
     if (!signals.knownDead.has(circuit) && !signals.ownDead.has(circuit)) signals.powerCuts += 1
   }

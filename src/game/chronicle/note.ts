@@ -7,6 +7,8 @@ import type { Beat, BeatKind } from './types'
 /** A long night still keeps its story short: past this the oldest routine beats are dropped first. */
 const MAX_BEATS = 400
 const ROUTINE: ReadonlySet<BeatKind> = new Set(['clue', 'spotted', 'alert', 'down', 'nearMiss'])
+/** The frame of the story (tonight's conditions, the drop, the way in, the case, the end) is never dropped. */
+const FRAME: ReadonlySet<BeatKind> = new Set(['tonight', 'landed', 'entered', 'caseFound', 'escaped', 'died'])
 
 /** Writes a beat down, at the current time. `at` is a feet position, or a body whose feet are used. */
 export function note(world: World, kind: BeatKind, at: Vec | Body | null, extra: Omit<Beat, 'kind' | 't' | 'place'> = {}): Beat {
@@ -15,8 +17,9 @@ export function note(world: World, kind: BeatKind, at: Vec | Body | null, extra:
   const beats = world.chronicle.beats
   beats.push(beat)
   if (beats.length > MAX_BEATS) {
-    const drop = beats.findIndex((old) => ROUTINE.has(old.kind))
-    beats.splice(drop >= 0 ? drop : 0, 1)
+    const routine = beats.findIndex((old) => ROUTINE.has(old.kind))
+    const drop = routine >= 0 ? routine : beats.findIndex((old) => !FRAME.has(old.kind))
+    beats.splice(Math.max(0, drop), 1)
   }
   return beat
 }

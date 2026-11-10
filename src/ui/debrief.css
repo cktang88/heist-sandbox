@@ -67,7 +67,8 @@
 .sg-tonight li::before { content: '\2022'; position: absolute; left: 0.2em; color: var(--sg-cyan); }
 .sg-dossier .sg-seed { margin-top: 1em; }
 
-.sg-debrief-actions { display: flex; flex-wrap: wrap; gap: 0.7em; padding-top: 0.9em; border-top: 1px dashed rgba(255, 255, 255, 0.1); }
+/* Kept at the bottom of the scrolling sheet, so on a short window the buttons stay in sight while the story starts at its headline. */
+.sg-debrief-actions { position: sticky; bottom: -1.1em; z-index: 1; display: flex; flex-wrap: wrap; gap: 0.7em; padding: 0.9em 0 1.1em; background: var(--sg-panel); border-top: 1px dashed rgba(255, 255, 255, 0.1); }
 .sg-debrief-actions .sg-btn:focus-visible { outline: 1px solid var(--sg-cyan); outline-offset: 2px; }
 
 /* In the past-heists list. */
@@ -85,9 +86,15 @@
 }
 
 /* The briefing card for the first seconds of a heist, under the menu hint, above the HUD's middle. */
+/*
+ * Under the alert panel at the top right, which ends 6 HUD units down (a unit is a 48th of the height, at least 11px):
+ * top centre ran into the vitals and the alert panel on any window narrower than about 1200px.
+ */
 .sg-briefing {
-  position: fixed; inset: auto; top: 2.6em; left: 50%; transform: translateX(-50%); z-index: 9; pointer-events: none;
-  width: min(40em, calc(100% - 32px)); padding: 0.6em 1em 0.4em; font-size: clamp(12px, 0.4vw + 0.8vh, 18px);
+  --sg-hud-unit: max(11px, 100vh / 48);
+  box-sizing: border-box;
+  position: fixed; inset: auto; top: calc(var(--sg-hud-unit) * 6.6); right: var(--sg-hud-unit); z-index: 9; pointer-events: none;
+  width: min(36em, calc(58vw - var(--sg-hud-unit) * 2)); padding: 0.6em 1em 0.4em; font-size: clamp(12px, 0.4vw + 0.8vh, 18px);
   background: rgba(8, 10, 14, 0.78); border: 1px solid var(--sg-line); border-left: 3px solid var(--sg-amber);
   animation: sg-briefing-fade 16s ease-in forwards;
 }

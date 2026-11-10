@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { addGuard, bareWorld } from '../hazards/testWorld'
 import { idleInput } from '../input'
 import { nextHop } from '../nav'
+import { breakFlight } from '../stairs'
 import type { Stairwell } from '../site'
 import { fillTiles, isSolidAt } from '../tiles'
 import { actionIndex } from '../toolDefs'
@@ -80,6 +81,23 @@ describe('frag grenades', () => {
     expect(world.sounds.some((sound) => sound.kind === 'explosion')).toBe(true)
     // The flights either side of the landing are gone: nobody can climb from the ground to the top any more.
     expect(nextHop(world.stairwells, { x: 10, y: 42 }, { x: 20, y: 24 }).kind).toBe('none')
+  })
+
+  it('drops off a flight blown away under it instead of carrying on down the missing stairs', () => {
+    const world = stairWorld()
+    const rolling = frag(15, 33, 0)
+    rolling.fuse = 9
+    rolling.stairs = { well: 0, u: 1.5 }
+    world.frags.push(rolling)
+    run(world, FRAME)
+    breakFlight(world, 0, 1)
+    const before = rolling.y
+    run(world, 0.1)
+    expect(rolling.stairs).toBeNull()
+    // It falls from where it was, not jumping to a landing.
+    expect(Math.abs(rolling.y - before)).toBeLessThan(1)
+    run(world, 2)
+    expect(isSolidAt(world.grid, rolling.x + rolling.w / 2, rolling.y + rolling.h + 0.05)).toBe(true)
   })
 
   it('shreds glass but leaves the concrete it lies on', () => {

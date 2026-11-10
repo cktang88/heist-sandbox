@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SETTINGS, effectiveSettings, needsReload, paramsFor, parseSeed, parseSettings, serializeSettings, startupParams } from './settings'
+import { CHOICE_LABELS, DEFAULT_SETTINGS, LOOKS, QUALITIES, SITES, VIEWS, effectiveSettings, needsReload, paramsFor, parseSeed, parseSettings, serializeSettings, startupParams } from './settings'
 
 describe('stored settings', () => {
   it('fall back to defaults when nothing is stored or the text is broken', () => {
@@ -59,5 +59,11 @@ describe('typed seeds', () => {
     expect(parseSeed('-3')).toBeNull()
     expect(parseSeed('1.5')).toBeNull()
     expect(parseSeed('abc')).toBeNull()
+  })
+})
+
+describe('the settings screen', () => {
+  it('names every choice', () => {
+    for (const value of [...LOOKS, ...QUALITIES, ...VIEWS, ...SITES]) expect(CHOICE_LABELS[value]).toMatch(/\S/)
   })
 })

@@ -1,6 +1,5 @@
-import { propsNear } from '../hazards/props'
+import { isInCover } from '../cover'
 import { lightLevelAt } from '../light'
-import { propSpec } from '../propCatalog'
 import { VISION } from '../security/tuning'
 import { centerOf } from '../types'
 import type { World } from '../world'
@@ -27,7 +26,7 @@ export function stealthCues(world: World): Cue[] {
   }
   const at = centerOf(player)
   if (lightLevelAt(world, at) < VISION.dim) cues.push({ text: 'IN DARKNESS', good: true })
-  if (player.crouching && inCover(world)) cues.push({ text: 'IN COVER', good: true })
+  if (isInCover(world, player)) cues.push({ text: 'IN COVER', good: true })
   if (stealth.disguise) {
     const blown = disguiseBlown(world)
     cues.push(blown ? { text: `DISGUISE BLOWN: ${blown.toUpperCase()}`, good: false } : { text: 'DISGUISED', good: true })
@@ -43,15 +42,4 @@ function noiseReason(world: World): string | null {
   // Feet on the floor are heard unless crouched (see movement/footsteps.ts).
   if (player.onGround && !player.crouching && Math.abs(player.vx) > RUN_SPEED) return 'FOOTSTEPS'
   return null
-}
-
-/** Furniture that stops a shot right beside a crouching player: what low cover means. */
-function inCover(world: World): boolean {
-  const player = world.player
-  const feet = player.y + player.h
-  return propsNear(world, centerOf(player), 2.5).some((prop) => {
-    const spec = propSpec(prop.kind)
-    if (spec.cover === 'none' || spec.mount !== 'floor' || prop.broken || Math.abs(prop.y - feet) > 0.6) return false
-    return Math.abs(prop.x + 0.5 - (player.x + player.w / 2)) < spec.w / 2 + 0.8
-  })
 }

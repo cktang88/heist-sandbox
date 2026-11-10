@@ -1,7 +1,8 @@
 import type { Guard } from '../guards'
 import { capPlayerSpeed } from '../physprops/pace'
 import { boxHitsSolid } from '../physics'
-import { createRagdoll } from '../ragdoll'
+import { createRagdoll, isAsleep } from '../ragdoll'
+import { floorBelow } from '../security/places'
 import { TOOLS, toolIndex } from '../toolDefs'
 import { centerOf, type Vec } from '../types'
 import type { World } from '../world'
@@ -39,8 +40,9 @@ export function bodyInReach(world: World): number | null {
 
 export function pickUp(world: World, index: number): void {
   const guard = world.guards[index]
-  // A man tied up while awake is hauled like the rest: he hangs limp over the shoulder.
+  // A man tied up while awake is hauled like the rest: he hangs limp over the shoulder (and kneels up once set down).
   if (!guard.ragdoll) {
+    world.stealth.awakeTied.add(index)
     guard.out = true
     guard.stunSeconds = Math.max(guard.stunSeconds, 1)
     guard.ragdoll = createRagdoll({ x: guard.x + guard.w / 2, y: guard.y + guard.h }, { x: 0, y: 0 }, world.rng)
@@ -108,6 +110,21 @@ function drape(world: World, guard: Guard): void {
     point.vy = 0
   })
   guard.ragdoll!.sleep = null
+}
+
+/** A tied man carried while awake, set down and lying still, is on his knees again: awake, tied, and able to talk. */
+export function stepAwakeTied(world: World): void {
+  for (const index of world.stealth.awakeTied) {
+    const guard = world.guards[index]
+    if (guard.mode === 'dead' || !guard.restrained || !guard.ragdoll) {
+      world.stealth.awakeTied.delete(index)
+      continue
+    }
+    if (world.stealth.carried === index || guard.hiddenIn !== null || !isAsleep(guard.ragdoll)) continue
+    world.stealth.awakeTied.delete(index)
+    const feet = floorBelow(world, bodyAt(guard))
+    Object.assign(guard, { out: false, stunSeconds: 0, ragdoll: null, x: feet.x - guard.w / 2, y: feet.y - guard.h, vx: 0, vy: 0 })
+  }
 }
 
 function bleed(world: World, index: number): void {

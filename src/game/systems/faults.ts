@@ -99,11 +99,25 @@ function nextSpark(world: World): number {
 export function stepFaults(world: World, tick: number): void {
   for (const fault of world.systems.faults) {
     if (!fault.awake && !wake(world, fault)) continue
-    if (fault.kind === 'gasRing') addGas(world, Math.floor(fault.x), Math.floor(fault.y), GAS_RING_RATE * tick)
+    if (fault.kind === 'gasRing') hissGas(world, fault, tick)
     else if (fault.kind === 'sparkingLamp') sparkLamp(world, fault, tick)
     else if (fault.kind === 'looseFitting') shakeLoose(world, fault, tick)
   }
   world.systems.faults = world.systems.faults.filter((fault) => fault.clock > -1)
+}
+
+/**
+ * The ring hisses gas until its stove is wrecked or the cloud is lit, which burns out the line (gas.ts takes the
+ * ring's jet away with the cloud's other leaks): after that nothing feeds the room.
+ */
+function hissGas(world: World, fault: Fault, tick: number): void {
+  const jet = world.hazards.sprays.find((spray) => spray.kind === 'gas' && spray.x === fault.x && spray.y === fault.y)
+  if (!jet || propById(world, fault.prop)?.broken !== false) {
+    world.hazards.sprays = world.hazards.sprays.filter((spray) => spray !== jet)
+    fault.clock = -2
+    return
+  }
+  addGas(world, Math.floor(fault.x), Math.floor(fault.y), GAS_RING_RATE * tick)
 }
 
 function sparkLamp(world: World, fault: Fault, tick: number): void {

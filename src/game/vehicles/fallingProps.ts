@@ -2,12 +2,13 @@ import type { PropState } from '../cover'
 import { burst } from '../effects'
 import { hurtGuard } from '../guards'
 import { addKey, currentBuckets, refile, type KeyList, type KeysOf, type PropBuckets } from '../hazards/buckets'
-import { propById, propMoved } from '../hazards/props'
+import { propBox, propById, propMoved } from '../hazards/props'
 import { breakProp } from '../hazards/reactions'
 import type { Holes } from '../gaps/holes'
 import { currentHoles } from '../gaps/state'
 import { emitNoise } from '../noise'
 import { GRAVITY } from '../physics'
+import { standClear } from '../physprops/gravity'
 import { propSpec } from '../propCatalog'
 import { playSound } from '../sounds'
 import { changeMark, changesFrom, TILE_DEFS, TILE_KINDS, tileAt, type Grid } from '../tiles'
@@ -218,12 +219,14 @@ function dropProp(world: World, item: FallingProp, dt: number): boolean {
 
 function land(world: World, prop: PropState, row: number, speed: number): void {
   prop.y = row
+  // Through a hole narrower than itself it came down with its sides in the rim: it settles beside it, not in it.
+  standClear(world.grid, prop)
   // The prop now covers other tiles: fire's index and the stand-on index file it afresh.
   propMoved(world, prop)
   const { standing } = world.fallingProps
   if (standing && standing.props === world.props) refile(standing, prop, standingKeys(world.grid.width))
   const spec = propSpec(prop.kind)
-  const box: Rect = { x: prop.x + 0.5 - spec.w / 2, y: row - spec.h, w: spec.w, h: spec.h }
+  const box = propBox(prop)
   const at = { x: box.x + box.w / 2, y: row - 0.2 }
   burst(world.effects, world.rng, at, 6 + Math.round(spec.w * 2), DUST, 5)
   if (speed < HARD_LANDING) return

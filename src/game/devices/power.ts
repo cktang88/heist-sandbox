@@ -17,17 +17,21 @@ export function deviceCenter(device: Device): { x: number; y: number } {
 export function flipPower(world: World, device: Device): void {
   if (device.circuit === undefined) return
   const at = deviceCenter(device)
-  if (world.deadCircuits.has(device.circuit)) world.deadCircuits.delete(device.circuit)
-  else world.deadCircuits.add(device.circuit)
+  if (!world.deadCircuits.has(device.circuit)) world.deadCircuits.add(device.circuit)
+  else if (!circuitWrecked(world, device.circuit)) world.deadCircuits.delete(device.circuit)
   if (device.kind !== 'fusebox') return
   playSound(world, 'switch', at)
   emitNoise(world, at, BREAKER_NOISE_RADIUS)
 }
 
+/** A circuit whose fuse box was shot, cut or shorted: no switch anywhere brings its lights back. */
+export function circuitWrecked(world: World, circuit: number): boolean {
+  return world.devices.some((device) => device.kind === 'fusebox' && device.circuit === circuit && device.disabled)
+}
+
 /** For the security AI: a guard (or technician) puts a circuit back on. */
 export function restoreCircuit(world: World, circuit: number): void {
-  // A fuse box that was shot or cut cannot be switched back on.
-  if (world.devices.some((device) => device.kind === 'fusebox' && device.circuit === circuit && device.disabled)) return
+  if (circuitWrecked(world, circuit)) return
   if (!world.deadCircuits.delete(circuit)) return
   const box = world.devices.find((device) => device.circuit === circuit && (device.kind === 'fusebox' || device.kind === 'lightSwitch'))
   if (box) playSound(world, 'switch', deviceCenter(box))

@@ -6,7 +6,7 @@ import { emitNoise } from '../noise'
 import type { PropKind } from '../propCatalog'
 import { playSound } from '../sounds'
 import { tileAt } from '../tiles'
-import { centerOf, distance, type Vec } from '../types'
+import { centerOf, distance, type Body, type Vec } from '../types'
 import type { World } from '../world'
 import { propCircuit } from './circuits'
 import { fanAction } from './fans'
@@ -36,6 +36,8 @@ const TIMER_SECONDS = 10
 const SLAM_NOISE = 14
 const SLAM_STUN = 2.5
 const SLAM_DAMAGE = 10
+/** The player gets a shorter jolt than a guard, so it never takes control away for long. */
+const PLAYER_SLAM_STUN = 0.8
 
 /** Whichever of these actions is in reach, or null. */
 export function systemsAction(world: World): SystemAction | null {
@@ -157,9 +159,15 @@ function slam(world: World, door: Vec): void {
   const at = { x: door.x + 0.5, y: door.y + 0.5 }
   playSound(world, 'impact', at)
   emitNoise(world, at, SLAM_NOISE)
+  const under = (body: Body) => Math.abs(body.x + body.w / 2 - at.x) <= 1.8 && Math.abs(body.y + body.h - at.y) <= 2
   for (const guard of world.guards) {
-    if (guard.mode === 'dead' || Math.abs(guard.x + guard.w / 2 - at.x) > 1.8 || Math.abs(guard.y + guard.h - at.y) > 2) continue
+    if (guard.mode === 'dead' || !under(guard)) continue
     stunGuard(guard, SLAM_STUN)
     hurtGuard(world, guard, SLAM_DAMAGE, at, 'hazard')
+  }
+  // Whoever opens it gets it: the player who forgot his own trap too.
+  if (under(world.player)) {
+    world.player.hp -= SLAM_DAMAGE
+    world.player.stunSeconds = Math.max(world.player.stunSeconds, PLAYER_SLAM_STUN)
   }
 }

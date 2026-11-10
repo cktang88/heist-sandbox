@@ -28,3 +28,12 @@ export function propCircuit(world: World, prop: PropState): number | undefined {
 export function circuitLive(world: World, circuit: number | undefined): boolean {
   return circuit === undefined || !world.deadCircuits.has(circuit)
 }
+
+/**
+ * Is the water on this tile carrying current right now? The live puddles are worked out a few times a second; a
+ * circuit cut in between (a breaker tripping, a fuse box shot out) makes its water safe at once.
+ */
+export function isEnergized(world: World, key: number): boolean {
+  const energized = world.systems.energized
+  return energized.has(key) && circuitLive(world, energized.get(key))
+}

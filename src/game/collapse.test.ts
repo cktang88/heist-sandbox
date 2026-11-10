@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { findUnsupported, slabRows, stepCollapse } from './collapse'
 import { hurtGuard } from './guards'
-import { propBox } from './hazards/props'
+import { propBox, propsAt } from './hazards/props'
 import { addProp } from './hazards/testWorld'
 import { throwGrenade } from './hazards/hazards'
 import { throwFrag } from './frag/frag'
@@ -30,6 +30,24 @@ describe('collapse', () => {
     expect(findUnsupported(grid)).toEqual([])
     setTile(grid, 2, 3, 'air')
     expect(findUnsupported(grid).length).toBe(2)
+  })
+
+  it('a watchtower whose legs are cut comes down: its ladder holds nothing up', () => {
+    const world = createWorld(1, 'complex')
+    const ground = world.groundY
+    for (const leg of [46, 50]) setTile(world.grid, leg, ground - 2, 'air')
+    const loose = findUnsupported(world.grid, slabRows(world)).map((index) => [index % world.grid.width, Math.floor(index / world.grid.width)])
+    expect(loose).toContainEqual([47, ground - 10])
+    expect(loose).toContainEqual([46, ground - 3])
+  })
+
+  it('a ladder between the walls of a shaft still ties them together', () => {
+    const grid = createGrid(8, 8)
+    fillTiles(grid, 0, 7, 7, 7, 'bedrock')
+    fillTiles(grid, 2, 1, 2, 6, 'brick')
+    fillTiles(grid, 3, 1, 3, 6, 'ladder')
+    fillTiles(grid, 4, 1, 4, 3, 'brick')
+    expect(findUnsupported(grid)).toEqual([])
   })
 
   it('drops a piece of the reinforced frame cut off on every side, with the slab beside it', () => {
@@ -117,6 +135,25 @@ describe('collapse', () => {
       const box = propBox(prop)
       expect(boxHitsSolid(world.grid, { x: box.x + 0.05, y: box.y + 0.05, w: box.w - 0.1, h: box.h - 0.1 })).toBe(false)
     }
+  })
+
+  it('rubble coming down on furniture shoved part of a tile breaks up on it where it is now, not where it was', () => {
+    const world = createWorld(1)
+    world.guards = []
+    world.props = []
+    world.grid = createGrid(10, 12)
+    fillTiles(world.grid, 0, 10, 9, 11, 'bedrock')
+    Object.assign(world.player, { x: 1, y: 10 - world.player.h - 0.001, hp: 1e6 })
+    const crate = addProp(world, 'crate', 4.5, 10)
+    propsAt(world, 4, 9)
+    // Shoved most of a tile to the right: the prop indexes still file it where it stood.
+    loosen(world, crate)
+    crate.x += 0.9
+    // Enough to heap up taller than a low pile, so it would block the lane.
+    for (let y = 1; y <= 3; y += 1) world.falling.push({ x: 6, y, vy: 0, kind: 'concrete' })
+    for (let frame = 0; frame < 90; frame += 1) stepCollapse(world, 1 / 60)
+    const box = propBox(crate)
+    expect(boxHitsSolid(world.grid, { x: box.x + 0.05, y: box.y + 0.05, w: box.w - 0.1, h: box.h - 0.1 })).toBe(false)
   })
 
   it('keeps a duct hanging from the slab above when the door it rests on is opened, and drops it when the slab goes', () => {

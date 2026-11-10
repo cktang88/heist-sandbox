@@ -23,6 +23,28 @@ export type Heard = { loudness: number; muffled: boolean }
  * How a sound reaches the listener: full volume beside it, fading to nothing at the edge of its reach,
  * and quieter and duller when something solid is in the way. Null means too faint to play.
  */
+/** At most this many sounds play at once; a blast that breaks forty things plays the loudest few, not forty. */
+export const MAX_VOICES = 24
+/** And at most this many of one kind start in one frame: a shotgun's nine pellet hits are one or two impacts. */
+const SAME_KIND_PER_FRAME = 2
+
+/**
+ * Which of this frame's audible sounds to start, given how many voices are free: the loudest first, a couple of each
+ * kind at most. Piling up dozens of identical sounds in one frame only clips the mix.
+ */
+export function chooseVoices<T extends { kind: SoundKind; loudness: number }>(sounds: readonly T[], free: number): T[] {
+  const perKind = new Map<SoundKind, number>()
+  const chosen: T[] = []
+  for (const sound of [...sounds].sort((a, b) => b.loudness - a.loudness)) {
+    if (chosen.length >= free) break
+    const count = perKind.get(sound.kind) ?? 0
+    if (count >= SAME_KIND_PER_FRAME) continue
+    perKind.set(sound.kind, count + 1)
+    chosen.push(sound)
+  }
+  return chosen
+}
+
 export function heardAt(kind: SoundKind, gap: number, blocked: boolean): Heard | null {
   const reach = REACH[kind] ?? MEDIUM
   const near = Math.max(0, 1 - gap / reach)

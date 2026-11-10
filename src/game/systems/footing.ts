@@ -1,6 +1,7 @@
 import { tileKey } from '../hazards/state'
 import type { Body, Vec } from '../types'
 import type { World } from '../world'
+import { isEnergized } from './circuits'
 import { liquidAt } from './liquid'
 
 /**
@@ -23,7 +24,7 @@ export function footingAt(world: World, at: Vec): Footing {
   const x = Math.floor(at.x)
   const y = Math.floor(at.y)
   const key = tileKey(world, x, y)
-  if (world.systems.energized.has(key)) return 'live'
+  if (isEnergized(world, key)) return 'live'
   const water = liquidAt(world, 'water', x, y)
   if (water >= DEEP_DEPTH) return 'deep'
   if (water >= WADING_DEPTH) return 'wading'

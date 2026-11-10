@@ -82,6 +82,12 @@ export function drawPickups(context: CanvasRenderingContext2D, world: World): vo
 export function drawProps(context: CanvasRenderingContext2D, world: World): void {
   for (const prop of world.props) {
     if (!isSolidAt(world.grid, prop.x, prop.y)) continue
+    if (prop.broken) {
+      // Wrecked: a low heap where it stood, so the view does not keep showing it whole.
+      const { w, mount } = propSpec(prop.kind)
+      if (mount === 'floor') box(context, '#2e333b', prop.x + 0.5 - w / 2, prop.y - 0.25, w, 0.25)
+      continue
+    }
     context.save()
     context.translate(prop.x + 0.5, prop.y)
     const paint = PAINTERS[prop.kind]

@@ -37,6 +37,15 @@ describe('ragdoll', () => {
     for (const point of ragdoll.points) expect(isSolidAt(grid, point.x, point.y)).toBe(false)
   })
 
+  it('a body with a wall or door filled in around it (a doorway shut on it) steps out sideways', () => {
+    const grid = createGrid(20, 12)
+    fillTiles(grid, 0, 10, 19, 11, 'concrete')
+    const ragdoll = createRagdoll({ x: 10.3, y: 10 }, { x: 0, y: 0 }, createRng(1))
+    fillTiles(grid, 10, 4, 10, 9, 'door')
+    for (let frame = 0; frame < 120; frame += 1) stepRagdoll(grid, ragdoll, 1 / 60)
+    for (const point of ragdoll.points) expect(isSolidAt(grid, point.x, point.y)).toBe(false)
+  })
+
   it('a body thrown sideways at full speed stops at a one-tile wall', () => {
     const grid = createGrid(30, 12)
     fillTiles(grid, 0, 10, 29, 11, 'concrete')

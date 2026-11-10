@@ -66,12 +66,12 @@ export function startChoke(world: World, target: Takedown): void {
   const struggle = !target.quiet
   const need = struggle ? TAKEDOWN.struggleSeconds : guard.armored ? TAKEDOWN.heavyChokeSeconds : TAKEDOWN.chokeSeconds
   const side = centerOf(guard).x >= centerOf(world.player).x ? 1 : -1
-  world.stealth.choke = { guard: world.guards.indexOf(guard), t: 0, need, struggle, noiseIn: 0, side }
+  world.stealth.choke = { guard: world.guards.indexOf(guard), t: 0, need, struggle, noiseIn: 0, side, x: world.player.x }
   // Choking the man who was startled ends his window: he is fighting for air now, not reaching for the radio.
   guard.startle = null
   guard.radio = null
   witnessTakedown(world, guard)
-  hold(world, guard, side)
+  hold(world, guard, side, world.player.x)
 }
 
 /** Each frame of a choke. Returns true while it goes on. */
@@ -89,7 +89,7 @@ export function stepChoke(world: World, held: boolean, dt: number): boolean {
     enterCombat(world, guard, centerOf(world.player))
     return false
   }
-  hold(world, guard, choke.side)
+  hold(world, guard, choke.side, choke.x)
   choke.t += dt
   if (choke.struggle) {
     choke.noiseIn -= dt
@@ -105,9 +105,10 @@ export function stepChoke(world: World, held: boolean, dt: number): boolean {
   return false
 }
 
-/** Keeps the choked man in the player's arms: stunned, in front of him, and the player standing still. */
-function hold(world: World, guard: Guard, side: 1 | -1): void {
+/** Keeps the choked man in the player's arms: stunned, in front of him, and the player standing where he grabbed him. */
+function hold(world: World, guard: Guard, side: 1 | -1, x: number): void {
   const player = world.player
+  player.x = x
   guard.stunSeconds = Math.max(guard.stunSeconds, 0.2)
   guard.x = player.x + player.w / 2 + side * HOLD_GAP - guard.w / 2
   guard.y = player.y + player.h - guard.h

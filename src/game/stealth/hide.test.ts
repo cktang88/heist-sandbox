@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { breakProp } from '../hazards/reactions'
 import { addProp } from '../hazards/testWorld'
 import { addGuard, addLamp, arena, GROUND, putPlayer, run } from '../security/testArena'
 import type { World } from '../world'
@@ -76,5 +77,18 @@ describe('hiding the player', () => {
     putPlayer(world, 20)
     run(world, 1 / 60)
     expect(world.prompt ?? '').not.toContain('hide in')
+  })
+
+  it('a hiding place blown apart puts the player back in the open', () => {
+    const world = arena()
+    const locker = addProp(world, 'wallLocker', 20, GROUND)
+    putPlayer(world, 20)
+    run(world, 1 / 60)
+    pressE(world)
+    breakProp(world, locker)
+    run(world, 2 / 60)
+    expect(world.player.hidden).toBe(false)
+    expect(world.stealth.hiding).toBeNull()
+    expect(world.prompt ?? '').not.toBe('E: get out')
   })
 })

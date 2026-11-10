@@ -20,12 +20,13 @@ import { createRenderer3d, type Renderer3d } from './render3d/renderer3d'
 import { onLookChange, randomSeed, writeSeed } from './ui/address'
 import { loadingScreen, nextPaint } from './ui/loading'
 import { enableStepTimings, stepTimings } from './game/stepTimings'
+import { showHint } from './ui/hint'
 import { createMenus } from './ui/menus'
 import { rememberNemeses, withNemeses } from './ui/nemesisStore'
 // Director, briefing, weather and debrief (src/game/director, src/game/chronicle, src/ui/debrief.ts).
 import { startDirector } from './game/director/director'
 import { debriefOf } from './game/chronicle/chronicle'
-import { showBriefing } from './ui/briefing'
+import { hideBriefing, showBriefing } from './ui/briefing'
 import { showDebrief } from './ui/debrief'
 import { rememberHeist } from './ui/debriefStore'
 import { createWeather } from './ui/weather'
@@ -102,6 +103,7 @@ function finishLoading(now: number): void {
   // The time spent loading is not game time.
   lastTime = now
   showBriefing(world)
+  showHint()
 }
 
 /**
@@ -139,6 +141,7 @@ let debriefed: World | null = null
 function debriefIfOver(): void {
   if (world.status === 'playing' || debriefed === world) return
   debriefed = world
+  hideBriefing()
   const entry = { debrief: debriefOf(world), seed: heistSeed, site: siteKind, when: new Date().toLocaleString() }
   rememberHeist(entry)
   closeDebrief = showDebrief(entry, { sameSeed: () => startHeist(heistSeed), newSeed: () => startHeist(randomSeed()) })
@@ -199,8 +202,8 @@ function frame(now: number): void {
     if (scene.draw3d) {
       scene.draw3d.draw(world, camera, frameInput.aim)
       context.clearRect(0, 0, canvas.width, canvas.height)
-      drawOverlay(context, world, camera)
     } else scene.draw2d?.draw(context, world, camera, frameInput.aim)
+    drawOverlay(context, world, camera)
   })
   timed('hud', () => {
     drawFlashOverlay(context, world, canvas.width, canvas.height)

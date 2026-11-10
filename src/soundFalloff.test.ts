@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { heardAt } from './soundFalloff'
+import { chooseVoices, heardAt, MAX_VOICES } from './soundFalloff'
+
+describe('the mix', () => {
+  it('starts only the loudest couple of one kind in a frame', () => {
+    const hits = [0.2, 0.9, 0.5, 0.7].map((loudness) => ({ kind: 'impact' as const, loudness }))
+    expect(chooseVoices(hits, MAX_VOICES).map((hit) => hit.loudness)).toEqual([0.9, 0.7])
+  })
+
+  it('never starts more sounds than there are free voices, loudest first', () => {
+    const kinds = ['rifle', 'glass', 'door', 'kill', 'impact'] as const
+    const many = kinds.map((kind, index) => ({ kind, loudness: index / 10 }))
+    expect(chooseVoices(many, 2).map((sound) => sound.kind)).toEqual(['impact', 'kill'])
+    expect(chooseVoices(many, 0)).toEqual([])
+  })
+})
 
 describe('how far sounds carry', () => {
   it('plays a footstep beside the listener and drops it a room away', () => {

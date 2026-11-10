@@ -97,6 +97,17 @@ describe('the disguise', () => {
     expect(watcher.awareness).toBeGreaterThan(0)
   })
 
+  it('holding a guard as a shield gives him away', () => {
+    const world = disguised()
+    addLamp(world, 30)
+    addGuard(world, 30.6, 1)
+    const watcher = addGuard(world, 38, -1)
+    putPlayer(world, 30)
+    run(world, 2, { grab: true })
+    expect(world.melee.shield).not.toBeNull()
+    expect(watcher.awareness).toBeGreaterThan(0)
+  })
+
   it('in a restricted room without an officer\'s uniform it gives him away', () => {
     const world = disguised()
     addRoom(world, { kind: 'vault', x: 25, w: 20, floorY: GROUND, building: 'tower' })

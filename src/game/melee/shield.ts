@@ -28,7 +28,8 @@ const ONE_HANDED = toolIndex('pistol')
 
 export function holdShield(world: World, input: Input, dt: number): void {
   const held = world.melee.shield
-  if (!input.grab) {
+  // Climbing a ladder takes both hands: whoever was held breaks free.
+  if (!input.grab || (world.player.onLadder && !world.player.onGround)) {
     if (held) releaseShield(world, true)
     return
   }
