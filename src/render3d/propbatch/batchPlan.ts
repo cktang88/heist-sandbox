@@ -20,7 +20,10 @@ export class BatchPlan {
   private geometries = new Map<string, BufferGeometry>()
   private uses: { shape: string; local: Matrix4; prop: number }[] = []
 
-  constructor(readonly material: Material, readonly castShadow: boolean) {}
+  /** Whether the whole batch throws shadows: true as soon as one part added to it should. */
+  castShadow = false
+
+  constructor(readonly material: Material) {}
 
   /** Adds one use of a shape; `make` is only called the first time this batch sees `shape`. */
   add(shape: string, make: () => BufferGeometry, local: Matrix4, prop: number): void {

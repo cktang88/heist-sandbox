@@ -1,4 +1,4 @@
-import { ExtrudeGeometry, Group, Mesh, Shape, type Material } from 'three'
+import { ExtrudeGeometry, Group, Mesh, MeshStandardMaterial, Shape, type Material } from 'three'
 import type { SurfaceMaterials } from '../levelMesh'
 import type { PropBuilder, PropSet } from './index'
 import { ball, box, cylinder, glow, matte, scanned } from './kit'
@@ -141,18 +141,14 @@ const palletBuilder = prop((group) => {
   if (pick([false, true, false])) quiet(box(group, photo('wood', 0x8a7a5e, 0), -0.6, 0.25, 1.4, 0.04, 0.15, -1.15))
 })
 
+const SHRINK_WRAP = once('wrapFilm', () => new MeshStandardMaterial({ color: 0xdde6ea, roughness: 0.08, transparent: true, opacity: 0.12, depthWrite: false }))
+
 const palletStack = prop((group) => {
   pallet(group, 0, -1.4, 1.8)
   const kind = pick(['kraft', 'white', 'kraft'] as const)
   stackedBlocks(group, cartonFace(kind), 0, 0.25, 1.7, 1.33, 1.05, -1.4, 3, 3)
   // Shrink-wrap: a faint glossy skin, and two straps.
-  const wrap = box(group, once('wrap', () => matte(0xdde6ea, 0.08, 0)).clone(), -0.87, 0.24, 1.74, 1.26, 1.1, -1.4)
-  const film = wrap.material as ReturnType<typeof matte>
-  film.transparent = true
-  film.opacity = 0.12
-  film.depthWrite = false
-  wrap.castShadow = false
-  wrap.material = once('wrapFilm', () => film)
+  quiet(box(group, SHRINK_WRAP, -0.87, 0.24, 1.74, 1.26, 1.1, -1.4))
   for (const x of [-0.45, 0.4]) quiet(box(group, FINISH.black, x, 0.22, 0.05, 1.38, 1.12, -1.4))
 })
 

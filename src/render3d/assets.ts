@@ -1,4 +1,4 @@
-import { Group, Mesh } from 'three'
+import { Mesh, type Group } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 const loader = new GLTFLoader()
@@ -27,17 +27,4 @@ export function loadShared(url: string): Promise<Group> {
     cache.set(url, pending)
   }
   return pending
-}
-
-/**
- * Returns an empty group straight away and fills it with the model when it arrives,
- * so callers can place it without waiting. `prepare` can scale or reposition the loaded model.
- */
-export function modelPlaceholder(url: string, prepare?: (model: Group) => void): Group {
-  const holder = new Group()
-  loadModel(url).then((model) => {
-    prepare?.(model)
-    holder.add(model)
-  }).catch(() => undefined)
-  return holder
 }

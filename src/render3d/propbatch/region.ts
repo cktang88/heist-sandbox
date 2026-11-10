@@ -102,8 +102,9 @@ function addScanUses(plans: Map<string, BatchPlan>, prop: number, { recipe, plac
     pieces.forEach((piece, index) => {
       // Pieces that could not be joined may differ in their vertex data, and a batch needs it all alike.
       const attributes = Object.keys(piece.geometry.attributes).sort().join()
-      const key = `${piece.material.uuid}:${castShadow}:${attributes}`
-      const plan = plans.get(key) ?? plans.set(key, new BatchPlan(piece.material, castShadow)).get(key)!
+      const key = `${piece.material.uuid}:${attributes}`
+      const plan = plans.get(key) ?? plans.set(key, new BatchPlan(piece.material)).get(key)!
+      plan.castShadow ||= castShadow
       plan.add(`${index}:${mirrored}`, () => (mirrored ? mirroredScan(piece.geometry) : piece.geometry), local, prop)
     })
   }
@@ -123,15 +124,26 @@ function addParts(plans: Map<string, BatchPlan>, prop: number, { recipe, placeme
   for (const part of recipe.parts) {
     const look: BatchLook = isPlain(part.material) ? 'plain' : part.material
     const casts = castShadow && part.castShadow
-    const key = `${look === 'plain' ? 'plain' : (look as Material).uuid}:${casts}`
+    const key = batchKey(look, casts)
     const group = groups.get(key) ?? groups.set(key, { look, casts, parts: [] }).get(key)!
+    group.casts ||= casts
     group.parts.push(part)
   }
   for (const [key, { look, casts, parts }] of groups) {
-    const plan = plans.get(key) ?? plans.set(key, new BatchPlan(look === 'plain' ? plainMaterial() : look, casts)).get(key)!
-    const shapeKey = `${shape}|${key}|${flip === MIRROR}`
+    const plan = plans.get(key) ?? plans.set(key, new BatchPlan(look === 'plain' ? plainMaterial() : look)).get(key)!
+    plan.castShadow ||= casts
+    const shapeKey = `${shape}|${key}|${casts}|${flip === MIRROR}`
     plan.add(shapeKey, () => shapeOf(shapeKey, look, parts, flip), flip, prop)
   }
+}
+
+/**
+ * Plain parts are split into a batch that throws shadows and one that does not. Any other material gets one batch
+ * per region, which throws shadows if any part in it should: a second draw per material costs more than the few
+ * extra shadows (a poster on a tall cabinet) that this adds.
+ */
+function batchKey(look: BatchLook, casts: boolean): string {
+  return look === 'plain' ? `plain:${casts}` : (look as Material).uuid
 }
 
 function shapeOf(key: string, look: BatchLook, parts: Part[], flip: Matrix4): BufferGeometry {
