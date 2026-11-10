@@ -1,8 +1,10 @@
+import { HIDES } from '../furnish/hides'
 import { createLevel } from '../level'
 import { mirrorLevel } from '../mirror'
-import { propSpec } from '../propCatalog'
+import { propSpec, type PropKind } from '../propCatalog'
 import type { Level, Room } from '../site'
 import { landingX } from '../stairs'
+import { spotKind } from '../stealth/spots'
 import { markAside } from '../gaps/aside'
 import { createHoles } from '../gaps/holes'
 import { blocksLaneAt, isSolidAt, tileAt, type Grid } from '../tiles'
@@ -41,6 +43,9 @@ function rows(top: number, bottom: number): number[] {
   return out
 }
 
+/** A hatch or manhole: a door set in a floor, with a ladder down from it. */
+const hatchAt = (grid: Grid, x: number, y: number) => tileAt(grid, x, y) === 'door' && tileAt(grid, x, y + 1) === 'ladder'
+
 function insideInterior(level: Level, x: number, y: number): boolean {
   return level.interiors.some((area) => x >= area.x && x < area.x + area.w && y >= area.y && y < area.y + area.h)
 }
@@ -50,6 +55,7 @@ export function propProblems(level: Level): string[] {
   const { grid } = level
   const problems: string[] = []
   const seen = new Set<string>()
+  const roomById = new Map(level.rooms.map((room) => [room.id, room]))
   for (const prop of level.props) {
     const spec = propSpec(prop.kind)
     const half = spec.w / 2
@@ -61,10 +67,21 @@ export function propProblems(level: Level): string[] {
     if (left < 0 || right > grid.width || prop.y < 0 || prop.y >= grid.height) problems.push(`${where} off the map`)
     // Razor wire is strung along a fence top and overhangs it on purpose.
     if (prop.kind === 'razorCoil') continue
+    const room = prop.roomId === undefined ? undefined : roomById.get(prop.roomId)
+    // The small outpost has no room records to belong to.
+    if (!room && level.rooms.length > 0) problems.push(`${where} belongs to no room`)
+    else if (room && (left < room.x - 1e-3 || right > room.x + room.w + 1e-3 || (spec.mount === 'floor' ? prop.y !== room.floorY : prop.y < room.y - 1e-3 || prop.y + spec.h > room.floorY + 1e-3))) {
+      problems.push(`${where} stands outside its room`)
+    }
     if (spec.mount === 'floor') {
       for (const x of columns(left, right)) {
         if (!solid(grid, x, prop.y)) problems.push(`${where} floats over ${x}`)
-        for (const y of rows(prop.y - Math.max(spec.h, 0.1), prop.y)) if (solid(grid, x, y)) problems.push(`${where} inside ${tileAt(grid, x, y)} at ${x},${y}`)
+        for (const y of rows(prop.y - Math.max(spec.h, 0.1), prop.y)) {
+          if (solid(grid, x, y)) problems.push(`${where} inside ${tileAt(grid, x, y)} at ${x},${y}`)
+          else if (tileAt(grid, x, y) === 'ladder') problems.push(`${where} in the way of the ladder at ${x}`)
+        }
+        // A rug can lie over a hatch; anything standing on one would drop through when it opens, and blocks the climb.
+        if (spec.h > 0.1 && hatchAt(grid, x, prop.y)) problems.push(`${where} stands on the hatch at ${x}`)
       }
     } else if (spec.mount === 'wall') {
       for (const x of columns(left, right)) {
@@ -119,7 +136,14 @@ export function fixtureProblems(level: Level): string[] {
     }
   }
   for (const pickup of level.pickups) if (!standable(grid, pickup.x, pickup.y)) problems.push(`${pickup.kind} at ${pickup.x},${pickup.y} not on a floor`)
-  for (const guard of level.guards) if (!standable(grid, guard.x, guard.y)) problems.push(`guard at ${guard.x},${guard.y} not on a floor`)
+  const posts = new Set<string>()
+  for (const guard of level.guards) {
+    const where = `${guard.role ?? 'guard'} at ${guard.x},${guard.y}`
+    if (!standable(grid, guard.x, guard.y)) problems.push(`${where} not on a floor`)
+    if (hatchAt(grid, guard.x, guard.y)) problems.push(`${where} stands on a hatch`)
+    if (posts.has(`${guard.x}:${guard.y}`)) problems.push(`${where} inside another guard`)
+    posts.add(`${guard.x}:${guard.y}`)
+  }
   if (!standable(grid, level.loot.x, level.loot.y)) problems.push('loot not on a floor')
   const { extraction } = level
   if (!columns(extraction.x, extraction.x + extraction.w).some((x) => standable(grid, x, extraction.y + extraction.h))) problems.push('extraction has no floor')
@@ -224,14 +248,36 @@ export function reachedSpot(level: Level, seen: Uint8Array, x: number, y: number
   return seen[Math.floor(y) * level.grid.width + Math.floor(x)] === 1
 }
 
-/** Every indoor room furnished for what it is and lit, with its lights on a switch or fuse box. */
+/** What other systems look for in a room of each kind (gas rings, taps, stalls, a car, racks): one of each group. */
+const FITTED: Partial<Record<Room['kind'], readonly (readonly PropKind[])[]>> = {
+  kitchen: [['stove']], restroom: [['toiletStall', 'toilet'], ['sink']], breakRoom: [['sink']], garage: [['car', 'van', 'truck']], server: [['serverRack']],
+}
+/** Papers a player reads with E, from no further than this from his middle (intel/sources.ts), standing 0.8 above his feet. */
+const READABLE = new Set<PropKind>(['whiteboard', 'noticeBoard', 'paperStack'])
+const READ_REACH = 2
+const STANDING_MIDDLE = 0.8
+
+/**
+ * Every indoor room furnished for what it is, with the fittings and a hiding place its kind promises, papers within
+ * reading reach, and lit, with its lights on a switch or fuse box.
+ */
 export function roomProblems(level: Level): string[] {
   const problems: string[] = []
   const switched = new Set(level.devices.filter((device) => device.kind === 'lightSwitch' || device.kind === 'fusebox').map((device) => device.circuit))
   for (const room of level.rooms.filter(isIndoor)) {
     const where = `${room.kind} ${room.id} (${room.building}:${room.storey} x${room.x})`
-    const floor = level.props.filter((prop) => prop.roomId === room.id && propSpec(prop.kind).mount === 'floor')
+    const mine = level.props.filter((prop) => prop.roomId === room.id)
+    const floor = mine.filter((prop) => propSpec(prop.kind).mount === 'floor')
     if (floor.length === 0) problems.push(`${where} has no furniture`)
+    const kinds = new Set(mine.map((prop) => prop.kind))
+    for (const group of FITTED[room.kind] ?? []) if (!group.some((kind) => kinds.has(kind))) problems.push(`${where} has no ${group.join(' or ')}`)
+    // A locker, closet, stall or cabinet the furnisher adds, or a desk or bed to crawl under.
+    if (HIDES[room.kind] && !mine.some((prop) => spotKind(prop.kind)?.player)) problems.push(`${where} has nowhere to hide`)
+    for (const paper of mine.filter((prop) => READABLE.has(prop.kind))) {
+      const spec = propSpec(paper.kind)
+      const middle = spec.mount === 'floor' ? paper.y - spec.h / 2 : paper.y + spec.h / 2
+      if (room.floorY - STANDING_MIDDLE - middle > READ_REACH) problems.push(`${where}: ${paper.kind} at ${paper.x} hangs out of reading reach`)
+    }
     const lamps = level.lamps.filter((lamp) => lamp.x >= room.x && lamp.x <= room.x + room.w && lamp.y >= room.y - 1 && lamp.y <= room.floorY)
     if (lamps.length === 0) problems.push(`${where} has no light`)
     const circuits = new Set(lamps.map((lamp) => lamp.circuit).filter((circuit) => circuit !== undefined))

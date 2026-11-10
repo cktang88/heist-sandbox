@@ -10,7 +10,7 @@ import {
 } from './audit'
 
 /** Odd and even seeds: even ones are mirrored, and must pass the same checks. */
-const SEEDS = [1, 2, 3, 4, 5, 12, 13, 18]
+const SEEDS = Array.from({ length: 40 }, (_, index) => index + 1)
 const sites = new Map<string, Level>()
 function site(seed: number, kind: 'complex' | 'outpost' = 'complex'): Level {
   const key = `${kind}:${seed}`
