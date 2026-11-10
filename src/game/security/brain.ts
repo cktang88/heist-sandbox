@@ -2,6 +2,7 @@ import { lightLevelAt } from '../light'
 import { cutRopesNear } from '../rope/rope'
 import { triggerSlowmo } from '../time'
 import { centerOf, distance, type Vec } from '../types'
+import type { Projectile } from '../projectiles'
 import type { Device, World } from '../world'
 import { barkLine, type LineKind } from './barks'
 import { pressAlarmButton } from '../devices/devices'
@@ -212,11 +213,24 @@ function noticeSomething(guard: Guard, at: Vec, kind: InterestKind, priority: nu
  * A bullet cracked past him. Someone is shooting at him and he knows where from: a guard who had no idea turns his
  * gun on the spot at once, and anyone already fighting gets out of the line of fire.
  */
-export function shotAt(world: World, guard: Guard): void {
+export function shotAt(world: World, guard: Guard, shot: Projectile): void {
   if (guard.mode === 'panic') return
-  const from = centerOf(world.player)
+  const from = cameFrom(world, shot)
   markUnderFire(world, guard, from)
   enterCombat(world, guard, from)
+}
+
+/**
+ * Where a round came from, as the man it cracked past can tell: somewhere back along its line. The shooter may have
+ * moved since he fired (a rocket takes a second to arrive), so it is the point on that line nearest him, never his
+ * new spot round a corner or up a floor.
+ */
+function cameFrom(world: World, shot: Projectile): Vec {
+  const speed = Math.hypot(shot.vx, shot.vy) || 1
+  const back = { x: -shot.vx / speed, y: -shot.vy / speed }
+  const body = centerOf(world.player)
+  const along = Math.max(0, (body.x - shot.x) * back.x + (body.y - shot.y) * back.y)
+  return { x: shot.x + back.x * along, y: shot.y + back.y * along }
 }
 
 /** Sends a calm guard to look at a spot (a noise, a distraction). Fighting and dead guards ignore it. */

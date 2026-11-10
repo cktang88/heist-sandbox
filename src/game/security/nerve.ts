@@ -163,7 +163,7 @@ export function recentDeathIn(world: World, room: number, memory: number): boole
  * and the shot is gone). Each near miss pins and frightens; a rocket going by frightens far more.
  * `onShotAt` is told so a guard who had no idea knows someone is shooting at him.
  */
-export function watchIncomingFire(world: World, dt: number, onShotAt: (world: World, guard: Guard) => void): void {
+export function watchIncomingFire(world: World, dt: number, onShotAt: (world: World, guard: Guard, shot: Projectile) => void): void {
   for (const shot of world.projectiles) {
     if (!shot.fromPlayer) continue
     const rocket = shot.kind === 'rocket'
@@ -180,7 +180,7 @@ export function watchIncomingFire(world: World, dt: number, onShotAt: (world: Wo
   }
 }
 
-function nearMiss(world: World, guard: Guard, shot: Projectile, onShotAt: (world: World, guard: Guard) => void): void {
+function nearMiss(world: World, guard: Guard, shot: Projectile, onShotAt: (world: World, guard: Guard, shot: Projectile) => void): void {
   const rocket = shot.kind === 'rocket'
   if (world.clock - guard.nearMissAt < (rocket ? 0.6 : 0.08)) return
   guard.nearMissAt = world.clock
@@ -191,7 +191,7 @@ function nearMiss(world: World, guard: Guard, shot: Projectile, onShotAt: (world
     guard.suppression = Math.min(1, guard.suppression + UNDER_FIRE.suppressionPerMiss)
     frighten(guard, NERVE.nearMiss)
   }
-  if (isActive(guard)) onShotAt(world, guard)
+  if (isActive(guard)) onShotAt(world, guard, shot)
 }
 
 /** Seconds of flight ahead in which a round still on its way into a man is a hit to come, not a miss. */

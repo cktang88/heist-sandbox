@@ -6,7 +6,10 @@ import { fillTiles } from '../tiles'
 import { feetOf } from './model'
 import { isDoorway } from './places'
 import { clearOfDoorway } from './selfPreservation'
-import { addGuard, addLamp, addWall, arena, GROUND, putPlayer, run, runListening } from './testArena'
+import { addGuard, addLamp, addUpperFloor, addWall, arena, GROUND, playerHand, putPlayer, run, runListening } from './testArena'
+import { fireShot } from '../projectiles'
+import { GUNS } from '../guns'
+import { normalize } from '../vision'
 
 const saidAny = (lines: string[], words: string[]) => lines.some((line) => words.some((word) => line.includes(word)))
 const guardShots = (world: ReturnType<typeof arena>) => world.projectiles.filter((shot) => !shot.fromPlayer).length
@@ -135,5 +138,22 @@ describe('flashbanged', () => {
     expect(frightened.blindReaction).toBe('cover')
     expect(frightened.crouching).toBe(true)
     expect(saidAny(lines, ['My face', "I'm blind", "Don't hurt me"])).toBe(true)
+  })
+})
+
+describe('where a near miss came from', () => {
+  it('a round cracking past tells a guard the line it came along, not where the shooter has moved to since', () => {
+    const world = arena()
+    const upper = addUpperFloor(world, 0, 40)
+    putPlayer(world, 20)
+    const guard = addGuard(world, 60, 1)
+    guard.deafSeconds = 5
+    const hand = playerHand(world)
+    // A silent round just over his head, then the shooter is up on the floor above before it gets there.
+    fireShot(world, hand, normalize(60 - hand.x, guard.y - 0.6 - hand.y), { ...GUNS.rifle!.shot, spread: 0 })
+    putPlayer(world, 20, upper)
+    run(world, 1, {}, () => guard.lastKnown !== null)
+    expect(guard.lastKnown).not.toBeNull()
+    expect(Math.abs(guard.lastKnown!.y - hand.y)).toBeLessThan(2)
   })
 })
