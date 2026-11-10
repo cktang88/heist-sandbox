@@ -1,4 +1,5 @@
 import { openDoorBy } from '../doors/doors'
+import { stepBlocked, wadeIntoFlood } from './footingCheck'
 import { nextHop } from '../nav'
 import { emitNoise } from '../noise'
 import { boxHitsSolid, GRAVITY, moveBody } from '../physics'
@@ -98,6 +99,12 @@ function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, c
     walk(world, guard, 0, dt)
     return 'blocked'
   }
+  // Never a step onto live or deep water, fire, under a falling fitting or into gas; wading in, he turns the taps off.
+  if (stepBlocked(world, guard)) {
+    walk(world, guard, 0, dt)
+    return 'blocked'
+  }
+  wadeIntoFlood(world, guard)
   const pace = Math.min(speed, Math.abs(dx) * 5 + 0.5)
   return walk(world, guard, guard.facing * pace, dt) && !openDoorAhead(world, guard, !careful && speed > 3, to) ? 'blocked' : 'moving'
 }

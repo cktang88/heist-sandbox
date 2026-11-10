@@ -1,4 +1,5 @@
-import { feetOf, type Guard } from '../security/model'
+import { eyeOf, feetOf, type Guard } from '../security/model'
+import { lightCigarette } from '../systems/systems'
 import { buildingAt, sameFloor } from '../security/places'
 import { hasLineOfSight } from '../vision'
 import type { World } from '../world'
@@ -88,6 +89,8 @@ function begin(world: World, people: PeopleState, person: Person, plan: ActPlan,
   const seconds = fitInPause(guard, plan.seconds)
   person.act = { name: plan.name, until: world.clock + seconds, with: withId }
   if (plan.turnsAway) guard.facing = guard.facing === 1 ? -1 : 1
+  // A lighter struck in a room full of gas sets it off (systems/).
+  if (plan.name === 'smoke') lightCigarette(world, eyeOf(guard))
   if (say(world, people, person, plan.talk) && plan.trait) reveal(world, person, plan.trait)
 }
 
