@@ -9,6 +9,7 @@ import type { AlertLevel } from './events'
 import { log, raiseLevel } from './report'
 import { organiseSquad } from './squad'
 import { forgetSpentFrags } from './guardFrags'
+import { indexPanes } from './intrusions'
 import { considerShieldTeam } from './shieldTeam'
 import { assignStations } from './stations'
 import { FEAR, LEVELS, RESPONSE } from './tuning'
@@ -31,6 +32,7 @@ const LOCKDOWN_CONTACT = 30
 export function stepSecurity(world: World, dt: number): void {
   const security = world.security
   indexDoors(world)
+  indexPanes(world)
   expireBarks(world, dt)
   forgetSpentFrags(world)
   // Something else (a tripped sensor, an old code path) rang the alarm: that is a confirmed intruder.

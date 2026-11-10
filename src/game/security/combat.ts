@@ -1,3 +1,4 @@
+import { onLine } from '../grapple/state'
 import { throwGrenade } from '../hazards/hazards'
 import { emitNoise } from '../noise'
 import { fireShot } from '../projectiles'
@@ -417,7 +418,8 @@ function spaced(world: World, guard: Guard, spot: Vec, side: number): Vec {
 /** Aimed fire for token holders, slower wild fire for the suppressor, never through a colleague. */
 function tryFire(world: World, guard: Guard, known: Vec): void {
   if (guard.drawSeconds > 0 || !guard.seesPlayer || guard.shootCooldown > 0 || guard.radio) return
-  const aimed = world.security.shooters.includes(world.guards.indexOf(guard))
+  // A man hanging on a grappling line has nowhere to hide: everyone with a shot takes it.
+  const aimed = world.security.shooters.includes(world.guards.indexOf(guard)) || onLine(world.grapple)
   if (!aimed && guard.combatRole !== 'suppress') return
   const eye = eyeOf(guard)
   if (colleagueInLine(world, guard, eye, known)) {

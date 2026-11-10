@@ -71,7 +71,7 @@ function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, c
   }
   const level = Math.abs(to.y - feet.y) < SAME_FLOOR
   // Only a guard in a hurry takes the quick way down through a hole; a calm one keeps to the floors and stairs.
-  const hop = nextHop(world.stairwells, feet, to, careful ? undefined : holesFor(world, guard))
+  const hop = nextHop(world.stairwells, feet, to, careful || to.y - feet.y < SAME_FLOOR ? undefined : holesFor(world, guard))
   if (hop.kind === 'stairs' && !level) {
     guard.stairs = { well: hop.well.id, u: hop.stop }
     return 'moving'

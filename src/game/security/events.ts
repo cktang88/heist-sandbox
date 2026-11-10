@@ -1,9 +1,11 @@
+import type { Charge } from '../charges'
 import type { Frag } from '../frag/frag'
+import type { Guard } from './model'
 import type { Rope } from '../rope/rope'
 import type { Lamp } from '../site'
 import type { Vec } from '../types'
 
-export type Tamper = 'door' | 'lock' | 'rope'
+export type Tamper = 'door' | 'lock' | 'rope' | 'line' | 'window' | 'charge' | 'hostage'
 
 /**
  * Site alert level, held by the control room:
@@ -118,6 +120,13 @@ export type SecurityState = {
   shieldTeamAt: number
   /** Frags guards have thrown that have not gone off yet (see guardFrags.ts). */
   guardFrags: Frag[]
+  /** What has been noticed of the intruder's tricks (intrusions.ts): the grappling line, missing panes, charges, tied-up men. */
+  lineNoticed: boolean
+  panesNoticed: Set<string>
+  chargesSeen: Set<Charge>
+  tiedNoticed: Set<Guard>
+  /** Clock time a freed colleague said the intruder was asking about the case. */
+  caseAskedAt: number
 }
 
 export function createSecurity(): SecurityState {
@@ -129,5 +138,6 @@ export function createSecurity(): SecurityState {
     deaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), camerasDeadSince: new Map(), camerasReported: new Set(),
     vaultReported: false, lampsNoticed: new Set(), ropesNoticed: new Set(), chuteReportedAt: -Infinity, recentLines: [],
     killZones: [], shieldTeams: 0, shieldTeamAt: -Infinity, guardFrags: [],
+    lineNoticed: false, panesNoticed: new Set(), chargesSeen: new Set(), tiedNoticed: new Set(), caseAskedAt: -Infinity,
   }
 }

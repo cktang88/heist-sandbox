@@ -4,6 +4,7 @@ import type { World } from '../world'
 import { barkLine } from './barks'
 import { eyeOf, feetOf, type Guard } from './model'
 import { goTo } from './movement'
+import { keepOffCharges } from './intrusions'
 import { clearView, zoneOf } from './perception'
 import { roomOf } from './places'
 import { PATROL } from './tuning'
@@ -49,7 +50,7 @@ export function escapeHazard(world: World, guard: Guard, dt: number): boolean {
   const eye = eyeOf(guard)
   const fire = fireOnBody(world, feet)
   const smoky = !fire && smokeDensityAt(world, eye) > SMOKE_ESCAPE
-  if (!fire && !smoky) return false
+  if (!fire && !smoky) return keepOffCharges(world, guard, dt)
   barkLine(world, guard, fire ? 'fire' : 'cough')
   const away = fire ? lessFire(world, feet, guard.facing) : clearerSide(world, eye, guard)
   goTo(world, guard, { x: feet.x + away * ESCAPE_DISTANCE, y: feet.y }, PATROL.runSpeed, dt, false)

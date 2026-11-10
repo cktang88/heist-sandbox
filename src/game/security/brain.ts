@@ -10,6 +10,7 @@ import { blindBehaviour, combatBehaviour, enterCombat } from './combat'
 import { alreadyCalling, progressRadio, shout, startRadio } from './comms'
 import { escapeHazard, markFireReported, spotFire } from './danger'
 import { lookForTrouble } from './discoveries'
+import { cutLineNear, untieNear } from './intrusions'
 import { holdsBack, panicBehaviour, surrenderedBehaviour } from './fear'
 import { isGuardBlast } from './guardFrags'
 import { noiseKind, type NoiseSource } from './hearing'
@@ -348,6 +349,8 @@ function arrive(world: World, guard: Guard): void {
     cutRopesNear(world, interest.at, ROPE_REACH)
     barkLine(world, guard, 'cutRope')
   }
+  if (interest.kind === 'tamper' && interest.tamper === 'line') cutLineNear(world, guard, interest.at)
+  if (interest.kind === 'tamper' && interest.tamper === 'hostage') untieNear(world, interest.at)
   // At the fuse box (or light switch) of a dark room: throw it back on.
   if (interest.kind === 'lightsOut' && interest.circuit !== undefined && world.deadCircuits.has(interest.circuit)) {
     restoreCircuit(world, interest.circuit)

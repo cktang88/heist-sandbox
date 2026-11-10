@@ -12,6 +12,7 @@ import { eyeOf, feetOf, isActive, setMode, type Guard, type InterestKind } from 
 import { clearView, zoneOf } from './perception'
 import { deviceBuilding, deviceFeet, floorBelow, roomOf } from './places'
 import { reportEvent } from './report'
+import { lineLeftHanging, paneMissing, tiedColleague } from './intrusions'
 import { DISCOVERY } from './tuning'
 
 /**
@@ -34,7 +35,8 @@ const LAMP_WITNESS = 9
 
 /** The first thing out of place this guard can see right now, if any. Cheap: a few tiles and a handful of doors. */
 export function lookForTrouble(world: World, guard: Guard): Finding | null {
-  return vaultEmpty(world, guard) ?? chuteInSky(world, guard) ?? ropeOnWall(world, guard) ?? doorTampered(world, guard) ?? smokeAhead(world, guard)
+  return vaultEmpty(world, guard) ?? tiedColleague(world, guard) ?? chuteInSky(world, guard) ?? ropeOnWall(world, guard)
+    ?? lineLeftHanging(world, guard) ?? doorTampered(world, guard) ?? paneMissing(world, guard) ?? smokeAhead(world, guard)
 }
 
 // --- Doors -------------------------------------------------------------------------------------
