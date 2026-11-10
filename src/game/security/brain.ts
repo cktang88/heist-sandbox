@@ -1,10 +1,12 @@
-import { playSound } from '../sounds'
 import { triggerSlowmo } from '../time'
 import { centerOf, type Vec } from '../types'
 import type { Device, World } from '../world'
 import { barkLine, type LineKind } from './barks'
-import { combatBehaviour, enterCombat, escapeHazard } from './combat'
+import { pressAlarmButton } from '../devices/devices'
+import { restoreCircuit } from '../devices/power'
+import { combatBehaviour, enterCombat } from './combat'
 import { alreadyCalling, progressRadio, shout, startRadio } from './comms'
+import { escapeHazard, markFireReported, spotFire } from './danger'
 import { noiseKind, type NoiseSource } from './hearing'
 import { feetOf, isActive, setMode, type Guard, type GuardMode, type InterestKind } from './model'
 import { goTo, hold } from './movement'
@@ -12,7 +14,6 @@ import { startSearch } from './orders'
 import { patrolBehaviour } from './patrol'
 import { detectPlayer, isAlerted, spotBody } from './perception'
 import { buildingAt, deviceFeet, floorBelow, sameFloor, travelCost } from './places'
-import { reportEvent } from './report'
 import { AWARENESS, COMMS, LOD, PATROL, TIMING } from './tuning'
 
 /**
@@ -22,7 +23,9 @@ import { AWARENESS, COMMS, LOD, PATROL, TIMING } from './tuning'
 
 const EVIDENCE_EVERY = 0.3
 const LOOK_FLIP = 1.3
-const HURRIED: readonly InterestKind[] = ['gunfire', 'body', 'shout', 'order']
+const HURRIED: readonly InterestKind[] = ['gunfire', 'body', 'shout', 'order', 'fire']
+/** Close enough to a fire to see what is burning, without walking into it. */
+const FIRE_STANDOFF = 4
 const OTHER_BUILDING = 200
 
 export function thinkGuard(world: World, guard: Guard, dt: number): void {
@@ -35,6 +38,8 @@ export function thinkGuard(world: World, guard: Guard, dt: number): void {
   progressRadio(world, guard, dt)
   if (guard.mode === 'combat') reportContact(world, guard)
   if (guard.radio && guard.mode !== 'combat') {
+    // Calling it in, standing still, unless he is standing in fire or smoke.
+    if (escapeHazard(world, guard, dt)) return announce(world, guard)
     faceInterest(guard)
     hold(world, guard, dt)
   } else {
@@ -44,7 +49,8 @@ export function thinkGuard(world: World, guard: Guard, dt: number): void {
 }
 
 function act(world: World, guard: Guard, dt: number): void {
-  if (guard.mode !== 'calm' && guard.mode !== 'combat' && escapeHazard(world, guard, dt)) return
+  // Fighting guards get out of fire and smoke as part of fighting (combat.ts); everyone else does it first.
+  if (guard.mode !== 'combat' && escapeHazard(world, guard, dt)) return
   switch (guard.mode) {
     case 'calm':
     case 'caution':
@@ -111,6 +117,8 @@ function perceive(world: World, guard: Guard, dt: number): void {
   guard.evidenceTimer -= step
   if (guard.evidenceTimer > 0 || guard.mode === 'combat') return
   guard.evidenceTimer = EVIDENCE_EVERY
+  const fire = guard.interest?.kind === 'fire' ? null : spotFire(world, guard)
+  if (fire) noticeSomething(guard, floorBelow(world, fire), 'fire', 5)
   const body = spotBody(world, guard)
   if (body === null) return
   guard.bodiesSeen.push(body)
@@ -201,7 +209,8 @@ function investigating(world: World, guard: Guard, dt: number): void {
     const status = goTo(world, guard, goal, speed, dt, false)
     const feet = feetOf(guard)
     const closeToBody = interest.kind === 'body' && sameFloor(feet, goal) && Math.abs(feet.x - goal.x) < 1.5
-    if (status !== 'moving' || closeToBody || guard.modeSeconds > TIMING.investigateGiveUp) arrive(world, guard)
+    const closeToFire = interest.kind === 'fire' && sameFloor(feet, goal) && Math.abs(feet.x - goal.x) < FIRE_STANDOFF
+    if (status !== 'moving' || closeToBody || closeToFire || guard.modeSeconds > TIMING.investigateGiveUp) arrive(world, guard)
     return
   }
   hold(world, guard, dt)
@@ -216,6 +225,15 @@ function arrive(world: World, guard: Guard): void {
   if (interest.kind === 'body' && interest.body !== undefined && !world.security.reportedBodies.has(interest.body)) {
     const hip = world.guards[interest.body].ragdoll?.points[2] ?? interest.at
     if (!alreadyCalling(world, 'body', hip)) startRadio(world, guard, { kind: 'body', at: { x: hip.x, y: hip.y }, by: world.guards.indexOf(guard) })
+  }
+  if (interest.kind === 'fire') {
+    markFireReported(world, interest.at)
+    if (!alreadyCalling(world, 'fire', interest.at)) startRadio(world, guard, { kind: 'fire', at: { ...interest.at }, alarm: false })
+  }
+  // At the fuse box (or light switch) of a dark room: throw it back on.
+  if (interest.kind === 'lightsOut' && interest.circuit !== undefined && world.deadCircuits.has(interest.circuit)) {
+    restoreCircuit(world, interest.circuit)
+    barkLine(world, guard, 'lightsOn')
   }
 }
 
@@ -284,7 +302,10 @@ function followLeader(world: World, guard: Guard, dt: number): boolean {
   return true
 }
 
-/** The radio is dead: run to the nearest working alarm button and press it. */
+/**
+ * The radio is dead: run to the nearest working alarm button and press it, telling the control room where
+ * the intruder was. If the player disables the button first, the guard goes on to the next one.
+ */
 function runToAlarm(world: World, guard: Guard, dt: number): void {
   const button = nearestAlarmButton(world, feetOf(guard))
   const report = guard.pendingReport
@@ -297,10 +318,9 @@ function runToAlarm(world: World, guard: Guard, dt: number): void {
   }
   guard.target = deviceFeet(world, button)
   if (goTo(world, guard, guard.target, PATROL.runSpeed, dt, false) !== 'arrived') return
-  playSound(world, 'alarm', guard.target)
+  if (!pressAlarmButton(world, button, lead ?? undefined)) return
   barkLine(world, guard, 'alarmPressed', true)
   guard.pendingReport = null
-  reportEvent(world, { kind: 'alarmButton', at: lead ? { ...lead } : guard.target })
   startSearch(world, guard, lead ? floorBelow(world, lead) : feetOf(guard))
 }
 
@@ -372,7 +392,7 @@ function lineFor(guard: Guard, from: GuardMode, to: GuardMode): LineKind | null 
   const kind = guard.interest?.kind
   switch (to) {
     case 'noticed':
-      return kind === 'lightsOut' ? 'lightsOut' : kind === 'gunfire' ? 'gunfire' : 'huh'
+      return kind === 'lightsOut' ? 'lightsOut' : kind === 'gunfire' ? 'gunfire' : kind === 'fire' ? 'seeFire' : 'huh'
     case 'investigating':
       return kind === 'body' ? 'manDown' : kind === 'order' ? null : 'checking'
     case 'searching':

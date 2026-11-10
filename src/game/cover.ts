@@ -1,5 +1,6 @@
 import { burst } from './effects'
 import { propBroke } from './hazards/hazards'
+import { propsNear } from './hazards/props'
 import { propSpec } from './propCatalog'
 import type { Prop } from './site'
 import { playSound } from './sounds'
@@ -48,9 +49,12 @@ export function shotHitsProp(world: World, at: ShotPoint, damage: number): boole
   return false
 }
 
-/** Explosions chew up everything nearby, cover or not. Explosions call this alongside breaking tiles. */
+/**
+ * Explosions chew up everything nearby, cover or not. Explosions call this alongside breaking tiles; it is the one
+ * place blasts damage props, so a prop broken here reacts (blows up, sparks) exactly once, through `propBroke`.
+ */
 export function hurtPropsInRadius(world: World, at: Vec, radius: number, damage: number): void {
-  for (const prop of world.props) {
+  for (const prop of propsNear(world, at, radius)) {
     if (prop.broken) continue
     const gap = Math.hypot(propCenter(prop).x - at.x, propCenter(prop).y - at.y)
     if (gap <= radius) damageProp(world, prop, damage * (1 - (gap / radius) * 0.75))
@@ -142,7 +146,7 @@ function segmentHitsBox(a: Vec, b: Vec, box: Box): boolean {
 
 const coverIndex = new WeakMap<readonly PropState[], Map<number, PropState[]>>()
 
-/** Unbroken floor props that give cover and stand near this column. */
+/** Unbroken floor props that give cover and stand near this column. A prop on fire is as good as gone. */
 function coverNear(world: World, x: number): PropState[] {
   let index = coverIndex.get(world.props)
   if (!index) {
@@ -157,7 +161,7 @@ function coverNear(world: World, x: number): PropState[] {
   }
   const found: PropState[] = []
   for (let bucket = Math.floor((x - QUERY_MARGIN) / BUCKET); bucket <= Math.floor((x + QUERY_MARGIN) / BUCKET); bucket += 1) {
-    for (const prop of index.get(bucket) ?? []) if (!prop.broken) found.push(prop)
+    for (const prop of index.get(bucket) ?? []) if (!prop.broken && !world.hazards.burningProps.has(prop.id)) found.push(prop)
   }
   return found
 }

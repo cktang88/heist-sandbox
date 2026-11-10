@@ -47,8 +47,11 @@ export type SecurityState = {
   /** Per building: since when every radio relay has been down, and whether that has been noticed. */
   commsDownSince: Map<string, number>
   commsReported: Set<string>
-  /** Dead lighting circuits the guards have already reacted to. */
+  /** Dead lighting circuits the guards have already reacted to, and since when each dead circuit has been dead. */
   circuitsNoticed: Set<number>
+  circuitsDeadSince: Map<number, number>
+  /** Room id (or -1 outside rooms) to the clock time a fire there was last reported. */
+  firesReported: Map<number, number>
   /** Bodies (guard indices) already reported. */
   reportedBodies: Set<number>
   /** Guard indices allowed to fire aimed shots this frame. */
@@ -72,7 +75,7 @@ export type SecurityState = {
 export function createSecurity(): SecurityState {
   return {
     level: 0, lastKnown: null, lastContactAt: -Infinity, levelSince: 0, peak: 0, log: [], barks: [], polls: [],
-    searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(),
+    searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(), circuitsDeadSince: new Map(), firesReported: new Map(),
     reportedBodies: new Set(), shooters: [], campSpot: null, campSeconds: 0,
     confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
   }

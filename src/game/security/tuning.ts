@@ -91,6 +91,8 @@ export const COMMS = {
   pollSeconds: 10,
   /** All relays in a building down for this long, and the control room notices. */
   commsFaultSeconds: 25,
+  /** A dark circuit nobody saw go out shows on the control room's panel after this long, and someone is sent. */
+  powerFaultSeconds: 30,
   logLines: 8,
 } as const
 
