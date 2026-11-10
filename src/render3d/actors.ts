@@ -1,4 +1,4 @@
-import { Group, Mesh } from 'three'
+import { Group, Mesh, type ShaderMaterial, type Texture } from 'three'
 import { guardMood, type Guard } from '../game/guards'
 import type { TileKind } from '../game/tiles'
 import type { Vec } from '../game/types'
@@ -7,7 +7,7 @@ import { guardMotion, playerMotion } from '../render/human/motion'
 import { chargePose } from './chargePose'
 import { runBuildJobs } from './core/buildQueue'
 import { lastFrameMs, noteFramePart } from './core/frameProbe'
-import { createGpuProbe, uploadSpread } from './core/gpu'
+import { createGpuProbe, releaseTexture, texturesOf, uploadSpread } from './core/gpu'
 import { measured } from './core/timing'
 import { createEffects3d } from './fx3d'
 import { BACK, FRONT, type SurfaceMaterials, type SurfaceName } from './levelMesh'
@@ -239,6 +239,22 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       runBuildJobs(view, lastFrameMs(), leadOf(now, view))
       lastClock = now.clock
     },
-    dispose() {},
+    dispose() {
+      // Each heist builds its own canvases (window atlas, signs, smoke puffs...). Free their GPU copies, or every new
+      // heist keeps the last one's. Shared textures are simply sent again when the next heist draws with them.
+      const seen = new Set<Texture>()
+      group.traverse((object) => {
+        const material = (object as Mesh).material
+        if (!material) return
+        for (const entry of Array.isArray(material) ? material : [material]) {
+          for (const texture of texturesOf(entry)) if (!texture.isRenderTargetTexture) seen.add(texture)
+          for (const uniform of Object.values((entry as ShaderMaterial).uniforms ?? {})) {
+            const value = (uniform as { value?: Texture }).value
+            if (value?.isTexture && !value.isRenderTargetTexture) seen.add(value)
+          }
+        }
+      })
+      for (const texture of seen) releaseTexture(texture)
+    },
   }
 }
