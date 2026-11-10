@@ -3,6 +3,9 @@ import { addDevice, addGuard, addLamp, addRoom, arena, GROUND, putPlayer, run } 
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
 import { knockOutCold } from './bodies'
+import { disguiseBlown } from './disguise'
+import { createProps } from '../cover'
+import { enterSpot } from './hide'
 import { DISGUISE, KEYCARD, RADIO } from './tuning'
 
 const holdE = (world: World, seconds: number, extra: object = {}) => {
@@ -43,6 +46,20 @@ describe("a downed guard's radio", () => {
     run(world, 2 / 60)
     run(world, 1 / 60, { interact: true, interactPressed: true })
     expect(world.security.level).toBe(1)
+  })
+
+  it('can be answered from inside a hiding place, and E gets the player out after', () => {
+    const world = overBody()
+    holdE(world, RADIO.takeSeconds + 0.1)
+    world.props = createProps([{ kind: 'wardrobe', x: 21.5, y: GROUND }])
+    enterSpot(world, world.props[0])
+    const guard = world.guards[0]
+    guard.checkInAt = world.clock
+    run(world, 2 / 60)
+    expect(world.prompt).toContain('answer the radio')
+    run(world, 1 / 60, { interact: true, interactPressed: true })
+    expect(guard.missing).toBe(false)
+    expect(world.player.hidden).toBe(true)
   })
 
   it('an unanswered call marks him missing as usual', () => {
@@ -93,8 +110,21 @@ describe('the disguise', () => {
     addLamp(running, 36)
     const watcher = addGuard(running, 44, -1)
     putPlayer(running, 28)
-    run(running, 1.2, { right: true })
+    // Jumping about is not how a guard moves (his ordinary pace is; see below).
+    run(running, 1.2, { right: true, jumpPressed: true, jumpHeld: true })
     expect(watcher.awareness).toBeGreaterThan(0)
+  })
+
+  it('walking at the ordinary pace keeps the disguise; sliding or climbing gives it away', () => {
+    const world = disguised()
+    putPlayer(world, 28)
+    run(world, 0.5, { right: true })
+    expect(Math.abs(world.player.vx)).toBeGreaterThan(8)
+    expect(disguiseBlown(world)).toBeNull()
+    run(world, 1 / 60, { right: true, crouch: true })
+    expect(disguiseBlown(world)).toBe('sliding')
+    world.player.onLadder = true
+    expect(disguiseBlown(world)).toBe('climbing')
   })
 
   it('holding a guard as a shield gives him away', () => {

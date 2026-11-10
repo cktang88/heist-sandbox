@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createPlayer, updateFocus } from './player'
 import { createTime, stepTime, triggerSlowmo } from './time'
 
 function run(time: ReturnType<typeof createTime>, seconds: number, focusing = false, acting = false): number {
@@ -32,5 +33,19 @@ describe('slow motion', () => {
     run(time, 1)
     triggerSlowmo(time, 0.3, 0.2)
     expect(time.burstLeft).toBe(0)
+  })
+})
+
+describe('the focus meter', () => {
+  it('runs dry while held, stays dry (no flickering slow motion) while still held, and refills once let go', () => {
+    const player = createPlayer({ x: 0, y: 0 })
+    for (let frame = 0; frame < 5 * 60; frame += 1) updateFocus(player, true, 1 / 60)
+    expect(player.focus).toBe(0)
+    let slowFrames = 0
+    for (let frame = 0; frame < 120; frame += 1) if (updateFocus(player, true, 1 / 60)) slowFrames += 1
+    expect(slowFrames).toBe(0)
+    for (let frame = 0; frame < 60; frame += 1) updateFocus(player, false, 1 / 60)
+    expect(player.focus).toBeGreaterThan(0.3)
+    expect(updateFocus(player, true, 1 / 60)).toBe(true)
   })
 })

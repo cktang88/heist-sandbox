@@ -6,6 +6,8 @@ import type { World } from '../world'
 import { openedDoors } from './doors'
 import { doorColumn } from '../elevators'
 import { createWorld } from '../world'
+import { createProps } from '../cover'
+import { throwGrenade } from '../hazards/hazards'
 
 /**
  * Doors the player opens by hand can be shut again, and a shut door shows nothing. A patrol that finds one standing
@@ -43,6 +45,21 @@ describe('doors by hand', () => {
     run(world, 1 / 60, { crouch: true, interact: true, interactPressed: true })
     expect(tileAt(world.grid, 50, GROUND - 1)).toBe('door')
     expect(openedDoors(world).size).toBe(0)
+  })
+
+  it('does not shut on a crate or a grenade lying in the doorway', () => {
+    const world = arena()
+    doorAt50(world)
+    pickIt(world)
+    world.props = createProps([{ kind: 'crate', x: 49.6, y: GROUND }])
+    run(world, 0.1, { crouch: true })
+    run(world, 1 / 60, { crouch: true, interact: true, interactPressed: true })
+    expect(tileAt(world.grid, 50, GROUND - 1)).toBe('air')
+    world.props = []
+    throwGrenade(world, 'smoke', { x: 50.5, y: GROUND - 0.3 }, { x: 0, y: 1 })
+    run(world, 0.1, { crouch: true })
+    run(world, 1 / 60, { crouch: true, interact: true, interactPressed: true })
+    expect(tileAt(world.grid, 50, GROUND - 1)).toBe('air')
   })
 
   it('a picked lock shut again leaves no trace for the patrol that walks through later', () => {

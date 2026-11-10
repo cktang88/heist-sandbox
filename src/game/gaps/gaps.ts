@@ -1,5 +1,6 @@
 import { onLine } from '../grapple/state'
 import type { Input } from '../input'
+import { bodyControl } from '../movement/control'
 import type { World } from '../world'
 import { guardDropsThrough } from '../security/holeDrop'
 import { anyWalkPast } from './holes'
@@ -26,7 +27,7 @@ export function stepGaps(world: World, input: Input): void {
   // onto what is left of it; let go below it and you fall.
   if (onLine(world.grapple) || player.onLadder) world.gaps.stoodAt.set(player, player.y + player.h)
   else if (!player.stairs && !player.mantle) {
-    const drop = !world.drone && input.down
+    const drop = bodyControl(world, input).down
     if (carryAcross(world, player, drop)) {
       player.chute = false
       player.airJumps = 1

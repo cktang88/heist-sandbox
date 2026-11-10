@@ -22,7 +22,8 @@ export function stealthControls(world: World, input: Input, dt: number): string 
       return world.stealth.choke!.struggle ? 'Keep holding E: wrestling him down (loud)' : 'Keep holding E: choking him out'
     }
   }
-  if (world.stealth.checkIn && !world.stealth.hiding) {
+  // A lifted radio crackling is answered in a murmur, from a hiding place too; E gets him out once it is answered.
+  if (world.stealth.checkIn) {
     if (input.interactPressed) answerRadio(world)
     else return `E: answer the radio for him (${Math.ceil(world.stealth.checkIn.until - world.clock)}s)`
     return null

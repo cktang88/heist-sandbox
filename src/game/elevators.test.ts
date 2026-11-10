@@ -12,6 +12,11 @@ import { roomAt } from './site'
 import { stepWorld } from './step'
 import { isSolidAt, tileAt } from './tiles'
 import { createWorld, type World } from './world'
+import { DRONE_PROMPT } from './drone'
+import { toolIndex } from './toolDefs'
+import { propBox } from './hazards/props'
+import { isPushable } from './physprops/kinds'
+import { loosen, shiftProp } from './physprops/state'
 
 const FRAME = 1 / 60
 
@@ -174,6 +179,42 @@ describe('elevators', () => {
     expect(world.player.onGround).toBe(true)
     expect(Math.abs(feet(world) - stalledAt)).toBeLessThan(0.05)
     expect(car.riders).toHaveLength(0)
+  })
+
+  it('ignores W while the keys fly the drone or the rider is knocked down', () => {
+    const { world, shaft, car } = setUp()
+    Object.assign(world.player, { x: shaft.x + 0.5, y: shaft.stops[car.stop!] - world.player.h - 0.01, vx: 0, vy: 0 })
+    run(world, 0.3)
+    expect(world.prompt).toBe('W/S: ride elevator')
+    world.player.tool = toolIndex('drone')
+    run(world, FRAME, { fire: true, firePressed: true })
+    run(world, 1, { up: true })
+    expect(car.moving).toBe(false)
+    expect(world.prompt).toBe(DRONE_PROMPT)
+
+    run(world, FRAME, { interact: true, interactPressed: true })
+    expect(world.drone).toBeNull()
+    world.player.stunSeconds = 1
+    run(world, 0.5, { up: true })
+    expect(car.moving).toBe(false)
+    run(world, 1, { up: true })
+    expect(car.moving).toBe(true)
+  })
+
+  it('carries loose furniture standing on the car instead of dropping it down the shaft', () => {
+    const { world, shaft, car } = setUp()
+    const prop = world.props.find((candidate) => isPushable(candidate.kind) && propBox(candidate).w < shaft.w - 0.5)!
+    const box = propBox(prop)
+    shiftProp(prop, shaft.x + 0.3 - box.x, car.y - (box.y + box.h))
+    loosen(world, prop)
+    run(world, 0.3)
+    expect(propBox(prop).y + propBox(prop).h).toBeCloseTo(car.y, 1)
+    const target = car.stop! + 2
+    car.targetStop = target
+    run(world, 6)
+    expect(car.stop).toBe(target)
+    expect(car.moving).toBe(false)
+    expect(propBox(prop).y + propBox(prop).h).toBeCloseTo(car.y, 1)
   })
 
   it('carries a guard standing in the car and crushes one underneath it', () => {

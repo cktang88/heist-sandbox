@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { explode } from './explosions'
+import { throwFrag } from './frag/frag'
 import { stepAftermath } from './frag/aftermath'
 import { addGuard, bareWorld } from './hazards/testWorld'
 import { idleInput } from './input'
@@ -8,7 +9,9 @@ import { movePlayer } from './player'
 import type { Stairwell } from './site'
 import { breakFlight, climbStairs, findLanding, landingX, splitWell, stairPoint, type OnStairs } from './stairs'
 import type { Body } from './types'
-import type { World } from './world'
+import { boxHitsSolid } from './physics'
+import { stepWorld } from './step'
+import { createWorld, type World } from './world'
 
 const well: Stairwell = { id: 0, building: 'test', leftX: 10, rightX: 20, stops: [100, 94, 88, 82] }
 
@@ -86,6 +89,19 @@ describe('destroyed flights', () => {
     expect(findLanding(made.stairwells, 20, 94)?.well.stops).toEqual([100, 94])
   })
 
+  it('drops a frag rattling down the broken flight, and moves one further up onto the upper piece', () => {
+    const made = world()
+    throwFrag(made, { x: 15, y: 90 }, { x: 1, y: 0 })
+    throwFrag(made, { x: 15, y: 90 }, { x: 1, y: 0 })
+    const [falling, above] = made.frags
+    falling.stairs = { well: 0, u: 1.4 }
+    above.stairs = { well: 0, u: 2.5 }
+    breakFlight(made, 0, 1)
+    expect(falling.stairs).toBeNull()
+    const upper = made.stairwells.find((piece) => piece.id === above.stairs!.well)!
+    expect(stairPoint(upper, above.stairs!.u)).toEqual(stairPoint(well, 2.5))
+  })
+
   it('a player left at the broken end cannot climb on', () => {
     const made = world()
     breakFlight(made, 0, 1)
@@ -100,5 +116,66 @@ describe('destroyed flights', () => {
     explode(made, stairPoint(well, 2.5), { radius: 3, tileDamage: 50, bodyDamage: 50 })
     stepAftermath(made)
     expect(made.stairwells.map((piece) => piece.stops)).toEqual([[100, 94, 88]])
+  })
+})
+
+describe('leaving a flight between landings', () => {
+  /** The player partway up a flight of the complex's first staircase, where it crosses the slab of the storey above. */
+  function partwayUp(along: number): World {
+    const world = createWorld(1, 'complex')
+    world.guards = []
+    const tower = world.stairwells[0]
+    Object.assign(world.player, { x: landingX(tower, 2) - world.player.w / 2, y: tower.stops[2] - world.player.h - 0.01, vx: 0, vy: 0, hp: 1e6 })
+    const run = (input = {}) => stepWorld(world, { ...idleInput({ x: world.player.x + 5, y: world.player.y }), ...input }, 1 / 60)
+    for (let frame = 0; frame < 12; frame += 1) run()
+    for (let frame = 0; frame < 300 && (world.player.stairs?.u ?? 2) - 2 < along; frame += 1) run({ up: true })
+    return world
+  }
+
+  it.each([0.3, 0.5, 0.7, 0.9])('jumping off %s of the way up never leaves the player inside the floor slab', (along) => {
+    const world = partwayUp(along)
+    expect(world.player.stairs).not.toBeNull()
+    stepWorld(world, { ...idleInput({ x: world.player.x + 5, y: world.player.y }), up: true, jumpPressed: true, jumpHeld: true }, 1 / 60)
+    expect(world.player.stairs).toBeNull()
+    for (let frame = 0; frame < 60; frame += 1) {
+      stepWorld(world, idleInput({ x: world.player.x + 5, y: world.player.y }), 1 / 60)
+      expect(boxHitsSolid(world.grid, world.player)).toBe(false)
+    }
+    expect(world.player.onGround).toBe(true)
+  })
+
+  it('a flight blown away under the player drops him clear of the slab it crossed', () => {
+    const world = partwayUp(0.7)
+    breakFlight(world, world.player.stairs!.well, 2)
+    expect(world.player.stairs).toBeNull()
+    expect(boxHitsSolid(world.grid, world.player)).toBe(false)
+  })
+})
+
+describe('shooting on the stairs', () => {
+  it('recoil and spread settle while climbing, as they do on the floor', () => {
+    const body = bareWorld(40, 120)
+    body.stairwells = [well]
+    Object.assign(body.player, { x: 10 - body.player.w / 2, y: 100 - body.player.h, onGround: true, kick: 1, bloom: 0.14 })
+    for (let frame = 0; frame < 60; frame += 1) movePlayer(body.grid, body.player, { ...idleInput({ x: 30, y: 90 }), up: true }, 1 / 60, body.stairwells)
+    expect(body.player.stairs).not.toBeNull()
+    expect(body.player.kick).toBeLessThan(0.01)
+    expect(body.player.bloom).toBe(0)
+  })
+})
+
+describe('footsteps on the stairs', () => {
+  function climbing(crouch: boolean) {
+    const world = bareWorld(40, 120)
+    world.stairwells = [well]
+    Object.assign(world.player, { x: 10 - world.player.w / 2, y: 100 - world.player.h, onGround: true })
+    for (let frame = 0; frame < 60; frame += 1) movePlayer(world.grid, world.player, { ...idleInput({ x: 30, y: 90 }), up: true, crouch }, 1 / 60, world.stairwells)
+    expect(world.player.stairs).not.toBeNull()
+    return world.player.footfalls
+  }
+
+  it('running up a flight is heard step by step; creeping up crouched is silent', () => {
+    expect(climbing(false).length).toBeGreaterThanOrEqual(2)
+    expect(climbing(true)).toEqual([])
   })
 })

@@ -1,4 +1,5 @@
 import type { Guard } from '../guards'
+import { onLine } from '../grapple/state'
 import { isAlerted } from '../security/perception'
 import { roomAt, type RoomKind } from '../site'
 import { TOOLS } from '../toolDefs'
@@ -8,7 +9,7 @@ import { DISGUISE } from './tuning'
 
 /**
  * Wearing a guard's uniform. From a distance, in passing, the player reads as one of them; up close a guard looks at
- * his face and sees through it after a moment. Officers know every face. Running, carrying a body, choking a man or
+ * his face and sees through it after a moment. Officers know every face. Sliding, jumping or climbing, carrying a body, choking a man or
  * holding one as a shield, holding a big gun or walking into a room his rank has no business in gives him away
  * whatever the distance. Once a stripped body has been found, everyone looks harder for a while.
  */
@@ -21,7 +22,10 @@ export function disguiseBlown(world: World): string | null {
   const disguise = world.stealth.disguise
   if (!disguise) return null
   const player = world.player
-  if (Math.abs(player.vx) > 5) return 'running'
+  // His ordinary pace is a guard's walk; sliding, jumping about and climbing are not how a guard moves.
+  if (player.onLadder || player.mantle || onLine(world.grapple)) return 'climbing'
+  if (player.slide > 0) return 'sliding'
+  if (!player.onGround && !player.stairs) return 'jumping about'
   if (world.stealth.carried !== null) return 'carrying a body'
   if (world.stealth.choke) return 'choking a man'
   if (world.melee.shield) return 'holding a hostage'

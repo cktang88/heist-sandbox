@@ -1,6 +1,8 @@
 import { burst } from './effects'
+import { boxHitsSolid } from './physics'
 import type { Stairwell } from './site'
 import { playSound } from './sounds'
+import type { Grid } from './tiles'
 import type { Body, Vec } from './types'
 import type { World } from './world'
 
@@ -63,6 +65,26 @@ export function climbStairs(body: Body, on: OnStairs, well: Stairwell, direction
   return !(reached && Number.isInteger(on.u))
 }
 
+/** How far up or down a body leaving the stairs mid-flight is moved to get clear of the slab it crosses. */
+const STEP_OFF_REACH = 3
+const STEP_OFF_STEP = 0.05
+
+/**
+ * Someone leaving a flight between landings (a jump, or the flight blown away) is wherever the flight crosses the
+ * storey, often half inside the floor slab it passes through. Moves the body up or down, the shorter way, to the
+ * nearest place it fits, so it falls or lands from there instead of being stuck in the concrete.
+ */
+export function stepOffFlight(grid: Grid, body: Body): void {
+  if (!boxHitsSolid(grid, body)) return
+  for (let shift = STEP_OFF_STEP; shift <= STEP_OFF_REACH; shift += STEP_OFF_STEP) {
+    for (const dy of [shift, -shift]) {
+      if (boxHitsSolid(grid, { ...body, y: body.y + dy })) continue
+      body.y += dy
+      return
+    }
+  }
+}
+
 /**
  * A staircase with flight `flight` (from stop `flight` to the next) gone, as the pieces still standing.
  * The upper piece keeps its landings where they were: if it starts on a right-hand landing, its sides swap so stop 0
@@ -103,7 +125,7 @@ export function blastStairs(world: World, at: Vec, radius: number): void {
 }
 
 /**
- * Destroys one flight. Anyone on it falls; anyone higher up the same staircase is moved onto the upper piece.
+ * Destroys one flight. Anyone (or any frag) on it falls; anyone higher up the same staircase is moved onto the upper piece.
  * The list of staircases is replaced, not changed in place, so whoever drew the old one can tell.
  */
 export function breakFlight(world: World, wellId: number, flight: number): void {
@@ -112,12 +134,14 @@ export function breakFlight(world: World, wellId: number, flight: number): void 
   const newId = Math.max(...world.stairwells.map((other) => other.id)) + 1
   const pieces = splitWell(well, flight, newId)
   const keeps = (id: number) => pieces.some((piece) => piece.id === id)
-  for (const body of [world.player, ...world.guards]) {
+  // A frag rattling down the stairs is on them like a person: it drops, or carries on down the piece left standing.
+  for (const body of [world.player, ...world.guards, ...world.frags]) {
     const on = body.stairs
     if (!on || on.well !== wellId) continue
     if (on.u > flight && on.u < flight + 1) {
       body.stairs = null
       body.onGround = false
+      stepOffFlight(world.grid, body)
     } else if (on.u >= flight + 1) body.stairs = keeps(newId) ? { well: newId, u: on.u - flight - 1 } : null
     else if (!keeps(wellId)) body.stairs = null
   }

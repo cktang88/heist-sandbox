@@ -1,4 +1,5 @@
-import { idleInput, type Input } from '../input'
+import type { Input } from '../input'
+import { bodyControl } from '../movement/control'
 import { TOOLS, type ToolId } from '../toolDefs'
 import { distance } from '../types'
 import type { World } from '../world'
@@ -24,7 +25,7 @@ const TELEPORT = 1.5
 export function stepGrapple(world: World, input: Input, dt: number): void {
   const grapple = world.grapple
   const player = world.player
-  const controls = world.drone ? idleInput(input.aim) : input
+  const controls = bodyControl(world, input)
   readWindowTap(world, controls)
   stepHook(world, dt)
   if (lineIsCut(world)) cutLine(world)
@@ -49,6 +50,8 @@ export function stepGrapple(world: World, input: Input, dt: number): void {
   else if (grapple.fling > 0 && !carryFling(world.grid, player, grapple, dt)) endFling(world)
 
   if (onLine(grapple) || grapple.fling > 0) {
+    // The line, or the swing he jumped off with, carries him: no parachute until the ordinary fall takes over.
+    player.chute = false
     grapple.body = { x: player.x, y: player.y }
     player.vx = grapple.vel.x
     player.vy = grapple.vel.y

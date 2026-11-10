@@ -1,10 +1,10 @@
 import type { Input } from './input'
 import { trackLanding, trackStride, type Footfall } from './movement/footsteps'
 import { findLedge, letGo, startMantle, stepMantle, type Mantle } from './movement/ledge'
-import { slideVelocity, STAND_HEIGHT, updatePosture } from './movement/posture'
+import { CROUCH_HEIGHT, setHeight, slideVelocity, STAND_HEIGHT, updatePosture } from './movement/posture'
 import { GRAVITY, moveBody, slipPastCorner } from './physics'
 import type { Stairwell } from './site'
-import { climbStairs, findLanding, type OnStairs } from './stairs'
+import { climbStairs, findLanding, stepOffFlight, type OnStairs } from './stairs'
 import { tileAt, type Grid } from './tiles'
 import { BLOOM_RECOVERY_PER_SECOND, GUNS } from './guns'
 import { TOOLS } from './toolDefs'
@@ -90,17 +90,20 @@ export function createPlayer(start: Vec): Player {
  * hold it while falling to open the chute. Jump at a wall while pushing toward it to catch its top edge and climb up.
  */
 export function movePlayer(grid: Grid, player: Player, input: Input, dt: number, stairwells: readonly Stairwell[] = []): void {
+  // Recoil and spread settle whatever he is doing, on the stairs and in hiding too.
+  player.kick *= Math.exp(-KICK_RECOVERY * dt)
+  player.bloom = Math.max(0, player.bloom - BLOOM_RECOVERY_PER_SECOND * dt)
   if (player.hidden) {
+    // Still, but not weightless: if the floor goes from under the hiding place he drops (and is out of it).
     player.vx = 0
-    player.vy = 0
+    player.vy += GRAVITY * dt
+    moveBody(grid, player, dt)
     return
   }
-  if (takeStairs(player, input, dt, stairwells)) return
+  if (takeStairs(grid, player, input, dt, stairwells)) return
   const center = centerOf(player)
   const move = (input.right ? 1 : 0) - (input.left ? 1 : 0)
   player.facing = input.aim.x >= center.x ? 1 : -1
-  player.kick *= Math.exp(-KICK_RECOVERY * dt)
-  player.bloom = Math.max(0, player.bloom - BLOOM_RECOVERY_PER_SECOND * dt)
   if (climbLedge(player, input, dt)) return
 
   updatePosture(grid, player, input.crouch, RUN_SPEED, dt)
@@ -133,7 +136,8 @@ export function movePlayer(grid: Grid, player: Player, input: Input, dt: number,
     }
     player.vy += GRAVITY * dt
     jump(player, input, dt)
-    player.chute = input.jumpHeld && !player.onGround && (player.chute || player.vy > CHUTE_OPENS_AT_SPEED)
+    // It holds him up only while he comes down: a double jump out of it folds it away until he falls fast again.
+    player.chute = input.jumpHeld && !player.onGround && player.vy > 0 && (player.chute || player.vy > CHUTE_OPENS_AT_SPEED)
     if (player.chute) player.vy = Math.min(player.vy, CHUTE_FALL_SPEED)
     slipPastCorner(grid, player, move)
   }
@@ -197,7 +201,7 @@ function climbLedge(player: Player, input: Input, dt: number): boolean {
  * Stairs: stand at a landing and hold up or down to climb. Keep holding to carry on past each floor;
  * let go to step off at the next landing, or jump to leave mid-flight. Returns true while on the stairs.
  */
-function takeStairs(player: Player, input: Input, dt: number, stairwells: readonly Stairwell[]): boolean {
+function takeStairs(grid: Grid, player: Player, input: Input, dt: number, stairwells: readonly Stairwell[]): boolean {
   const climb = (input.up ? 1 : 0) - (input.down ? 1 : 0)
   if (!player.stairs) {
     if (climb === 0 || !player.onGround) return false
@@ -211,6 +215,7 @@ function takeStairs(player: Player, input: Input, dt: number, stairwells: readon
   if (!well || input.jumpPressed) {
     player.stairs = null
     player.vy = -JUMP_SPEED * 0.6
+    stepOffFlight(grid, player)
     return false
   }
   player.chute = false
@@ -223,13 +228,24 @@ function takeStairs(player: Player, input: Input, dt: number, stairwells: readon
     return false
   }
   player.stairsHeading = direction
+  // Crouch held, he creeps up the flight low (the flight is clear of walls, so there is always room to stand).
+  player.crouching = input.crouch
+  player.crouchWasHeld = input.crouch
+  setHeight(player, input.crouch ? CROUCH_HEIGHT : STAND_HEIGHT)
+  const from = { x: player.x, y: player.y }
   if (!climbStairs(player, player.stairs, well, direction, climb !== 0, dt)) player.stairs = null
+  // Steps on a flight are heard like steps on a floor (and crouching on them is as quiet).
+  trackStride(player, Math.hypot(player.x - from.x, player.y - from.y))
   return true
 }
 
-/** Focus drains in real time while held and refills when released. */
+/**
+ * Focus drains in real time while held and refills only once released: holding the key on an empty meter keeps it
+ * empty, rather than refilling a sliver each frame and flickering slow motion on and off.
+ */
 export function updateFocus(player: Player, held: boolean, realDt: number): boolean {
   const active = held && player.focus > 0
-  player.focus = active ? Math.max(0, player.focus - realDt) : Math.min(MAX_FOCUS_SECONDS, player.focus + realDt * 0.4)
+  if (active) player.focus = Math.max(0, player.focus - realDt)
+  else if (!held) player.focus = Math.min(MAX_FOCUS_SECONDS, player.focus + realDt * 0.4)
   return active
 }

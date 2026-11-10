@@ -1,9 +1,10 @@
 import { closeTerminal, chooseOption, openTerminal, switchOff } from './devices/terminal'
 import { lockSeconds, keypadFor } from './devices/locks'
-import { deviceCenter, flipPower } from './devices/power'
+import { circuitWrecked, deviceCenter, flipPower } from './devices/power'
 import { deviceState } from './devices/state'
 import { callElevator, carUnderPlayer, doorColumn, elevatorRefuses, shaftDoorAt, shaftOf } from './elevators'
 import { canClose, closeDoor, doorCentre, openDoor as openDoorTiles, openDoorBy, openedDoors, type DoorHow } from './doors/doors'
+import { onLine } from './grapple/state'
 import { windowAction } from './grapple/windows'
 import type { Input } from './input'
 import { interrogateAction, readAction } from './intel/intel'
@@ -15,6 +16,8 @@ import { centerOf, distance, overlaps, type Vec } from './types'
 import type { Device, World } from './world'
 import { bodyAction, hideAction, noisemakerAction, stashAction, takedownAction, tieUpAction } from './stealth/actions'
 import { hidingPrompt, stealthControls } from './stealth/controls'
+import { leaveSpot } from './stealth/hide'
+import { spotFeet, spotProp } from './stealth/spots'
 import { rigBreaker, rigSecondsLeft } from './stealth/sabotage'
 import { SABOTAGE } from './stealth/tuning'
 import { doorTooHot, systemsAction, touchHotDoor } from './systems/systems'
@@ -40,7 +43,7 @@ const TYPING_GAP = 0.3
  * One thing the player can do right now. `hold` is how many seconds E must be held;
  * without it a single press does it. `key` names the target so changing target restarts the progress.
  */
-export type Action = { prompt: string; key: string; run: () => void; hold?: number; typing?: boolean; hint?: string; at?: Vec; lastResort?: boolean }
+export type Action = { prompt: string; key: string; run: () => void; hold?: number; typing?: boolean; hint?: string; at?: Vec; lastResort?: boolean; onPerson?: boolean }
 
 /**
  * The hands-on actions. Loot and supplies are picked up by walking over them; everything else
@@ -48,8 +51,18 @@ export type Action = { prompt: string; key: string; run: () => void; hold?: numb
  * and pressing or holding E does it.
  */
 export function interact(world: World, input: Input, dt: number): void {
+  handsOn(world, input, dt)
+  // Knocked down or jolted, E does nothing for the moment, so nothing is offered.
+  if (world.player.stunSeconds > 0) {
+    world.prompt = null
+    world.stealth.hint = null
+  }
+}
+
+function handsOn(world: World, input: Input, dt: number): void {
   collect(world)
   world.stealth.hint = null
+  leaveLostHidingPlace(world)
   // A choke, hiding, a radio to answer: the stealth code has the hands (and E) for now.
   const busy = stealthControls(world, input, dt)
   if (busy !== undefined) {
@@ -57,7 +70,9 @@ export function interact(world: World, input: Input, dt: number): void {
     world.prompt = busy || null
     return
   }
-  if (!takedownAction(world) && world.terminal) return useTerminal(world, input)
+  // A man walking up within reach takes the player's eyes off the screen: the menu shuts and E is for him.
+  if (world.terminal && takedownAction(world)) closeTerminal(world)
+  if (world.terminal) return useTerminal(world, input)
   const action = bestAction(world)
   const acted = perform(world, input, dt, action)
   // The hint shows what E does next, so it is chosen again after anything changed.
@@ -66,15 +81,50 @@ export function interact(world: World, input: Input, dt: number): void {
   world.stealth.hint = world.terminal ? null : next?.hint ?? null
 }
 
+/** Feet this far below the floor the hiding place stands on: that floor has gone. */
+const FELL_OUT = 0.5
+
+/** The floor each hiding place stood on when the player got in, so a hiding place that falls with its floor is noticed. */
+const hidingFloor = new WeakMap<object, number>()
+
+/** The hiding place was smashed, or the floor dropped away under it: he is out in the open. */
+function leaveLostHidingPlace(world: World): void {
+  const hiding = world.stealth.hiding
+  if (!hiding) return
+  const prop = spotProp(world, hiding.prop)
+  if (!prop || prop.broken) return leaveSpot(world)
+  if (!hidingFloor.has(hiding)) hidingFloor.set(hiding, spotFeet(prop).y)
+  const player = world.player
+  if (player.y + player.h > hidingFloor.get(hiding)! + FELL_OUT) leaveSpot(world)
+}
+
 function bestAction(world: World): Action | null {
   // Nothing is in reach through the walls of a moving car.
   if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
-  if (world.stealth.carried !== null) return stashAction(world) ?? doorAction(world)
+  if (world.stealth.carried !== null) return carryingAction(world)
   if (world.player.hidden) return null
-  return tieUpAction(world) ?? takedownAction(world) ?? bodyAction(world) ?? interrogateAction(world)
+  return tieUpAction(world) ?? onPerson(takedownAction(world)) ?? bodyAction(world) ?? onPerson(interrogateAction(world))
     ?? nearestAtHand(world, [deviceAction(world, 'near'), elevatorAction(world), windowAction(world), doorAction(world), closeDoorAction(world)])
     ?? deviceAction(world, 'camera') ?? readAction(world) ?? hideAction(world) ?? noisemakerAction(world) ?? deviceAction(world, 'lightSwitch')
     ?? systemsAction(world)
+}
+
+/**
+ * With a body on the shoulder: stuff it in a hiding place in reach; otherwise the free hand still opens and shuts
+ * doors. With neither, the hint says what G and T do.
+ */
+function carryingAction(world: World): Action | null {
+  const stash = stashAction(world)
+  if (stash && stash.key !== CARRY_HINT_KEY) return stash
+  return nearestAtHand(world, [doorAction(world), closeDoorAction(world)]) ?? stash
+}
+
+/** The key of the plain carrying hint from `stashAction`, which does nothing on E. */
+const CARRY_HINT_KEY = 'carry'
+
+/** Done to a man on his feet, who may be walking: lifting his keycard or questioning him goes on while following him. */
+function onPerson(action: Action | null): Action | null {
+  return action && { ...action, onPerson: true }
 }
 
 /** Something behind the player counts this much further away than it is: E goes to what he faces first. */
@@ -125,20 +175,35 @@ function collect(world: World): void {
 function perform(world: World, input: Input, dt: number, action: Action | null): boolean {
   const state = deviceState(world)
   const player = world.player
-  if (!action || action.hold === undefined || !input.interact || state.holding !== action.key) player.pick = 0
+  const steady = steadyHands(world, input) || action?.onPerson === true
+  if (!action || action.hold === undefined || !input.interact || state.holding !== action.key || !steady) player.pick = 0
   state.holding = action?.key ?? null
   if (!action) return false
   if (action.hold === undefined) {
     if (input.interactPressed) action.run()
     return input.interactPressed
   }
-  if (!input.interact) return false
+  if (!input.interact || !steady) return false
   player.pick += dt / action.hold
   if (action.typing) typeAway(world, dt)
   if (player.pick < 1) return false
   player.pick = 0
   action.run()
   return true
+}
+
+/** The player's health at the last E check, to tell when a hit lands in the middle of a held action. */
+const healthBefore = new WeakMap<World, number>()
+
+/**
+ * A held action (a lock, a hack, a cable, cutting a window) needs him to stay put, standing or hanging on a ladder,
+ * rope or the grapple line: walking off, jumping, falling or taking a hit starts it over.
+ */
+function steadyHands(world: World, input: Input): boolean {
+  const player = world.player
+  const hit = player.hp < (healthBefore.get(world) ?? player.hp)
+  healthBefore.set(world, player.hp)
+  return !hit && !input.left && !input.right && !input.jumpPressed && (player.onGround || player.onLadder || onLine(world.grapple))
 }
 
 function typeAway(world: World, dt: number): void {
@@ -154,7 +219,8 @@ function useTerminal(world: World, input: Input): void {
   const terminal = world.terminal!
   const device = world.devices.find((candidate) => candidate.id === terminal.device)
   world.player.pick = 0
-  if (!device || input.interactPressed || distance(centerOf(world.player), deviceCenter(device)) > TERMINAL_REACH) {
+  // Shot or shorted out while open, the screen goes dead with the menu on it.
+  if (!device || device.disabled || input.interactPressed || distance(centerOf(world.player), deviceCenter(device)) > TERMINAL_REACH) {
     closeTerminal(world)
     world.prompt = null
     return
@@ -163,9 +229,16 @@ function useTerminal(world: World, input: Input): void {
   world.prompt = terminalPrompt(world)
 }
 
+/** The number keys reach ten options: 1-9, then 0 for the tenth. */
+const MENU_KEYS = 10
+
 function terminalPrompt(world: World): string {
-  const count = world.terminal?.options.length ?? 0
-  return count > 0 ? `1-${count}: choose, E: close` : 'Access denied. E: close'
+  const terminal = world.terminal
+  // A longer menu is cut to what the keys can reach, so every option shown can be picked.
+  if (terminal && terminal.options.length > MENU_KEYS) terminal.options = terminal.options.slice(0, MENU_KEYS)
+  const count = terminal?.options.length ?? 0
+  if (count === 0) return 'Access denied. E: close'
+  return `1-${count % MENU_KEYS}: choose, E: close`
 }
 
 /**
@@ -210,6 +283,8 @@ function actionFor(world: World, device: Device): Action | null {
     case 'lightSwitch': {
       if (device.circuit === undefined || device.disabled) return null
       const dark = world.deadCircuits.has(device.circuit)
+      // A wrecked fuse box keeps its circuit dead: no switch on it can bring the lights back.
+      if (dark && circuitWrecked(world, device.circuit)) return null
       // Crouched at a live fuse box: rig the breaker to trip later, while the player is somewhere else.
       if (device.kind === 'fusebox' && !dark && world.player.crouching) return rigAction(world, device, key)
       const prompt = device.kind === 'fusebox' ? (dark ? 'E: restore power' : 'E: cut power') : dark ? 'E: lights on' : 'E: lights off'

@@ -3,7 +3,17 @@ import { doorColumn } from './elevators'
 import { idleInput, type Input } from './input'
 import { GROUND } from './level'
 import { stepWorld } from './step'
-import { tileAt } from './tiles'
+import { fillTiles, tileAt } from './tiles'
+import { damageProp } from './cover'
+import { propBox } from './hazards/props'
+import { enterSpot, leaveSpot } from './stealth/hide'
+import { openTerminal } from './devices/terminal'
+import { addDevice as addArenaDevice, addGuard as addArenaGuard, arena, GROUND as ARENA_GROUND, putPlayer, run as runArena } from './security/testArena'
+import { pickUp } from './stealth/carry'
+import { addGuard } from './hazards/testWorld'
+import { deviceState, doorKey } from './devices/state'
+import { switchOff } from './devices/terminal'
+import { spotKind } from './stealth/spots'
 import { tileKey } from './hazards/state'
 import { createWorld, type Device, type World } from './world'
 
@@ -140,5 +150,173 @@ describe('the E key with several things in reach', () => {
     expect(world.prompt).toBe('Hold E: pick lock')
     play(world, 2, { interact: true })
     expect(tileAt(world.grid, 70, GROUND - 1)).toBe('air')
+  })
+})
+
+describe('hiding when the hiding place is lost', () => {
+  /** The player shut inside the first locker-like hiding place of the complex. */
+  function hidden() {
+    const world = createWorld(1, 'complex')
+    world.guards = []
+    const prop = world.props.find((candidate) => spotKind(candidate.kind)?.player && spotKind(candidate.kind)?.how === 'inside')!
+    const box = propBox(prop)
+    placePlayer(world, box.x + box.w / 2, Math.round(box.y + box.h))
+    play(world, 0.2)
+    enterSpot(world, prop)
+    play(world, 0.2)
+    expect(world.player.hidden).toBe(true)
+    return { world, prop, box }
+  }
+
+  it('a smashed hiding place leaves the player out in the open, and the prompt no longer offers to get out', () => {
+    const { world, prop } = hidden()
+    damageProp(world, prop, 1e5)
+    play(world, FRAME)
+    expect(world.player.hidden).toBe(false)
+    expect(world.stealth.hiding).toBeNull()
+    expect(world.prompt).not.toBe('E: get out')
+  })
+
+  it('getting in from up on a table top, the player settles to the floor of the hiding place and stays hidden', () => {
+    const { world, prop, box } = hidden()
+    leaveSpot(world)
+    world.player.y -= 1.2
+    enterSpot(world, prop)
+    play(world, 0.5)
+    expect(world.player.hidden).toBe(true)
+    expect(world.player.y + world.player.h).toBeCloseTo(Math.round(box.y + box.h), 1)
+  })
+
+  it('the floor blown away under a hiding place drops the player out of it instead of leaving him hanging', () => {
+    const { world, box } = hidden()
+    const floor = Math.round(box.y + box.h)
+    const y = world.player.y
+    fillTiles(world.grid, Math.floor(box.x) - 2, floor, Math.floor(box.x + box.w) + 2, floor + 2, 'air')
+    play(world, 0.5)
+    expect(world.player.hidden).toBe(false)
+    expect(world.player.y).toBeGreaterThan(y + 1)
+  })
+})
+
+describe('a held action started over', () => {
+  /** At the outpost's locked door with the pick most of the way through. */
+  function halfPicked(): World {
+    const world = createWorld(1)
+    world.guards = []
+    placePlayer(world, 68.55, GROUND)
+    play(world, 0.1)
+    expect(world.prompt).toBe('Hold E: pick lock')
+    play(world, 0.4, { interact: true })
+    expect(world.player.pick).toBeGreaterThan(0.1)
+    return world
+  }
+
+  it('walking while holding E drops the pick', () => {
+    const world = halfPicked()
+    play(world, FRAME, { interact: true, left: true })
+    expect(world.player.pick).toBe(0)
+  })
+
+  it('jumping while holding E drops the pick', () => {
+    const world = halfPicked()
+    play(world, FRAME, { interact: true, jumpPressed: true, jumpHeld: true })
+    expect(world.player.pick).toBe(0)
+  })
+
+  it('lifting a keycard goes on while the player follows the man he is lifting it from', () => {
+    const world = arena()
+    const officer = addArenaGuard(world, 20, 1, 'officer')
+    putPlayer(world, 18.6)
+    runArena(world, 0.1, { crouch: true })
+    expect(world.prompt).toBe('Hold E: lift his keycard')
+    // A step after him (as after a man walking his beat), then the rest standing.
+    runArena(world, 0.25, { crouch: true, interact: true, right: true })
+    expect(world.player.pick).toBeGreaterThan(0.15)
+    runArena(world, 1, { crouch: true, interact: true })
+    expect(world.stealth.keycards.has(world.guards.indexOf(officer))).toBe(true)
+  })
+
+  it('a hit while holding E drops the pick', () => {
+    const world = halfPicked()
+    world.player.hp -= 10
+    play(world, FRAME, { interact: true })
+    expect(world.player.pick).toBe(0)
+    play(world, 0.2, { interact: true })
+    expect(world.player.pick).toBeGreaterThan(0)
+  })
+})
+
+describe('an open terminal', () => {
+  it('closes when the computer is shot out, so its menu stops working', () => {
+    const world = createWorld(1, 'complex')
+    world.guards = []
+    const computer = world.devices.find((device) => device.kind === 'computer' && device.roomId !== undefined)!
+    computer.hacked = true
+    placePlayer(world, computer.x + 0.5, Math.ceil(computer.y + 0.5))
+    play(world, 0.1)
+    expect(world.prompt).toBe('E: use terminal')
+    press(world)
+    expect(world.terminal).not.toBeNull()
+    switchOff(world, [computer], Number.POSITIVE_INFINITY)
+    play(world, FRAME, { selectTool: 0 })
+    expect(world.terminal).toBeNull()
+    expect(world.prompt ?? '').not.toMatch(/choose/)
+  })
+})
+
+describe('E while carrying a body', () => {
+  it('opens the door in front of the player when there is nowhere to hide the body', () => {
+    const world = createWorld(1)
+    world.guards = []
+    placePlayer(world, 66.5, GROUND)
+    const guard = addGuard(world, 66, GROUND, 1)
+    guard.restrained = true
+    pickUp(world, world.guards.indexOf(guard))
+    world.player.hp = 1e6
+    play(world, 0.1)
+    // Not that door: the outpost's door at x 70 is locked. Unlock it so a single press opens it.
+    for (let y = GROUND - 3; y < GROUND; y += 1) if (tileAt(world.grid, 70, y) === 'door') deviceState(world).unlockedDoors.add(doorKey({ x: 70, y }))
+    play(world, 1.5, { right: true })
+    play(world, 0.1)
+    expect(world.stealth.carried).not.toBeNull()
+    expect(world.prompt).toMatch(/open door/)
+    press(world)
+    expect(tileAt(world.grid, 70, GROUND - 1)).toBe('air')
+  })
+})
+
+describe('an open terminal with a guard walking up', () => {
+  it('a guard in reach for a takedown closes the menu, so the prompt names what E does', () => {
+    const world = arena()
+    const computer = addArenaDevice(world, { kind: 'computer', x: 18, y: ARENA_GROUND - 1, hacked: true })
+    putPlayer(world, 18.5)
+    openTerminal(world, computer)
+    expect(world.terminal).not.toBeNull()
+    addArenaGuard(world, 19.6, 1)
+    runArena(world, 0.05)
+    expect(world.terminal).toBeNull()
+    expect(world.prompt).toBe('E: take down')
+  })
+})
+
+describe('menus and switches that cannot do what they say', () => {
+  it('a terminal menu longer than the number keys is cut to ten, and the prompt names keys 1 to 0', () => {
+    const world = arena()
+    const computer = addArenaDevice(world, { kind: 'computer', x: 18, y: ARENA_GROUND - 1, hacked: true })
+    putPlayer(world, 18.5)
+    world.terminal = { device: computer.id, title: 'Test', options: Array.from({ length: 12 }, (_, index) => `Option ${index}`) }
+    runArena(world, FRAME)
+    expect(world.terminal.options).toHaveLength(10)
+    expect(world.prompt).toBe('1-0: choose, E: close')
+  })
+
+  it('a light switch on a circuit whose fuse box is wrecked does not offer to put the lights on', () => {
+    const world = arena()
+    addArenaDevice(world, { kind: 'fusebox', x: 40, y: ARENA_GROUND - 2, circuit: 1, disabled: true })
+    addArenaDevice(world, { kind: 'lightSwitch', x: 18, y: ARENA_GROUND - 2, circuit: 1 })
+    world.deadCircuits.add(1)
+    putPlayer(world, 18.5)
+    runArena(world, FRAME)
+    expect(world.prompt).not.toBe('E: lights on')
   })
 })
