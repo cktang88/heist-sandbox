@@ -135,6 +135,17 @@ describe('loose furniture and holes', () => {
     expect(buried(world, plant)).toBe(false)
   })
 
+  it('crates that drop into a pit narrower than themselves end up resting on its rim, not wedged into it', () => {
+    const world = arena()
+    // A pit two tiles wide and two deep; the crates are 2.2 wide.
+    fillTiles(world.grid, 16, GROUND, 17, GROUND + 1, 'air')
+    const crates = addProp(world, 'crateStack', 16, GROUND)
+    crates.x += 0.5
+    loosen(world, crates)
+    run(world, 2)
+    expect(buried(world, crates)).toBe(false)
+  })
+
   it('stays put over a gap narrower than half its width', () => {
     const world = arena()
     setTile(world.grid, 14, GROUND, 'air')

@@ -32,7 +32,7 @@ const THUD_NOISE_PER_WEIGHT = 3
 export function settleLooseProps(world: World, dt: number): void {
   for (const { prop, loose } of looseProps(world)) {
     if (loose.flying || world.physProps.grabbed?.id === prop.id) continue
-    if (loose.vx === 0 && loose.vy === 0 && isResting(world.grid, prop)) continue
+    if (loose.vx === 0 && loose.vy === 0 && (isResting(world.grid, prop) || restsOnRim(world.grid, prop))) continue
     fall(world, prop, loose, dt)
   }
 }
@@ -52,6 +52,14 @@ function isResting(grid: Grid, prop: PropState): boolean {
   return Math.abs(bottom - Math.round(bottom)) < 1e-6 && isSupported(grid, prop)
 }
 
+/** Lying across a gap too narrow for it, its own edges on the rim. */
+function restsOnRim(grid: Grid, prop: PropState): boolean {
+  const box = propBox(prop)
+  const bottom = box.y + box.h
+  return Math.abs(bottom - Math.round(bottom)) < 1e-6 && !boxHitsSolid(grid, box) && boxHitsSolid(grid, offset(box, 0, RIM_PROBE))
+    && slideToFit(grid, box, 0, RIM_PROBE) === null
+}
+
 function footingOf(box: Rect): Rect {
   const w = Math.min(box.w, Math.max(MIN_FOOTING, box.w * FOOTING))
   return { x: box.x + (box.w - w) / 2, y: box.y, w, h: box.h }
@@ -62,12 +70,24 @@ function fall(world: World, prop: PropState, loose: LooseProp, dt: number): void
   const body: Body = { ...start, vx: loose.vx, vy: loose.vy + GRAVITY * dt, onGround: false }
   const speed = body.vy
   moveBody(world.grid, body, dt)
-  const dy = body.y - start.y
+  const box = propBox(prop)
+  let dy = body.y - start.y
   let dx = body.x - start.x
-  // Only the footing is moved through the grid; the prop's own sides, wider than it, stop a slide at a wall.
-  if (dx !== 0 && boxHitsSolid(world.grid, offset(propBox(prop), dx, dy)) && !boxHitsSolid(world.grid, offset(propBox(prop), 0, dy))) {
+  // Only the footing is moved through the grid; the prop's own sides, wider than it, stop a slide at a wall...
+  if (dx !== 0 && boxHitsSolid(world.grid, offset(box, dx, dy)) && !boxHitsSolid(world.grid, offset(box, 0, dy))) {
     dx = 0
     body.vx = 0
+  }
+  // ...and tip it into a hole it overhangs, sliding over so it fits, or catch on the rim of a gap too narrow for it.
+  if (dy > 0 && boxHitsSolid(world.grid, offset(box, dx, dy)) && !boxHitsSolid(world.grid, offset(box, dx, 0))) {
+    const slide = slideToFit(world.grid, box, dx, dy)
+    if (slide !== null) dx += slide
+    else {
+      const rim = Math.floor(box.y + box.h + dy) - (box.y + box.h)
+      dy = rim > 0 && !boxHitsSolid(world.grid, offset(box, dx, rim)) ? rim : 0
+      body.vy = 0
+      body.onGround = true
+    }
   }
   shiftProp(prop, dx, dy)
   if (speed > CRUSH_SPEED) crush(world, prop, loose, speed)
@@ -96,6 +116,18 @@ function offset(box: Rect, dx: number, dy: number): Rect {
 }
 
 const NUDGE_STEP = 0.05
+const RIM_PROBE = 0.05
+
+/** The smallest sideways shift, up to half the prop's width, that lets it drop by `dy` without touching anything. */
+function slideToFit(grid: Grid, box: Rect, dx: number, dy: number): number | null {
+  for (let nudge = NUDGE_STEP; nudge <= box.w / 2; nudge += NUDGE_STEP) {
+    for (const side of [-1, 1]) {
+      const shifted = offset(box, dx + side * nudge, 0)
+      if (!boxHitsSolid(grid, shifted) && !boxHitsSolid(grid, offset(shifted, 0, dy))) return side * nudge
+    }
+  }
+  return null
+}
 
 /**
  * A prop that dropped through a hole narrower than itself (only its footing has to fit) lands with an edge in the
@@ -110,6 +142,12 @@ function standClear(grid: Grid, prop: PropState): void {
       shiftProp(prop, side * nudge, 0)
       return
     }
+  }
+  // Too wide for the gap it dropped into: it rests across the rim instead.
+  for (let lift = 1; lift <= Math.ceil(box.h); lift += 1) {
+    if (boxHitsSolid(grid, offset(box, 0, -lift))) continue
+    shiftProp(prop, 0, -lift)
+    return
   }
 }
 
