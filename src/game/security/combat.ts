@@ -11,7 +11,7 @@ import { startRadio } from './comms'
 import { findCover } from './coverSpots'
 import { escapeHazard } from './danger'
 import { eyeOf, feetOf, magazineOf, setMode, type CombatRole, type Guard } from './model'
-import { goTo, hold } from './movement'
+import { goTo, hold, type MoveStatus } from './movement'
 import { companyOf, isShaken } from './nerve'
 import { startSearch } from './orders'
 import { floorBelow, isDoorway, landingsOnFloor, sameFloor } from './places'
@@ -49,6 +49,9 @@ const BOUND_PATIENCE = 3
 const HANGING_DROP = 3
 /** How far in from a hanging man to look for the floor he is level with. */
 const WINDOW_REACH = 10
+/** A falling-back man pulls back at least this much further each time, and at most this far over open floor. */
+const PULL_BACK_MIN = 2
+const PULL_BACK_OPEN = 6
 /** Blind fire is not wasted on a last known position this far away. */
 const BLIND_REACH = 25
 
@@ -260,7 +263,10 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
   switch (role) {
     case 'fallback': {
       guard.cover ??= findCover(world, feet, threat, COMBAT.coverSearch * 1.5, true, taken) ?? { x: feet.x + Math.sign(feet.x - threat.x || 1) * 6, y: feet.y, high: false }
-      takeCover(world, guard, guard.cover, dt)
+      // Back in cover with the man out of sight, there is nothing for him to do there: he pulls further back out of the fight.
+      if (takeCover(world, guard, guard.cover, dt) === 'arrived' && !guard.seesPlayer && guard.lostSeconds > COMBAT.coverPatience) {
+        guard.cover = furtherBack(world, feet, threat, taken) ?? guard.cover
+      }
       return
     }
     case 'assault': {
@@ -373,9 +379,25 @@ function bound(world: World, guard: Guard, wasBounding: boolean): boolean {
   return true
 }
 
-function takeCover(world: World, guard: Guard, spot: Vec & { high: boolean }, dt: number): void {
+function takeCover(world: World, guard: Guard, spot: Vec & { high: boolean }, dt: number): MoveStatus {
   const status = goTo(world, guard, spot, PATROL.runSpeed, dt, false)
   guard.crouching = status === 'arrived' && !spot.high && guard.shootCooldown > 0.2
+  return status
+}
+
+/** Cover further from the threat than he is now, or failing that open floor a few steps further back; null at a dead end. */
+function furtherBack(world: World, feet: Vec, threat: Vec, taken: readonly Vec[]): (Vec & { high: boolean }) | null {
+  const gap = Math.abs(feet.x - threat.x)
+  const cover = findCover(world, feet, threat, COMBAT.coverSearch * 1.5, true, taken)
+  if (cover && Math.abs(cover.x - threat.x) > gap + PULL_BACK_MIN) return cover
+  const away = Math.sign(feet.x - threat.x) || 1
+  for (let step = 1; step <= PULL_BACK_OPEN; step += 1) {
+    const x = feet.x + away * step
+    if (isSolidAt(world.grid, x, feet.y - 0.5) || isSolidAt(world.grid, x, feet.y - 1.5) || !isSolidAt(world.grid, x, feet.y + 0.5)) {
+      return step > PULL_BACK_MIN + 1 ? { x: x - away, y: feet.y, high: false } : null
+    }
+  }
+  return { x: feet.x + away * PULL_BACK_OPEN, y: feet.y, high: false }
 }
 
 /** Moves a spot back from the threat until no colleague is already standing on it, so two guards never share one place. */

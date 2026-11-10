@@ -21,8 +21,12 @@ const WITNESS_REACH = 16
 /** A threat this far from where the shelter was chosen means a new one. */
 const THREAT_MOVED = 3
 const ARRIVED = 0.4
-/** Duck cycles (a second or two each) he sits out in a shelter he cannot fire from before he gives it up. */
-const NO_PEEK_WAITS = 3
+/**
+ * Seconds he sits in a shelter he cannot fire from before he gives it up: a breath when nothing is cracking past him
+ * (hiding there does nothing for the fight), longer while he is pinned.
+ */
+const NO_PEEK_SECONDS = 1.2
+const NO_PEEK_PINNED_SECONDS = 4
 
 /** Was this bang the intruder's own gun? Guards can tell a shot from a thrown bottle or a grenade landing somewhere else. */
 export function isShooterAt(world: World, at: Vec): boolean {
@@ -103,8 +107,11 @@ export function takeShelter(world: World, guard: Guard, known: Vec, dt: number):
     guard.peeking = peekNext
     // Each time he goes back down he checks the spot still hides him (a table shot to bits, the shooter moved round).
     if (!peekNext && !shelterHolds(world, shelter, known)) guard.shelter = null
-    // Hidden with no way to fire back from here: a few breaths, then he goes round or moves up by his role instead.
-    else if (shelter.peek === null && atSpot(feetOf(guard), shelter) && (shelter.waits += 1) >= NO_PEEK_WAITS) shelter.spent = true
+  }
+  // Hidden with no way to fire back from here: a breath or two, then he goes round or moves up by his role instead.
+  if (shelter.peek === null && atSpot(feetOf(guard), shelter)) {
+    shelter.waits += dt
+    if (shelter.waits >= (pinned ? NO_PEEK_PINNED_SECONDS : NO_PEEK_SECONDS)) shelter.spent = true
   }
   const goal = guard.peeking && shelter.peek ? shelter.peek : shelter
   const status = goTo(world, guard, goal, PATROL.runSpeed, dt, false)

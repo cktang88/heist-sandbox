@@ -1,0 +1,91 @@
+import type { Room, Stairwell } from '../site'
+import { landingX } from '../stairs'
+import { isSolidAt, tileAt } from '../tiles'
+import type { Vec } from '../types'
+import type { World } from '../world'
+
+/**
+ * Spots on the complex for the scripted fights (fightScript.ts), found from the site itself rather than written down
+ * as numbers, so they stay meaningful when the generator moves rooms about. All are feet positions. Only tests import this.
+ */
+
+/** The tower's west staircase: the one with the leftmost landings. */
+function westStairs(world: World): Stairwell {
+  const wells = world.stairwells.filter((well) => well.building === 'tower')
+  if (wells.length === 0) throw new Error('no tower staircase')
+  return wells.reduce((west, well) => (Math.min(well.leftX, well.rightX) < Math.min(west.leftX, west.rightX) ? well : west))
+}
+
+/** A storey half way up the west staircase. */
+function middleStop(well: Stairwell): number {
+  return Math.floor(well.stops.length / 2)
+}
+
+function roomAround(world: World, at: Vec, kind: Room['kind']): Room {
+  const room = world.rooms.find((candidate) => candidate.kind === kind && Math.abs(candidate.floorY - at.y) < 0.5 && at.x >= candidate.x && at.x <= candidate.x + candidate.w)
+  if (!room) throw new Error(`no ${kind} at ${at.x},${at.y}`)
+  return room
+}
+
+/** Doorway columns in the side walls of a room (a door tile, or an opening under a lintel, in the row above the floor). */
+function doorColumns(world: World, room: Room): number[] {
+  return [room.x - 1, room.x + room.w].filter((x) => {
+    const kind = tileAt(world.grid, x, room.floorY - 1)
+    return kind === 'door' || (!isSolidAt(world.grid, x, room.floorY - 1) && isSolidAt(world.grid, x, room.floorY - 4))
+  })
+}
+
+/** On a middle storey's landing of the tower's west stairs, at the end nearest a door of the stairwell. */
+export function stairLandingSpot(world: World): Vec {
+  const well = westStairs(world)
+  const stop = middleStop(well)
+  const y = well.stops[stop]
+  const room = roomAround(world, { x: landingX(well, stop), y }, 'stairwell')
+  const doors = doorColumns(world, room)
+  const landings = [well.leftX, well.rightX]
+  const x = doors.length === 0 ? landingX(well, stop) : landings.reduce((best, candidate) => (gapToDoor(candidate, doors) < gapToDoor(best, doors) ? candidate : best))
+  return { x, y }
+}
+
+/** Inside the same stairwell, a few steps in from its door at the other end from the landing spot. */
+export function stairDoorSpot(world: World): Vec {
+  const landing = stairLandingSpot(world)
+  const room = roomAround(world, landing, 'stairwell')
+  const doors = doorColumns(world, room)
+  if (doors.length === 0) throw new Error('stairwell without doors')
+  const door = doors.reduce((far, candidate) => (Math.abs(candidate - landing.x) > Math.abs(far - landing.x) ? candidate : far))
+  const inward = door < room.x ? 1 : -1
+  return { x: door + 0.5 + inward * 3, y: landing.y }
+}
+
+/** On the tower roof right beside the highest executive room, and the three roof tiles over it to blow in as a skylight. */
+export function roofSpot(world: World): { spot: Vec; skylight: { x0: number; x1: number; y: number } } {
+  const rooms = world.rooms.filter((room) => room.kind === 'executive' && room.building === 'tower' && openAbove(world, room))
+  if (rooms.length === 0) throw new Error('no executive room under the roof')
+  const room = rooms.reduce((top, candidate) => (candidate.floorY < top.floorY ? candidate : top))
+  const roofY = room.floorY - 6
+  const x0 = Math.floor(room.x + room.w / 2) - 1
+  return { spot: { x: x0 + 3 + 1.1, y: roofY }, skylight: { x0, x1: x0 + 2, y: roofY } }
+}
+
+/** Is the room's ceiling the roof: open sky for a storey above its middle? */
+function openAbove(world: World, room: Room): boolean {
+  const x = Math.floor(room.x + room.w / 2)
+  return isSolidAt(world.grid, x, room.floorY - 6) && [1, 2, 3, 4].every((up) => !isSolidAt(world.grid, x, room.floorY - 6 - up))
+}
+
+/** Hanging outside the tower's west wall, level with a window, on the storey nearest the middle of the west stairs. */
+export function outsideWindowSpot(world: World): Vec {
+  const well = westStairs(world)
+  const wall = well.bounds?.x0
+  if (wall === undefined) throw new Error('tower has no bounds')
+  const middle = well.stops[middleStop(well)]
+  const floors = [...well.stops].sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle))
+  const y = floors.find((floor) => [1, 2, 3].some((up) => tileAt(world.grid, wall, floor - up) === 'glass'))
+  if (y === undefined) throw new Error('no west window')
+  return { x: wall - 1.4, y }
+}
+
+function gapToDoor(x: number, doors: number[]): number {
+  return Math.min(...doors.map((door) => Math.abs(door + 0.5 - x)))
+}
