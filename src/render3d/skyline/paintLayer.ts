@@ -202,39 +202,43 @@ function paintStreet(c: CanvasRenderingContext2D, map: Mapping, layer: Layer, mo
   c.fillRect(0, line, map.width, depth)
 }
 
+/** One building: its silhouette with roof clutter, a lit edge, the sky on its upper floors, and its windows. */
+function paintBuilding(c: CanvasRenderingContext2D, map: Mapping, layer: Layer, building: Building, mood: Mood): void {
+  const wall = wallOf(layer, building, mood)
+  c.fillStyle = css(wall)
+  for (const tier of building.tiers) fillWorld(c, map, tier.x0, layer.ground - 1, tier.x1, tier.top)
+  for (const roof of building.roofs) paintRoof(c, map, roof)
+  // The edge facing the city glow catches a little light.
+  c.fillStyle = css(mood.rim, 0.22 * (1 - layer.spec.haze))
+  for (const tier of building.tiers) fillWorld(c, map, tier.x0, layer.ground, tier.x0 + Math.max(0.5, 1.2 / map.scaleX), tier.top)
+  // Tops pick up the sky; the lower floors sink into the street's shadow.
+  for (const tier of building.tiers) {
+    const fadeTo = layer.ground + (tier.top - layer.ground) * 0.4
+    const sheen = c.createLinearGradient(0, map.y(tier.top), 0, map.y(fadeTo))
+    sheen.addColorStop(0, css(mood.rim, 0.12))
+    sheen.addColorStop(1, css(mood.rim, 0))
+    c.fillStyle = sheen
+    fillWorld(c, map, tier.x0, fadeTo, tier.x1, tier.top)
+  }
+  paintWindows(c, map, layer, building, mood, wall)
+}
+
 export function paintLayer(atlas: CanvasRenderingContext2D, layer: Layer, mood: Mood): void {
   const region = REGIONS[layer.spec.name]
   const map = mapping(layer.sheet, region)
   const scratch = makeCanvas(region.w, region.h)
   const c = context(scratch)
-  let lastWall: Rgb = mix(mood.building, mood.haze, layer.spec.haze)
   let lastRow = 0
   for (const building of layer.buildings) {
     // The viaduct runs in front of the back row of towers and behind the lower blocks.
     if (building.row === 1 && lastRow === 0) paintViaduct(c, map, layer, mood)
     lastRow = building.row
-    const wall = wallOf(layer, building, mood)
-    lastWall = wall
-    c.fillStyle = css(wall)
-    for (const tier of building.tiers) fillWorld(c, map, tier.x0, layer.ground - 1, tier.x1, tier.top)
-    for (const roof of building.roofs) paintRoof(c, map, roof)
-    // The edge facing the city glow catches a little light.
-    c.fillStyle = css(mood.rim, 0.22 * (1 - layer.spec.haze))
-    for (const tier of building.tiers) fillWorld(c, map, tier.x0, layer.ground, tier.x0 + Math.max(0.5, 1.2 / map.scaleX), tier.top)
-    // Tops pick up the sky; the lower floors sink into the street's shadow.
-    for (const tier of building.tiers) {
-      const sheen = c.createLinearGradient(0, map.y(tier.top), 0, map.y(layer.ground + (tier.top - layer.ground) * 0.4))
-      sheen.addColorStop(0, css(mood.rim, 0.12))
-      sheen.addColorStop(1, css(mood.rim, 0))
-      c.fillStyle = sheen
-      fillWorld(c, map, tier.x0, layer.ground + (tier.top - layer.ground) * 0.4, tier.x1, tier.top)
-    }
-    paintWindows(c, map, layer, building, mood, wall)
+    paintBuilding(c, map, layer, building, mood)
   }
   paintShopfronts(c, map, layer, mood)
   paintHaze(c, map, layer, mood)
   paintSteam(c, map, layer, mood)
-  paintSigns(c, map, layer, mood, css(lastWall))
+  paintSigns(c, map, layer, mood, css(mix(mood.building, mood.haze, layer.spec.haze * 0.45)))
   const street = scale(mix(mood.building, mood.haze, Math.min(1, layer.spec.haze + mood.mist * 0.5)), 0.9)
   paintStreet(c, map, layer, mood, street)
 

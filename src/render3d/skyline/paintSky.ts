@@ -101,7 +101,8 @@ export function paintMist(atlas: CanvasRenderingContext2D): void {
     for (let column = 0; column < w; column += 1) {
       const n = 0.6 * tileNoise(column / w, row / h, 4, 11) + 0.4 * tileNoise(column / w, row / h, 8, 12)
       const at = (row * w + column) * 4
-      image.data.set([255, 255, 255, Math.round(255 * Math.min(1, Math.max(0, (n - 0.3) * 2)))], at)
+      image.data[at] = image.data[at + 1] = image.data[at + 2] = 255
+      image.data[at + 3] = Math.round(255 * Math.min(1, Math.max(0, (n - 0.3) * 2)))
     }
   }
   atlas.putImageData(image, x, y)
