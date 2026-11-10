@@ -4,7 +4,7 @@ import { emitNoise } from '../noise'
 import { playSound } from '../sounds'
 import type { Body, Vec } from '../types'
 import type { World } from '../world'
-import { circuitLive } from './circuits'
+import { circuitLive, isEnergized } from './circuits'
 import { feetTile } from './footing'
 
 /**
@@ -38,13 +38,13 @@ export function stepShocks(world: World): void {
 /** Is this body's footing carrying current, or is it touching a live cable? */
 export function isLive(world: World, body: Body): boolean {
   const feet = feetTile(body)
-  if (world.systems.energized.has(feet.y * world.grid.width + feet.x)) return true
+  if (isEnergized(world, feet.y * world.grid.width + feet.x)) return true
   return touchesLiveWire(world, body.x - WIRE_REACH, body.x + body.w + WIRE_REACH, body.y, body.y + body.h)
 }
 
 /** Would someone standing at this spot (a point in the tile they stand in) be shocked? */
 export function isLiveSpot(world: World, at: Vec): boolean {
-  if (world.systems.energized.has(Math.floor(at.y) * world.grid.width + Math.floor(at.x))) return true
+  if (isEnergized(world, Math.floor(at.y) * world.grid.width + Math.floor(at.x))) return true
   return touchesLiveWire(world, at.x - 0.35 - WIRE_REACH, at.x + 0.35 + WIRE_REACH, at.y - 1.5, at.y + 0.5)
 }
 

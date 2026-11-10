@@ -6,6 +6,7 @@ import { addGuard, addProp, bareWorld } from '../hazards/testWorld'
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
 import { footingAt } from './footing'
+import { isLive } from './shock'
 import { strikeAt } from './lightning'
 import { addSource } from './sources'
 import { addRoomOf, freshSystems, runAll } from './testKit'
@@ -41,6 +42,10 @@ describe('electricity', () => {
     restoreCircuit(world, CIRCUIT)
     runAll(world, 0.5)
     expect(footingAt(world, { x: 16.5, y: 21.5 })).toBe('live')
+    // Cut again (a fuse box shot out): the water is safe that same moment, not at the next look at the puddles.
+    world.deadCircuits.add(CIRCUIT)
+    expect(footingAt(world, { x: 16.5, y: 21.5 })).not.toBe('live')
+    expect(isLive(world, { x: 16.2, y: 22 - 1.7, w: 0.7, h: 1.7, vx: 0, vy: 0, onGround: true })).toBe(false)
   })
 
   it('a server rack soaking in water shorts out, and its sparks light the gas leaking beside it', () => {
