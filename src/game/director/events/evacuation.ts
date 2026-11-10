@@ -1,3 +1,4 @@
+import { count } from '../../chronicle/story/choose'
 import { feetOf, type Guard } from '../../security/model'
 import { roomOf } from '../../security/places'
 import { playSound } from '../../sounds'
@@ -41,7 +42,7 @@ export const evacuation: EventDef = {
         radio(stepWorld, `Control: Fire crews have it. Back to your posts.`)
         return true
       },
-      outcome: () => `${walkers.length} guards filed out of the ${building}`,
+      outcome: () => (walkers.length === 0 ? `nobody was there to file out of the ${building}` : `${count(walkers.length, 'guard')} filed out of the ${building}`),
     }
   },
 }

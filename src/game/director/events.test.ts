@@ -127,6 +127,16 @@ describe('director events, each through public game state', () => {
     expect(deviceState(world).unlockedDoors.size).toBeGreaterThan(unlocked)
   })
 
+  it('an evacuation with nobody on those floors does not tell of "0 guards" filing out', () => {
+    const world = directedWorld(2, 'complex', [])
+    const room = world.rooms.find((candidate) => candidate.building === 'tower' && candidate.storey === 6 && candidate.kind === 'office')!
+    world.hazards.roomFire.set(room.id, 10)
+    for (const guard of world.guards) guard.station = { x: 0, y: 0 }
+    const running = event('evacuation').start(world, rng)!
+    running.step(world, 100)
+    expect(running.outcome()).toMatch(/^nobody/)
+  })
+
   it('cutting the power twice brings the engineer to the dead fuse box', () => {
     const world = directedWorld(2, 'complex', [])
     const boxes = world.devices.filter((device) => device.kind === 'fusebox' && device.circuit !== undefined)
