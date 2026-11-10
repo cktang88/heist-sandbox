@@ -14,9 +14,9 @@ import { chance, fill, type SiteDraft } from './kit'
  * floor over a doorway made an archway still rests on the brick lintel above it.
  */
 
-const OPEN_LOBBY_ODDS = 0.8
+const OPEN_LOBBY_ODDS = 0.9
 /** On top of the archways the floor plan already has (block.ts), so about half of all ordinary doorways are open. */
-const OPEN_ROOM_ODDS = 0.35
+const OPEN_ROOM_ODDS = 0.5
 const OUTDOOR = new Set(['grounds', 'sewer', 'silo', 'gatehouse'])
 const DOOR_ROWS = 3
 

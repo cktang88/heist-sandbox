@@ -33,7 +33,7 @@ export const AWARENESS = {
   peripheralCap: 0.6,
   peripheralRate: 0.35,
   /** How fast the meter drains when nothing is seen (per second). */
-  decay: 0.12,
+  decay: 0.2,
   crouchFactor: 0.4,
   stillFactor: 0.7,
   runFactor: 1.4,
@@ -88,7 +88,7 @@ export const COMMS = {
   checkInMin: 90,
   checkInMax: 140,
   /** A missed check-in is polled after this long before a pair is sent. */
-  pollSeconds: 10,
+  pollSeconds: 20,
   /** All relays in a building down for this long, and the control room notices. */
   commsFaultSeconds: 25,
   /** A dark circuit nobody saw go out shows on the control room's panel after this long, and someone is sent. */
@@ -290,11 +290,11 @@ export const RESPONSE = {
 /** Things out of place that guards notice on their rounds. */
 export const DISCOVERY = {
   /** How far ahead a guard notices an open door or a picked lock on his floor. */
-  doorSight: 7,
+  doorSight: 5,
   /** A dead camera feed shows as a fault in the security room after this long. */
   cameraFaultSeconds: 25,
   /** A parachute in the sky is seen this far off. */
-  chuteSight: 28,
+  chuteSight: 20,
   /** Smoke this thick ahead of him is noticed. */
   smokeSeen: 0.25,
   smokeSight: 9,
