@@ -27,10 +27,10 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
 
   const alarmBefore = world.alarm
   if (world.drone) {
-    movePlayer(world.grid, world.player, idleInput(input.aim), dt)
+    movePlayer(world.grid, world.player, idleInput(input.aim), dt, world.stairwells)
     stepDrone(world, input, dt)
   } else {
-    movePlayer(world.grid, world.player, input, dt)
+    movePlayer(world.grid, world.player, input, dt, world.stairwells)
     interact(world, input, dt)
     useTool(world, input, dt)
   }

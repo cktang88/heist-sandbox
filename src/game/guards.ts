@@ -1,5 +1,8 @@
 import { burst } from './effects'
 import { openDoor } from './interact'
+import { nextHop } from './nav'
+import type { GuardRole } from './site'
+import { climbStairs, type OnStairs } from './stairs'
 import type { GuardSpawn } from './level'
 import { emitNoise } from './noise'
 import { GRAVITY, moveBody } from './physics'
@@ -34,6 +37,15 @@ export type Guard = Body & {
   /** The limp body, once the guard is down. */
   ragdoll: Ragdoll | null
   climbing: boolean
+  /** Set while climbing a staircase. */
+  stairs: OnStairs | null
+  role: GuardRole
+  roomId: number | null
+  /** How far from home a patrol walks. */
+  patrolRange: number
+  /** Seconds of flash blindness and deafness left. */
+  blindSeconds: number
+  deafSeconds: number
   /** Armoured responders arrive when the alarm rings. They take more to bring down. */
   armored: boolean
 }
@@ -54,10 +66,13 @@ const SHOT = { speed: 24, damage: 12, tileDamage: 6, spread: 0.07, push: 0 }
 const SHOT_NOISE = 28
 
 export function createGuard(spawn: GuardSpawn, armored = false): Guard {
+  const route = spawn.route
+  const homeX = route ? (route[0].x + route[1].x) / 2 : spawn.x
   return {
     x: spawn.x + 0.15, y: spawn.y - 1.6, w: 0.7, h: 1.6, vx: 0, vy: 0, onGround: false,
-    hp: armored ? ARMORED_HP : 100, facing: spawn.facing, state: 'patrol', awareness: 0, homeX: spawn.x,
-    target: null, wait: 0, shootCooldown: 0.4, alertSeconds: 0, lostSeconds: 0, kick: 0, hitFlash: 0, deadSeconds: 0, ragdoll: null, climbing: false, armored,
+    hp: armored || spawn.role === 'heavy' ? ARMORED_HP : 100, facing: spawn.facing, state: 'patrol', awareness: 0, homeX,
+    target: null, wait: 0, shootCooldown: 0.4, alertSeconds: 0, lostSeconds: 0, kick: 0, hitFlash: 0, deadSeconds: 0, ragdoll: null, climbing: false, armored: armored || spawn.role === 'heavy', stairs: null, role: spawn.role ?? 'patrol', roomId: spawn.roomId ?? null,
+    patrolRange: route ? Math.abs(route[1].x - route[0].x) / 2 : PATROL_RANGE, blindSeconds: 0, deafSeconds: 0,
   }
 }
 
@@ -124,6 +139,9 @@ export function updateGuard(world: World, guard: Guard, dt: number): void {
   notice(world, guard, sees, gap, playerCenter, dt)
 
   let walk = 0
+  if (guard.stairs || (guard.state === 'alert' && !sees)) {
+    if (useStairs(world, guard, dt)) return
+  }
   if (guard.state === 'alert' && !sees && useLadder(world, guard, dt)) return
   guard.climbing = false
   if (guard.state === 'alert') walk = fight(world, guard, sees, gap, playerCenter, dt)
@@ -189,6 +207,34 @@ function useLadder(world: World, guard: Guard, dt: number): boolean {
     guard.x = column + 0.5 - guard.w / 2
     return true
   }
+  guard.facing = offset > 0 ? 1 : -1
+  guard.vx = guard.facing * CHASE_SPEED
+  guard.vy += GRAVITY * dt
+  if (moveBody(world.grid, guard, dt)) kickDoorOpen(world, guard)
+  return true
+}
+
+/**
+ * Lets a hunting guard change floors by staircase: walk to the landing, then climb toward the target's floor.
+ * Returns true when it has taken over the guard's movement for this frame.
+ */
+function useStairs(world: World, guard: Guard, dt: number): boolean {
+  if (guard.stairs) {
+    const well = world.stairwells.find((candidate) => candidate.id === guard.stairs!.well)
+    const goalY = guard.target ? guard.target.y + 0.8 : guard.y + guard.h
+    const direction = goalY < guard.y + guard.h ? 1 : -1
+    if (!well || !climbStairs(guard, guard.stairs, well, direction, false, dt)) guard.stairs = null
+    return true
+  }
+  if (!guard.target || !guard.onGround) return false
+  const feet = { x: guard.x + guard.w / 2, y: guard.y + guard.h }
+  const hop = nextHop(world.stairwells, feet, { x: guard.target.x, y: guard.target.y + 0.8 })
+  if (hop.kind === 'none' || (hop.kind === 'walk' && Math.abs(guard.target.y + 0.8 - feet.y) < 1.5)) return false
+  if (hop.kind === 'stairs') {
+    guard.stairs = { well: hop.well.id, u: hop.stop }
+    return true
+  }
+  const offset = hop.x - feet.x
   guard.facing = offset > 0 ? 1 : -1
   guard.vx = guard.facing * CHASE_SPEED
   guard.vy += GRAVITY * dt
@@ -276,7 +322,13 @@ function search(guard: Guard, center: Vec, dt: number): number {
 
 function patrol(world: World, guard: Guard, center: Vec): number {
   const ledgeAhead = !isSolidAt(world.grid, center.x + guard.facing * 0.7, guard.y + guard.h + 0.5)
-  const tooFar = (center.x - guard.homeX) * guard.facing > PATROL_RANGE
+  // Guards on a fixed post stand their ground and just look around.
+  if (guard.role !== 'patrol') {
+    if (Math.floor(world.clock / 6 + guard.homeX) % 2 === 0) guard.facing = guard.homeX % 2 < 1 ? 1 : -1
+    else guard.facing = guard.homeX % 2 < 1 ? -1 : 1
+    return 0
+  }
+  const tooFar = (center.x - guard.homeX) * guard.facing > guard.patrolRange
   if (guard.onGround && (ledgeAhead || tooFar)) guard.facing = guard.facing === 1 ? -1 : 1
   return guard.facing * WALK_SPEED
 }

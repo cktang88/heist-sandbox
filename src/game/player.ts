@@ -1,5 +1,7 @@
 import type { Input } from './input'
 import { GRAVITY, moveBody } from './physics'
+import type { Stairwell } from './site'
+import { climbStairs, findLanding, type OnStairs } from './stairs'
 import { tileAt, type Grid } from './tiles'
 import { BLOOM_RECOVERY_PER_SECOND, GUNS } from './guns'
 import { TOOLS } from './toolDefs'
@@ -39,18 +41,26 @@ export type Player = Body & {
   /** Extra spread from sustained fire, in radians. */
   bloom: number
   airJumps: number
+  /** Set while climbing a staircase in the back of a stair lobby. */
+  stairs: OnStairs | null
+  stairsHeading: number
+  crouching: boolean
+  /** Seconds of flash blindness and deafness left. */
+  blindSeconds: number
+  deafSeconds: number
 }
 
 export function createPlayer(start: Vec): Player {
   return {
     x: start.x, y: start.y, w: 0.7, h: 1.6, vx: 0, vy: 0, onGround: false,
     facing: 1, hp: 100, chute: false, onLadder: false, tool: 0,
-    ammo: TOOLS.map((tool) => tool.ammo), mags: TOOLS.map((tool) => GUNS[tool.id]?.magSize ?? 0), reload: 0, cooldown: 0, focus: MAX_FOCUS_SECONDS, hasLoot: false, pick: 0, kick: 0, bloom: 0, airJumps: 1,
+    ammo: TOOLS.map((tool) => tool.ammo), mags: TOOLS.map((tool) => GUNS[tool.id]?.magSize ?? 0), reload: 0, cooldown: 0, focus: MAX_FOCUS_SECONDS, hasLoot: false, pick: 0, kick: 0, bloom: 0, airJumps: 1, stairs: null, stairsHeading: 1, crouching: false, blindSeconds: 0, deafSeconds: 0,
   }
 }
 
 /** Running, jumping, ladders and the parachute. Tap jump in mid-air to double jump; hold it while falling to open the chute. */
-export function movePlayer(grid: Grid, player: Player, input: Input, dt: number): void {
+export function movePlayer(grid: Grid, player: Player, input: Input, dt: number, stairwells: readonly Stairwell[] = []): void {
+  if (takeStairs(player, input, dt, stairwells)) return
   const center = centerOf(player)
   const bodyTile = tileAt(grid, Math.floor(center.x), Math.floor(center.y))
   const feetTile = tileAt(grid, Math.floor(center.x), Math.floor(player.y + player.h - 0.1))
@@ -97,6 +107,40 @@ export function movePlayer(grid: Grid, player: Player, input: Input, dt: number)
     player.chute = false
     player.airJumps = 1
   }
+}
+
+/**
+ * Stairs: stand at a landing and hold up or down to climb. Keep holding to carry on past each floor;
+ * let go to step off at the next landing, or jump to leave mid-flight. Returns true while on the stairs.
+ */
+function takeStairs(player: Player, input: Input, dt: number, stairwells: readonly Stairwell[]): boolean {
+  const climb = (input.up ? 1 : 0) - (input.down ? 1 : 0)
+  if (!player.stairs) {
+    if (climb === 0 || !player.onGround) return false
+    const landing = findLanding(stairwells, player.x + player.w / 2, player.y + player.h)
+    if (!landing) return false
+    const next = landing.stop + climb
+    if (next < 0 || next >= landing.well.stops.length) return false
+    player.stairs = { well: landing.well.id, u: landing.stop }
+  }
+  const well = stairwells.find((candidate) => candidate.id === player.stairs!.well)
+  if (!well || input.jumpPressed) {
+    player.stairs = null
+    player.vy = -JUMP_SPEED * 0.6
+    return false
+  }
+  player.chute = false
+  player.facing = input.aim.x >= player.x + player.w / 2 ? 1 : -1
+  const midFlight = !Number.isInteger(player.stairs.u)
+  // Letting go mid-flight keeps you walking to the nearest landing in the direction you were heading.
+  const direction = climb !== 0 ? climb : midFlight ? player.stairsHeading : 0
+  if (direction === 0) {
+    player.stairs = null
+    return false
+  }
+  player.stairsHeading = direction
+  if (!climbStairs(player, player.stairs, well, direction, climb !== 0, dt)) player.stairs = null
+  return true
 }
 
 /** Focus drains in real time while held and refills when released. */
