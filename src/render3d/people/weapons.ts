@@ -1,4 +1,4 @@
-import type { BufferGeometry } from 'three'
+import { TorusGeometry, type BufferGeometry } from 'three'
 import type { ToolId } from '../../game/toolDefs'
 import { HOLDS } from '../../render/human/pose'
 import { Kit, type Finish } from './shapes'
@@ -142,12 +142,73 @@ function grenade(body: Finish, band: Finish): Kit {
     .tube(BRIGHT_STEEL, 0.012, 0.012, 0.003, { x: 0.1, y: 0.016, rx: Math.PI / 2 }, 10)
 }
 
+/** A frag: a dark olive egg with a ribbed body, the spoon down the side and the ring on top. */
+function frag(): Kit {
+  const body: Finish = { color: 0x3c4430, rough: 0.6 }
+  return new Kit()
+    .ball(body, [0.045, 0.032, 0.032], { x: 0.03 }, 10)
+    .rod(BLACK, 0.033, 0.0, 0.006, 0, 0, 10)
+    .rod(BLACK, 0.033, 0.03, 0.036, 0, 0, 10)
+    .rod(STEEL, 0.012, 0.072, 0.095, 0, 0, 8)
+    .box(STEEL, [0.08, 0.006, 0.014], { x: 0.05, y: -0.034, rz: 0.08 })
+    .tube(BRIGHT_STEEL, 0.013, 0.013, 0.003, { x: 0.1, y: 0.018, rx: Math.PI / 2 }, 10)
+}
+
+/** A coil of climbing rope hanging from the hand, a loose tail and the snap hook it hangs from. */
+function ropeCoil(): Kit {
+  const fibre: Finish = { color: 0xb59a62, rough: 0.9 }
+  return new Kit()
+    .add(new TorusGeometry(0.11, 0.024, 6, 14), fibre, { x: 0.12, ry: Math.PI / 2 - 0.35 })
+    .add(new TorusGeometry(0.1, 0.02, 6, 14), { color: 0x9c8350, rough: 0.9 }, { x: 0.12, z: 0.015, ry: Math.PI / 2 - 0.2 })
+    .box(fibre, [0.012, 0.16, 0.012], { x: 0.02, y: -0.08, rz: 0.2 })
+    .box(STEEL, [0.03, 0.05, 0.008], { x: 0.0, y: 0.01 })
+}
+
+/** A stubby launcher: pistol grip, a fat barrel with the three-pronged hook seated in its muzzle, and a line reel. */
+function grappleGun(): Kit {
+  const housing: Finish = { color: 0x2f3438, rough: 0.5, metal: 0.4 }
+  return new Kit()
+    .box(POLYMER, [0.04, 0.1, 0.03], { x: -0.012, y: -0.005, rz: 0.28 })
+    .box(housing, [0.16, 0.06, 0.05], { x: 0.05, y: 0.05 })
+    .rod(housing, 0.03, 0.12, 0.3, 0.06, 0, 10)
+    .rod(BLACK, 0.034, 0.27, 0.3, 0.06, 0, 10)
+    .rod(BRIGHT_STEEL, 0.01, 0.3, 0.36, 0.06, 0, 6)
+    .box(BRIGHT_STEEL, [0.008, 0.07, 0.008], { x: 0.36, y: 0.06, rz: 0.5 })
+    .box(BRIGHT_STEEL, [0.008, 0.07, 0.008], { x: 0.36, y: 0.06, rz: -0.5 })
+    .rod({ color: 0xc8862a, rough: 0.6 }, 0.035, -0.0, 0.05, 0.0, 0.04, 12)
+}
+
 const BUILDERS: Record<ToolId, () => Kit> = {
-  pistol, rifle, shotgun, sniper, rocket, drill,
+  pistol, rifle, shotgun, sniper, rocket, drill, frag,
+  rope: ropeCoil,
+  grapple: grappleGun,
   c4: charge,
   drone: controller,
   smoke: () => grenade(OLIVE, { color: 0xb7b7b7, rough: 0.5 }),
   flash: () => grenade({ color: 0x2b2d2f, rough: 0.45, metal: 0.6 }, { color: 0xd7c24a, rough: 0.5 }),
+}
+
+/**
+ * A ballistic shield, its origin at the middle: a tall dark slab with a small armoured window near the top and a pale
+ * rim. It is built turned a little toward the camera, so it reads as a shield from the side rather than a thin edge.
+ */
+function ballisticShield(): Kit {
+  const slab: Finish = { color: 0x16181b, rough: 0.6 }
+  const rim: Finish = { color: 0x5d6268, rough: 0.5, metal: 0.3 }
+  const turn = { ry: -0.85 }
+  return new Kit()
+    .box(slab, [0.05, 1.02, 0.56], turn)
+    .box(rim, [0.055, 0.03, 0.57], { ...turn, y: 0.5 })
+    .box(rim, [0.055, 0.03, 0.57], { ...turn, y: -0.5 })
+    .box({ color: 0x5b7f96, rough: 0.05, metal: 0.4, glow: 0.15 }, [0.06, 0.09, 0.26], { ...turn, y: 0.3 })
+    .box({ color: 0xd8d8d0, rough: 0.6 }, [0.056, 0.05, 0.4], { ...turn, y: 0.05 })
+}
+
+let shieldCache: BufferGeometry | null = null
+
+export function shieldGeometry(): BufferGeometry {
+  shieldCache ??= ballisticShield().build()
+  return shieldCache
 }
 
 const cache = new Map<ToolId, BufferGeometry>()

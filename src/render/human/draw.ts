@@ -47,9 +47,7 @@ function limb(c: Ctx, part: Limb, color: string, width = LIMB_WIDTH): void {
 export function drawHuman(c: Ctx, body: Skeleton, facing: 1 | -1, look: Look, held: ToolId | null): void {
   c.lineCap = 'round'
   c.lineJoin = 'round'
-  const hasArms = held !== null
-
-  if (hasArms) limb(c, body.arms[1], darker(look.limbs, 0.3))
+  limb(c, body.arms[1], darker(look.limbs, 0.3))
   limb(c, body.legs[1], darker(look.limbs, 0.3), LIMB_WIDTH + 0.02)
   boot(c, body.legs[1].end, facing, look)
 
@@ -67,11 +65,11 @@ export function drawHuman(c: Ctx, body: Skeleton, facing: 1 | -1, look: Look, he
   }
 
   head(c, body.head, facing, look)
+  if (body.offHand) drawShield(c, body.offHand.at)
   limb(c, body.legs[0], look.limbs, LIMB_WIDTH + 0.02)
   boot(c, body.legs[0].end, facing, look)
 
-  if (!hasArms) return
-  drawGun(c, body.grip, body.gunAngle, facing, held)
+  if (held && body.armed) drawGun(c, body.grip, body.gunAngle, facing, held)
   limb(c, body.arms[0], look.kit === 'operative' ? look.suit : look.suit)
   c.fillStyle = look.kit === 'operative' ? '#11141a' : look.skin
   for (const part of body.arms) {
@@ -79,6 +77,18 @@ export function drawHuman(c: Ctx, body: Skeleton, facing: 1 | -1, look: Look, he
     c.arc(part.end.x, part.end.y, 0.07, 0, Math.PI * 2)
     c.fill()
   }
+}
+
+/** A ballistic shield seen from the side, turned a little toward the viewer: a dark slab with a small window. */
+function drawShield(c: Ctx, at: Vec): void {
+  c.fillStyle = OUTLINE
+  c.fillRect(at.x - 0.17, at.y - 0.53, 0.34, 1.06)
+  c.fillStyle = '#23272c'
+  c.fillRect(at.x - 0.14, at.y - 0.5, 0.28, 1)
+  c.fillStyle = '#7fa8c0'
+  c.fillRect(at.x - 0.09, at.y - 0.36, 0.18, 0.1)
+  c.fillStyle = '#d8d8d0'
+  c.fillRect(at.x - 0.14, at.y - 0.02, 0.28, 0.06)
 }
 
 /** Draws a limp body straight from its joints. */
@@ -151,7 +161,9 @@ export function muzzleOf(body: Skeleton, held: ToolId): Vec {
   return { x: body.grip.x + Math.cos(body.gunAngle) * length, y: body.grip.y + Math.sin(body.gunAngle) * length }
 }
 
-const GUN_LENGTH: Record<ToolId, number> = { pistol: 0.6, rifle: 0.95, shotgun: 0.9, sniper: 1.3, rocket: 0.85, c4: 0.2, drill: 0.6, drone: 0.2, smoke: 0.2, flash: 0.2 }
+const GUN_LENGTH: Record<ToolId, number> = {
+  pistol: 0.6, rifle: 0.95, shotgun: 0.9, sniper: 1.3, rocket: 0.85, c4: 0.2, drill: 0.6, drone: 0.2, smoke: 0.2, flash: 0.2, frag: 0.2, rope: 0.2, grapple: 0.65,
+}
 
 function drawGun(c: Ctx, grip: Vec, angle: number, facing: number, held: ToolId): void {
   c.save()
@@ -207,6 +219,24 @@ function drawGun(c: Ctx, grip: Vec, angle: number, facing: number, held: ToolId)
     case 'smoke':
     case 'flash':
       part(0, -0.08, 0.14, 0.2, '#48553f')
+      break
+    case 'frag':
+      part(-0.02, -0.08, 0.18, 0.16, '#3c4430')
+      part(0.14, -0.04, 0.05, 0.08)
+      break
+    case 'rope':
+      c.strokeStyle = '#b59a62'
+      c.lineWidth = 0.06
+      c.beginPath()
+      c.arc(0.14, 0, 0.13, 0, Math.PI * 2)
+      c.stroke()
+      break
+    case 'grapple':
+      part(-0.02, -0.07, 0.3, 0.13, '#2f3438')
+      part(0.28, -0.08, 0.2, 0.15, '#1d2026')
+      part(0.48, -0.1, 0.12, 0.04, '#aab3be')
+      part(0.48, 0.05, 0.12, 0.04, '#aab3be')
+      part(0, 0.04, 0.09, 0.16)
       break
     case 'drone':
       part(-0.02, -0.07, 0.26, 0.15, '#252a33')

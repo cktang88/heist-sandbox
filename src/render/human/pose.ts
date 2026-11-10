@@ -1,29 +1,15 @@
 import type { ToolId } from '../../game/toolDefs'
 import type { Vec } from '../../game/types'
-import { reachToward, solveJoint } from './ik'
+import { applyAct, type Act } from './acts'
+import {
+  aimPoint as onLine, armLimb, BONES, clamp01, CROUCH_HIP, frac, fromPitch, legLimb, LEG_REACH, lerp, pitchOf, smooth,
+  STAND_HIP, stepAt, swingHand, type Limb, type Skeleton,
+} from './rig'
 
-/** Body height in tiles. Every length below is a fraction of this. */
-export const HEIGHT = 1.6
-/** Bone lengths, shared with the 3D body so its parts are built to the same size. */
-export const BONES = {
-  /** Sole to ankle. Legs end at the ankle; the boot hangs below it. */
-  ankle: 0.05,
-  upperLeg: 0.25 * HEIGHT,
-  lowerLeg: 0.26 * HEIGHT,
-  /** Hip joint to the base of the neck. */
-  torso: 0.275 * HEIGHT,
-  /** Base of the neck to the middle of the head. */
-  neck: 0.12 * HEIGHT,
-  upperArm: 0.17 * HEIGHT,
-  forearm: 0.16 * HEIGHT,
-} as const
-const LEG = BONES.upperLeg + BONES.lowerLeg
-const ARM = BONES.upperArm + BONES.forearm
-/** Knees and elbows always keep a little bend; a locked joint looks stiff and robotic. */
-const LEG_REACH = 0.985 * LEG
-const ARM_REACH = 0.97 * ARM
-const STAND_HIP = BONES.ankle + 0.975 * LEG
-const CROUCH_HIP = BONES.ankle + 0.62 * LEG
+export { BONES, HEIGHT } from './rig'
+export type { Limb, Skeleton } from './rig'
+export type { Act } from './acts'
+
 const RUN_SPEED = 9
 /**
  * Ladder rungs sit at every quarter and three-quarter tile. Each hand and foot moves up two rungs per
@@ -63,37 +49,14 @@ export type Motion = {
   flinch?: number
   /** 0..1, straight after landing from a fall. */
   land?: number
-}
-
-export type Limb = { root: Vec; joint: Vec; end: Vec }
-export type Skeleton = {
-  hip: Vec
-  shoulder: Vec
-  head: Vec
-  /** Tilt of the spine from upright. Positive leans toward +x. */
-  lean: number
-  /** Near leg first, then far. Each ends at the ankle. */
-  legs: [Limb, Limb]
-  /** Near arm (the gun hand) first, then far (the support hand). */
-  arms: [Limb, Limb]
-  grip: Vec
-  gunAngle: number
-  /** Tilt of the pelvis from upright, same sign as `lean`. */
-  pelvis: number
-  /** Direction the eyes look, in radians like `gunAngle`. */
-  look: number
-  /** Direction each hand's fingers point, in radians. */
-  hands: [number, number]
-  /** Tilt of each boot: 0 flat on the ground, positive lifts the heel. */
-  feet: [number, number]
-  /** False when the tool is slung on the back (ladders, parachute). */
-  armed: boolean
-  /** 0 side-on to the camera, 1 back to the camera (climbing a ladder). */
-  turn: number
+  /** 0..1 from rounds cracking past: the body hunches and the head ducks. */
+  cower?: number
+  /** Something other than walking, climbing or aiming that the body is busy with. See `acts.ts`. */
+  act?: Act
 }
 
 /** How a tool is held. `reach` and `drop` place the grip hand from the shoulder along and below the aim line. */
-export type Carry = 'pistol' | 'shouldered' | 'launcher' | 'tool' | 'thrown' | 'device'
+export type Carry = 'pistol' | 'shouldered' | 'launcher' | 'tool' | 'thrown' | 'device' | 'coil'
 export type Hold = { carry: Carry; reach: number; drop: number; support: Vec; flip: number }
 
 const THROWN: Hold = { carry: 'thrown', reach: 0, drop: 0, support: { x: 0, y: 0 }, flip: 0.1 }
@@ -112,15 +75,13 @@ export const HOLDS: Record<ToolId, Hold> = {
   c4: THROWN,
   smoke: THROWN,
   flash: THROWN,
+  frag: THROWN,
+  rope: { carry: 'coil', reach: 0, drop: 0, support: { x: 0.02, y: -0.1 }, flip: 0 },
+  grapple: { carry: 'pistol', reach: 0.36, drop: 0.04, support: { x: 0.12, y: 0.02 }, flip: 0.3 },
 }
 
 /** Stepping style for one mode at one speed. Lengths in tiles; `stance` is the share of a cycle a foot is planted. */
 type Gait = { stride: number; stance: number; clearance: number; hip: number; bob: number; lean: number; swing: number; elbow: number }
-
-const clamp01 = (value: number) => Math.max(0, Math.min(1, value))
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t
-const smooth = (t: number) => t * t * (3 - 2 * t)
-const frac = (value: number) => value - Math.floor(value)
 
 function gaitFor(mode: Mode, speed: number): Gait {
   const pace = clamp01(speed / RUN_SPEED)
@@ -147,18 +108,6 @@ export function advanceStride(stride: number, distance: number, speed: number, m
   return frac(stride + Math.abs(distance) / gaitFor(mode, speed).stride)
 }
 
-/**
- * Where a foot (or a climbing hand) is at cycle position `q`: `along` is ahead of the body in the
- * direction of travel, `lift` is off the ground. While planted, `along` falls exactly as fast as the
- * body moves, so the foot stays put in the world.
- */
-function stepAt(q: number, stride: number, stance: number): { along: number; swing: number } {
-  const span = stride * stance
-  if (q < stance) return { along: span * (0.5 - q / stance), swing: 0 }
-  const t = (q - stance) / (1 - stance)
-  return { along: span * (smooth(t) - 0.5), swing: t }
-}
-
 /** Heel lift through a step: rolls onto the toe before push-off, toe up just before the heel lands. */
 function footPitch(q: number, stance: number, pace: number): number {
   if (q < stance) return smooth(clamp01((q / stance - 0.6) / 0.4)) * 0.75
@@ -180,16 +129,6 @@ type Frame = {
 }
 
 type Lower = { hip: Vec; legs: [Limb, Limb]; feet: [number, number]; pelvis: number; lean: number; bob: number; along: [number, number]; travel: number }
-
-function legLimb(root: Vec, ankle: Vec, facing: number): Limb {
-  const end = reachToward(root, ankle, LEG_REACH)
-  return { root, joint: solveJoint(root, end, BONES.upperLeg, BONES.lowerLeg, -facing), end }
-}
-
-function armLimb(root: Vec, hand: Vec, facing: number): Limb {
-  const end = reachToward(root, hand, ARM_REACH)
-  return { root, joint: solveJoint(root, end, BONES.upperArm, BONES.forearm, facing), end }
-}
 
 /** Hip offsets from the pelvis turning with the stride: the leg that is forward has its hip forward too. */
 function hipTwist(along: number, span: number): number {
@@ -226,7 +165,7 @@ function groundLegs(f: Frame): Lower {
   const vault = lerp(1, -1, clamp01((f.pace - 0.3) / 0.3))
   const bob = gait.bob * moving * vault * Math.cos(4 * Math.PI * (f.phase - gait.stance / 2))
   const breathe = Math.sin(f.clock * 1.7) * 0.004 * (1 - moving)
-  const squash = (m.land ?? 0) * 0.2 + (m.flinch ?? 0) * 0.05
+  const squash = (m.land ?? 0) * 0.2 + (m.flinch ?? 0) * 0.05 + (m.cower ?? 0) * 0.14
   const sway = Math.sin(f.clock * 0.55) * 0.012 * (1 - moving)
   const hip = { x: m.x + sway, y: groundAt(m.x) - gait.hip + bob + breathe + squash }
   // Never let the hips rise higher than the planted legs can reach.
@@ -238,7 +177,7 @@ function groundLegs(f: Frame): Lower {
 
   const span = gait.stride * gait.stance * 0.5
   const climbing = slope !== 0 ? Math.sign(-m.vy) * 0.12 : 0
-  const posture = crouch ? 0.42 : f.ready ? 0.1 : 0.03
+  const posture = (crouch ? 0.42 : f.ready ? 0.1 : 0.03) + (m.cower ?? 0) * 0.25
   const lean = facing * (posture + climbing) + dir * gait.lean * moving * (crouch ? 0.5 : 1) + Math.sin(4 * Math.PI * f.phase) * 0.025 * moving * f.pace
   const legs = [0, 1].map((leg) => legLimb({ x: hip.x + hipTwist(along[leg], span) * facing, y: hip.y }, feet[leg], facing)) as [Limb, Limb]
   return {
@@ -289,15 +228,6 @@ function ladderLegs(f: Frame): Lower {
   return { hip, legs, feet: [pitch[0], pitch[1]], pelvis: facing * 0.05, lean: facing * 0.06, bob: 0, along: [0, 0], travel: 0 }
 }
 
-/** A free arm: `swing` is the upper arm's angle forward of straight down, `elbow` how far the forearm folds on. */
-function swingHand(root: Vec, swing: number, elbow: number, facing: number): Vec {
-  const fore = swing + elbow
-  return {
-    x: root.x + (Math.sin(swing) * BONES.upperArm + Math.sin(fore) * BONES.forearm) * facing,
-    y: root.y + Math.cos(swing) * BONES.upperArm + Math.cos(fore) * BONES.forearm,
-  }
-}
-
 /** Where each hand goes when it holds nothing: swinging with the stride, out for balance in the air, or on the risers or rungs. */
 function freeHands(f: Frame, lower: Lower, roots: [Vec, Vec]): [Vec, Vec] {
   const { m, facing } = f
@@ -322,23 +252,6 @@ function freeHands(f: Frame, lower: Lower, roots: [Vec, Vec]): [Vec, Vec] {
   }) as [Vec, Vec]
 }
 
-/** Angle relative to straight ahead for someone facing `facing`, positive downward. */
-function pitchOf(angle: number, facing: number): number {
-  const relative = facing > 0 ? angle : Math.PI - angle
-  return Math.atan2(Math.sin(relative), Math.cos(relative))
-}
-
-function fromPitch(pitch: number, facing: number): number {
-  return facing > 0 ? pitch : Math.PI - pitch
-}
-
-/** Point `along` the aim line and `below` it, from `origin`. "Below" stays on the gun's underside whichever way the figure faces. */
-function onLine(origin: Vec, angle: number, along: number, below: number, facing: number): Vec {
-  const cos = Math.cos(angle)
-  const sin = Math.sin(angle)
-  return { x: origin.x + cos * along - sin * below * facing, y: origin.y + sin * along + cos * below * facing }
-}
-
 type Upper = { arms: [Vec, Vec]; grip: Vec; gunAngle: number; hands: [number, number] | null }
 
 /** Hands on the weapon. Calm guards carry it low; everyone else holds it on the aim line. */
@@ -351,6 +264,12 @@ function holdTool(f: Frame, hold: Hold, shoulder: Vec, lower: Lower): Upper {
     const grip = { x: shoulder.x - 0.05 * facing, y: shoulder.y - 0.16 }
     const point = onLine(shoulder, m.aim, 0.38, 0, facing)
     return { arms: [grip, point], grip, gunAngle: m.aim, hands: [fromPitch(-1.3, facing), m.aim] }
+  }
+  if (hold.carry === 'coil') {
+    // The coil hangs from the near hand at the hip, the other hand feeding the line off it.
+    const grip = { x: shoulder.x + 0.14 * facing, y: shoulder.y + 0.5 }
+    const angle = fromPitch(-1.2, facing)
+    return { arms: [grip, onLine(grip, angle, hold.support.x, hold.support.y, facing)], grip, gunAngle: angle, hands: [angle, angle] }
   }
   if (hold.carry === 'device') {
     const grip = { x: shoulder.x + 0.2 * facing, y: shoulder.y + 0.22 }
@@ -398,7 +317,12 @@ export function poseHuman(motion: Motion): Skeleton {
   const kick = motion.kick
   const flinch = motion.flinch ?? 0
   const land = motion.land ?? 0
-  const lean = lower.lean - facing * (kick * 0.06 + flinch * 0.22) + facing * land * 0.3
+  // Aiming steeply up leans the shoulders back; aiming down a hole in the floor bends the body over it.
+  const steep = hold && frame.ready ? pitchOf(motion.aim, facing) : 0
+  const bendDown = Math.max(0, steep - 0.6) * 0.3
+  const bendBack = Math.max(0, -steep - 0.6) * 0.45
+  const reachLean = facing * (bendDown - bendBack)
+  const lean = lower.lean - facing * (kick * 0.06 + flinch * 0.22) + facing * land * 0.3 + reachLean
   const breath = Math.sin(frame.clock * 1.7) * 0.006
   const { hip } = lower
   // Recoil shoves the shoulders back before the hips follow.
@@ -407,7 +331,7 @@ export function poseHuman(motion: Motion): Skeleton {
     y: hip.y - Math.cos(lean) * BONES.torso - breath,
   }
   // The neck holds the head steadier and more upright than the spine, and soaks up most of the step's rise and fall.
-  const neckLean = lean * 0.45 + facing * (0.14 - flinch * 0.35)
+  const neckLean = lean * 0.45 + facing * (0.14 - flinch * 0.35 + (motion.cower ?? 0) * 0.3)
   const head = { x: shoulder.x + Math.sin(neckLean) * BONES.neck, y: shoulder.y - Math.cos(neckLean) * BONES.neck - lower.bob * 0.6 }
 
   // Shoulders turn against the hips.
@@ -426,9 +350,10 @@ export function poseHuman(motion: Motion): Skeleton {
   if (hold && !frame.ready && hold.carry === 'pistol') hands[1] = along(arms[1])
 
   const aimPitch = frame.ready && armed ? pitchOf(motion.aim, facing) : 0.12 + Math.sin(frame.clock * 0.37) * 0.08
-  const lookPitch = (hold?.carry === 'device' ? 0.6 : Math.max(-0.7, Math.min(0.6, aimPitch))) - flinch * 0.5 + land * 0.2
-  return {
+  const lookPitch = (hold?.carry === 'device' ? 0.6 : Math.max(-0.72 + Math.min(0, lean * facing), Math.min(0.6 + bendDown, aimPitch))) - flinch * 0.5 + land * 0.2
+  const body: Skeleton = {
     hip, shoulder, head, lean, legs: lower.legs, arms, grip: upper.grip, gunAngle: upper.gunAngle,
     pelvis: lower.pelvis, look: fromPitch(lookPitch, facing), hands, feet: lower.feet, armed, turn: mode === 'ladder' ? 1 : 0,
   }
+  return motion.act ? applyAct(body, motion, motion.act) : body
 }
