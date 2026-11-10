@@ -27,6 +27,11 @@ export function radioWorks(world: World, at: Vec): boolean {
   return relays === 0
 }
 
+/** The player took it off him while he lay out cold: he has no radio to call on. */
+export function hasOwnRadio(world: World, guard: Guard): boolean {
+  return !world.stealth.radios.has(world.guards.indexOf(guard))
+}
+
 /** What the guard says into the radio. */
 function callText(world: World, event: SecurityEvent): string {
   switch (event.kind) {
@@ -63,7 +68,7 @@ function callText(world: World, event: SecurityEvent): string {
 export function startRadio(world: World, guard: Guard, event: SecurityEvent): void {
   if (guard.radio || !isActive(guard)) return
   const feet = feetOf(guard)
-  if (!radioWorks(world, feet)) {
+  if (!radioWorks(world, feet) || !hasOwnRadio(world, guard)) {
     barkLine(world, guard, 'radioDead', true)
     shout(world, guard, event)
     guard.pendingReport = event
@@ -115,6 +120,8 @@ function hearShout(world: World, guard: Guard, event: SecurityEvent): void {
     guard.lastKnownAt = world.clock
     guard.awareness = Math.max(guard.awareness, 0.6)
   }
+  // Running to raise the alarm by hand matters more than going to look: he keeps running.
+  if (guard.mode === 'toAlarm') return
   const body = event.kind === 'body'
   guard.interest = { at: floorBelow(world, event.at), kind: body ? 'body' : 'shout', priority: 7, reached: false }
   setMode(guard, 'investigating')

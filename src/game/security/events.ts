@@ -80,6 +80,8 @@ export type SecurityState = {
   circuitsDeadSince: Map<number, number>
   /** Room id (or -1 outside rooms) to the clock time a fire there was last reported. */
   firesReported: Map<number, number>
+  /** Rooms whose fire alarm has rung, and when: the sprinklers reopening ring it again, which is not news. */
+  fireAlarms: Map<number, number>
   /** Bodies (guard indices) already reported. */
   reportedBodies: Set<number>
   /** Guard indices allowed to fire aimed shots this frame. */
@@ -95,6 +97,8 @@ export type SecurityState = {
   lastCasualtyAt: number
   /** Clock time stations were last handed out. */
   stationsAt: number
+  /** The stations the control room handed out itself, by guard: the only ones it takes back when it reassigns them. */
+  stations: Map<Guard, Vec>
   /** Response teams sent so far, and whether one has been sent for the current alert. */
   responders: number
   responseSent: boolean
@@ -107,6 +111,8 @@ export type SecurityState = {
   /** Door keys (`x,bottomRow`) guards opened themselves, and doors already found open or picked. */
   guardDoors: Set<string>
   doorsNoticed: Set<string>
+  /** Doors (by key) that caught fire: once burned away they are fire damage, not a forced lock. */
+  burntDoors: Set<string>
   /** Doors found standing open by hand (not forced) tonight: the first is shrugged off (doorCheck.ts). */
   openDoorsFound: number
   /** Per camera device id: since when its feed has been dead, and whether that was reported. */
@@ -140,10 +146,10 @@ export type SecurityState = {
 export function createSecurity(): SecurityState {
   return {
     level: 0, lastKnown: null, lastContactAt: -Infinity, levelSince: 0, peak: 0, log: [], barks: [], polls: [],
-    searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(), circuitsDeadSince: new Map(), firesReported: new Map(),
+    searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(), circuitsDeadSince: new Map(), firesReported: new Map(), fireAlarms: new Map(),
     reportedBodies: new Set(), shooters: [], campSpot: null, campSeconds: 0,
-    confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
-    deaths: [], unseenDeaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), openDoorsFound: 0, camerasDeadSince: new Map(), camerasReported: new Set(),
+    confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, stations: new Map(), responders: 0, responseSent: false,
+    deaths: [], unseenDeaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), burntDoors: new Set(), openDoorsFound: 0, camerasDeadSince: new Map(), camerasReported: new Set(),
     vaultReported: false, caseMissingAt: Infinity, lampsNoticed: new Set(), ropesNoticed: new Set(), chuteReportedAt: -Infinity, recentLines: [],
     killZones: [], shieldTeams: 0, shieldTeamAt: -Infinity, guardFrags: [],
     lineNoticed: false, panesNoticed: new Set(), chargesSeen: new Set(), tiedNoticed: new Set(), caseAskedAt: -Infinity,

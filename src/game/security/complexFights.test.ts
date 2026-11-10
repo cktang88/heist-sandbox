@@ -45,14 +45,17 @@ function fight(scenario: Scenario, seed: number, draws: number) {
 
 const CASES = SCENARIOS.flatMap((scenario) => SEEDS.flatMap((seed) => PERTURBATIONS.map((draws) => ({ scenario, seed, draws }))))
 
+/** Fights in which the guards must also be seen to fire back, checked on the same runs rather than fought again. */
+const RETURN_FIRE = new Set([SCENARIOS[0], SCENARIOS[2]])
+/** A whole fight on the big site can take a minute on a busy machine. */
+const FIGHT_TIMEOUT = 240_000
+
 describe('scripted fights on the complex', () => {
   it.each(CASES)('nobody aware of the fight stands idle: player $scenario.name (seed $seed, $draws extra draws)', ({ scenario, seed, draws }) => {
     const report = fight(scenario, seed, draws)
     expect(report.engaged).toBeGreaterThan(0)
     expect(report.idle).toEqual([])
-  })
-
-  it('guards return fire in the stairwell and rooftop fights', () => {
-    for (const scenario of [SCENARIOS[0], SCENARIOS[2]]) for (const draws of PERTURBATIONS) expect(fight(scenario, 1, draws).guardShots).toBeGreaterThan(5)
-  })
+    // The stairwell and rooftop fights: guards return fire.
+    if (seed === 1 && RETURN_FIRE.has(scenario)) expect(report.guardShots).toBeGreaterThan(5)
+  }, FIGHT_TIMEOUT)
 })

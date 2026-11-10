@@ -9,7 +9,7 @@ import { climbStairs } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
 import type { Body, Vec } from '../types'
 import type { World } from '../world'
-import { holesFor, readyToDrop } from './holeDrop'
+import { holesFor, readyToDrop, routeDown } from './holeDrop'
 import { detourStep, doorHeld, reachedDetourStep } from './blockedDoors'
 import { feetOf, type Guard } from './model'
 
@@ -58,7 +58,7 @@ export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: num
 
 function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, careful: boolean): MoveStatus {
   if (guard.stairs) {
-    stepStairs(world, guard, to.y, dt)
+    stepStairs(world, guard, guard.stairsTo ?? to.y, dt)
     return 'moving'
   }
   if (guard.climbing) return climbLadder(world, guard, to, dt)
@@ -70,8 +70,11 @@ function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, c
   const level = Math.abs(to.y - feet.y) < SAME_FLOOR
   // Only a guard in a hurry takes the quick way down through a hole; a calm one keeps to the floors and stairs.
   const hop = nextHop(world.stairwells, feet, to, careful || to.y - feet.y < SAME_FLOOR ? undefined : holesFor(world, guard))
-  if (hop.kind === 'stairs' && !level) {
+  if (hop.kind === 'stairs') {
     guard.stairs = { well: hop.well.id, u: hop.stop }
+    // One flight the way the route goes, then plan again from that landing: the goal's own floor may be the wrong way
+    // in this staircase (another building's floor of the same height, a spot across a void on this floor).
+    guard.stairsTo = hop.well.stops[hop.stop + hop.direction]
     return 'moving'
   }
   if (hop.kind === 'none') {
@@ -81,6 +84,7 @@ function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, c
     }
     return startLadder(world, guard, to, speed, dt)
   }
+  if (hop.kind === 'drop') routeDown(world, guard, Math.round(feet.y))
   const goalX = hop.kind === 'walk' || hop.kind === 'drop' ? hop.x : to.x
   const dx = goalX - feet.x
   if (hop.kind === 'drop' && Math.abs(dx) < DROP_EDGE && !readyToDrop(world, guard, hop.x)) {

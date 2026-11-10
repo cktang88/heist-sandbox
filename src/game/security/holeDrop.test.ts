@@ -5,6 +5,7 @@ import type { World } from '../world'
 import { enterCombat } from './combat'
 import { guardDropsThrough } from './holeDrop'
 import { feetOf, setMode, type Guard } from './model'
+import { startSearch } from './orders'
 import { addGuard, addRoom, addUpperFloor, arena, GROUND, putPlayer, run, killInFight } from './testArena'
 
 /** Holes blasted in a floor are a way down for guards in a fight, taken with care: soften the room below, never into a kill zone. */
@@ -113,5 +114,14 @@ describe('guards and holes in the floor', () => {
       })
       expect(lowest).toBeLessThan(upper + 0.5)
     }
+  })
+
+  it('a guard searching a spot on the storey below, sent through the hole by his route, does go down it instead of standing over it', () => {
+    const { world, upper } = holedFloor()
+    putPlayer(world, 110)
+    const guard = upstairsGuard(world, upper, 34)
+    startSearch(world, guard, { x: 52, y: GROUND })
+    run(world, 12, {}, () => Math.abs(feetOf(guard).y - GROUND) < 0.3)
+    expect(Math.abs(feetOf(guard).y - GROUND)).toBeLessThan(0.3)
   })
 })

@@ -1,7 +1,7 @@
 import { playSound } from '../sounds'
 import type { Device, World } from '../world'
 import { bark, nearPlayer, pickLine } from './barks'
-import { radioWorks } from './comms'
+import { hasOwnRadio, radioWorks } from './comms'
 import { eyeOf, feetOf, isActive, setMode, type Guard } from './model'
 import { nearestFree } from './orders'
 import { deviceBuilding, deviceFeet, floorName, roomOf, unitName } from './places'
@@ -21,9 +21,14 @@ const STAGGER = 7.3
 export function stepCheckIns(world: World): void {
   const security = world.security
   world.guards.forEach((guard, index) => {
+    if (knownDead(world, index)) {
+      // Control already knows he is down: it does not ask a dead man to check in.
+      Object.assign(guard, { checkInAt: Infinity, missing: true })
+      return
+    }
     if (guard.checkInAt === Infinity && !guard.missing) guard.checkInAt = world.clock + FIRST_CHECK_IN + ((index * STAGGER) % COMMS.checkInMax)
     if (world.clock < guard.checkInAt) return
-    if (isActive(guard) && radioWorks(world, feetOf(guard))) {
+    if (isActive(guard) && radioWorks(world, feetOf(guard)) && hasOwnRadio(world, guard)) {
       guard.checkInAt = nextCheckIn(world)
       if (nearPlayer(world, guard)) {
         bark(world, guard, `${unitName(index)}, ${pickLine(world.rng, 'checkIn').toLowerCase()}`)
@@ -33,16 +38,24 @@ export function stepCheckIns(world: World): void {
     }
     guard.checkInAt = Infinity
     // The player has his radio: it crackles in the player's pocket, and he may answer for him (stealth/radio.ts).
-    if (world.stealth.radios.has(index) && !world.stealth.checkIn) return ringPocketRadio(world, index)
+    // Not once the man is up and about: he is missing to control, his radio stays quiet.
+    if (world.stealth.radios.has(index) && !world.stealth.checkIn && !isActive(guard)) return ringPocketRadio(world, index)
     markMissing(world, index)
   })
+  // A call to the pocket radio of a man who has since come round is dropped: he is missing, not answering.
+  const call = world.stealth.checkIn
+  if (call && isActive(world.guards[call.guard])) {
+    world.stealth.checkIn = null
+    markMissing(world, call.guard)
+  }
   const unanswered = unansweredCall(world)
   if (unanswered !== null) markMissing(world, unanswered)
 
   security.polls = security.polls.filter((poll) => {
+    if (knownDead(world, poll.guard)) return false
     if (world.clock < poll.at) return true
     const guard = world.guards[poll.guard]
-    if (isActive(guard) && radioWorks(world, feetOf(guard))) {
+    if (isActive(guard) && radioWorks(world, feetOf(guard)) && hasOwnRadio(world, guard)) {
       log(world, `${unitName(poll.guard)}: Sorry, Control. All quiet.`)
       guard.missing = false
       guard.checkInAt = nextCheckIn(world)
@@ -51,6 +64,11 @@ export function stepCheckIns(world: World): void {
     }
     return false
   })
+}
+
+/** A dead man whose death the force knows about: seen or heard to fall, or his body found (nerve.ts keeps the unknown ones). */
+export function knownDead(world: World, index: number): boolean {
+  return world.guards[index].mode === 'dead' && !world.security.unseenDeaths.some((death) => death.victim === index)
 }
 
 /** He did not check in: control polls him, and if he still says nothing, sends a pair. */

@@ -9,6 +9,7 @@ import { hurtGuard } from '../guards'
 import { fillTiles } from '../tiles'
 import type { World } from '../world'
 import { radioWorks } from './comms'
+import { reportEvent } from './report'
 import { feetOf, type Guard } from './model'
 import { addDevice, addGuard, addRoom, arena, GROUND, putPlayer, run } from './testArena'
 
@@ -121,18 +122,35 @@ describe('guards and hazards', () => {
     expect(stoodInFire).toBe(false)
   })
 
+  it('a fire alarm that keeps ringing for the same room (the sprinklers reopening) is one report and one pair sent', () => {
+    const world = arena()
+    addRoom(world, { kind: 'office', building: 'b', x: 10, w: 40, floorY: GROUND })
+    const first = addGuard(world, 60, 1, 'patrol')
+    const second = addGuard(world, 90, 1, 'patrol')
+    reportEvent(world, { kind: 'fire', at: { x: 30, y: GROUND - 4 }, alarm: true })
+    run(world, 10)
+    for (const guard of [first, second]) Object.assign(guard, { mode: 'calm', interest: null, follow: null })
+    reportEvent(world, { kind: 'fire', at: { x: 30, y: GROUND - 4 }, alarm: true })
+    expect(world.security.log.filter((line) => line.includes('Fire alarm')).length).toBe(1)
+    expect(second.interest).toBeNull()
+  })
+
   it('a guard caught in flames gets out, is hurt, and does not start a fight with nobody', () => {
     const world = arena()
     const guard = addGuard(world, 30, -1)
     for (let x = 22; x <= 38; x += 1) for (let y = GROUND - 2; y < GROUND; y += 1) startFire(world, x, y, 1, 3)
     let fled = 0
     let fought = false
+    let panicked = false
     run(world, 3, {}, () => {
       fled = Math.max(fled, Math.abs(feetOf(guard).x - 30))
       fought ||= guard.mode === 'combat'
+      panicked ||= guard.mode === 'panic'
     })
     expect(guard.hp).toBeLessThan(guard.maxHp)
     expect(fought).toBe(false)
+    // He walks out because he chose to, not because he broke and ran.
+    expect(panicked).toBe(false)
     expect(fled).toBeGreaterThan(7)
   })
 

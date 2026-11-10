@@ -22,6 +22,11 @@ export function stepBlocked(world: World, guard: Guard): boolean {
   // The point in the tile his feet would be in after one step.
   const ahead = { x: feet.x + guard.facing * STEP, y: feet.y - 0.05 }
   if (safeFooting(world, ahead) && dangerAt(world, ahead) < TOO_DANGEROUS) return false
+  // Already standing in it (the water rose round him, the room caught fire), he goes on: a step no worse than where he
+  // is takes him the shortest way out.
+  const here = { x: feet.x, y: ahead.y }
+  const stuckIn = !safeFooting(world, here) || dangerAt(world, here) >= TOO_DANGEROUS
+  if (stuckIn && dangerAt(world, ahead) <= dangerAt(world, here)) return false
   if (hazardKindAt(world, ahead) === 'gas') shutDoorAhead(world, guard)
   return true
 }

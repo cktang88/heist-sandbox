@@ -189,6 +189,8 @@ function firstStep(start: Landing, next: Landing | null, from: Vec, goal: Vec): 
 
 /** Heads for the nearest staircase that goes the right way from this floor. */
 function climb(wells: readonly Stairwell[], from: Vec, targetY: number): Hop {
+  // A spot on this floor that no route reaches is not nearer up or down a flight.
+  if (Math.abs(targetY - from.y) < SAME_FLOOR) return { kind: 'none' }
   const direction = targetY < from.y ? 1 : -1
   let best: { well: Stairwell; stop: number; gap: number } | null = null
   for (const well of wells) {

@@ -127,6 +127,8 @@ export type Guard = Body & {
   climbing: boolean
   /** Set while climbing a staircase. */
   stairs: OnStairs | null
+  /** The landing (feet row) at the end of the flight he is riding: his route is planned again at each landing. */
+  stairsTo: number | null
   role: GuardRole
   roomId: number | null
   /** How far from home a patrol walks. */
@@ -243,7 +245,7 @@ export function createGuard(spawn: GuardSpawn, armored = false): Guard {
     interest: null, lastKnown: null, lastKnownAt: -Infinity, seesPlayer: false, radio: null, pendingReport: null, search: null, follow: null,
     combatRole: 'assault', cover: null, replan: 0, drawSeconds: 0, flashCooldown: 0, flashWindup: 0, shootCooldown: 0.4,
     alertSeconds: 0, lostSeconds: 0, checkInAt: Infinity, missing: false, stunSeconds: 0, barkCooldown: 0, thinkTimer: 0,
-    bodiesSeen: [], crouching: false, kick: 0, hitFlash: 0, deadSeconds: 0, ragdoll: null, climbing: false, stairs: null,
+    bodiesSeen: [], crouching: false, kick: 0, hitFlash: 0, deadSeconds: 0, ragdoll: null, climbing: false, stairs: null, stairsTo: null,
     role: spawn.role ?? 'patrol', roomId: spawn.roomId ?? null,
     patrolRange: route.length >= 2 ? Math.abs(route[route.length - 1].x - route[0].x) / 2 : PATROL.defaultRange,
     blindSeconds: 0, deafSeconds: 0, armored: tough,

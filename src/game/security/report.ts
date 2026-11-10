@@ -3,7 +3,7 @@ import type { World } from '../world'
 import type { AlertLevel, SecurityEvent } from './events'
 import { COMMS, RESPONSE } from './tuning'
 import { broadcastContact, sendPair } from './orders'
-import { floorBelow, floorName, unitName } from './places'
+import { floorBelow, floorName, roomOf, unitName } from './places'
 import { deployResponders } from './response'
 import { assignStations } from './stations'
 
@@ -13,6 +13,8 @@ import { assignStations } from './stations'
  */
 
 const QUIET_LOG = 30
+/** A fire alarm from the same room within this long is the same alarm still ringing. */
+const ALARM_AGAIN = 120
 const TAMPER_NAMES = { door: 'open door', lock: 'forced lock', rope: 'rope on the facade', line: 'grappling line on the facade', window: 'window cut open', charge: 'explosive charge, everyone keep clear', hostage: 'one of ours tied up', blood: 'blood on the floor', radio: 'someone on our channel who is not one of ours', moved: 'furniture moved about' } as const
 const LEVEL_NAMES = ['all clear', 'stay sharp', 'possible intruder, posts doubled', 'intruder confirmed, response team deploying', 'lockdown, lock it all down']
 
@@ -135,7 +137,8 @@ export function reportEvent(world: World, event: SecurityEvent): void {
       contact(world, event.at)
       log(world, `Control: Explosion on ${floorName(world, event.at)}! All units!`)
       raiseLevel(world, 3)
-      security.lockdownAt = Math.min(security.lockdownAt, world.clock + RESPONSE.lockdownDelay)
+      // Already locked down, the blast only keeps it so (raiseLevel restarts the clock): no countdown to a second one.
+      if (security.level < 4) security.lockdownAt = Math.min(security.lockdownAt, world.clock + RESPONSE.lockdownDelay)
       return
     case 'tamper':
       security.focus = floorBelow(world, event.at)
@@ -171,6 +174,16 @@ export function reportEvent(world: World, event: SecurityEvent): void {
  */
 function reportFire(world: World, at: Vec, alarm: boolean): void {
   const security = world.security
+  if (alarm) {
+    const room = roomOf(world, floorBelow(world, at))?.id ?? -1
+    const rang = security.fireAlarms.get(room)
+    security.fireAlarms.set(room, world.clock)
+    if (rang !== undefined && world.clock - rang < ALARM_AGAIN) {
+      // Still ringing for the same blaze: the site stays on edge, nobody new is sent.
+      raiseLevel(world, 2)
+      return
+    }
+  }
   security.focus = floorBelow(world, at)
   log(world, alarm ? `Control: Fire alarm on ${floorName(world, at)}. Send someone.` : `Control: Fire on ${floorName(world, at)}, copy.`)
   raiseLevel(world, alarm ? 2 : 1)

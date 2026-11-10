@@ -1,3 +1,4 @@
+import { knownDead } from '../security/checkins'
 import { isShielded } from '../security/combat'
 import { breakDown } from '../security/fear'
 import { eyeOf, feetOf, isActive, type Guard } from '../security/model'
@@ -63,7 +64,7 @@ function actOnBond(world: World, people: PeopleState, person: Person, other: Per
   }
   if (bond.kind === 'partners' || bond.kind === 'couple' || bond.kind === 'brothers') {
     const down = them.stunSeconds > 0 || them.hp < them.maxHp * 0.5
-    if (down && near(guard, them, 8)) {
+    if (down && near(guard, them, 8) && inSight(world, guard, them)) {
       if (guard.shock > PARTNER_SHOCK_CAP) {
         guard.nerve = Math.min(1, guard.nerve + guard.shock - PARTNER_SHOCK_CAP)
         guard.shock = PARTNER_SHOCK_CAP
@@ -81,6 +82,12 @@ function actOnBond(world: World, people: PeopleState, person: Person, other: Per
     guard.follow = null
     say(world, people, person, 'rivalNoHelp', { about: other }, true)
   }
+}
+
+/** Can he see the man where he lies: not stuffed out of sight, not on the intruder's shoulder, nothing in between? */
+function inSight(world: World, guard: Guard, them: Guard): boolean {
+  if (them.hiddenIn !== null || world.guards[world.stealth.carried ?? -1] === them) return false
+  return clearView(world, eyeOf(guard), centerOf(them))
 }
 
 /** Standing over a knocked-out partner until he comes round. */
@@ -178,6 +185,8 @@ export function coverForFriends(world: World, people: PeopleState): void {
     if (!person.roster || !person.guard.missing || people.lamented.has(person.id) || !people.covered.has(world.guards.indexOf(person.guard))) continue
     if (world.security.polls.some((poll) => world.guards[poll.guard] === person.guard)) continue
     people.lamented.add(person.id)
+    // His body has been found: nobody asks where he has got to.
+    if (knownDead(world, world.guards.indexOf(person.guard))) continue
     const friend = closeFriends(people, person).find((other) => calmAndOnline(other.guard) || trouble(other.guard))
     if (!friend) continue
     const down = world.guards.filter((guard) => guard.mode === 'dead' || guard.missing).length

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { COMMS } from '../security/tuning'
 import { hurtGuard, stunGuard, type Guard } from '../guards'
 import { enterCombat } from '../security/combat'
-import { addGuard, arena, GROUND, putPlayer, run, runListening } from '../security/testArena'
+import { deathFound } from '../security/nerve'
+import { addGuard, addWall, arena, GROUND, putPlayer, run, runListening } from '../security/testArena'
+import { knockOutCold } from '../stealth/bodies'
 import type { World } from '../world'
 import { TALK, type TalkKind } from './lines'
 import { callName, enlist } from './people'
@@ -103,6 +105,22 @@ describe('bonds between guards change what they do', () => {
     expect(a.guard.station).toBeNull()
   })
 
+  it('a partner does not sense his knocked-out partner through a wall, nor one on the intruder\'s shoulder', () => {
+    for (const where of ['behind a wall', 'carried off'] as const) {
+      const world = arena()
+      const a = person(world, 40)
+      const b = person(world, 45)
+      bond(world, a, b, 'partners')
+      if (where === 'behind a wall') addWall(world, 43)
+      run(world, 0.3)
+      knockOutCold(world, b.guard, 30)
+      if (where === 'carried off') world.stealth.carried = world.guards.indexOf(b.guard)
+      const heard = runListening(world, 2)
+      expect(a.guard.station).toBeNull()
+      expect(said(heard, 'partnerStays', b, world)).toBe(false)
+    }
+  })
+
   it('a guard whose friend is held as a human shield pleads, and hesitates to shoot once he is let go', () => {
     const world = arena()
     putPlayer(world, 30)
@@ -171,5 +189,22 @@ describe('bonds between guards change what they do', () => {
     run(world, 1)
     const poll = world.security.polls.find((each) => world.guards[each.guard] === missing.guard)!
     expect(poll.at - world.clock).toBeLessThan(COMMS.pollSeconds + 1)
+  })
+
+  it('once his body has been found, his friend does not ask over the radio where he has got to', () => {
+    const world = arena()
+    const friend = person(world, 40)
+    const missing = person(world, 90)
+    bond(world, friend, missing, 'friends')
+    run(world, 0.3)
+    hurtGuard(world, missing.guard, 1e4, { x: 100, y: GROUND - 1 })
+    missing.guard.checkInAt = world.clock + 0.1
+    run(world, 1)
+    expect(world.security.polls.length).toBe(1)
+    deathFound(world, world.guards.indexOf(missing.guard))
+    const heard = runListening(world, 60)
+    const name = callName(world.people!, missing)
+    const asked = [...heard, ...world.security.log].some((line) => line.includes(name) && /answering|Where's|heard from|pick up/.test(line))
+    expect(asked).toBe(false)
   })
 })
