@@ -80,6 +80,7 @@ function stepLevel(world: World): void {
     world.alarm = false
     security.confirmedAt = -Infinity
     security.responseSent = false
+    security.lockdownAt = Infinity
   }
   if (security.level < 2) assignStations(world)
 }

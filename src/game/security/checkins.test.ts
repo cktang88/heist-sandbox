@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { hurtGuard } from '../guards'
 import { knockOutCold } from '../stealth/bodies'
 import { shout, startRadio } from './comms'
+import { stepSecurity } from './dispatch'
+import { reportEvent } from './report'
 import { feetOf } from './model'
 import { COMMS } from './tuning'
 import { addDevice, addGuard, addLamp, arena, GROUND, run } from './testArena'
@@ -32,6 +34,33 @@ describe('shouts', () => {
     run(world, 15, {}, () => world.security.level >= 3)
     expect(runner.bodiesSeen).toContain(0)
     expect(world.security.level).toBeGreaterThanOrEqual(3)
+  })
+})
+
+describe('lockdown', () => {
+  it('a second blast during a lockdown does not bring the lockdown back once it has been lifted', () => {
+    const world = arena()
+    const blast = { kind: 'explosion' as const, at: { x: 80, y: GROUND - 1 } }
+    const quietly = (seconds: number) => {
+      for (let second = 0; second < seconds; second += 1) {
+        world.clock += 1
+        stepSecurity(world, 1)
+      }
+    }
+    reportEvent(world, blast)
+    quietly(25)
+    expect(world.security.level).toBe(4)
+    reportEvent(world, blast)
+    world.security.lastContactAt = -Infinity
+    let lifted = false
+    let back = false
+    for (let second = 0; second < 600; second += 1) {
+      quietly(1)
+      if (world.security.level < 4) lifted = true
+      else if (lifted) back = true
+    }
+    expect(lifted).toBe(true)
+    expect(back).toBe(false)
   })
 })
 

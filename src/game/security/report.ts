@@ -137,7 +137,8 @@ export function reportEvent(world: World, event: SecurityEvent): void {
       contact(world, event.at)
       log(world, `Control: Explosion on ${floorName(world, event.at)}! All units!`)
       raiseLevel(world, 3)
-      security.lockdownAt = Math.min(security.lockdownAt, world.clock + RESPONSE.lockdownDelay)
+      // Already locked down, the blast only keeps it so (raiseLevel restarts the clock): no countdown to a second one.
+      if (security.level < 4) security.lockdownAt = Math.min(security.lockdownAt, world.clock + RESPONSE.lockdownDelay)
       return
     case 'tamper':
       security.focus = floorBelow(world, event.at)
