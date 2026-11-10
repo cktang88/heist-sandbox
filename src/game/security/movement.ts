@@ -72,8 +72,9 @@ function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, c
   const hop = nextHop(world.stairwells, feet, to, careful || to.y - feet.y < SAME_FLOOR ? undefined : holesFor(world, guard))
   if (hop.kind === 'stairs') {
     guard.stairs = { well: hop.well.id, u: hop.stop }
-    // A goal on this floor reached by stairs lies across a void: ride one flight, then plan again from there.
-    guard.stairsTo = level ? hop.well.stops[hop.stop + hop.direction] : null
+    // One flight the way the route goes, then plan again from that landing: the goal's own floor may be the wrong way
+    // in this staircase (another building's floor of the same height, a spot across a void on this floor).
+    guard.stairsTo = hop.well.stops[hop.stop + hop.direction]
     return 'moving'
   }
   if (hop.kind === 'none') {

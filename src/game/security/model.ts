@@ -127,10 +127,7 @@ export type Guard = Body & {
   climbing: boolean
   /** Set while climbing a staircase. */
   stairs: OnStairs | null
-  /**
-   * The landing (feet row) he is riding the stairs to when it is not his goal's floor: the way to a spot across a void
-   * on his own floor goes up or down a storey first.
-   */
+  /** The landing (feet row) at the end of the flight he is riding: his route is planned again at each landing. */
   stairsTo: number | null
   role: GuardRole
   roomId: number | null
