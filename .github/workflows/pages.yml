@@ -1,5 +1,6 @@
 name: Deploy site
 
+# GitHub Pages serves the gh-pages branch. This builds the game and commits the result there.
 on:
   push:
     branches:
@@ -7,9 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
@@ -19,10 +18,7 @@ jobs:
   deploy:
     name: Build and publish
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+    timeout-minutes: 5
 
     steps:
       - name: Check out repository
@@ -40,11 +36,22 @@ jobs:
       - name: Build the site
         run: npm run build
 
-      - name: Upload the built site
-        uses: actions/upload-pages-artifact@v4
+      - name: Check out the published branch
+        uses: actions/checkout@v6
         with:
-          path: dist
+          ref: gh-pages
+          path: published
 
-      - name: Publish to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v4
+      - name: Publish the built site to the gh-pages branch
+        run: |
+          rsync -a --delete --exclude .git --exclude .nojekyll dist/ published/
+          cd published
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The built site has not changed; nothing to publish."
+            exit 0
+          fi
+          git commit -q -m "Built site for ${GITHUB_SHA::7}"
+          git push
