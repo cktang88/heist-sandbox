@@ -92,6 +92,7 @@
  */
 .sg-briefing {
   --sg-hud-unit: max(11px, 100vh / 48);
+  box-sizing: border-box;
   position: fixed; inset: auto; top: calc(var(--sg-hud-unit) * 6.6); right: var(--sg-hud-unit); z-index: 9; pointer-events: none;
   width: min(36em, calc(58vw - var(--sg-hud-unit) * 2)); padding: 0.6em 1em 0.4em; font-size: clamp(12px, 0.4vw + 0.8vh, 18px);
   background: rgba(8, 10, 14, 0.78); border: 1px solid var(--sg-line); border-left: 3px solid var(--sg-amber);
