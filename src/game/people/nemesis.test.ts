@@ -6,6 +6,7 @@ import { TALK } from './lines'
 import { grudgeFor, MAX_REMEMBERED, rememberHeist, siteName, welcomeReturning } from './nemesis'
 import { enlist, personOf } from './people'
 import type { Remembered } from './types'
+import { clashes } from './traits'
 
 function heistWithAVictim(): ReturnType<typeof arena> {
   const world = arena()
@@ -88,5 +89,14 @@ describe('a nemesis that lasts between heists', () => {
         expect(person.returning!.lookedAway).toBe(true)
       }
     }
+  })
+
+  it('the traits he comes back with still fit the man he has become: no rookie\'s nerves on a promoted veteran, no clashing pair', () => {
+    const world = createWorld(7, 'complex')
+    const remembered: Remembered = { ...entry(1, 'saw'), traits: ['green', 'jumpy', 'hungover'] }
+    const [back] = welcomeReturning(world, [remembered])
+    expect(back.guard.tier).toBe('veteran')
+    expect(back.traits).not.toContain('green')
+    for (const a of back.traits) for (const b of back.traits) expect(clashes(a, b)).toBe(false)
   })
 })

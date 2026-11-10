@@ -6,6 +6,7 @@ import type { World } from '../world'
 import { promote } from './identity'
 import { say } from './lines'
 import { has } from './memory'
+import { clashes, TRAITS } from './traits'
 import type { Grudge, PeopleState, Person, Remembered, TraitId } from './types'
 
 /**
@@ -106,11 +107,21 @@ function stationReturning(people: PeopleState, person: Person, entry: Remembered
   person.first = entry.first
   person.last = entry.last
   person.rank = promote(entry.rank, change.promoted)
-  person.traits = [...new Set([...entry.traits.filter((trait) => !change.drop.includes(trait)), ...change.add])].slice(-3)
+  person.traits = returningTraits(entry.traits, change)
   person.guard.tier = change.tier
   person.guard.nerve = TIERS[change.tier].nerve
   person.returning = { remembered: entry, grudge, greeted: false, lookedAway: false }
   person.life = lifeFor(entry, grudge)
+}
+
+/**
+ * What he kept and what the encounter added, at most three: the new ones win over an old trait they clash with, and
+ * nothing that does not fit his new experience stays (a promoted veteran is no longer new on the job).
+ */
+function returningTraits(old: readonly TraitId[], change: (typeof CHANGES)[Grudge]): TraitId[] {
+  const kept = old.filter((trait) => !change.drop.includes(trait) && !change.add.some((added) => clashes(added, trait)))
+  const fits = (trait: TraitId) => TRAITS[trait].tiers?.includes(change.tier) ?? true
+  return [...new Set([...kept, ...change.add])].filter(fits).slice(-3)
 }
 
 function lifeFor(entry: Remembered, grudge: Grudge): string {
