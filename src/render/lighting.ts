@@ -12,6 +12,15 @@ const MOONLIGHT = '#5d6480'
 const GLOW_COLORS = { warm: '255,196,120', cold: '170,205,255', green: '120,230,150', fire: '255,150,60', gold: '255,215,90' } as const
 type GlowColor = keyof typeof GLOW_COLORS
 
+/** The flat view only has a few glow colours, so each lamp uses the closest one. */
+function spriteFor(color: number): GlowColor {
+  const red = (color >> 16) & 255
+  const green = (color >> 8) & 255
+  const blue = color & 255
+  if (green > red && green > blue) return 'green'
+  return blue > red ? 'cold' : 'warm'
+}
+
 export type Lighting = {
   /** Darkens the finished scene, leaving pools of light around lamps, torches, flashes and explosions. */
   apply(context: CanvasRenderingContext2D, world: World, camera: Camera): void
@@ -79,7 +88,7 @@ export function createLighting(): Lighting {
         lc.save()
         tracePolygon(lc, areaOf(world, lamp))
         lc.clip()
-        glow(lc, lamp.color, lamp.x, lamp.y, lamp.radius)
+        glow(lc, spriteFor(lamp.color), lamp.x, lamp.y, lamp.radius)
         lc.restore()
       }
 
@@ -113,7 +122,7 @@ export function createLighting(): Lighting {
 
     drawGlows(context, world) {
       context.globalCompositeOperation = 'lighter'
-      for (const lamp of world.lamps) if (lampIsLit(world, lamp)) glow(context, lamp.color, lamp.x, lamp.y, 1.3, 0.9)
+      for (const lamp of world.lamps) if (lampIsLit(world, lamp)) glow(context, spriteFor(lamp.color), lamp.x, lamp.y, 1.3, 0.9)
       for (const flash of world.effects.flashes) {
         if (flash.kind !== 'explosion') continue
         glow(context, 'fire', flash.x, flash.y, flash.radius * 2.2, flash.life / flash.duration)

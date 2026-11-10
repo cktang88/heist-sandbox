@@ -1,4 +1,5 @@
 import type { Prop } from '../game/level'
+import { propSpec } from '../game/propCatalog'
 import { isSolidAt } from '../game/tiles'
 import type { World } from '../game/world'
 
@@ -12,7 +13,7 @@ function box(c: Ctx, color: string, x: number, y: number, w: number, h: number, 
 }
 
 /** Each painter draws with its bottom-centre at 0,0, standing on the floor. */
-const PAINTERS: Record<Prop['kind'], (c: Ctx) => void> = {
+const PAINTERS: Partial<Record<Prop['kind'], (c: Ctx) => void>> = {
   desk(c) {
     box(c, '#5a4632', -1, -0.85, 2, 0.12)
     box(c, '#3d2f22', -0.9, -0.74, 0.12, 0.74)
@@ -21,7 +22,7 @@ const PAINTERS: Record<Prop['kind'], (c: Ctx) => void> = {
     box(c, '#5fb3d6', -0.3, -1.45, 0.7, 0.42, 0.02)
     box(c, '#14171d', 0, -1.0, 0.1, 0.16)
   },
-  cabinet(c) {
+  filingCabinet(c) {
     box(c, '#57616e', -0.5, -1.9, 1, 1.9)
     for (const y of [-1.8, -1.2, -0.6]) {
       box(c, '#454e5a', -0.42, y, 0.84, 0.5, 0.02)
@@ -47,7 +48,7 @@ const PAINTERS: Record<Prop['kind'], (c: Ctx) => void> = {
       c.fill()
     }
   },
-  server(c) {
+  serverRack(c) {
     box(c, '#1b1f27', -0.55, -2.4, 1.1, 2.4)
     for (let row = 0; row < 7; row += 1) {
       box(c, '#2a303b', -0.45, -2.28 + row * 0.32, 0.9, 0.24, 0.02)
@@ -83,7 +84,13 @@ export function drawProps(context: CanvasRenderingContext2D, world: World): void
     if (!isSolidAt(world.grid, prop.x, prop.y)) continue
     context.save()
     context.translate(prop.x + 0.5, prop.y)
-    PAINTERS[prop.kind](context)
+    const paint = PAINTERS[prop.kind]
+    if (paint) paint(context)
+    else {
+      // The flat fallback view only knows a few props; the rest are shown as plain blocks of the right size.
+      const { w, h, mount } = propSpec(prop.kind)
+      if (mount === 'floor') box(context, '#4a5260', -w / 2, -h, w, h)
+    }
     context.restore()
   }
 }

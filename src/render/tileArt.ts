@@ -130,6 +130,24 @@ const PAINTERS: Partial<Record<TileKind, (c: Ctx, px: number, py: number, s: num
     c.fillStyle = 'rgba(190,240,235,0.5)'
     c.fillRect(px, py + s * 0.15, s, s * 0.05)
   },
+  reinforced(c, px, py, s, tx, ty) {
+    c.fillStyle = shade('#6f747c', (hash(tx, ty, 1) - 0.5) * 0.06)
+    c.fillRect(px, py, s, s)
+  },
+  fence(c, px, py, s) {
+    c.strokeStyle = 'rgba(170,180,195,0.7)'
+    c.lineWidth = s * 0.04
+    c.beginPath()
+    c.moveTo(px, py)
+    c.lineTo(px + s, py + s)
+    c.moveTo(px + s, py)
+    c.lineTo(px, py + s)
+    c.stroke()
+  },
+  duct(c, px, py, s) {
+    c.fillStyle = '#7d8793'
+    c.fillRect(px, py, s, s * 0.3)
+  },
   bedrock(c, px, py, s, tx, ty) {
     c.fillStyle = shade('#1b1e24', (hash(tx, ty, 1) - 0.5) * 0.3)
     c.fillRect(px, py, s, s)

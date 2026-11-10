@@ -2,7 +2,7 @@ import { hurtTile } from './destruction'
 import { burst, flash } from './effects'
 import { explode, ROCKET_BLAST } from './explosions'
 import { hurtGuard } from './guards'
-import { isSolidAt } from './tiles'
+import { stopsShotsAt } from './tiles'
 import { hitPause, triggerSlowmo } from './time'
 import { centerOf, distance, type Rect, type Vec } from './types'
 import type { World } from './world'
@@ -65,7 +65,7 @@ function flyProjectile(world: World, projectile: Projectile, dt: number): boolea
 }
 
 function hitSomething(world: World, projectile: Projectile): boolean {
-  if (isSolidAt(world.grid, projectile.x, projectile.y)) {
+  if (stopsShotsAt(world.grid, projectile.x, projectile.y)) {
     if (projectile.kind === 'bullet') {
       hurtTile(world, Math.floor(projectile.x), Math.floor(projectile.y), projectile.tileDamage)
       burst(world.effects, world.rng, projectile, 2, '#d8d2c4', 4)

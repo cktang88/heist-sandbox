@@ -1,6 +1,5 @@
 import { createRng, randomInt, type Rng } from './rng'
 import { createGrid, fillTiles, setTile, type Grid } from './tiles'
-import type { Rect, Vec } from './types'
 
 export const WORLD_WIDTH = 150
 export const WORLD_HEIGHT = 72
@@ -8,16 +7,8 @@ export const WORLD_HEIGHT = 72
 export const GROUND = 40
 const STOREY = 6
 
-export type GuardSpawn = Vec & { facing: 1 | -1 }
-/** An indoor or underground area, so the renderer can draw a back wall instead of sky. */
-export type Interior = Rect & { kind: 'room' | 'earth' }
-/** A light fitting. Hung lamps go dark when the ceiling tile above them is destroyed. */
-export type Lamp = Vec & { radius: number; color: 'warm' | 'cold' | 'green'; hung: boolean }
-/** Furniture and clutter. Purely for looks; `y` is the floor row it stands on. */
-export type Prop = Vec & { kind: 'desk' | 'cabinet' | 'crate' | 'plant' | 'server' | 'gold' }
-/** Supplies lying around the site. `y` is the floor row it sits on. */
-export type PickupSpawn = Vec & { kind: 'medkit' | 'ammo' }
-export type Level = { grid: Grid; playerStart: Vec; extraction: Rect; loot: Vec; guards: GuardSpawn[]; interiors: Interior[]; lamps: Lamp[]; props: Prop[]; pickups: PickupSpawn[] }
+export type { GuardSpawn, Interior, Lamp, Level, PickupSpawn, Prop } from './site'
+import { LIGHT, type GuardSpawn, type Lamp, type Level, type Prop } from './site'
 
 const BUILDING = { left: 70, right: 118 }
 const BASEMENT = { left: 74, right: 94, top: 43, bottom: 47 }
@@ -53,6 +44,13 @@ export function createLevel(seed: number): Level {
   return {
     grid,
     guards,
+    name: 'Outpost',
+    timeOfDay: 'night',
+    groundY: GROUND,
+    rooms: [],
+    stairwells: [],
+    elevators: [],
+    devices: [],
     lamps: [...lamps, ...fixedLamps()],
     props: [...props, ...fixedProps()],
     pickups: [
@@ -100,10 +98,10 @@ function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[],
     fillTiles(grid, ladderX, ceilingY + 1, ladderX, floorY - 1, 'ladder')
     setTile(grid, ladderX, ceilingY, storey === storeys - 1 ? 'door' : 'ladder')
 
-    for (let x = left + 6; x < right - 3; x += 11) lamps.push({ x: x + 0.5, y: ceilingY + 1.2, radius: 8, color: 'warm', hung: true })
+    for (let x = left + 6; x < right - 3; x += 11) lamps.push({ x: x + 0.5, y: ceilingY + 1.2, radius: 8, strength: 1, color: LIGHT.warm, fixture: 'ceilingPanel', hung: true })
 
     const blocked = [wallX, ladderX, holeX]
-    const furniture = ['desk', 'cabinet', 'plant', 'server', 'desk', 'crate'] as const
+    const furniture = ['desk', 'filingCabinet', 'plant', 'serverRack', 'desk', 'crate'] as const
     for (let x = left + 3; x < right - 3; x += randomInt(rng, 4, 7)) {
       if (blocked.some((other) => Math.abs(other - x) < 3)) continue
       props.push({ x, y: floorY, kind: furniture[randomInt(rng, 0, furniture.length - 1)] })
@@ -151,10 +149,10 @@ function fixedProps(): Prop[] {
 /** Street lights, plus the dim fittings in the basement, vault and sewer. */
 function fixedLamps(): Lamp[] {
   const lamps: Lamp[] = []
-  for (const x of [8, 34, 58]) lamps.push({ x: x + 0.5, y: GROUND - 5.5, radius: 9, color: 'warm', hung: false })
-  for (const x of [80, 90]) lamps.push({ x: x + 0.5, y: BASEMENT.top + 0.2, radius: 7, color: 'cold', hung: true })
-  lamps.push({ x: 103.5, y: VAULT.top + 0.2, radius: 8, color: 'cold', hung: true })
-  for (let x = 24; x < SEWER.right; x += 18) lamps.push({ x: x + 0.5, y: SEWER.top + 0.2, radius: 6, color: 'green', hung: true })
+  for (const x of [8, 34, 58]) lamps.push({ x: x + 0.5, y: GROUND - 5.5, radius: 9, strength: 2.4, color: LIGHT.sodium, fixture: 'streetLight', hung: false })
+  for (const x of [80, 90]) lamps.push({ x: x + 0.5, y: BASEMENT.top + 0.2, radius: 7, strength: 1, color: LIGHT.sterile, fixture: 'fluorescentTube', hung: true })
+  lamps.push({ x: 103.5, y: VAULT.top + 0.2, radius: 8, strength: 1, color: LIGHT.sterile, fixture: 'fluorescentTube', hung: true })
+  for (let x = 24; x < SEWER.right; x += 18) lamps.push({ x: x + 0.5, y: SEWER.top + 0.2, radius: 6, strength: 0.8, color: LIGHT.green, fixture: 'bareBulb', hung: true })
   return lamps
 }
 

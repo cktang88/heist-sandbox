@@ -2,7 +2,17 @@
 
 Research notes that the level, AI and art work is built from. Gathered from web search summaries only (full pages could not be opened), so treat sources as leads. Items marked *(suggested)* are our own starting values, not sourced.
 
-The owner's own image links (two Reddit images of cyberpunk side-scrollers and one share.google link) could not be fetched from the build environment. Direction given in words: grungy cyberpunk, Intravenous 2/3 and Cyberpunk 2077 interiors, day or night, "super detailed and lived-in, not bare bones".
+Deeper, page-level research per topic lives in `docs/research/`.
+
+## 0. The owner's visual references
+
+Direction given in words: grungy cyberpunk, Intravenous 2/3 and Cyberpunk 2077 interiors, day or night, "super detailed and lived-in, not bare bones".
+
+| Reference | What it shows | What to take from it |
+|---|---|---|
+| **RawConcrete** (Unity forum WIP, photorealistic side-scroller). Thread: https://discussions.unity.com/t/wip-highly-photorealistic-pixelated-2d-3d-side-scroller-called-rawconcrete-update-10/753551 Image: https://europe1.discourse-cdn.com/unity/original/4X/6/a/7/6a7d89a6cbf30d4c70407f12b0b53139d8d4a73e.jpeg | Photo-textured brick tower block with balconies, window AC units and drainpipes; red vending machines; graffiti on a concrete retaining wall; a pedestrian bridge; tree shadows falling across the facade; more blocks fading into the distance; cloudy dusk sky with a moon | Buildings need real **facades**, not only cutaway rooms. Photo textures everywhere. Shadows cast across large surfaces. Layers of buildings receding into haze. A daytime look that is muted, not bright |
+| **Cyberpunk pixel-art street.** https://external-preview.redd.it/my-cyberpunk-pixel-art-side-scroller-v0-M3QzcDZqajl1bnZoMYMdp1VeT2f0uDf8BBnUEXGACwiLdsT4-AXmnV_J4ROe.png?width=1080&crop=smart&format=pjpg&auto=webp&s=553ddf2f9c92a3b0c1194ea1f564518d35ce43d2 | Neon signs (GARAGE, vertical Japanese signs, a ramen shop with a paper lantern); windows glowing warm with table lamps visible inside; small wall lights beside every door; AC units; balcony plants; blue pipe runs up the walls; roller shutter; A-frame sign; keypad by the door; wet road with a crossing | Signage density. Light comes from **many small warm sources** inside rooms, not one ceiling lamp. Purple and blue shadows against orange light. Every wall has pipes, units and fittings |
+| **Rainy fenced camp.** https://i.redd.it/cva7hwc7q3yh1.jpeg | Chain-link fence topped with razor coil running across the foreground; shanty huts with flags; power poles and sagging lines; a floodlight on a pole throwing a visible cone through rain; silhouetted figures; puddle reflections; a colossal statue and city fading into grey mist | **Foreground layer** in front of the action. Fog that swallows distance. One strong light with a visible beam. Silhouettes against lit haze. Wet ground reflections |
 
 ## 1. Making a cutaway room feel lived-in
 

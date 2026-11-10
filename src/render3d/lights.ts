@@ -16,7 +16,8 @@ const FLASH_LIGHTS = 4
 /** Sight beams are cheap, so every guard near the view gets one even if it has no real torch light. */
 const SIGHT_BEAMS = 10
 
-const LAMP_COLORS = { warm: 0xffd9a8, cold: 0xcfe0ff, green: 0x9fe6ad } as const
+/** Light output of a lamp with strength 1. */
+const LAMP_INTENSITY = 9
 const MOON_COLOR = 0x9fb8ff
 const TORCH_COLOR = 0xfff1d6
 const FLASH_COLOR = 0xffb060
@@ -104,7 +105,7 @@ export function createLights(): LightRig {
   moon.shadow.normalBias = 0.05
   group.add(moon, moon.target)
 
-  const lamps = Array.from({ length: LAMP_LIGHTS }, (_, index) => spot(LAMP_COLORS.warm, 1.35, 15, index < SHADOWED_LAMPS ? 1024 : 0))
+  const lamps = Array.from({ length: LAMP_LIGHTS }, (_, index) => spot(0xffd9a8, 1.35, 15, index < SHADOWED_LAMPS ? 1024 : 0))
   const torches = Array.from({ length: TORCH_LIGHTS }, () => spot(TORCH_COLOR, 0.5, 16, 0))
   const flashes = Array.from({ length: FLASH_LIGHTS }, () => new PointLight(FLASH_COLOR, 0, 16, 1.6))
   const playerFill = new PointLight(0xa8c4ff, 2.2, 6, 1.8)
@@ -135,9 +136,9 @@ export function createLights(): LightRig {
         lampBeams[index].visible = Boolean(lamp) && near(lamp) <= 40
         if (!lamp || near(lamp) > 40) return void (light.intensity = 0)
         lampBeams[index].position.set(lamp.x, -lamp.y - 0.2, -0.6)
-        ;(lampBeams[index].material as MeshBasicMaterial).color.setHex(LAMP_COLORS[lamp.color])
-        light.color.setHex(LAMP_COLORS[lamp.color])
-        light.intensity = lamp.hung ? 9 : 22
+        ;(lampBeams[index].material as MeshBasicMaterial).color.setHex(lamp.color)
+        light.color.setHex(lamp.color)
+        light.intensity = LAMP_INTENSITY * lamp.strength
         light.position.set(lamp.x, -lamp.y - 0.25, -0.5)
         aim(light, light.target, lamp.x, -lamp.y - 6, -0.9)
       })

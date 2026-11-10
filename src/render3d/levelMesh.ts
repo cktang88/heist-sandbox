@@ -9,11 +9,11 @@ export const BACK = -2.4
 /** Textures repeat every two tiles. */
 const UV = 0.5
 
-export type SurfaceName = 'brick' | 'concrete' | 'steel' | 'dirt' | 'wood' | 'rock' | 'asphalt' | 'plaster' | 'glass' | 'water' | 'door'
+export type SurfaceName = 'brick' | 'concrete' | 'steel' | 'dirt' | 'wood' | 'rock' | 'asphalt' | 'plaster' | 'glass' | 'water' | 'door' | 'fence'
 export type SurfaceMaterials = Record<SurfaceName, Material>
 
 const TILE_SURFACE: Partial<Record<TileKind, SurfaceName>> = {
-  dirt: 'dirt', brick: 'brick', concrete: 'concrete', steel: 'steel', wood: 'wood', bedrock: 'rock',
+  dirt: 'dirt', brick: 'brick', concrete: 'concrete', steel: 'steel', wood: 'wood', bedrock: 'rock', reinforced: 'concrete',
 }
 
 /** Walls that fill their whole cell hide the faces of neighbours they touch. Thin things do not. */
@@ -47,7 +47,7 @@ export function createLevelMesh(grid: Grid, interiors: Interior[], materials: Su
     for (const [name, built] of builders) {
       if (built.isEmpty) continue
       const mesh = new Mesh(built.build(), materials[name])
-      mesh.castShadow = name !== 'glass' && name !== 'water'
+      mesh.castShadow = name !== 'glass' && name !== 'water' && name !== 'fence'
       mesh.receiveShadow = true
       group.add(mesh)
       meshes.push(mesh)
@@ -97,6 +97,8 @@ function addTile(grid: Grid, builder: (name: SurfaceName) => MeshBuilder, tx: nu
   const shade = 0.45 + health * 0.55
 
   if (kind === 'glass') return builder('glass').box(tx + 0.42, bottom, -0.05, tx + 0.58, top, 0.05, UV, 1)
+  if (kind === 'fence') return builder('fence').box(tx, bottom, -0.03, tx + 1, top, 0.03, 1, 1)
+  if (kind === 'duct') return builder('steel').box(tx, bottom + 0.7, BACK + 0.4, tx + 1, top, FRONT - 0.2, UV, 1)
   if (kind === 'door') return builder('door').box(tx, bottom, -0.22, tx + 1, top, 0.22, 1, shade)
   if (kind === 'water') {
     const surface = top - 0.15

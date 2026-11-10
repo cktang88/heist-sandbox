@@ -1,21 +1,28 @@
-export const TILE_KINDS = ['air', 'dirt', 'brick', 'concrete', 'steel', 'glass', 'wood', 'ladder', 'door', 'water', 'bedrock'] as const
+export const TILE_KINDS = ['air', 'dirt', 'brick', 'concrete', 'steel', 'glass', 'wood', 'ladder', 'door', 'water', 'bedrock', 'reinforced', 'fence', 'duct'] as const
 export type TileKind = (typeof TILE_KINDS)[number]
 
-type TileDef = { solid: boolean; opaque: boolean; hp: number; color: string }
+/** `stopsShots` is false for things a bullet passes through even though a body cannot, such as chain-link fence. */
+type TileDef = { solid: boolean; opaque: boolean; hp: number; color: string; stopsShots: boolean }
 
-/** Everything except bedrock and water can be destroyed. */
+/**
+ * Everything except bedrock, water and reinforced structure can be destroyed.
+ * `reinforced` is a building's skeleton: columns, stair cores and shaft walls that keep it standing.
+ */
 export const TILE_DEFS: Record<TileKind, TileDef> = {
-  air: { solid: false, opaque: false, hp: 0, color: '' },
-  dirt: { solid: true, opaque: true, hp: 30, color: '#6b4a2f' },
-  brick: { solid: true, opaque: true, hp: 60, color: '#9a4b3c' },
-  concrete: { solid: true, opaque: true, hp: 120, color: '#8d9199' },
-  steel: { solid: true, opaque: true, hp: 400, color: '#4b5563' },
-  glass: { solid: true, opaque: false, hp: 5, color: '#9fd8e8' },
-  wood: { solid: true, opaque: true, hp: 25, color: '#a9783f' },
-  ladder: { solid: false, opaque: false, hp: 15, color: '#c9a15a' },
-  door: { solid: true, opaque: true, hp: 50, color: '#e0a83a' },
-  water: { solid: false, opaque: false, hp: Number.POSITIVE_INFINITY, color: '#2f6f8f' },
-  bedrock: { solid: true, opaque: true, hp: Number.POSITIVE_INFINITY, color: '#1f2227' },
+  air: { solid: false, opaque: false, hp: 0, color: '', stopsShots: false },
+  dirt: { solid: true, opaque: true, hp: 30, color: '#6b4a2f', stopsShots: true },
+  brick: { solid: true, opaque: true, hp: 60, color: '#9a4b3c', stopsShots: true },
+  concrete: { solid: true, opaque: true, hp: 120, color: '#8d9199', stopsShots: true },
+  steel: { solid: true, opaque: true, hp: 400, color: '#4b5563', stopsShots: true },
+  glass: { solid: true, opaque: false, hp: 5, color: '#9fd8e8', stopsShots: true },
+  wood: { solid: true, opaque: true, hp: 25, color: '#a9783f', stopsShots: true },
+  ladder: { solid: false, opaque: false, hp: 15, color: '#c9a15a', stopsShots: false },
+  door: { solid: true, opaque: true, hp: 50, color: '#e0a83a', stopsShots: true },
+  water: { solid: false, opaque: false, hp: Number.POSITIVE_INFINITY, color: '#2f6f8f', stopsShots: false },
+  bedrock: { solid: true, opaque: true, hp: Number.POSITIVE_INFINITY, color: '#1f2227', stopsShots: true },
+  reinforced: { solid: true, opaque: true, hp: Number.POSITIVE_INFINITY, color: '#6f747c', stopsShots: true },
+  fence: { solid: true, opaque: false, hp: 40, color: '#5b6470', stopsShots: false },
+  duct: { solid: true, opaque: true, hp: 30, color: '#7d8793', stopsShots: true },
 }
 
 /** Tiles are grouped into square chunks so drawing code can redo only the parts that changed. `version` goes up on every change. */
@@ -64,6 +71,10 @@ export function fillTiles(grid: Grid, x0: number, y0: number, x1: number, y1: nu
 
 export function isSolidAt(grid: Grid, x: number, y: number): boolean {
   return TILE_DEFS[tileAt(grid, Math.floor(x), Math.floor(y))].solid
+}
+
+export function stopsShotsAt(grid: Grid, x: number, y: number): boolean {
+  return TILE_DEFS[tileAt(grid, Math.floor(x), Math.floor(y))].stopsShots
 }
 
 export function isOpaqueAt(grid: Grid, x: number, y: number): boolean {

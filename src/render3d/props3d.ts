@@ -1,5 +1,6 @@
 import { BoxGeometry, CylinderGeometry, Float32BufferAttribute, Group, Mesh, MeshStandardMaterial, SphereGeometry, type Material } from 'three'
 import type { Lamp, Prop } from '../game/level'
+import { propSpec } from '../game/propCatalog'
 import type { SurfaceMaterials } from './levelMesh'
 
 const BOX = new BoxGeometry(1, 1, 1)
@@ -53,7 +54,7 @@ export function buildProp(kind: Prop['kind'], materials: SurfaceMaterials): Grou
       box(group, PLASTIC, 0, 0.84, 0.1, 0.18, 0.08, back - 0.1)
       box(group, PLASTIC, -0.3, 0.84, 0.5, 0.03, 0.18, back + 0.2)
       break
-    case 'cabinet':
+    case 'filingCabinet':
       box(group, GREY_METAL, -0.5, 0, 1, 1.9, 0.6, back - 0.3)
       for (const y of [0.1, 0.7, 1.3]) box(group, DARK_METAL, -0.12, y + 0.25, 0.24, 0.05, 0.04, back + 0.02)
       break
@@ -71,7 +72,7 @@ export function buildProp(kind: Prop['kind'], materials: SurfaceMaterials): Grou
       }
       break
     }
-    case 'server':
+    case 'serverRack':
       box(group, DARK_METAL, -0.55, 0, 1.1, 2.4, 0.9, back - 0.2)
       for (let row = 0; row < 7; row += 1) {
         box(group, PLASTIC, -0.45, 0.14 + row * 0.32, 0.9, 0.24, 0.04, back + 0.26)
@@ -81,6 +82,11 @@ export function buildProp(kind: Prop['kind'], materials: SurfaceMaterials): Grou
     case 'gold':
       for (const [x, y] of [[-0.5, 0], [0, 0], [-0.25, 0.2]]) box(group, GOLD, x, y, 0.48, 0.19, 0.7, back + 0.5)
       break
+    default: {
+      // Not modelled yet: a plain block of the right size stands in.
+      const { w, h, mount } = propSpec(kind)
+      if (mount === 'floor') box(group, GREY_METAL, -w / 2, 0, w, h, Math.min(1, w), back + 0.3)
+    }
   }
   return group
 }

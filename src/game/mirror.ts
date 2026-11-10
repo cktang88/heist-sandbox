@@ -14,14 +14,19 @@ export function mirrorLevel(level: Level): Level {
   const tile = (x: number) => width - 1 - x
   const point = (x: number) => width - x
   return {
+    ...level,
     grid,
     playerStart: { ...level.playerStart, x: tile(level.playerStart.x) },
     extraction: { ...level.extraction, x: point(level.extraction.x) - level.extraction.w },
     loot: { ...level.loot, x: tile(level.loot.x) },
-    guards: level.guards.map((guard) => ({ ...guard, x: tile(guard.x), facing: guard.facing === 1 ? -1 : 1 })),
+    guards: level.guards.map((guard) => ({ ...guard, x: tile(guard.x), facing: guard.facing === 1 ? -1 : 1, route: guard.route?.map((stop) => ({ ...stop, x: tile(stop.x) })) })),
     interiors: level.interiors.map((area) => ({ ...area, x: point(area.x) - area.w })),
     lamps: level.lamps.map((lamp) => ({ ...lamp, x: point(lamp.x) })),
     props: level.props.map((prop) => ({ ...prop, x: tile(prop.x) })),
     pickups: level.pickups.map((pickup) => ({ ...pickup, x: tile(pickup.x) })),
+    rooms: level.rooms.map((room) => ({ ...room, x: point(room.x) - room.w })),
+    stairwells: level.stairwells.map((well) => ({ ...well, leftX: point(well.rightX), rightX: point(well.leftX), stops: well.stops })),
+    elevators: level.elevators.map((shaft) => ({ ...shaft, x: point(shaft.x) - shaft.w, doorSide: shaft.doorSide === 1 ? -1 : 1 })),
+    devices: level.devices.map((device) => ({ ...device, x: tile(device.x), facing: device.facing === undefined ? undefined : device.facing === 1 ? -1 : 1 })),
   }
 }
