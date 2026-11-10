@@ -52,6 +52,7 @@ export function pushRagdoll(ragdoll: Ragdoll, from: Vec, radius: number, speed: 
 
 /** A joint moves at most this far per sub-step, so a fast body cannot jump clean over a one-tile wall or slab. */
 const MAX_MOVE = 0.4
+const POP_GAP = 0.01
 
 /** Moves the joints, then pulls the bones back to length and keeps joints out of walls. */
 export function stepRagdoll(grid: Grid, ragdoll: Ragdoll, dt: number): void {
@@ -63,6 +64,7 @@ export function stepRagdoll(grid: Grid, ragdoll: Ragdoll, dt: number): void {
 }
 
 function subStep(grid: Grid, ragdoll: Ragdoll, dt: number): void {
+  for (const point of ragdoll.points) popOut(grid, point)
   const before = ragdoll.points.map((point) => ({ x: point.x, y: point.y }))
   for (const point of ragdoll.points) {
     point.vy += GRAVITY * dt
@@ -95,6 +97,23 @@ function subStep(grid: Grid, ragdoll: Ragdoll, dt: number): void {
     point.vx = ((point.x - before[index].x) / dt) * AIR_DRAG
     point.vy = ((point.y - before[index].y) / dt) * AIR_DRAG
   })
+}
+
+/**
+ * A joint that starts inside a solid tile (the body was killed on a stair flight that crosses a slab, or a wall
+ * was rebuilt around it) would be held there for ever by the wall check. It steps out through the nearer of the
+ * tile's top and bottom faces that is open.
+ */
+function popOut(grid: Grid, point: RagdollPoint): void {
+  if (!isSolidAt(grid, point.x, point.y)) return
+  const row = Math.floor(point.y)
+  const upFirst = point.y - row < 0.5
+  const up = !isSolidAt(grid, point.x, row - 1)
+  const down = !isSolidAt(grid, point.x, row + 1)
+  if (up && (upFirst || !down)) point.y = row - POP_GAP
+  else if (down) point.y = row + 1 + POP_GAP
+  else return
+  point.vy = 0
 }
 
 function keepOutOfWalls(grid: Grid, point: Vec, before: Vec): void {
