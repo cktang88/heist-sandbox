@@ -26,6 +26,23 @@ describe('stealth cues on the HUD', () => {
     expect(texts(world)).toEqual(['HIDDEN IN LOCKER'])
   })
 
+  it('says IN COVER only where the cover rules really protect him: not behind a burning desk, yes standing behind a tipped table', () => {
+    const world = arena()
+    const desk = addProp(world, 'desk', 21, GROUND)
+    world.hazards.burningProps.set(desk.id, 1)
+    putPlayer(world, 20)
+    run(world, 0.3, { crouch: true })
+    expect(texts(world)).not.toContain('IN COVER')
+    const table = addProp(world, 'desk', 41, GROUND)
+    putPlayer(world, 39.9)
+    run(world, 0.2)
+    run(world, 1 / 60, { kickPressed: true, aim: { x: 45, y: GROUND - 1 } })
+    putPlayer(world, 40)
+    run(world, 0.3)
+    expect(world.physProps.loose.get(table.id)?.tipped).toBeTruthy()
+    expect(texts(world)).toContain('IN COVER')
+  })
+
   it('says why a disguise is not working', () => {
     const world = arena()
     world.stealth.disguise = { officer: false }
