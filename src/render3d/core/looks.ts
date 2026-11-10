@@ -65,9 +65,9 @@ export const LOOKS: Record<TimeOfDay, Look> = {
     exposure: 1.1,
     bloom: { strength: 0.2, radius: 0.5, threshold: 2.2 },
     grade: {
-      shadowTint: new Color(0.93, 0.99, 1.04),
-      highlightTint: new Color(1.04, 1.01, 0.96),
-      lift: new Color(0.006, 0.01, 0.012),
+      shadowTint: new Color(0.97, 1.0, 1.01),
+      highlightTint: new Color(1.08, 1.02, 0.92),
+      lift: new Color(0.008, 0.008, 0.008),
       saturation: 1.0,
       contrast: 1.2,
       vignette: 0.35,
