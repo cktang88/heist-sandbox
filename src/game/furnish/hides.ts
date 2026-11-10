@@ -1,8 +1,8 @@
 import { propSpec, type PropKind } from '../propCatalog'
-import { createRng } from '../rng'
+import { createRng, type Rng } from '../rng'
 import type { Prop, Room, RoomKind } from '../site'
 import { isSolidAt, type Grid } from '../tiles'
-import { placeOnOpenFloor } from './floor'
+import { mustStay, placeOnOpenFloor } from './floor'
 import { extent } from './pick'
 import type { Span } from './space'
 
@@ -60,7 +60,8 @@ export function addHides(room: Room, spans: Span[], props: Prop[]): void {
   const need = room.w > WIDE_ROOM ? 2 : 1
   for (let have = props.filter((prop) => HIDING_KINDS.has(prop.kind)).length; have < need; have += 1) {
     // A narrow locker fits where a wardrobe or a dumpster does not.
-    if (!placeOnOpenFloor(rng, room, spans, props, kinds) && !swapIn(props, kinds) && !placeOnOpenFloor(rng, room, spans, props, ['wallLocker'])) return
+    if (!placeOnOpenFloor(rng, room, spans, props, kinds) && !swapIn(room, props, kinds) && !placeOnOpenFloor(rng, room, spans, props, ['wallLocker'])
+      && !swapIn(room, props, ['wallLocker']) && !displace(rng, room, spans, props)) return
   }
 }
 
@@ -93,13 +94,26 @@ const OUTSIDE = new Set<RoomKind>(['street', 'yard', 'rooftop'])
  * A room too full to take another piece: one tall piece of furniture at least as wide (a bookshelf, a shelving rack)
  * becomes the hiding place instead, standing where it stood, so the room keeps its cover.
  */
-function swapIn(props: Prop[], kinds: readonly PropKind[]): boolean {
+function swapIn(room: Room, props: Prop[], kinds: readonly PropKind[]): boolean {
   for (const kind of kinds) {
     const { w } = propSpec(kind)
-    const host = props.find((prop) => propSpec(prop.kind).mount === 'floor' && propSpec(prop.kind).cover === 'high' && propSpec(prop.kind).w >= w && !HIDING_KINDS.has(prop.kind))
+    const host = props.find((prop) => propSpec(prop.kind).mount === 'floor' && propSpec(prop.kind).cover === 'high' && propSpec(prop.kind).w >= w
+      && !HIDING_KINDS.has(prop.kind) && !mustStay(room, prop, props))
     if (!host) continue
     host.kind = kind
     return true
+  }
+  return false
+}
+
+/** The last resort: a low piece of cover (sandbags, a bench) makes way for a locker, which is cover too. */
+function displace(rng: Rng, room: Room, spans: Span[], props: Prop[]): boolean {
+  const low = props.filter((prop) => propSpec(prop.kind).mount === 'floor' && propSpec(prop.kind).cover === 'low' && !mustStay(room, prop, props))
+  for (const prop of low) {
+    const index = props.indexOf(prop)
+    props.splice(index, 1)
+    if (placeOnOpenFloor(rng, room, spans, props, ['wallLocker'])) return true
+    props.splice(index, 0, prop)
   }
   return false
 }
