@@ -22,6 +22,7 @@ import type { Body, Rect } from './types'
 import { createGuard } from './guards'
 import type { Frag } from './frag/frag'
 import type { Rope } from './rope/rope'
+import { createGrapple, type GrappleState } from './grapple/state'
 import { createFallingProps, type FallingPropsState } from './vehicles/fallingProps'
 import { createPhysProps, type PhysPropsState } from './physprops/state'
 import { createMelee, type MeleeState } from './melee/state'
@@ -73,6 +74,8 @@ export type World = {
   frags: Frag[]
   /** Climbing ropes the player has tied off. */
   ropes: Rope[]
+  /** The grappling hook: in the launcher, flying, bitten with the player on its line, or left hanging. */
+  grapple: GrappleState
   /** Floor props dropping through a destroyed floor. */
   fallingProps: FallingPropsState
   /** Lighting circuits whose fuse box has been cut. */
@@ -125,6 +128,7 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     elevatorCars: createElevators(level.elevators),
     frags: [],
     ropes: [],
+    grapple: createGrapple(),
     fallingProps: createFallingProps(),
     deadCircuits: new Set(),
     terminal: null,
