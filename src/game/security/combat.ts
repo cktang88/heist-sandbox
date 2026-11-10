@@ -2,6 +2,7 @@ import { throwGrenade } from '../hazards/hazards'
 import { emitNoise } from '../noise'
 import { fireShot } from '../projectiles'
 import { playSound } from '../sounds'
+import { isSolidAt } from '../tiles'
 import { distance, type Vec } from '../types'
 import { normalize } from '../vision'
 import type { World } from '../world'
@@ -9,13 +10,17 @@ import { barkLine } from './barks'
 import { startRadio } from './comms'
 import { findCover } from './coverSpots'
 import { escapeHazard } from './danger'
-import { eyeOf, feetOf, magazineOf, setMode, type CombatRole, type Guard, type SearchPlan } from './model'
+import { eyeOf, feetOf, magazineOf, setMode, type CombatRole, type Guard } from './model'
 import { goTo, hold } from './movement'
 import { companyOf, isShaken } from './nerve'
 import { startSearch } from './orders'
 import { floorBelow, isDoorway, landingsOnFloor, sameFloor } from './places'
 import { clearOfDoorway, dragWounded } from './selfPreservation'
-import { COMBAT, PATROL, TIERS, TIMING, UNDER_FIRE } from './tuning'
+import { GUARD_PISTOL, GUARD_RIFLE, roundReaches } from './lineOfFire'
+import { ducked, takeShelter } from './takingFire'
+import { respectKillZones } from './killZones'
+import { moveInStack, stackBroken } from './shieldTeam'
+import { COMBAT, PATROL, SHELTER, SHIELD, TIERS, TIMING, UNDER_FIRE } from './tuning'
 
 /**
  * Fighting as a trained team. Each guard plays the role the squad gave him (squad.ts): assault guards
@@ -32,8 +37,6 @@ const SHOT = { speed: 24, damage: 12, tileDamage: 6, spread: 0.07, push: 0 }
 const SHOT_NOISE = 28
 const WILD_FIRE_PER_SECOND = 0.6
 const CHOKE_SCAN = 15
-const FLANK_BEYOND = 5
-const FLANK_SECONDS = 30
 /** Line-of-fire checks start this far out from the muzzle. */
 const SHOULDER = 0.6
 /** Share of standing height a kneeling guard takes up. */
@@ -42,6 +45,10 @@ const KNEELING_HEIGHT = 0.45
 const BOUND_REACH = 8
 /** Nobody waits on a partner who has been "moving" longer than this: he is stuck, not bounding. */
 const BOUND_PATIENCE = 3
+/** A man with more than this much air under him is hanging (rope, ledge) rather than standing. */
+const HANGING_DROP = 3
+/** How far in from a hanging man to look for the floor he is level with. */
+const WINDOW_REACH = 10
 /** Blind fire is not wasted on a last known position this far away. */
 const BLIND_REACH = 25
 
@@ -71,8 +78,12 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
   guard.flashCooldown -= dt
   guard.replan -= dt
   guard.lostSeconds = guard.seesPlayer ? 0 : guard.lostSeconds + dt
+  if (guard.stackLeader !== null) followReports(world, guard)
   const known = guard.lastKnown
-  if (!known || guard.lostSeconds > TIMING.lostContact) {
+  // Hearing the man's gun keeps a fight going as surely as seeing him; a shield team pushes on the reports far longer.
+  const heardLately = world.clock - guard.heardAt < TIMING.lostContact
+  const patience = guard.stackLeader !== null ? SHIELD.patience : TIMING.lostContact
+  if (!known || (guard.lostSeconds > patience && !heardLately)) {
     barkLine(world, guard, 'lost', true)
     startSearch(world, guard, known ? floorBelow(world, known) : feetOf(guard))
     hold(world, guard, dt)
@@ -89,7 +100,12 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
     return
   }
   if (escapeHazard(world, guard, dt)) return
-  guard.facing = known.x >= feetOf(guard).x ? 1 : -1
+  faceThreat(guard, known)
+  if (guard.stackLeader !== null && !stackBroken(world, guard)) {
+    moveInStack(world, guard, known, dt)
+    if (guard.seesPlayer && !isShielded(world, guard)) tryFire(world, guard, known)
+    return
+  }
   if (guard.flashWindup > 0) {
     guard.flashWindup -= dt
     hold(world, guard, dt)
@@ -111,20 +127,64 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
   const pinned = guard.suppression > UNDER_FIRE.duckAbove
   askForBackup(world, guard, alone, pinned)
   if (!world.security.shooters.includes(world.guards.indexOf(guard)) && dragWounded(world, guard, known, dt)) return
-  if (pinned) keepHeadDown(world, guard, known, dt)
+  if (takeShelter(world, guard, known, dt)) {
+    if (pinned) barkLine(world, guard, 'pinned')
+  } else if (pinned) keepHeadDown(world, guard, known, dt)
   else {
     if (guard.seesPlayer && world.player.stairs) barkLine(world, guard, 'stairs')
-    // Shaken and on his own, he does not push forward: he holds and waits for help.
-    const role = guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : guard.combatRole
+    // Shaken and on his own, he does not push forward: he holds and waits for help. Holding a choke point the man never
+    // comes through is no use either: after a while the holder moves up to find him.
+    const restless = guard.combatRole === 'hold' && !guard.seesPlayer && guard.lostSeconds > COMBAT.holdPatience
+    const role = guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : restless ? 'assault' : guard.combatRole
     moveForRole(world, guard, known, role, dt)
   }
-  guard.facing = known.x >= feetOf(guard).x ? 1 : -1
+  faceThreat(guard, known)
   if (isShielded(world, guard)) {
     if (guard.seesPlayer) barkLine(world, guard, 'holdFire')
     return
   }
   if (mayBlindFire(guard, pinned)) blindFire(world, guard, known)
-  else if (!pinned) tryFire(world, guard, known)
+  else if (!pinned && !ducked(guard)) {
+    if (guard.seesPlayer) tryFire(world, guard, known)
+    else returnFire(world, guard, known)
+  }
+}
+
+/** A shield team man without sight of the intruder goes on the control room's latest report of him. */
+function followReports(world: World, guard: Guard): void {
+  const report = world.security.lastKnown
+  if (guard.seesPlayer || !report || world.security.lastContactAt <= guard.lastKnownAt) return
+  guard.lastKnown = { ...report }
+  guard.lastKnownAt = world.security.lastContactAt
+}
+
+/** Turns to the threat and points the gun straight at it, up or down included. */
+function faceThreat(guard: Guard, known: Vec): void {
+  const eye = eyeOf(guard)
+  if (Math.abs(known.x - eye.x) > 0.3) guard.facing = known.x > eye.x ? 1 : -1
+  guard.aim = normalize(known.x - eye.x, known.y - eye.y)
+}
+
+/** Penetration of his gun: a rifle for the armoured, a pistol for the rest. */
+function gunPower(guard: Guard): number {
+  return guard.armored ? GUARD_RIFLE : GUARD_PISTOL
+}
+
+/**
+ * He cannot see the man but has just heard him fire from there: shots back at the spot, if a round could get there
+ * (through a hole in the floor, a window, a door his rifle punches through). It keeps the shooter's head down.
+ */
+function returnFire(world: World, guard: Guard, known: Vec): void {
+  if (guard.drawSeconds > 0 || guard.shootCooldown > 0 || guard.radio) return
+  if (world.clock - guard.heardAt > SHELTER.returnFireSeconds) return
+  const eye = eyeOf(guard)
+  if (distance(eye, known) > SHELTER.returnFireReach || !roundReaches(world, eye, known, gunPower(guard))) return
+  if (colleagueInLine(world, guard, eye, known)) {
+    guard.shootCooldown = 0.3
+    return
+  }
+  shoot(world, guard, known, SHELTER.returnSpread * TIERS[guard.tier].spread * (1 + guard.suppression * UNDER_FIRE.suppressionSpread))
+  guard.shootCooldown = SHELTER.returnCooldownMin + world.rng() * (SHELTER.returnCooldownMax - SHELTER.returnCooldownMin)
 }
 
 /** Is the player holding a colleague as a human shield between himself and this guard? */
@@ -189,10 +249,13 @@ function blindFire(world: World, guard: Guard, known: Vec): void {
 
 function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, dt: number): void {
   const feet = feetOf(guard)
-  const threat = floorBelow(world, known)
+  const threat = groundUnder(world, feet, known)
   const taken = world.guards.filter((other) => other !== guard && other.cover).map((other) => other.cover!)
   const wasBounding = guard.bounding
   guard.bounding = false
+  // Nobody walks into the doorway or stair head where colleagues were just cut down (killZones.ts).
+  const heading = (role === 'flank' ? guard.search?.points[guard.search.index] : undefined) ?? threat
+  if (role !== 'fallback' && role !== 'stack' && respectKillZones(world, guard, heading, dt)) return
   switch (role) {
     case 'fallback': {
       guard.cover ??= findCover(world, feet, threat, COMBAT.coverSearch * 1.5, true, taken) ?? { x: feet.x + Math.sign(feet.x - threat.x || 1) * 6, y: feet.y, high: false }
@@ -200,7 +263,9 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
       return
     }
     case 'assault': {
-      if (!sameFloor(feet, threat)) {
+      // On another floor, or out of sight for a while from behind his cover: he moves to get eyes on the man again.
+      if (!sameFloor(feet, threat) || (!guard.seesPlayer && guard.lostSeconds > COMBAT.coverPatience)) {
+        guard.cover = null
         goTo(world, guard, threat, PATROL.runSpeed, dt, false)
         return
       }
@@ -233,21 +298,44 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
       hold(world, guard, dt)
       return
     case 'flank': {
-      guard.search ??= flankPlan(world, feet, threat)
-      const point = guard.search.points[guard.search.index]
+      // The squad hands a flanker his route when it gives him the job (squad.ts, flank.ts).
+      const point = guard.search && world.clock < guard.search.endsAt ? guard.search.points[guard.search.index] : undefined
       if (!point) {
         goTo(world, guard, threat, PATROL.runSpeed, dt, false)
         return
       }
-      if (goTo(world, guard, point, PATROL.runSpeed, dt, false) !== 'moving') guard.search.index += 1
+      if (goTo(world, guard, point, PATROL.runSpeed, dt, false) !== 'moving') guard.search!.index += 1
       return
     }
+    case 'stack':
+      return
     case 'hold': {
-      guard.cover ??= clearOfDoorway(world, { ...spaced(world, guard, chokepoint(world, feet, threat), Math.sign(threat.x - feet.x) || 1), high: false }, threat)
+      const choke = guard.cover ?? chokepoint(world, feet, threat)
+      // Nothing between him and the man to hold: standing about is no use, so he moves up like the others.
+      if (!choke) return moveForRole(world, guard, known, 'assault', dt)
+      guard.cover ??= clearOfDoorway(world, { ...spaced(world, guard, choke, Math.sign(threat.x - feet.x) || 1), high: false }, threat)
       takeCover(world, guard, guard.cover, dt)
       return
     }
   }
+}
+
+/**
+ * Where to go for a threat at `known`: the floor under it, except when the man is hanging in the air (on a rope outside a
+ * window, say). Then it is the nearest floor beside him at his height, on the guard's side: the guard goes to the
+ * window, not down the stairs to the street below.
+ */
+function groundUnder(world: World, feet: Vec, known: Vec): Vec {
+  const below = floorBelow(world, known)
+  if (below.y - known.y <= HANGING_DROP) return below
+  const side = Math.sign(feet.x - known.x) || 1
+  for (let step = 1; step <= WINDOW_REACH; step += 1) {
+    const x = known.x + side * step
+    for (let y = Math.floor(known.y); y <= known.y + HANGING_DROP; y += 1) {
+      if (isSolidAt(world.grid, x, y) && !isSolidAt(world.grid, x, y - 1)) return { x, y }
+    }
+  }
+  return below
 }
 
 /**
@@ -304,7 +392,7 @@ function tryFire(world: World, guard: Guard, known: Vec): void {
 
 function shoot(world: World, guard: Guard, at: Vec, spread: number): void {
   const eye = eyeOf(guard)
-  fireShot(world, eye, normalize(at.x - eye.x, at.y - eye.y), { kind: 'bullet', fromPlayer: false, ...SHOT, spread })
+  fireShot(world, eye, normalize(at.x - eye.x, at.y - eye.y), { kind: 'bullet', fromPlayer: false, ...SHOT, spread, penetration: gunPower(guard) })
   emitNoise(world, eye, SHOT_NOISE, 'guard')
   playSound(world, 'guardShot', eye)
   guard.kick = 0.7
@@ -329,6 +417,8 @@ export function colleagueInLine(world: World, shooter: Guard, eye: Vec, to: Vec)
   const maxY = Math.max(from.y, to.y) + 0.2
   return world.guards.some((other) => {
     if (other === shooter || other.mode === 'dead') return false
+    // A shield team fires past its own men's shoulders.
+    if (shooter.stackLeader !== null && other.stackLeader === shooter.stackLeader) return false
     if (other.x > maxX || other.x + other.w < minX || other.y > maxY || other.y + other.h < minY) return false
     const top = other.crouching ? other.y + other.h * (1 - KNEELING_HEIGHT) : other.y
     return segmentHitsBox(from, to, { x: other.x - 0.1, y: top - 0.1, w: other.w + 0.2, h: other.y + other.h - top + 0.2 })
@@ -391,31 +481,18 @@ function throwFlash(world: World, guard: Guard): void {
 
 /**
  * Where to wait for the player instead of rushing him: the near side of the first doorway toward him,
- * or the stair landing on this floor when he is on another one.
+ * or the stair landing on this floor when he is on another one. Null when there is nothing to hold.
  */
-function chokepoint(world: World, feet: Vec, threat: Vec): Vec {
+function chokepoint(world: World, feet: Vec, threat: Vec): Vec | null {
   if (!sameFloor(feet, threat)) {
     const landing = landingsOnFloor(world, feet.y).sort((a, b) => Math.abs(a.x - feet.x) - Math.abs(b.x - feet.x))[0]
-    return landing ? { x: landing.x + (feet.x > landing.x ? 1.5 : -1.5), y: landing.y } : feet
+    return landing ? { x: landing.x + (feet.x > landing.x ? 1.5 : -1.5), y: landing.y } : null
   }
   const side = Math.sign(threat.x - feet.x) || 1
   for (let step = 1; step <= CHOKE_SCAN && step < Math.abs(threat.x - feet.x) - 2; step += 1) {
     const column = Math.floor(feet.x + side * step) + 0.5
     if (isDoorway(world, column, feet.y)) return { x: column - side * 1.5, y: feet.y }
   }
-  return feet
+  return null
 }
 
-/** Round by the floor above or below, coming back down beyond the player. */
-function flankPlan(world: World, feet: Vec, threat: Vec): SearchPlan {
-  const side = Math.sign(threat.x - feet.x) || 1
-  const points: Vec[] = []
-  const well = world.stairwells.find((candidate) => candidate.stops.some((y) => Math.abs(y - feet.y) < 0.5))
-  if (well) {
-    const stop = well.stops.findIndex((y) => Math.abs(y - feet.y) < 0.5)
-    const other = well.stops[stop + 1] ?? well.stops[stop - 1]
-    if (other !== undefined) points.push({ x: threat.x + side * FLANK_BEYOND, y: other })
-  }
-  points.push({ x: threat.x + side * 3, y: threat.y })
-  return { points, index: 0, dwell: 0, endsAt: world.clock + FLANK_SECONDS }
-}
