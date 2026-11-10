@@ -3,7 +3,8 @@ import { propSpec } from '../propCatalog'
 import { roomAt } from '../site'
 import type { Rect, Vec } from '../types'
 import type { World } from '../world'
-import { tileKey, type PropIndex } from './state'
+import { currentBuckets, type KeysOf, type PropBuckets } from './buckets'
+import { tileKey, type HazardState, type PropIndex } from './state'
 
 /**
  * The box a prop fills, in tiles. A prop's `x` is the tile under its middle; floor props stand on row `y`,
@@ -31,35 +32,56 @@ export function propTiles(prop: PropState): Vec[] {
   return tiles
 }
 
-/** The index is rebuilt only if the prop list itself was replaced or grew. */
+/** Files a prop under every tile it overlaps, as `propTiles` lists them (same box), without making the list. */
+function tileKeysOf(world: World): KeysOf {
+  return (prop, keys) => {
+    const spec = propSpec(prop.kind)
+    const left = prop.x + 0.5 - spec.w / 2
+    const top = spec.mount === 'floor' ? prop.y - spec.h : prop.y
+    const x0 = Math.floor(left)
+    const y0 = Math.floor(top)
+    const x1 = Math.max(x0, Math.ceil(left + spec.w) - 1)
+    const y1 = Math.max(y0, Math.ceil(top + spec.h) - 1)
+    for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) keys.push(tileKey(world, x, y))
+  }
+}
+
+/**
+ * The tile buckets outlive `world.hazards.propIndex`: code that moves a prop clears that field to say "look
+ * again" (vehicles/fallingProps.ts), and looking again then means checking which props moved, not rebuilding.
+ */
+const tileBuckets = new WeakMap<HazardState, PropBuckets>()
+
+/** Brought up to date only if the prop list was replaced, grew or was flagged, and then only for props that moved. */
 function propIndex(world: World): PropIndex {
   const cached = world.hazards.propIndex
-  if (cached && cached.props === world.props && cached.count === world.props.length) return cached
-  const byTile = new Map<number, number[]>()
+  if (cached && cached.byTile.props === world.props && cached.byTile.slots.length === world.props.length) return cached
+  const byTile = currentBuckets(tileBuckets.get(world.hazards) ?? null, world.props, tileKeysOf(world), cached === null)
+  tileBuckets.set(world.hazards, byTile)
+  const index = { byTile, sprinklersByRoom: sprinklerRooms(world) }
+  world.hazards.propIndex = index
+  return index
+}
+
+function sprinklerRooms(world: World): Map<number, number[]> {
   const sprinklersByRoom = new Map<number, number[]>()
   for (const prop of world.props) {
-    for (const tile of propTiles(prop)) {
-      const key = tileKey(world, tile.x, tile.y)
-      const list = byTile.get(key)
-      if (list) list.push(prop.id)
-      else byTile.set(key, [prop.id])
-    }
     if (prop.kind !== 'sprinkler') continue
     const center = propCenter(prop)
     const room = prop.roomId ?? roomAt(world.rooms, center.x, center.y)?.id
     if (room === undefined) continue
-    sprinklersByRoom.set(room, [...(sprinklersByRoom.get(room) ?? []), prop.id])
+    const list = sprinklersByRoom.get(room)
+    if (list) list.push(prop.id)
+    else sprinklersByRoom.set(room, [prop.id])
   }
-  const index = { props: world.props, count: world.props.length, byTile, sprinklersByRoom }
-  world.hazards.propIndex = index
-  return index
+  return sprinklersByRoom
 }
 
 const NONE: readonly number[] = []
 
 /** Ids of props covering a tile. */
 export function propsAt(world: World, x: number, y: number): readonly number[] {
-  return propIndex(world).byTile.get(tileKey(world, x, y)) ?? NONE
+  return propIndex(world).byTile.byKey.get(tileKey(world, x, y)) ?? NONE
 }
 
 export function sprinklersInRoom(world: World, room: number): readonly number[] {
