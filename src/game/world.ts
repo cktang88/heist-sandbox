@@ -30,6 +30,8 @@ import { createPhysProps, type PhysPropsState } from './physprops/state'
 import { createMelee, type MeleeState } from './melee/state'
 import { createIntel, type IntelState } from './intel/types'
 import { createGaps, type GapState } from './gaps/state'
+import { createDirector, type DirectorState } from './director/state'
+import { createChronicle, type ChronicleState } from './chronicle/types'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -99,6 +101,10 @@ export type World = {
   rng: Rng
   /** Where the case really is, and what the player has learned about it. */
   intel: IntelState
+  /** Tonight's conditions and the events sprung during the heist (off until the game turns it on). */
+  director: DirectorState
+  /** The notable moments of the heist so far, for the story told at the end. */
+  chronicle: ChronicleState
 }
 
 export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
@@ -150,6 +156,8 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     status: 'playing',
     rng: createRng(seed ^ 0x9e3779b9),
     intel: createIntel(),
+    director: createDirector(seed, kind),
+    chronicle: createChronicle(),
   }
   setupIntel(world)
   prepareWorld(world)

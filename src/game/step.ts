@@ -28,6 +28,8 @@ import { useTool } from './tools'
 import { beginStepTiming, endStepTiming, lapStepTiming as lap } from './stepTimings'
 import { overlaps } from './types'
 import type { World } from './world'
+import { stepDirector } from './director/director'
+import { stepChronicle } from './chronicle/chronicle'
 
 /** Advances the heist by one frame of real time. Slow motion scales how much game time that is. */
 export function stepWorld(world: World, input: Input, realDt: number): void {
@@ -96,6 +98,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   lap('fallingProps')
   stepIntel(world, dt)
   lap('intel')
+  stepDirector(world, dt)
 
   for (const pickup of world.pickups) {
     if (pickup.taken) continue
@@ -111,6 +114,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   if (world.player.hp <= 0) world.status = 'dead'
   else if (world.player.hasLoot && overlaps(world.player, world.extraction)) world.status = 'won'
   lap('bodies')
+  stepChronicle(world, dt)
   forgetSeenChanges(world.grid)
   endStepTiming()
 }
