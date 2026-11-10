@@ -3,7 +3,9 @@ import { mirrorLevel } from '../mirror'
 import { propSpec } from '../propCatalog'
 import type { Level, Room } from '../site'
 import { landingX } from '../stairs'
-import { isSolidAt, tileAt, type Grid } from '../tiles'
+import { markAside } from '../gaps/aside'
+import { createHoles } from '../gaps/holes'
+import { blocksLaneAt, isSolidAt, tileAt, type Grid } from '../tiles'
 import { createComplex } from './complex'
 
 /**
@@ -23,8 +25,8 @@ const OUTDOOR = new Set<Room['kind']>(['street', 'yard', 'rooftop'])
 export const isIndoor = (room: Room) => !OUTDOOR.has(room.kind)
 
 const solid = (grid: Grid, x: number, y: number) => isSolidAt(grid, x, y)
-/** A body can be here: open air, a ladder, water, or a door it can open. */
-const passable = (grid: Grid, x: number, y: number) => !solid(grid, x, y) || tileAt(grid, x, y) === 'door'
+/** A body can be here: open air, a ladder, water, a door it can open, or beside something standing aside of the lane. */
+const passable = (grid: Grid, x: number, y: number) => !blocksLaneAt(grid, x, y) || tileAt(grid, x, y) === 'door'
 
 /** Columns a horizontal span covers, ignoring hairline overlaps. */
 function columns(left: number, right: number): number[] {
@@ -140,15 +142,19 @@ export type Mover = 'player' | 'guard' | 'calm'
 /**
  * Every feet position (column, row) someone can reach from `start`, walking, stepping up a tile, falling (player only),
  * climbing ladders (not calm guards), taking stairs and riding elevators (player only). Doors count as open: every lock can be picked.
+ * Ladder hatches and elevator shafts are walked past at each floor they open in, as the game does (see gaps/holes.ts).
  */
 export function reachable(level: Level, start: { x: number; y: number }, mover: Mover): Uint8Array {
   const { grid } = level
   const { width, height } = grid
+  markAside(level)
+  const built = createHoles(level).built
   const seen = new Uint8Array(width * height)
   const valid = (x: number, y: number) => x >= 0 && x < width && y >= 2 && y < height && passable(grid, x, y - 1) && passable(grid, x, y - 2)
   const ladder = (x: number, y: number) => tileAt(grid, x, y) === 'ladder'
-  // A calm guard will not step onto the top of a ladder hole: to him it is a ledge.
-  const supported = (x: number, y: number) => solid(grid, x, y) || (mover !== 'calm' && (ladder(x, y) || ladder(x, y - 1)))
+  const walkedPast = (x: number, y: number) => built[y * width + x] !== 0
+  // A calm guard does not climb, but walks past the top of a ladder hole like any other.
+  const supported = (x: number, y: number) => solid(grid, x, y) || walkedPast(x, y) || (mover !== 'calm' && (ladder(x, y) || ladder(x, y - 1)))
   const links = new Map<number, number[]>()
   const link = (a: { x: number; y: number }, b: { x: number; y: number }) => {
     const [ka, kb] = [a.y * width + a.x, b.y * width + b.x]

@@ -18,7 +18,7 @@ export { createPhysProps, type PhysPropsState } from './state'
 export function stepPhysProps(world: World, input: Input, dt: number): void {
   const hands = !world.drone
   landOnFurniture(world, hands && input.down)
-  dragFurniture(world, hands && input.grab, dt)
+  dragFurniture(world, hands && input.grab, hands && input.down, dt)
   settleLooseProps(world, dt)
   rememberPlayer(world)
 }
