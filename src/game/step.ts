@@ -19,6 +19,7 @@ import { movePlayer, updateFocus } from './player'
 import { stepProjectiles } from './projectiles'
 import { stepTime } from './time'
 import { stepMelee } from './melee/melee'
+import { stepIntel } from './intel/intel'
 import { stepPhysProps } from './physprops/physprops'
 import { useTool } from './tools'
 import { overlaps } from './types'
@@ -63,6 +64,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   stepAftermath(world)
   stepRopes(world)
   stepFallingProps(world, dt)
+  stepIntel(world, dt)
 
   for (const pickup of world.pickups) {
     if (pickup.taken) continue

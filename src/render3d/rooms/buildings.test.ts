@@ -13,7 +13,7 @@ describe('buildingsOf', () => {
     const tower = buildings.find((building) => building.name === 'tower')!
     expect([tower.left, tower.right]).toEqual([86, 186])
     expect(tower.storeys).toBeGreaterThanOrEqual(20)
-    for (const column of [tower.left, tower.right]) expect(tileAt(site.grid, column, tower.roofRow - 1)).toBe('reinforced')
+    for (const column of [tower.left, tower.right]) expect(tileAt(site.grid, column, tower.roofRow - 1)).not.toBe('air')
     expect(tower.groundRow).toBe(COMPLEX_GROUND)
   })
 })

@@ -25,6 +25,7 @@ import type { Rope } from './rope/rope'
 import { createFallingProps, type FallingPropsState } from './vehicles/fallingProps'
 import { createPhysProps, type PhysPropsState } from './physprops/state'
 import { createMelee, type MeleeState } from './melee/state'
+import { createIntel, type IntelState } from './intel/types'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -88,6 +89,8 @@ export type World = {
   stats: RunStats
   status: 'playing' | 'won' | 'dead'
   rng: Rng
+  /** Where the case really is, and what the player has learned about it. */
+  intel: IntelState
 }
 
 export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
@@ -136,5 +139,6 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     stats: { kills: 0, tilesDestroyed: 0, timesSpotted: 0 },
     status: 'playing',
     rng: createRng(seed ^ 0x9e3779b9),
+    intel: createIntel(),
   }
 }
