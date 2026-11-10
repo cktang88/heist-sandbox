@@ -14,6 +14,7 @@ const MAX_LENGTH = 45
 const GRATE_INSET = 2
 /** Hung fittings drop this far below the duct floor, the same as below a ceiling. */
 const HANG_DROP = 0.2
+const WALL_DROP = 0.5
 const OUTDOOR_BUILDINGS = new Set(['grounds', 'sewer', 'silo', 'gatehouse'])
 const NO_DUCT_ROOMS = new Set<Room['kind']>(['stairwell', 'vault', 'rooftop', 'elevatorLobby'])
 
@@ -109,9 +110,11 @@ function rehang(site: SiteDraft, run: DuctRun, grates: readonly number[]): void 
   const inCrawlSpace = (spot: { x: number; y: number }) => spot.x >= run.left && spot.x < run.right + 1 && spot.y >= run.crawlY && spot.y < below
   for (const lamp of site.lamps) {
     if (!inCrawlSpace(lamp)) continue
-    lamp.y = below + HANG_DROP
-    // A lamp under a grate would have nothing to hang from.
-    if (grates.includes(Math.floor(lamp.x))) lamp.x += lamp.x < (run.left + run.right) / 2 ? 1 : -1
+    // Wall lamps sit a little lower than hung fittings, so the two never land on the same spot.
+    lamp.y = below + (lamp.hung ? HANG_DROP : WALL_DROP)
+    // A lamp under a grate (or straddling its edge) would have nothing to hang from: it moves two columns inward.
+    const grate = grates.find((x) => Math.abs(lamp.x - (x + 0.5)) < 1)
+    if (grate !== undefined) lamp.x += grate < (run.left + run.right) / 2 ? 2 : -2
   }
   for (const device of site.devices) {
     if (inCrawlSpace(device)) device.y = below
