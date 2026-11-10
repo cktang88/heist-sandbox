@@ -99,6 +99,8 @@ export type Style = {
 }
 
 export const STYLE_NAMES = ['real', 'pixel', 'pixel-hd', 'sketch', 'paint'] as const
+/** The look used when the address names none. */
+export const DEFAULT_STYLE: StyleName = 'pixel'
 export type StyleName = (typeof STYLE_NAMES)[number]
 
 const PIXEL_SURFACE: SurfaceStyle = {
@@ -181,5 +183,5 @@ export const STYLES: Record<StyleName, Style> = {
 /** Reads `?look=`; anything unknown falls back to the default. */
 export function styleFromQuery(search: string): Style {
   const name = new URLSearchParams(search).get('look')
-  return STYLES[(STYLE_NAMES as readonly string[]).includes(name ?? '') ? (name as StyleName) : 'real']
+  return STYLES[(STYLE_NAMES as readonly string[]).includes(name ?? '') ? (name as StyleName) : DEFAULT_STYLE]
 }

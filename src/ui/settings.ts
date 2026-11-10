@@ -28,7 +28,7 @@ export type Settings = {
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
-  look: 'real', quality: 'auto', view: '3d', site: 'complex', volume: 0.8, muted: false, autoSlowmo: true, shake: true,
+  look: 'pixel', quality: 'auto', view: '3d', site: 'complex', volume: 0.8, muted: false, autoSlowmo: true, shake: true,
 }
 
 export const STORAGE_KEY = 'smash-and-grab.settings'

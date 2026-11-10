@@ -136,7 +136,7 @@ The crosshair ring widens as a gun gets less accurate, so spread is never a surp
 
 ## Art styles
 
-Pick one in Settings (it switches at once) or add `?look=real`, `pixel`, `pixel-hd`, `sketch` or `paint` to the address.
+Pixel is the default. Pick another in Settings (it switches at once) or add `?look=real`, `pixel`, `pixel-hd`, `sketch` or `paint` to the address.
 
 ![The four looks](docs/screenshots/looks-lounge.png)
 
