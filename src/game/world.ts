@@ -35,6 +35,7 @@ import { createChronicle, type ChronicleState } from './chronicle/types'
 import { createStealth, type StealthState } from './stealth/state'
 import { createPeople } from './people/people'
 import type { PeopleState } from './people/types'
+import { createSystems, type SystemsState } from './systems/state'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -113,6 +114,8 @@ export type World = {
   stealth: StealthState
   /** Who the guards are: names, ranks, traits, bonds and what happened to them tonight (people/). */
   people?: PeopleState
+  /** Couplings between systems: water, live wires, falling fittings, traps and faults (systems/). */
+  systems: SystemsState
 }
 
 export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
@@ -167,6 +170,7 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     director: createDirector(seed, kind),
     chronicle: createChronicle(),
     stealth: createStealth(),
+    systems: createSystems(seed),
   }
   setupIntel(world)
   prepareWorld(world)

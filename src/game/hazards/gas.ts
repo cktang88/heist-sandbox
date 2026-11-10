@@ -11,11 +11,13 @@ import { addGas, gasAt, hasGas, takeGas } from './smoke'
 const LIGHTS_AT = 0.05
 /** Gas still burns along with a lit cloud down to this. */
 const BURNS_AT = 0.015
+/** Thinner wisps joined to a lit cloud are burnt up with it, without flames of their own. */
+const WISP = 0.001
 /** Gas a leak gives off per second. A stove left leaking for ten seconds fills a kitchen corner. */
 const LEAK_PER_SECOND = 0.7
 /** A lit cloud holding more than this goes bang; less just flashes into fire. */
 const BLAST_GAS = 2.5
-const MAX_CLOUD_TILES = 500
+const MAX_CLOUD_TILES = 1500
 const SHOT_SOUNDS: ReadonlySet<SoundKind> = new Set(['pistol', 'rifle', 'shotgun', 'sniper', 'guardShot', 'spark'])
 const SHOT_REACH = 1.5
 
@@ -70,6 +72,7 @@ export function igniteGas(world: World, x: number, y: number): void {
   }
   for (const tile of cloud) {
     if (world.hazards.fires.size >= MAX_FIRES) break
+    if (tile.gas < BURNS_AT) continue
     startFire(world, tile.x, tile.y, Math.min(1, 0.5 + tile.gas), 0.5 + world.rng() * 0.4)
   }
   // A leak caught in the flash is burnt out: the line is wrecked and stops feeding the room.
@@ -94,7 +97,7 @@ function collectCloud(world: World, x: number, y: number): (Vec & { gas: number 
   const queue: Vec[] = [{ x, y }]
   while (queue.length > 0 && cloud.length < MAX_CLOUD_TILES) {
     const tile = queue.pop()!
-    if (gasAt(world, tile.x, tile.y) < BURNS_AT || TILE_DEFS[tileAt(world.grid, tile.x, tile.y)].solid) continue
+    if (gasAt(world, tile.x, tile.y) < WISP || TILE_DEFS[tileAt(world.grid, tile.x, tile.y)].solid) continue
     cloud.push({ ...tile, gas: takeGas(world, tile.x, tile.y) })
     queue.push({ x: tile.x + 1, y: tile.y }, { x: tile.x - 1, y: tile.y }, { x: tile.x, y: tile.y + 1 }, { x: tile.x, y: tile.y - 1 })
   }

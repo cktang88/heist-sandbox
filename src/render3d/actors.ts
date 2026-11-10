@@ -19,6 +19,7 @@ import { createFixturesLayer } from './fixturesLayer'
 import { depthOffsetFor } from '../game/gaps/gaps'
 import { createGapsLayer } from './gapsLayer'
 import { createGrappleLayer } from './grappleLayer'
+import { createSystemsLayer } from './systemsLayer'
 import { createHazardsLayer } from './hazardsLayer'
 import { createSandboxLayer } from './sandboxLayer'
 import { DRAW_DISTANCE, type Layer, type LayerFactory } from './layer'
@@ -70,6 +71,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
     ['rooms', createRoomsLayer], ['props', createPropsLayer], ['fixtures', createFixturesLayer], ['devices', createDevicesLayer],
     ['structure', createStructureLayer], ['hazards', createHazardsLayer], ['sandbox', createSandboxLayer], ['gaps', createGapsLayer],
     ['grapple', createGrappleLayer],
+    ['systems', createSystemsLayer],
   ]
   // Each layer's set-up and per-frame time is measured, for the `?debug=1` readout (User Timing and the frame probe).
   const layers: { name: string; layer: Layer }[] = []
