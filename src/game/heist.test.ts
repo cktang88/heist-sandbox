@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createProps } from './cover'
 import { C4_BLAST, explode } from './explosions'
 import { idleInput, type Input } from './input'
 import { GROUND } from './level'
@@ -66,6 +67,19 @@ describe('heist', () => {
     expect(world.stats.timesSpotted).toBe(1)
     run(world, 4)
     expect(world.alarm).toBe(true)
+  })
+
+  it('stays hidden from a facing guard by crouching behind a crate', () => {
+    const world = createWorld(1)
+    const guard = world.guards.find((other) => other.homeX === 64)!
+    world.guards = [guard]
+    world.props = createProps([{ kind: 'crate', x: 59, y: GROUND }])
+    guard.facing = -1
+    onStreet(world, 58.2)
+    run(world, 1.5, () => ({ crouch: true }))
+    expect(world.player.crouching).toBe(true)
+    expect(guard.state).not.toBe('alert')
+    expect(world.stats.timesSpotted).toBe(0)
   })
 
   it('sends an alerted guard up a ladder after the player', () => {
