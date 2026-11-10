@@ -51,6 +51,15 @@ export type Action = { prompt: string; key: string; run: () => void; hold?: numb
  * and pressing or holding E does it.
  */
 export function interact(world: World, input: Input, dt: number): void {
+  handsOn(world, input, dt)
+  // Knocked down or jolted, E does nothing for the moment, so nothing is offered.
+  if (world.player.stunSeconds > 0) {
+    world.prompt = null
+    world.stealth.hint = null
+  }
+}
+
+function handsOn(world: World, input: Input, dt: number): void {
   collect(world)
   world.stealth.hint = null
   leaveLostHidingPlace(world)
