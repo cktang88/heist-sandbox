@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { findUnsupported } from './collapse'
+import { findUnsupported, stepCollapse } from './collapse'
+import { hurtGuard } from './guards'
+import { boxHitsSolid } from './physics'
+import { createRagdoll, stepRagdoll } from './ragdoll'
+import { createRng } from './rng'
 import { hurtTile } from './destruction'
 import { explode, ROCKET_BLAST } from './explosions'
 import { idleInput } from './input'
 import { createLevel } from './level'
 import { stepWorld } from './step'
-import { createGrid, fillTiles, setTile, tileAt } from './tiles'
+import { createGrid, fillTiles, isSolidAt, setTile, tileAt } from './tiles'
 import { createWorld, type World } from './world'
 
 describe('collapse', () => {
@@ -49,6 +53,28 @@ describe('collapse', () => {
     expect(world.falling).toEqual([])
     expect(tileAt(world.grid, 3, 5)).toBe('air')
     expect(findUnsupported(world.grid)).toEqual([])
+  })
+
+  it('a tile dropping slowly onto someone breaks up instead of setting solid around them', () => {
+    const world = createWorld(1)
+    world.grid = createGrid(10, 12)
+    fillTiles(world.grid, 0, 10, 9, 11, 'bedrock')
+    // The player stands on the floor; a loose tile hangs just above his head; a guard lies dead beside him.
+    Object.assign(world.player, { x: 4.15, y: 10 - world.player.h - 0.001, vx: 0, vy: 0, hp: 1e6 })
+    world.guards = [world.guards[0]]
+    const body = world.guards[0]
+    world.falling.push({ x: 4, y: world.player.y - 1.3, vy: 0, kind: 'concrete' })
+    hurtGuard(world, body, 1e6, { x: 0, y: 0 })
+    body.ragdoll = createRagdoll({ x: 7.5, y: 10 }, { x: 0, y: 0 }, createRng(1))
+    for (const point of body.ragdoll.points) point.y = Math.max(point.y, 9.6)
+    world.falling.push({ x: 7, y: 6, vy: 0, kind: 'concrete' })
+    for (let frame = 0; frame < 90; frame += 1) {
+      stepCollapse(world, 1 / 60)
+      stepRagdoll(world.grid, body.ragdoll, 1 / 60)
+    }
+    expect(world.falling).toEqual([])
+    expect(boxHitsSolid(world.grid, world.player)).toBe(false)
+    for (const point of body.ragdoll.points) expect(isSolidAt(world.grid, point.x, point.y)).toBe(false)
   })
 
   it('keeps a duct hanging from the slab above when the door it rests on is opened, and drops it when the slab goes', () => {
