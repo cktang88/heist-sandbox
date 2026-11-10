@@ -53,10 +53,12 @@ describe('the generated complex', () => {
     expect(guardProblems(site(seed))).toEqual([])
   })
 
-  it.each(SEEDS)('seed %i lets the player reach every room from the drop zone', (seed) => {
+  it.each(SEEDS)('seed %i lets the player reach every room, supply and terminal from the drop zone', (seed) => {
     const level = site(seed)
     const seen = reachable(level, dropZone(level), 'player')
     expect(level.rooms.filter((room) => !reachedRoom(level, seen, room)).map((room) => roomName(level, room.id))).toEqual([])
+    expect(level.pickups.filter((pickup) => !reachedSpot(level, seen, pickup.x, pickup.y))).toEqual([])
+    expect(level.devices.filter((device) => device.kind === 'computer' && !reachedSpot(level, seen, device.x, device.y))).toEqual([])
   })
 
   it.each(SEEDS)('seed %i lets an alerted guard reach every room, post, patrol point and device from the tower stairs, without elevators', (seed) => {
