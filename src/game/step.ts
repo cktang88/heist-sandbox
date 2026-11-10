@@ -1,6 +1,6 @@
 import { stepCharges } from './charges'
 import { stepCollapse } from './collapse'
-import { stepDevices } from './devices/devices'
+import { stepDevices, terminalConsumesInput } from './devices/devices'
 import { stepElevators } from './elevators'
 import { stepHazards } from './hazards/hazards'
 import { stepSecurity } from './security/dispatch'
@@ -36,7 +36,8 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   } else {
     movePlayer(world.grid, world.player, input, dt, world.stairwells)
     interact(world, input, dt)
-    useTool(world, input, dt)
+    // While a hacking menu is open, the number keys choose its options and not a weapon.
+    useTool(world, terminalConsumesInput(world) ? { ...input, selectTool: null } : input, dt)
   }
   stepProjectiles(world, dt)
   stepCharges(world, input.detonatePressed, dt)

@@ -27,6 +27,8 @@ export function mirrorLevel(level: Level): Level {
     rooms: level.rooms.map((room) => ({ ...room, x: point(room.x) - room.w })),
     stairwells: level.stairwells.map((well) => ({ ...well, leftX: point(well.rightX), rightX: point(well.leftX), stops: well.stops })),
     elevators: level.elevators.map((shaft) => ({ ...shaft, x: point(shaft.x) - shaft.w, doorSide: shaft.doorSide === 1 ? -1 : 1 })),
-    devices: level.devices.map((device) => ({ ...device, x: tile(device.x), facing: device.facing === undefined ? undefined : device.facing === 1 ? -1 : 1 })),
+    devices: level.devices.map((device) => ({ ...device, x: tile(device.x), facing: device.facing === undefined ? undefined : device.facing === 1 ? -1 : 1,
+      target: typeof device.target === 'object' ? { x: tile(device.target.x), y: device.target.y } : device.target,
+    })),
   }
 }
