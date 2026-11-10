@@ -124,10 +124,13 @@ describe('a mirrored complex', () => {
 })
 
 describe('the outpost', () => {
-  it.each([1, 2, 3, 4, 5, 8])('seed %i puts every lamp and prop where it can be, and can be won', (seed) => {
+  it.each(SEEDS)('seed %i puts every lamp and prop where it can be, and can be won', (seed) => {
     const level = site(seed, 'outpost')
     expect(propProblems(level)).toEqual([])
     expect(fixtureProblems(level)).toEqual([])
     expect(reachedSpot(level, reachable(level, dropZone(level), 'player'), level.loot.x, level.loot.y)).toBe(true)
+    const back = reachable(level, level.loot, 'player')
+    const { extraction: van } = level
+    expect(Array.from({ length: van.w }, (_, index) => van.x + index).some((x) => reachedSpot(level, back, x, van.y + van.h))).toBe(true)
   })
 })

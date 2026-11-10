@@ -110,19 +110,21 @@ function buildTower(grid: Grid, rng: Rng, storeys: number, guards: GuardSpawn[],
       if (blocked.some((other) => Math.abs(other - x) < 3)) continue
       props.push({ x, y: floorY, kind: furniture[randomInt(rng, 0, furniture.length - 1)] })
     }
-    guards.push({ x: pickClearX(rng, left + 3, right - 3, blocked), y: floorY, facing: rng() < 0.5 ? 1 : -1 })
-    if (storey > 0 && rng() < 0.6) guards.push({ x: pickClearX(rng, left + 3, right - 3, blocked), y: floorY, facing: 1 })
+    const first = pickClearX(rng, left + 3, right - 3, blocked)
+    guards.push({ x: first, y: floorY, facing: rng() < 0.5 ? 1 : -1 })
+    // Not inside the first one.
+    if (storey > 0 && rng() < 0.6) guards.push({ x: pickClearX(rng, left + 3, right - 3, [...blocked, first]), y: floorY, facing: 1 })
     holeX = ladderX
 
     const nextLadder = randomInt(rng, left + 4, right - 4)
     ladderX = Math.abs(nextLadder - ladderX) < 6 ? (ladderX < (left + right) / 2 ? right - 5 : left + 5) : nextLadder
   }
 
-  // Front door, skylight, and a guard walking the roof.
+  // Front door, skylight, and a guard walking the roof (off the roof hatch, which `holeX` now holds).
   fillTiles(grid, left, GROUND - 3, left, GROUND - 1, 'door')
   const skylight = randomInt(rng, left + 6, right - 10)
   fillTiles(grid, skylight, roof, skylight + 3, roof, 'glass')
-  guards.push({ x: right - 6, y: roof, facing: -1 })
+  guards.push({ x: Math.abs(holeX - (right - 6)) > 1 ? right - 6 : right - 9, y: roof, facing: -1 })
 }
 
 /** Picks a column that is not a wall, a ladder, or a hole in the floor. */
