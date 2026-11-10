@@ -173,6 +173,17 @@ export function fixtureProblems(level: Level): string[] {
   if (!standable(grid, level.loot.x, level.loot.y)) problems.push('loot not on a floor')
   const { extraction } = level
   if (!columns(extraction.x, extraction.x + extraction.w).some((x) => standable(grid, x, extraction.y + extraction.h))) problems.push('extraction has no floor')
+  for (const well of level.stairwells) {
+    well.stops.forEach((stop, index) => {
+      const x = landingX(well, index)
+      const where = `stair ${well.id} landing at ${x},${stop}`
+      if (!standable(grid, Math.floor(x), stop)) problems.push(`${where} is not a floor`)
+      const blocking = level.props.find((prop) => prop.y === stop && propSpec(prop.kind).mount === 'floor' && propSpec(prop.kind).h > 0.1 && Math.abs(prop.x + 0.5 - x) < propSpec(prop.kind).w / 2 + 0.5)
+      if (blocking) problems.push(`${where} is blocked by ${blocking.kind}`)
+      const guard = level.guards.find((other) => other.y === stop && Math.abs(other.x + 0.5 - x) < 1.5)
+      if (guard) problems.push(`${where} has a ${guard.role ?? 'guard'} standing on it`)
+    })
+  }
   for (const shaft of level.elevators) {
     const door = shaft.doorSide === 1 ? shaft.x + shaft.w : shaft.x - 1
     for (const stop of shaft.stops) {
@@ -338,6 +349,10 @@ export function deviceProblems(level: Level): string[] {
       if (!terminalFloors.has(floorKey(room))) problems.push(`${where} on ${floorKey(room)} has no terminal on its floor`)
     }
     if (device.kind === 'keypad' && typeof device.target === 'object' && !standable(level.grid, device.x, device.target.y + 1)) problems.push(`${where} out of reach of a floor`)
+  }
+  // Keypads open to a keycard, which officers and control-room operators carry (stealth/actions.ts).
+  if (level.devices.some((device) => device.kind === 'keypad') && !level.guards.some((guard) => guard.role === 'operator' || guard.role === 'officer')) {
+    problems.push('keypad doors but nobody carrying a keycard')
   }
   return problems
 }
