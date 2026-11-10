@@ -148,7 +148,7 @@ export function watchIncomingFire(world: World, dt: number, onShotAt: (world: Wo
     const from = { x: shot.x - shot.vx * dt, y: shot.y - shot.vy * dt }
     for (const guard of world.guards) {
       if (guard.mode === 'dead' || guard.restrained) continue
-      const body = centerOf(guard)
+      const body = eyeOf(guard)
       if (body.x < Math.min(from.x, shot.x) - range || body.x > Math.max(from.x, shot.x) + range) continue
       if (body.y < Math.min(from.y, shot.y) - range || body.y > Math.max(from.y, shot.y) + range) continue
       if (gapToSegment(body, from, shot) > range) continue

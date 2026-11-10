@@ -132,7 +132,7 @@ function refugeFor(world: World, guard: Guard): Vec {
   let best: Vec | null = here?.kind === 'security' ? feet : null
   let bestCost = best ? 0 : FEAR.refugeReach
   for (const room of world.rooms) {
-    if (room.kind !== 'security' || room.building !== building) continue
+    if (room.kind !== 'security' || (building !== 'site' && room.building !== building)) continue
     const spot = { x: room.x + room.w / 2, y: room.floorY }
     const cost = travelCost(feet, spot)
     if (cost < bestCost) {
@@ -191,7 +191,9 @@ export function holdsBack(world: World, guard: Guard, goal: Vec, dt: number): bo
 }
 
 function waitsForPartner(world: World, guard: Guard, dt: number): boolean {
-  if (!isShaken(guard) || guard.follow !== null || guard.partnerWait >= FEAR.partnerWaitMax) return false
+  if (guard.follow !== null || guard.partnerWait >= FEAR.partnerWaitMax) return false
+  // Once he has asked for someone he waits for him, even if just seeing help coming steadies him.
+  if (!isShaken(guard) && guard.partnerWait === 0) return false
   const index = world.guards.indexOf(guard)
   const partner = world.guards.find((other) => other.follow === index && isActive(other))
   if (partner && distance(feetOf(partner), feetOf(guard)) < PARTNER_CLOSE) {

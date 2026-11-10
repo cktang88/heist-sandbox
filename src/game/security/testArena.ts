@@ -71,3 +71,13 @@ export function run(world: World, seconds: number, input: Partial<Input> = {}, e
     if (each?.()) return
   }
 }
+
+/** Like `run`, but also returns every line spoken during it, so a test can check what was said after it has faded. */
+export function runListening(world: World, seconds: number, input: Partial<Input> = {}, each?: () => boolean | void): string[] {
+  const heard = new Set<string>()
+  run(world, seconds, input, () => {
+    for (const line of world.security.barks) heard.add(line.text)
+    return each?.()
+  })
+  return [...heard]
+}
