@@ -25,6 +25,11 @@ export function isAlerted(guard: Guard): boolean {
   return guard.mode === 'searching' || guard.mode === 'combat' || guard.mode === 'toAlarm'
 }
 
+/** Investigating or on guard: his torch is out, so he sees further into the dark. */
+export function hasTorchOut(guard: Guard): boolean {
+  return isAlerted(guard) || guard.mode === 'investigating'
+}
+
 /** The vision cone a renderer should draw: centre angle (radians, y down), half-angle and range. */
 export function visionOf(guard: Guard): { angle: number; halfAngle: number; range: number } {
   const alerted = isAlerted(guard)
@@ -98,7 +103,7 @@ export function detectPlayer(world: World, guard: Guard): Detection | null {
 
   const gap = distance(eye, body)
   const crouching = player.crouching
-  const darkRange = (isAlerted(guard) ? VISION.torchDarkRange : VISION.darkRange) * (crouching ? 0.6 : 1)
+  const darkRange = (hasTorchOut(guard) ? VISION.torchDarkRange : VISION.darkRange) * (crouching ? 0.6 : 1)
   const light = lightFactor(playerLight(world), gap, darkRange)
   if (light <= 0) return null
   const level = Math.abs(eye.y - body.y) < 2.5
@@ -113,7 +118,7 @@ export function detectPlayer(world: World, guard: Guard): Detection | null {
 /** A colleague's body this guard can see and has not seen before (guard index), if any. */
 export function spotBody(world: World, guard: Guard): number | null {
   const eye = eyeOf(guard)
-  const darkRange = isAlerted(guard) ? VISION.torchDarkRange : VISION.darkRange
+  const darkRange = hasTorchOut(guard) ? VISION.torchDarkRange : VISION.darkRange
   for (let index = 0; index < world.guards.length; index += 1) {
     const other = world.guards[index]
     if (other.mode !== 'dead' || !other.ragdoll || guard.bodiesSeen.includes(index)) continue

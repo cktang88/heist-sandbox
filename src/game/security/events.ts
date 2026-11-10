@@ -15,12 +15,25 @@ export type SecurityEvent =
   | { kind: 'camera'; at: Vec; device: number }
   | { kind: 'alarmButton'; at: Vec }
   | { kind: 'commsDown'; at: Vec }
-  | { kind: 'fault'; at: Vec; what: 'lights' }
+  | { kind: 'fault'; at: Vec; what: 'lights' | 'camera' }
+  /** A guard pinned down or alone under fire asking for help where he is. */
+  | { kind: 'backup'; at: Vec; by: number }
+  | { kind: 'explosion'; at: Vec }
+  /** A door found open that should be shut, or a lock found picked. */
+  | { kind: 'tamper'; at: Vec; what: 'door' | 'lock' }
+  | { kind: 'vault'; at: Vec; by: number }
+  | { kind: 'parachute'; at: Vec }
   /** A fire seen by a guard (`alarm` false) or the fire alarm rung by a sprinkler opening (`alarm` true). */
   | { kind: 'fire'; at: Vec; alarm: boolean }
 
 /** A line a guard says out loud, shown above them for a moment. Barks explain what the guards are about to do. */
 export type Bark = Vec & { text: string; life: number }
+
+/** A guard who died, where and when: colleagues who know think twice before walking in there. */
+export type Death = { at: Vec; room: number; clock: number; victim: number }
+
+/** Guards already answering trouble at a spot, so the next ones who hear it leave it to them. */
+export type Response = { at: Vec; kind: 'noise' | 'gunfire' | 'blast'; count: number; clock: number }
 
 /** A missed check-in the control room is waiting on. */
 export type Poll = { guard: number; at: number }
@@ -70,6 +83,21 @@ export type SecurityState = {
   /** Response teams sent so far, and whether one has been sent for the current alert. */
   responders: number
   responseSent: boolean
+  deaths: Death[]
+  responses: Response[]
+  /** Clock time the site locks down after a reported explosion. */
+  lockdownAt: number
+  /** Door keys (`x,bottomRow`) guards opened themselves, and doors already found open or picked. */
+  guardDoors: Set<string>
+  doorsNoticed: Set<string>
+  /** Per camera device id: since when its feed has been dead, and whether that was reported. */
+  camerasDeadSince: Map<number, number>
+  camerasReported: Set<number>
+  vaultReported: boolean
+  /** Clock time a parachute was last reported. */
+  chuteReportedAt: number
+  /** The last few lines spoken, so nobody repeats what was just said. */
+  recentLines: string[]
 }
 
 export function createSecurity(): SecurityState {
@@ -78,5 +106,7 @@ export function createSecurity(): SecurityState {
     searched: new Map(), cameras: new Map(), commsDownSince: new Map(), commsReported: new Set(), circuitsNoticed: new Set(), circuitsDeadSince: new Map(), firesReported: new Map(),
     reportedBodies: new Set(), shooters: [], campSpot: null, campSeconds: 0,
     confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
+    deaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), camerasDeadSince: new Map(), camerasReported: new Set(),
+    vaultReported: false, chuteReportedAt: -Infinity, recentLines: [],
   }
 }

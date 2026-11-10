@@ -168,3 +168,130 @@ export const BARKS = {
   /** Routine radio chatter is only shown near the player. */
   chatterRange: 30,
 } as const
+
+/**
+ * Experience tiers. `nerve` is where a guard's nerve sits when nothing is wrong; `spread` scales his aim,
+ * `draw` the time from "Contact!" to his first shot, `search` how long he looks at each spot and how many rooms he checks.
+ */
+export const TIERS = {
+  rookie: { nerve: 0.6, spread: 1.6, draw: 1.25, search: 0.7 },
+  regular: { nerve: 0.78, spread: 1, draw: 1, search: 1 },
+  veteran: { nerve: 0.92, spread: 0.65, draw: 0.8, search: 1.35 },
+} as const
+
+/**
+ * Nerve, 0..1: the tier's base, plus what the guard's situation gives or takes, minus the fright (`shock`)
+ * left by what happened to him. Below `shaken` he will not walk into danger alone and fires blind from cover;
+ * below `breaking` he falls back and calls for help; below `broken` he panics, hides or gives up.
+ */
+export const NERVE = {
+  /** Situation is re-read this often (seconds); events add shock the moment they happen. */
+  updateEvery: 0.25,
+  shaken: 0.45,
+  breaking: 0.28,
+  broken: 0.12,
+  /** Back above this, a panicking guard pulls himself together. */
+  recovered: 0.35,
+  /** Shock fades by this much per second, faster with colleagues around. */
+  shockFade: 0.012,
+  /** Situation: each colleague near (up to three), an officer or veteran near, sitting in cover. */
+  perColleague: 0.05,
+  officer: 0.1,
+  inCover: 0.08,
+  /** Situation: alone in a fight, standing in the dark, fire close by, and the share of his health lost. */
+  alone: 0.12,
+  dark: 0.08,
+  fire: 0.12,
+  wounds: 0.4,
+  suppressed: 0.3,
+  colleagueReach: 10,
+  /** Shock from events. */
+  nearMiss: 0.025,
+  hit: 0.12,
+  colleagueKilled: 0.22,
+  colleagueKilledClose: 0.12,
+  blast: 0.4,
+  blastReach: 12,
+  flashed: 0.15,
+  grenade: 0.1,
+  rocket: 0.2,
+  body: 0.06,
+} as const
+
+/** Near misses, ducking, blind fire, reloading and the other things a sensible person does under fire. */
+export const UNDER_FIRE = {
+  /** A bullet passing this close counts as a near miss. */
+  nearMissRange: 1.4,
+  /** Rockets are seen and feared further off. */
+  rocketRange: 7,
+  suppressionPerMiss: 0.22,
+  suppressionFade: 0.45,
+  /** Pinned: he keeps his head down and does not fire aimed shots. */
+  duckAbove: 0.55,
+  /** Spread grows by this share of suppression. */
+  suppressionSpread: 2,
+  blindSpread: 0.28,
+  blindCooldownMin: 0.35,
+  blindCooldownMax: 0.8,
+  /** Blind fire goes at a last known position no older than this. */
+  blindFreshSeconds: 5,
+  reloadSeconds: 2.2,
+  /** A live grenade or charge this close makes him dive. */
+  diveRange: 3.6,
+  diveSeconds: 0.55,
+  diveSpeed: 9,
+  /** Hauling a wounded colleague: only if he is this close and badly hurt. */
+  dragReach: 3,
+  dragHealth: 0.4,
+  dragSeconds: 2.5,
+  /** No backup call more often than this, per guard. */
+  backupEvery: 20,
+  /** Alone means no fighting colleague this close. */
+  aloneReach: 14,
+} as const
+
+/** Low nerve: hesitating at rooms, waiting for a partner, panic and surrender. */
+export const FEAR = {
+  /** A colleague died in a room this recently: a shaken guard stops at its edge first. */
+  deathMemory: 45,
+  hesitateMin: 2,
+  hesitateMax: 4,
+  /** How close to a room's edge he stops. */
+  hesitateReach: 3,
+  partnerWaitMax: 15,
+  /** The player this close (and seen) when nerve breaks: he gives up rather than run. */
+  surrenderRange: 7,
+  /** Unwatched this long, a surrendered guard picks his weapon back up. */
+  rearmSeconds: 9,
+  /** The player counts as watching a surrendered guard from this close with a clear view. */
+  watchRange: 12,
+  /** Fleeing guards head for a security room no further than this. */
+  refugeReach: 60,
+} as const
+
+/** How many guards answer each kind of trouble on their own, so one noise never pulls in the whole site. */
+export const RESPONSE = {
+  noise: 1,
+  gunfire: 4,
+  blast: 6,
+  /** Responses to the same spot (this close, this recently) count together. */
+  sameSpot: 10,
+  forgetSeconds: 15,
+  /** At or above this radius a sound is an explosion (blasts are 45), not a flashbang (40) or a shot. */
+  blastRadius: 42,
+  /** After an explosion is reported the site locks down this long later, once the elevators have been recalled. */
+  lockdownDelay: 20,
+} as const
+
+/** Things out of place that guards notice on their rounds. */
+export const DISCOVERY = {
+  /** How far ahead a guard notices an open door or a picked lock on his floor. */
+  doorSight: 7,
+  /** A dead camera feed shows as a fault in the security room after this long. */
+  cameraFaultSeconds: 25,
+  /** A parachute in the sky is seen this far off. */
+  chuteSight: 28,
+  /** Smoke this thick ahead of him is noticed. */
+  smokeSeen: 0.25,
+  smokeSight: 9,
+} as const

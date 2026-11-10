@@ -19,7 +19,8 @@ const OPEN_AIR = new Set<RoomKind>(['street', 'yard', 'rooftop'])
 /** With no rooms recorded (the small outpost), sweep either side of the spot instead. */
 const SWEEP_OFFSETS = [6, -6, 12]
 
-export function planSearch(world: World, center: Vec, seconds: number = TIMING.searchSeconds): SearchPlan {
+/** `care` scales how many rooms are checked: veterans are thorough, rookies cut corners. */
+export function planSearch(world: World, center: Vec, seconds: number = TIMING.searchSeconds, care = 1): SearchPlan {
   const points: Vec[] = [{ ...center }]
   const building = buildingAt(world, center)
   const storey = storeyAt(world, center)
@@ -32,7 +33,7 @@ export function planSearch(world: World, center: Vec, seconds: number = TIMING.s
       return { room, score: cost * (claimed ? 4 : 1) }
     })
     .sort((a, b) => a.score - b.score)
-    .slice(0, ROOMS_PER_PLAN)
+    .slice(0, Math.max(1, Math.round(ROOMS_PER_PLAN * care)))
   for (const { room } of candidates) {
     world.security.searched.set(room.id, world.clock)
     points.push({ x: room.x + room.w / 2, y: room.floorY })

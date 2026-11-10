@@ -37,6 +37,35 @@ export const LINES = {
   station: ['On station.', 'Holding the stairs.', 'In position.'],
   checkIn: ['All quiet.', 'Nothing to report.', 'Post secure.', 'Quiet here.'],
   standDown: ['Back to it.', 'Returning to post.'],
+  colleagueDown: ['He\'s got {name}!', '{name}\'s down!', 'They got {name}!', 'No! {name}!'],
+  hesitate: ['I\'m not liking this.', 'That\'s where they got him...', 'Careful. He could still be in there.', 'Easy... easy...'],
+  alone: ['I\'m not going in there alone.', 'Need a second man here.', 'Waiting for backup.', 'Somebody get over here. Not doing this solo.'],
+  partnerHere: ['About time. Stay on me.', 'Okay, with me.', 'Right. Let\'s go.'],
+  blindFire: ['Blind firing!', 'Spraying the doorway!', 'Covering fire, can\'t see him!', 'Keep your head down, bastard!'],
+  backup: ['Need backup here!', 'Pinned down, send help!', 'I need support!'],
+  panic: ['I\'m out of here!', 'Screw this!', 'Not dying for this job!', 'Run! Run!'],
+  cower: ['Please, please...', 'Oh god, oh god.', 'Stay quiet... stay quiet...'],
+  surrender: ['I give up, don\'t shoot!', 'Okay, okay! I\'m unarmed!', 'Don\'t shoot! I\'m done!', 'Hands up, see? Hands up!'],
+  rearm: ['He\'s gone... where\'s my gun?', 'Not today, pal.', 'Got it. Back in this.'],
+  recovered: ['Okay... okay. Pull it together.', 'Breathe. Back to it.', 'Right. I\'m good.'],
+  grenade: ['Grenade!', 'Get down!', 'Grenade, move!'],
+  reloading: ['Reloading!', 'Changing mag!', 'Cover me, reloading!'],
+  moving: ['Moving!', 'Cover me, moving!', 'Going up!'],
+  covering: ['Covering!', 'Got you covered.', 'Go, go!'],
+  holdFire: ['Hold fire, he\'s got a hostage!', 'No clear shot!', 'Don\'t shoot, you\'ll hit him!'],
+  drag: ['I\'ve got you, {name}!', 'Hang on, {name}!', 'Pulling you out!'],
+  pinned: ['I\'m pinned!', 'Can\'t get my head up!', 'Rounds everywhere!'],
+  rocket: ['RPG!', 'He\'s got a launcher!', 'Rocket! Take cover!'],
+  doorOpen: ['This door was shut...', 'Who left this open?', 'Door\'s open. That\'s not right.'],
+  lockPicked: ['Lock\'s been picked.', 'Someone forced this lock.', 'Scratches on the lock... we\'ve got company.'],
+  smokeGrenade: ['That\'s a smoke canister!', 'Smoke grenade! Someone\'s here!'],
+  flashCover: ['Ahh! My face!', 'I\'m blind, I\'m blind!', 'Don\'t hurt me!'],
+  flashWild: ['Firing blind!', 'Somewhere over there!', 'Eat this!'],
+  vaultOpen: ['The vault\'s been hit!', 'The gold\'s gone!', 'Vault breach!'],
+  chute: ['Parachute! Someone\'s coming in!', 'Is that a chute?!', 'Something in the sky!'],
+  scrape: ['Someone moving furniture?', 'What\'s that scraping?', 'Who\'s dragging stuff around?'],
+  dark: ['Torch on.', 'Can\'t see a thing.', 'Damn lights...'],
+  camera: ['Camera\'s feed just died.', 'Lost a camera. Somebody check it.', 'Camera\'s gone dark.'],
 } as const
 
 export type LineKind = keyof typeof LINES
@@ -44,6 +73,27 @@ export type LineKind = keyof typeof LINES
 export function pickLine(rng: Rng, kind: LineKind): string {
   const options = LINES[kind]
   return options[Math.floor(rng() * options.length)]
+}
+
+const RECENT_LINES = 8
+
+/** A line of this kind that nobody has said lately, if there is one, with `{name}` filled in. */
+export function freshLine(world: World, kind: LineKind, name = 'him'): string {
+  const recent = world.security.recentLines
+  const options = LINES[kind].map((line) => line.replace('{name}', name))
+  const unused = options.filter((line) => !recent.includes(line))
+  const pool = unused.length > 0 ? unused : options
+  const line = pool[Math.floor(world.rng() * pool.length)]
+  recent.push(line)
+  if (recent.length > RECENT_LINES) recent.shift()
+  return line
+}
+
+/** What colleagues call a guard (by his index in `world.guards`). */
+const NAMES = ['Reyes', 'Kowalski', 'Okafor', 'Brandt', 'Mendez', 'Sato', 'Novak', 'Haddad', 'Price', 'Lindqvist', 'Moreau', 'Chen', 'Duarte', 'Ivanov', 'Walsh', 'Abara', 'Ferro', 'Gruber', 'Tanaka', 'Quinn', 'Adeyemi', 'Rossi', 'Kaur', 'Varga']
+
+export function nameOf(index: number): string {
+  return NAMES[index % NAMES.length]
 }
 
 /**
@@ -56,8 +106,9 @@ export function bark(world: World, guard: Guard, text: string, force = false): v
   sayAt(world, { x: guard.x + guard.w / 2, y: guard.y - 0.5 }, text)
 }
 
-export function barkLine(world: World, guard: Guard, kind: LineKind, force = false): void {
-  bark(world, guard, pickLine(world.rng, kind), force)
+export function barkLine(world: World, guard: Guard, kind: LineKind, force = false, name?: string): void {
+  if (!force && guard.barkCooldown > 0) return
+  bark(world, guard, freshLine(world, kind, name), force)
 }
 
 export function sayAt(world: World, at: Vec, text: string): void {

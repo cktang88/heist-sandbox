@@ -3,7 +3,7 @@ import type { GuardRole, GuardSpawn } from '../site'
 import type { OnStairs } from '../stairs'
 import type { Body, Vec } from '../types'
 import type { SecurityEvent } from './events'
-import { PATROL } from './tuning'
+import { PATROL, TIERS } from './tuning'
 
 /**
  * The coarse state renderers colour guards by. `mode` holds the detailed behaviour;
@@ -15,17 +15,25 @@ export type GuardState = 'patrol' | 'suspicious' | 'alert' | 'dead'
  * What a guard is doing, as the player should read it:
  * calm (post or route), noticed (paused, looking), investigating (walking to a disturbance),
  * searching (sweeping around a last known position), combat, caution (heightened patrol afterwards),
- * toAlarm (radio is dead, running for an alarm button), dead.
+ * toAlarm (radio is dead, running for an alarm button), panic (nerve gone: fleeing to a security room, or cowering there),
+ * surrendered (weapon dropped, hands up), dead.
  */
-export type GuardMode = 'calm' | 'noticed' | 'investigating' | 'searching' | 'combat' | 'caution' | 'toAlarm' | 'dead'
+export type GuardMode = 'calm' | 'noticed' | 'investigating' | 'searching' | 'combat' | 'caution' | 'toAlarm' | 'panic' | 'surrendered' | 'dead'
+
+/** Experience: how steady a guard's nerve is, how fast and straight he shoots and how carefully he searches. See TIERS in tuning.ts. */
+export type Tier = 'rookie' | 'regular' | 'veteran'
+
+/** How a flashed guard copes: a steady one fires wild down the line he faced, a shaken one stumbles about, a frightened one covers his face. */
+export type BlindReaction = 'wild' | 'stumble' | 'cover'
 
 /** Something a guard wants to look at. One at a time; newer of equal priority wins. */
-export type InterestKind = 'glimpse' | 'noise' | 'gunfire' | 'body' | 'lightsOut' | 'fire' | 'order' | 'shout'
+export type InterestKind = 'glimpse' | 'noise' | 'gunfire' | 'body' | 'lightsOut' | 'fire' | 'order' | 'shout' | 'tamper' | 'smoke'
 /**
  * `at` is a feet position; `reached` once the guard got there and started looking; `body` is the guard index of a body;
- * `circuit` is the dead lighting circuit a 'lightsOut' interest is about, which he switches back on when he gets there.
+ * `circuit` is the dead lighting circuit a 'lightsOut' interest is about, which he switches back on when he gets there;
+ * `tamper` says whether a 'tamper' interest is a door left open or a lock picked.
  */
-export type Interest = { at: Vec; kind: InterestKind; priority: number; reached: boolean; body?: number; circuit?: number }
+export type Interest = { at: Vec; kind: InterestKind; priority: number; reached: boolean; body?: number; circuit?: number; tamper?: 'door' | 'lock' }
 
 /** A report being spoken into the radio. Killing or stunning the guard before `seconds` runs out stops it. */
 export type RadioCall = { event: SecurityEvent; seconds: number }
@@ -118,6 +126,43 @@ export type Guard = Body & {
   deafSeconds: number
   /** Armoured responders arrive when the alarm rings. They take more to bring down. */
   armored: boolean
+  tier: Tier
+  /** 0 (broken) to 1 (steady). The tier's base, plus or minus his situation, minus `shock`. See nerve.ts. */
+  nerve: number
+  /** Fright from what has happened to him (shots, wounds, deaths, blasts). Fades slowly. */
+  shock: number
+  /** 0..1 from bullets cracking past: he ducks and aims worse. Fades in a couple of seconds. */
+  suppression: number
+  nerveTimer: number
+  /** Clock time a bullet last cracked past him, so one burst is not counted many times over. */
+  nearMissAt: number
+  /** Rounds left in the magazine, and seconds left of a reload. */
+  rounds: number
+  reloadSeconds: number
+  /** Seconds left of a dive away from a grenade. */
+  diveSeconds: number
+  /** Seconds left waiting at the edge of a room before going in, and the room he has already steeled himself for. */
+  hesitateSeconds: number
+  hesitatedRoom: number | null
+  /** Seconds spent waiting for a partner before walking into something dangerous. */
+  partnerWait: number
+  /** Clock time he last radioed for backup. */
+  backupAt: number
+  /** Firing blind from cover at the last known position, without looking. */
+  blindFiring: boolean
+  /** Covering-and-moving: set while he is the one moving; `boundSince` says who started first. */
+  bounding: boolean
+  boundSince: number
+  /** A colleague (guard index) hauling this wounded guard out of the line of fire, and for how much longer. */
+  draggedBy: number | null
+  dragSeconds: number
+  blindReaction: BlindReaction | null
+  /** Where he dropped his weapon when he gave up; null while he holds it. */
+  droppedWeapon: Vec | null
+  /** Seconds a surrendered guard has gone unwatched; long enough and he goes for his weapon. */
+  unwatchedSeconds: number
+  /** Tied up by the player: out of the game for good, but alive. */
+  restrained: boolean
 }
 
 const BASE_HP = 100
@@ -128,6 +173,7 @@ export function createGuard(spawn: GuardSpawn, armored = false): Guard {
   const home = route.length >= 2 ? { x: (route[0].x + route[route.length - 1].x) / 2, y: spawn.y } : { x: spawn.x + 0.5, y: spawn.y }
   const tough = armored || spawn.role === 'heavy'
   const hp = tough ? ARMORED_HP : BASE_HP
+  const tier = tierFor(spawn, tough)
   return {
     x: spawn.x + 0.15, y: spawn.y - 1.6, w: 0.7, h: 1.6, vx: 0, vy: 0, onGround: false,
     hp, maxHp: hp, facing: spawn.facing, state: 'patrol', mode: 'calm', modeSeconds: 0, awareness: 0, target: null,
@@ -139,7 +185,26 @@ export function createGuard(spawn: GuardSpawn, armored = false): Guard {
     role: spawn.role ?? 'patrol', roomId: spawn.roomId ?? null,
     patrolRange: route.length >= 2 ? Math.abs(route[route.length - 1].x - route[0].x) / 2 : PATROL.defaultRange,
     blindSeconds: 0, deafSeconds: 0, armored: tough,
+    tier, nerve: TIERS[tier].nerve, shock: 0, suppression: 0, nerveTimer: 0, nearMissAt: -Infinity,
+    rounds: magazineOf(tough), reloadSeconds: 0, diveSeconds: 0, hesitateSeconds: 0, hesitatedRoom: null, partnerWait: 0, backupAt: -Infinity,
+    blindFiring: false, bounding: false, boundSince: 0, draggedBy: null, dragSeconds: 0, blindReaction: null, droppedWeapon: null, unwatchedSeconds: 0, restrained: false,
   }
+}
+
+/**
+ * Responders, heavies and officers are veterans; operators and sentries are steady regulars; the rest are a mix,
+ * picked from the spawn position so the same site always has the same people.
+ */
+function tierFor(spawn: GuardSpawn, tough: boolean): Tier {
+  if (tough || spawn.role === 'officer') return 'veteran'
+  if (spawn.role === 'operator' || spawn.role === 'sentry') return 'regular'
+  const roll = Math.abs(Math.floor(spawn.x) * 31 + Math.floor(spawn.y) * 17) % 10
+  return roll < 3 ? 'rookie' : roll < 8 ? 'regular' : 'veteran'
+}
+
+/** Rifles for the armoured, pistols for everyone else. */
+export function magazineOf(armored: boolean): number {
+  return armored ? 30 : 15
 }
 
 export function feetOf(guard: Body): Vec {
@@ -150,9 +215,9 @@ export function eyeOf(guard: Body): Vec {
   return { x: guard.x + guard.w / 2, y: guard.y + 0.35 }
 }
 
-/** Can this guard act right now (alive, not stunned)? */
+/** Can this guard act right now (alive, not stunned, not given up)? */
 export function isActive(guard: Guard): boolean {
-  return guard.mode !== 'dead' && guard.stunSeconds <= 0
+  return guard.mode !== 'dead' && guard.mode !== 'surrendered' && guard.stunSeconds <= 0
 }
 
 /** Changes mode and restarts the mode clock. Barks for the change are made by the brain, which sees it next frame. */
@@ -172,6 +237,8 @@ export function stateForMode(mode: GuardMode): GuardState {
     case 'investigating':
     case 'searching':
     case 'toAlarm':
+    case 'panic':
+    case 'surrendered':
       return 'suspicious'
     case 'combat':
       return 'alert'

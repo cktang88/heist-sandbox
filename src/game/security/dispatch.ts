@@ -1,12 +1,15 @@
 import type { World } from '../world'
 import { expireBarks } from './barks'
+import { shotAt } from './brain'
+import { watchCameraFeeds } from './discoveries'
+import { watchIncomingFire } from './nerve'
 import { stepCameras } from './cameras'
 import { noticeDeadCircuits, stepCheckIns, watchRelays } from './checkins'
 import type { AlertLevel } from './events'
 import { log, raiseLevel } from './report'
 import { organiseSquad } from './squad'
 import { assignStations } from './stations'
-import { LEVELS } from './tuning'
+import { FEAR, LEVELS, RESPONSE } from './tuning'
 
 /**
  * The security force as an organisation: the control room (dispatcher) that holds the one shared picture
@@ -35,7 +38,10 @@ export function stepSecurity(world: World, dt: number): void {
   if (Math.floor(world.clock * SLOW_CHECKS_PER_SECOND) !== Math.floor((world.clock - dt) * SLOW_CHECKS_PER_SECOND)) {
     watchRelays(world)
     noticeDeadCircuits(world)
+    watchCameraFeeds(world)
+    forgetOldTrouble(world)
   }
+  watchIncomingFire(world, dt, shotAt)
   stepCameras(world, dt)
   organiseSquad(world, dt)
   if (security.level >= 2 && world.clock - security.stationsAt > RESTATION_SECONDS) assignStations(world)
@@ -46,7 +52,9 @@ function stepLevel(world: World): void {
   const security = world.security
   const recentContact = world.clock - security.lastContactAt < LOCKDOWN_CONTACT
   const dragging = security.level === 3 && world.clock - security.confirmedAt > LEVELS.lockdownAfter
-  if (security.level === 3 && recentContact && (dragging || world.player.hasLoot)) {
+  const bombed = security.level === 3 && world.clock >= security.lockdownAt
+  if (bombed || (security.level === 3 && recentContact && (dragging || world.player.hasLoot))) {
+    security.lockdownAt = Infinity
     raiseLevel(world, 4)
     return
   }
@@ -61,6 +69,13 @@ function stepLevel(world: World): void {
     security.responseSent = false
   }
   if (security.level < 2) assignStations(world)
+}
+
+/** Responses and deaths are only worth remembering for a while. */
+function forgetOldTrouble(world: World): void {
+  const security = world.security
+  security.responses = security.responses.filter((response) => world.clock - response.clock < RESPONSE.forgetSeconds)
+  security.deaths = security.deaths.filter((death) => world.clock - death.clock < FEAR.deathMemory)
 }
 
 /** What the guards will not forget: once anything happened the site stays uneasy, and after a confirmed intruder, suspicious. */

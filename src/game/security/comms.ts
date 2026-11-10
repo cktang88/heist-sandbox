@@ -37,7 +37,17 @@ function callText(world: World, event: SecurityEvent): string {
     case 'noise':
       return event.loud ? `Control, shots fired, ${floorName(world, event.at)}.` : `Control, heard something on ${floorName(world, event.at)}.`
     case 'fault':
-      return `Control, lights are out on ${floorName(world, event.at)}.`
+      return event.what === 'camera' ? `Control, camera down on ${floorName(world, event.at)}.` : `Control, lights are out on ${floorName(world, event.at)}.`
+    case 'backup':
+      return `Control, need backup on ${floorName(world, event.at)}!`
+    case 'explosion':
+      return `Control, explosion on ${floorName(world, event.at)}!`
+    case 'tamper':
+      return event.what === 'lock' ? `Control, lock's been forced on ${floorName(world, event.at)}.` : `Control, found a door open on ${floorName(world, event.at)}.`
+    case 'vault':
+      return 'Control, the vault\'s been hit! The gold is gone!'
+    case 'parachute':
+      return `Control, parachute coming down over ${floorName(world, event.at)}!`
     case 'fire':
       return `Control, fire on ${floorName(world, event.at)}!`
     default:
@@ -98,7 +108,7 @@ export function shout(world: World, guard: Guard, event: SecurityEvent): void {
 }
 
 function hearShout(world: World, guard: Guard, event: SecurityEvent): void {
-  if (!('at' in event) || guard.mode === 'combat') return
+  if (!('at' in event) || guard.mode === 'combat' || guard.mode === 'panic') return
   if (event.kind === 'sighting') {
     guard.lastKnown = { ...event.at }
     guard.lastKnownAt = world.clock

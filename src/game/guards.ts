@@ -4,6 +4,8 @@ import { createRagdoll, stepRagdoll } from './ragdoll'
 import { thinkGuard } from './security/brain'
 import { enterCombat } from './security/combat'
 import { setMode, type Guard } from './security/model'
+import { onHurt, onKilled } from './security/nerve'
+import { beingDragged } from './security/selfPreservation'
 import { deployResponders } from './security/response'
 import { raiseLevel } from './security/report'
 import { centerOf, type Vec } from './types'
@@ -15,6 +17,9 @@ import type { World } from './world'
  */
 export { createGuard, type Guard, type GuardMode, type GuardState } from './security/model'
 export { investigate } from './security/brain'
+export { isShielded } from './security/combat'
+export { restrainGuard } from './security/fear'
+export { scrapeNoise } from './security/hearing'
 export { canSee, visionOf } from './security/perception'
 
 const UNAWARE_DAMAGE_BONUS = 3
@@ -32,7 +37,8 @@ export function updateGuard(world: World, guard: Guard, dt: number): void {
   }
   if (guard.stunSeconds > 0) {
     guard.stunSeconds = Math.max(0, guard.stunSeconds - dt)
-    guard.vx = 0
+    // Out cold, he can still be hauled out of the line of fire by a colleague.
+    if (guard.draggedBy === null || !beingDragged(world, guard, dt)) guard.vx = 0
     return
   }
   thinkGuard(world, guard, dt)
@@ -57,8 +63,10 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec,
     guard.ragdoll = createRagdoll({ x: guard.x + guard.w / 2, y: guard.y + guard.h }, { x: guard.vx, y: guard.vy }, world.rng)
     world.stats.kills += 1
     playSound(world, 'kill', guard)
+    onKilled(world, guard)
     return true
   }
+  onHurt(guard)
   if (cause === 'attack') enterCombat(world, guard, from)
   return false
 }

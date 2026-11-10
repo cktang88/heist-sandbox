@@ -77,6 +77,18 @@ export function floorBelow(world: World, at: Vec): Vec {
   return { x: at.x, y: Math.ceil(at.y) }
 }
 
+/**
+ * Is this column a doorway on the floor with feet row `floorY`: a lintel overhead, open below it, in a wall one tile thick?
+ * Standing in one in a fight makes a guard a silhouette in a frame.
+ */
+export function isDoorway(world: World, column: number, floorY: number): boolean {
+  const x = Math.floor(column) + 0.5
+  const lintel = isSolidAt(world.grid, x, floorY - 3.5)
+  const open = !isSolidAt(world.grid, x, floorY - 1.5) && !isSolidAt(world.grid, x, floorY - 2.5)
+  const thinWall = !isSolidAt(world.grid, x - 1, floorY - 3.5) && !isSolidAt(world.grid, x + 1, floorY - 3.5)
+  return lintel && open && thinWall
+}
+
 export function unitName(index: number): string {
   return `Unit ${index + 1}`
 }
