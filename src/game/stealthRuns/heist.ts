@@ -6,15 +6,15 @@ import { isSolidAt, tileAt } from '../tiles'
 import { centerOf, type Vec } from '../types'
 import type { World } from '../world'
 import { blown, feet, holdE, note, pressE, tick, type Run } from './kit'
-import { basementHatch, climbLadder, enterByRoof, enterBySewer, sewerFloor, streetManhole } from './routes'
-import { walkTo, type WalkOptions } from './walker'
+import { basementHatch, climbLadder, enterByRoof, enterBySewer, enterByStreetDoor, sewerFloor, streetManhole } from './routes'
+import { walkTo, type WalkOptions, type WalkResult } from './walker'
 
 /**
  * A whole quiet heist by script: in by one of the routes, find the case from what papers and computers say
  * (never touching a guard for it), take it, and leave by the sewer to the van.
  */
 
-export type Entry = 'sewer' | 'roof'
+export type Entry = 'sewer' | 'roof' | 'street'
 export type HeistResult = { won: boolean; stage: string; sourcesRead: number; placesTried: number }
 
 const READABLE = new Set(['whiteboard', 'noticeBoard', 'paperStack'])
@@ -115,7 +115,7 @@ function leaveBySewer(run: Run, options: WalkOptions): string | null {
 export function quietHeist(run: Run, entry: Entry, options: WalkOptions = {}): HeistResult {
   const { world } = run
   const result: HeistResult = { won: false, stage: 'entering', sourcesRead: 0, placesTried: 0 }
-  if ((entry === 'sewer' ? enterBySewer(run, options) : enterByRoof(run)) !== 'arrived') return result
+  if (enter(run, entry, options) !== 'arrived') return result
   const sources = quietSources(world)
   const ruledOut = new Set<number>()
   while (!world.player.hasLoot) {
@@ -149,6 +149,12 @@ export function quietHeist(run: Run, entry: Entry, options: WalkOptions = {}): H
   const failed = leaveBySewer(run, options)
   if (failed) return { ...result, stage: failed }
   return { ...result, won: true, stage: 'done' }
+}
+
+function enter(run: Run, entry: Entry, options: WalkOptions): WalkResult {
+  if (entry === 'sewer') return enterBySewer(run, options)
+  if (entry === 'street') return enterByStreetDoor(run, options)
+  return enterByRoof(run)
 }
 
 /** The candidate place most clues agree on, or failing that the first one not ruled out. */

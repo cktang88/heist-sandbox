@@ -4,6 +4,7 @@ import type { World } from '../world'
 import { blown, feet, FRAME, holdBack, note, tick, type Run } from './kit'
 import { takedownTarget } from '../stealth/takedown'
 import { passerBy } from '../stealth/hide'
+import { anyoneWatching } from './sight'
 
 /**
  * The stealth toolkit as a careful player uses it, one move at a time: choke a man out and put him in a cupboard,
@@ -14,8 +15,9 @@ import { passerBy } from '../stealth/hide'
 /** How far the player will go for a hiding place, and carry a body to one. */
 const HIDE_REACH = 7
 const CARRY_REACH = 12
-/** How long he stays hidden at most, waiting for a patrol to pass. */
+/** How long he stays hidden at most, waiting for a patrol to pass, and then for the coast to clear. */
 const HIDE_SECONDS = 40
+const COAST_SECONDS = 20
 
 /** Steps toward a spot on this floor for up to `seconds`; true once there. */
 function stepTo(run: Run, x: number, seconds: number, maxAlert: number): boolean {
@@ -105,6 +107,8 @@ export function hideUntilPassed(run: Run, guard: Guard, maxAlert: number): boole
   if (!stepTo(run, spotFeet(locker).x, 4, maxAlert)) return false
   // Only when E means hiding: with a guard in reach it would mean grabbing him instead.
   if (!/^E: (hide in|crawl under)/.test(world.prompt ?? '')) return false
+  // Nobody may see him climb in: a guard who did would come straight over and open it.
+  if (anyoneWatching(world, 2)) return false
   tick(run, { interact: true, interactPressed: true })
   if (!world.player.hidden) return false
   note(run, `hid in the ${spotKind(locker.kind)?.name} from guard ${world.guards.indexOf(guard)}`)
@@ -122,6 +126,13 @@ export function hideUntilPassed(run: Run, guard: Guard, maxAlert: number): boole
     if (!came && frame * FRAME > HIDE_SECONDS / 2) break
     gone = came && (elsewhere || (Math.abs(offset) > 4 && offset * guard.facing > 0)) ? gone + FRAME : 0
     if (gone > 1.5) break
+  }
+  // Out only once the coast is clear: nobody facing this way, nobody close.
+  for (let frame = 0; frame < COAST_SECONDS / FRAME && anyoneWatching(world); frame += 1) {
+    if (blown(run, maxAlert)) return false
+    holdBack(run)
+    tick(run)
+    if (!world.player.hidden) return true
   }
   run.waiting = false
   for (let frame = 0; frame < 20 && world.player.hidden; frame += 1) {

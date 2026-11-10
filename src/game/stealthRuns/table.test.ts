@@ -5,7 +5,7 @@ import { startRun } from './kit'
 /**
  * The full route table: every seed 1-8 on every scripted route, printed for the report. Takes minutes, so it only
  * runs when asked: `STEALTH_TABLE=1 npx vitest run src/game/stealthRuns/table.test.ts`. Narrow it with
- * `STEALTH_SEEDS=1,2` and `STEALTH_ROUTES=roof,sewer`.
+ * `STEALTH_SEEDS=1,2` and `STEALTH_ROUTES=roof,sewer,street`.
  */
 
 type Node = { env: Record<string, string | undefined>; stderr: { write(text: string): void } }

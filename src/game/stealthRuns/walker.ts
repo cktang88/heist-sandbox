@@ -1,12 +1,13 @@
 import { nextHop } from '../nav'
 import { findLanding } from '../stairs'
 import { eyeOf, feetOf, type Guard } from '../security/model'
-import { clearView, isAlerted, playerLight } from '../security/perception'
+import { clearView } from '../security/perception'
 import { VISION } from '../security/tuning'
 import { tileAt } from '../tiles'
 import { centerOf, type Vec } from '../types'
 import type { World } from '../world'
 import { blown, feet, FRAME, guardsOnFloor, holdBack, note, pressE, tick, type Run } from './kit'
+import { cameraSays, MARGIN, sightReach, threatOf } from './sight'
 import { chokeOut, hideUntilPassed, seizeStartled, stashBody } from './moves'
 import { takedownTarget } from '../stealth/takedown'
 
@@ -23,32 +24,10 @@ export type WalkResult = 'arrived' | 'blown' | 'timeout'
 
 const ARRIVED = 0.35
 const SAME_FLOOR = 1.5
-/** Extra margin past what a guard sees, so a turn of his head does not catch the player. */
-const MARGIN = 2.5
 /** Right behind a guard: this close, the player slips past instead of backing off. */
 const SLIP = 1.7
 /** Stuck against a door this long: open or pick it. */
 const DOOR_PUSH = 0.15
-
-/** How far this guard could make the player out right now, given the light on the player and his posture. */
-export function sightReach(world: World, guard: Guard): number {
-  const light = playerLight(world)
-  const crouched = world.player.crouching
-  const torch = isAlerted(guard) || guard.mode === 'investigating'
-  if (light < VISION.dim) return (torch ? VISION.torchDarkRange : VISION.darkRange) * (crouched ? 0.6 : 1)
-  return isAlerted(guard) ? VISION.alertRange : VISION.centralRange
-}
-
-/** A guard on the player's floor with a clear view who faces him and is close enough to see him, soon if not now. */
-export function threatOf(world: World, guard: Guard): 'facing' | 'behind' | null {
-  const player = centerOf(world.player)
-  const eye = eyeOf(guard)
-  const gap = Math.abs(player.x - eye.x)
-  if (gap > VISION.alertRange + MARGIN || !clearView(world, eye, player)) return null
-  const facing = (player.x - eye.x) * guard.facing > 0
-  if (facing && gap <= sightReach(world, guard) + MARGIN) return 'facing'
-  return facing ? null : 'behind'
-}
 
 export type WalkOptions = {
   timeout?: number
@@ -100,7 +79,8 @@ export function walkTo(run: Run, goal: Vec, options: WalkOptions = {}): WalkResu
     const direction = hop.kind === 'stairs' ? 0 : (Math.sign(targetX - at.x) as 1 | -1 | 0)
     if (behind && closeBehind(run, behind)) behind = null
     if (seizeStartled(run, maxAlert)) continue
-    const due = run.log.seconds - hidAt > HIDE_AGAIN ? patrolDue(world, (guard) => (hides.get(guard) ?? 0) < PATIENCE) : null
+    const worthHiding = (guard: Guard) => (hides.get(guard) ?? 0) < PATIENCE && !(takedownRoom !== null && guard.roomId === takedownRoom)
+    const due = run.log.seconds - hidAt > HIDE_AGAIN ? patrolDue(world, worthHiding) ?? patrolComing(world, worthHiding) : null
     if (due) {
       hidAt = run.log.seconds
       hides.set(due, (hides.get(due) ?? 0) + 1)
@@ -109,7 +89,10 @@ export function walkTo(run: Run, goal: Vec, options: WalkOptions = {}): WalkResu
     if (blown(run, maxAlert)) return 'blown'
     // Held up this long by a man who will not move out of the way: he is taken down too.
     const blocked = run.log.seconds - movedAt > BLOCKED
-    const plan = choose(world, direction, (guard) => blocked || takedowns || (takedownRoom !== null && guard.roomId === takedownRoom) || (hides.get(guard) ?? 0) >= PATIENCE)
+    const guards = choose(world, direction, (guard) => blocked || takedowns || (takedownRoom !== null && guard.roomId === takedownRoom) || (hides.get(guard) ?? 0) >= PATIENCE)
+    // A camera's sweep counts like a guard's eyes: out of it, or wait for it to swing past.
+    const camera = guards === direction ? cameraSays(world, direction) : null
+    const plan = camera ?? guards
     if (plan === 'takedown') {
       const target = takedownTarget(world)?.guard
       if (target && chokeOut(run, target, maxAlert)) stashBody(run, target, maxAlert)
@@ -175,6 +158,16 @@ function closeBehind(run: Run, door: Behind): boolean {
 const BLOCKED = 12
 /** Hidden from the same patrol this often, the player stops waiting for him and takes him down from behind. */
 const PATIENCE = 2
+/** A calm guard walking this way on the player's floor, not yet close enough to see him. */
+function patrolComing(world: World, worthIt: (guard: Guard) => boolean): Guard | null {
+  const player = centerOf(world.player)
+  return guardsOnFloor(world).find((guard) => {
+    const gap = player.x - feetOf(guard).x
+    const toward = Math.abs(guard.vx) > 0.3 && Math.sign(guard.vx) === Math.sign(gap)
+    return worthIt(guard) && (guard.mode === 'calm' || guard.mode === 'caution') && toward && Math.abs(gap) > 3 && Math.abs(gap) < DUE && clearView(world, eyeOf(guard), player)
+  }) ?? null
+}
+
 /** Out of a hiding place, the player gets on with it for this long before hiding again. */
 const HIDE_AGAIN = 20
 /** How far off a patrol is still worth hiding from. */

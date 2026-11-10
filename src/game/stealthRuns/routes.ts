@@ -103,3 +103,23 @@ export function enterByRoof(run: Run): WalkResult {
   tick(run)
   return 'arrived'
 }
+
+/**
+ * Through the yard to a side door in the tower's outer wall at street level (the yard crossed by whatever means), and in
+ * through it: the walker opens or picks it and shuts it behind him. Throws if the tower has no street door.
+ */
+export function enterByStreetDoor(run: Run, options: WalkOptions = {}): WalkResult {
+  const { world } = run
+  const tower = world.rooms.filter((room) => room.building === 'tower')
+  const walls = [Math.min(...tower.map((room) => room.x)) - 1, Math.max(...tower.map((room) => room.x + room.w))]
+  const street = world.groundY
+  const door = walls.find((x) => tileAt(world.grid, x, street - 1) === 'door')
+  if (door === undefined) throw new Error('no street door into the tower')
+  const outward = door === walls[0] ? -1 : 1
+  placeAt(world, door + 0.5 + outward * 3, street)
+  tick(run)
+  note(run, 'at the street door')
+  const inside = tower.filter((room) => room.floorY === street).sort((a, b) => Math.abs(a.x + a.w / 2 - door) - Math.abs(b.x + b.w / 2 - door))[0]
+  if (!inside) throw new Error('no street-level room by the door')
+  return walkTo(run, { x: door + 0.5 - outward * 3, y: street }, options)
+}

@@ -15,8 +15,8 @@ import { startRun } from './kit'
  */
 const RUNS: [number, Entry][] = [
   [1, 'roof'],
-  [5, 'roof'],
-  [4, 'sewer'],
+  [4, 'roof'],
+  [7, 'sewer'],
 ]
 
 describe('a quiet heist from start to van (long)', () => {
