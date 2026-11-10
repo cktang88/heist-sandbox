@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { createProps, type PropState } from '../cover'
-import { currentBuckets, type KeysOf } from './buckets'
+import { addKey, currentBuckets, type KeysOf } from './buckets'
 
 const byColumn: KeysOf = (prop, keys) => {
-  keys.push(Math.floor(prop.x / 4))
-  if (prop.kind === 'sofa') keys.push(Math.floor(prop.x / 4) + 1)
+  addKey(keys, Math.floor(prop.x / 4))
+  if (prop.kind === 'sofa') addKey(keys, Math.floor(prop.x / 4) + 1)
 }
 
 function snapshot(byKey: Map<number, number[]>): Record<number, number[]> {

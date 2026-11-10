@@ -3,7 +3,7 @@ import { propSpec } from '../propCatalog'
 import { roomAt } from '../site'
 import type { Rect, Vec } from '../types'
 import type { World } from '../world'
-import { currentBuckets, type KeysOf, type PropBuckets } from './buckets'
+import { addKey, currentBuckets, type KeysOf, type PropBuckets } from './buckets'
 import { tileKey, type HazardState, type PropIndex } from './state'
 
 /**
@@ -42,7 +42,7 @@ function tileKeysOf(world: World): KeysOf {
     const y0 = Math.floor(top)
     const x1 = Math.max(x0, Math.ceil(left + spec.w) - 1)
     const y1 = Math.max(y0, Math.ceil(top + spec.h) - 1)
-    for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) keys.push(tileKey(world, x, y))
+    for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) addKey(keys, tileKey(world, x, y))
   }
 }
 

@@ -50,7 +50,11 @@ export function createRagdoll(feet: Vec, velocity: Vec, rng: Rng): Ragdoll {
 
 export function pushRagdoll(ragdoll: Ragdoll, from: Vec, radius: number, speed: number): void {
   for (const point of ragdoll.points) {
-    const gap = Math.hypot(point.x - from.x, point.y - from.y)
+    const dx = point.x - from.x
+    const dy = point.y - from.y
+    // Most bodies are far from any one blast: rule them out before the square root.
+    if (dx * dx + dy * dy > radius * radius) continue
+    const gap = Math.hypot(dx, dy)
     if (gap > radius) continue
     wake(ragdoll)
     const force = speed * (1 - gap / radius)

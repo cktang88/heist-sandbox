@@ -1,6 +1,6 @@
 import { burst } from './effects'
 import { propBroke } from './hazards/hazards'
-import { currentBuckets, type PropBuckets } from './hazards/buckets'
+import { addKey, currentBuckets, type KeyList, type PropBuckets } from './hazards/buckets'
 import { propById, propsNear } from './hazards/props'
 import { propCover } from './physprops/tip'
 import { propSpec } from './propCatalog'
@@ -189,10 +189,10 @@ function coverBuckets(world: World): PropBuckets {
   return buckets
 }
 
-function coverKeyOf(prop: PropState, keys: number[]): void {
+function coverKeyOf(prop: PropState, keys: KeyList): void {
   const spec = propSpec(prop.kind)
   if (spec.mount !== 'floor' || spec.cover === 'none') return
-  keys.push(Math.floor((prop.x + 0.5) / BUCKET))
+  addKey(keys, Math.floor((prop.x + 0.5) / BUCKET))
 }
 
 function firstBucket(x: number): number {

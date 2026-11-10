@@ -171,7 +171,8 @@ function playerStops(world: World, bullet: Projectile): boolean {
 }
 
 function guardHit(world: World, shot: Projectile): Guard | null {
-  return world.guards.find((guard) => guard.state !== 'dead' && contains(guard, shot) && !shot.struck?.has(guard)) ?? null
+  for (const guard of world.guards) if (guard.state !== 'dead' && contains(guard, shot) && !shot.struck?.has(guard)) return guard
+  return null
 }
 
 function struckBy(bullet: Projectile): Set<object> {

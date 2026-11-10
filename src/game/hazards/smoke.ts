@@ -226,13 +226,11 @@ function spreadFrom(world: World, smoke: SmokeField, key: number): void {
   const left = x > 0 && !SOLID[kinds[key - 1]] ? key - 1 : -1
   const right = x < width - 1 && !SOLID[kinds[key + 1]] ? key + 1 : -1
   const down = y < height - 1 && !SOLID[kinds[key + width]] ? key + width : -1
-  const total = density(smoke, key)
-  if (total > EMPTY) {
-    const rise = COOL_RISE + (HOT_RISE - COOL_RISE) * (smoke.toxic[key] / total)
-    if (up >= 0) moveSmoke(smoke, key, up, rise * Math.max(0, total - LAYERING * density(smoke, up)), total)
-    if (left >= 0) moveSmoke(smoke, key, left, SIDE_SHARE * Math.max(0, total - density(smoke, left)), total)
-    if (right >= 0) moveSmoke(smoke, key, right, SIDE_SHARE * Math.max(0, total - density(smoke, right)), total)
-    if (down >= 0) moveSmoke(smoke, key, down, DOWN_SHARE * Math.max(0, total - density(smoke, down) - 0.2), total)
+  if (density(smoke, key) > EMPTY) {
+    if (up >= 0) moveSmoke(smoke, key, up, UP)
+    if (left >= 0) moveSmoke(smoke, key, left, SIDEWAYS)
+    if (right >= 0) moveSmoke(smoke, key, right, SIDEWAYS)
+    if (down >= 0) moveSmoke(smoke, key, down, DOWN)
   }
   if (smoke.gas[key] <= EMPTY) return
   if (up >= 0) moveGas(smoke, key, up)
@@ -251,8 +249,22 @@ function touch(smoke: SmokeField, key: number): boolean {
   return true
 }
 
-/** Moves `amount` of a cell's smoke to a neighbour, keeping the mix of kinds. */
-function moveSmoke(smoke: SmokeField, from: number, to: number, amount: number, total: number): void {
+const UP = 0
+const SIDEWAYS = 1
+const DOWN = 2
+
+/**
+ * Moves part of a cell's smoke to the neighbour on one side, keeping the mix of kinds: hot smoke rises until
+ * the cell above is nearly as thick, any smoke evens out sideways, and only a little sinks. Takes only whole
+ * numbers so a call never has to box a fractional value; the amounts are worked out here from this tick's values.
+ */
+function moveSmoke(smoke: SmokeField, from: number, to: number, side: number): void {
+  const total = density(smoke, from)
+  const there = density(smoke, to)
+  let amount: number
+  if (side === UP) amount = (COOL_RISE + (HOT_RISE - COOL_RISE) * (smoke.toxic[from] / total)) * Math.max(0, total - LAYERING * there)
+  else if (side === SIDEWAYS) amount = SIDE_SHARE * Math.max(0, total - there)
+  else amount = DOWN_SHARE * Math.max(0, total - there - 0.2)
   if (amount <= 0 || !touch(smoke, to)) return
   const share = amount / total
   const screen = smoke.flow[0]

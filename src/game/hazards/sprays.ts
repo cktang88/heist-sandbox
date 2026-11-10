@@ -75,10 +75,11 @@ export function stepSprays(world: World, dt: number): void {
 /** Water and foam put out fire in their cone, wet what they hit, and thin the smoke. Wet tiles dry off slowly. */
 export function soak(world: World, tick: number): void {
   const hazards = world.hazards
-  for (const [key, left] of hazards.wet) {
-    if (left <= tick) hazards.wet.delete(key)
-    else hazards.wet.set(key, left - tick)
-  }
+  // forEach rather than for-of over entries, which makes a [key, value] pair for each of thousands of wet tiles.
+  hazards.wet.forEach((left, key, wet) => {
+    if (left <= tick) wet.delete(key)
+    else wet.set(key, left - tick)
+  })
   const keep = Math.pow(SMOKE_KEPT_PER_SECOND, tick)
   for (const spray of hazards.sprays) {
     if (spray.kind !== 'water' && spray.kind !== 'foam') continue
