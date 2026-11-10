@@ -16,7 +16,7 @@ import { mirrorLevel } from './mirror'
 import { createPlayer, type Player } from './player'
 import type { Projectile } from './projectiles'
 import { createRng, type Rng } from './rng'
-import type { Grid } from './tiles'
+import { forgetAllChanges, type Grid } from './tiles'
 import type { SoundEvent } from './sounds'
 import { createTime, type TimeState } from './time'
 import type { Body, Rect } from './types'
@@ -151,5 +151,7 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     intel: createIntel(),
   }
   setupIntel(world)
+  // Building the site set every tile; play reacts only to what changes from here on.
+  forgetAllChanges(world.grid)
   return world
 }

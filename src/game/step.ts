@@ -23,6 +23,7 @@ import { stepMelee } from './melee/melee'
 import { stepIntel } from './intel/intel'
 import { stepPhysProps } from './physprops/physprops'
 import { stepGaps } from './gaps/gaps'
+import { forgetSeenChanges } from './tiles'
 import { useTool } from './tools'
 import { beginStepTiming, endStepTiming, lapStepTiming as lap } from './stepTimings'
 import { overlaps } from './types'
@@ -110,5 +111,6 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   if (world.player.hp <= 0) world.status = 'dead'
   else if (world.player.hasLoot && overlaps(world.player, world.extraction)) world.status = 'won'
   lap('bodies')
+  forgetSeenChanges(world.grid)
   endStepTiming()
 }

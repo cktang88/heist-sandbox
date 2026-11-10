@@ -1,6 +1,7 @@
 import type { PropState } from '../cover'
 import { burst } from '../effects'
 import { hurtGuard } from '../guards'
+import { addKey, currentBuckets, type KeyList, type KeysOf, type PropBuckets } from '../hazards/buckets'
 import { propById } from '../hazards/props'
 import { breakProp } from '../hazards/reactions'
 import type { Holes } from '../gaps/holes'
@@ -9,15 +10,16 @@ import { emitNoise } from '../noise'
 import { GRAVITY } from '../physics'
 import { propSpec } from '../propCatalog'
 import { playSound } from '../sounds'
-import { TILE_DEFS, TILE_KINDS, tileAt, type Grid } from '../tiles'
+import { changeMark, changesFrom, TILE_DEFS, TILE_KINDS, tileAt, type Grid } from '../tiles'
 import { overlaps, type Rect } from '../types'
 import type { World } from '../world'
 import { isVehicle, vehicleLanded } from './vehicles'
 
 /**
  * Floor props whose floor has been blown away drop to the next solid floor, hurting whoever they land on.
- * Nothing here looks at every prop each frame: the grid is compared with a copy only when it has changed, and only
- * the props standing on tiles that just stopped being solid are checked.
+ * Nothing here looks at every prop or tile each frame: only the tiles the grid lists as changed (and the floor beside
+ * them, whose walk-past holes they may have widened) are compared with a copy, and only the props standing on tiles
+ * that just stopped holding them are checked.
  */
 export type FallingProp = { id: number; vy: number }
 
@@ -26,11 +28,12 @@ export type FallingPropsState = {
   /** One byte per tile, what held things up there when last compared (see `holdsUp`), and the grid it was taken from. */
   solid: Uint8Array | null
   grid: Grid | null
-  version: number
-  /** Tile index to the floor props standing on it, and the prop list it was built from. */
-  standingOn: Map<number, number[]> | null
-  props: readonly PropState[] | null
-  propCount: number
+  /** Position in the grid's change list (see `changeMark`) up to which `solid` is up to date. */
+  mark: number
+  /** Floor props filed by the tiles they stand on. */
+  standing: PropBuckets | null
+  /** A prop has landed somewhere new since the stand-on index was last brought up to date. */
+  landed: boolean
 }
 
 const SOLID = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid ? 1 : 0))
@@ -47,13 +50,13 @@ const PLAYER_CRUSH_SHARE = 0.5
 const DUST = '#8a8f98'
 
 export function createFallingProps(): FallingPropsState {
-  return { falling: [], solid: null, grid: null, version: -1, standingOn: null, props: null, propCount: 0 }
+  return { falling: [], solid: null, grid: null, mark: 0, standing: null, landed: false }
 }
 
 export function stepFallingProps(world: World, dt: number): void {
   const state = world.fallingProps
   if (state.grid !== world.grid || !state.solid) remember(world, state)
-  else if (world.grid.version !== state.version) {
+  else if (changesFrom(world.grid, state.mark) !== world.grid.changes.tiles.length) {
     for (const prop of propsOnLostTiles(world, state)) {
       // Furniture the player has disturbed has its own physics (physprops/gravity.ts), which drops it.
       if (world.physProps.loose.has(prop.id)) continue
@@ -84,44 +87,91 @@ function remember(world: World, state: FallingPropsState): void {
   state.solid = new Uint8Array(kinds.length)
   for (let index = 0; index < kinds.length; index += 1) state.solid[index] = holdsUp(kinds, holes, index)
   state.grid = world.grid
-  state.version = world.grid.version
+  state.mark = changeMark(world.grid)
 }
 
-/** Floor props standing on tiles that held them up at the last look and do not now. Updates the copy as it goes. */
+/**
+ * Floor props standing on tiles that held them up at the last look and do not now. Updates the copy as it goes.
+ * A changed tile can also widen (or close) a walk-past hole along its row, which changes whether the open tiles
+ * beside it hold furniture, so the row is looked at as far as any hole's width could reach.
+ */
 function propsOnLostTiles(world: World, state: FallingPropsState): PropState[] {
-  const solid = state.solid!
-  const { kinds } = world.grid
+  const { grid } = world
   const holes = currentHoles(world)
-  const found = new Set<number>()
-  const standingOn = indexStanding(world, state)
-  for (let index = 0; index < kinds.length; index += 1) {
-    const now = holdsUp(kinds, holes, index)
-    if (solid[index] === now) continue
-    const lost = (solid[index] & ~now) !== 0
-    solid[index] = now
-    if (lost) for (const id of standingOn.get(index) ?? []) found.add(id)
-  }
-  state.version = world.grid.version
-  return [...found].map((id) => propById(world, id)).filter((prop): prop is PropState => prop !== undefined)
-}
-
-function indexStanding(world: World, state: FallingPropsState): Map<number, number[]> {
-  if (state.standingOn && state.props === world.props && state.propCount === world.props.length) return state.standingOn
-  const index = new Map<number, number[]>()
-  for (const prop of world.props) {
-    if (propSpec(prop.kind).mount !== 'floor') continue
-    for (const x of footprint(prop)) {
-      const key = prop.y * world.grid.width + x
-      const list = index.get(key)
-      if (list) list.push(prop.id)
-      else index.set(key, [prop.id])
+  const standing = indexStanding(world, state)
+  found.length = 0
+  const from = changesFrom(grid, state.mark)
+  if (from < 0) {
+    for (let index = 0; index < grid.kinds.length; index += 1) compare(grid.kinds, holes, state.solid!, standing, index)
+  } else {
+    const reach = holeReach(holes)
+    const { tiles } = grid.changes
+    for (let entry = from; entry < tiles.length; entry += 1) {
+      const index = tiles[entry]
+      const x = index % grid.width
+      const rowStart = index - x
+      const last = Math.min(grid.width - 1, x + reach)
+      for (let column = Math.max(0, x - reach); column <= last; column += 1) compare(grid.kinds, holes, state.solid!, standing, rowStart + column)
     }
   }
-  state.standingOn = index
-  state.props = world.props
-  state.propCount = world.props.length
-  return index
+  state.mark = changeMark(grid)
+  const props: PropState[] = []
+  for (const id of found) {
+    const prop = propById(world, id)
+    if (prop) props.push(prop)
+  }
+  return props
 }
+
+/** Ids of the props found standing on lost tiles, in the order found, without repeats. */
+const found: number[] = []
+
+/** Brings one tile of the copy up to date, noting the props standing on it if it no longer holds what it did. */
+function compare(kinds: Uint8Array, holes: Holes, solid: Uint8Array, standing: PropBuckets, index: number): void {
+  const now = holdsUp(kinds, holes, index)
+  if (solid[index] === now) return
+  const lost = (solid[index] & ~now) !== 0
+  solid[index] = now
+  if (!lost) return
+  for (const id of standing.byKey.get(index) ?? []) if (!found.includes(id)) found.push(id)
+}
+
+/** How far along a row a changed tile can change whether the tiles beside it are walk-past holes: the widest hole, and a tile more. */
+function holeReach(holes: Holes): number {
+  let reach = reaches.get(holes)
+  if (reach === undefined) {
+    reach = 2
+    for (const widest of holes.widest) reach = Math.max(reach, widest + 2)
+    reaches.set(holes, reach)
+  }
+  return reach
+}
+const reaches = new WeakMap<Holes, number>()
+
+/** Floor props filed under the tiles they stand on, brought up to date when the prop list changed or a prop landed. */
+function indexStanding(world: World, state: FallingPropsState): PropBuckets {
+  state.standing = currentBuckets(state.standing, world.props, standingKeys(world.grid.width), state.landed)
+  state.landed = false
+  return state.standing
+}
+
+/** The tiles a floor prop stands on, as bucket keys, for a grid this wide. */
+function standingKeys(width: number): KeysOf {
+  let keysOf = keyMakers.get(width)
+  if (!keysOf) {
+    keysOf = (prop: PropState, keys: KeyList): void => {
+      const spec = propSpec(prop.kind)
+      if (spec.mount !== 'floor') return
+      const row = Math.floor(prop.y) * width
+      const left = Math.floor(prop.x + 0.5 - spec.w / 2)
+      const right = Math.max(left, Math.ceil(prop.x + 0.5 + spec.w / 2) - 1)
+      for (let x = left; x <= right; x += 1) addKey(keys, row + x)
+    }
+    keyMakers.set(width, keysOf)
+  }
+  return keysOf
+}
+const keyMakers = new Map<number, KeysOf>()
 
 /** The columns under a floor prop. */
 function footprint(prop: PropState): number[] {
@@ -166,7 +216,7 @@ function land(world: World, prop: PropState, row: number, speed: number): void {
   prop.y = row
   // The prop now covers other tiles: fire and the stand-on index must look again.
   world.hazards.propIndex = null
-  world.fallingProps.standingOn = null
+  world.fallingProps.landed = true
   const spec = propSpec(prop.kind)
   const box: Rect = { x: prop.x + 0.5 - spec.w / 2, y: row - spec.h, w: spec.w, h: spec.h }
   const at = { x: box.x + box.w / 2, y: row - 0.2 }

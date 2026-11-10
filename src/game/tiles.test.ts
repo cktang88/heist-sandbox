@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CHUNK_TILES, chunkIndex, createGrid, damageTile, isSolidAt, setTile, tileAt } from './tiles'
+import { changeMark, changesFrom, CHUNK_TILES, chunkIndex, createGrid, damageTile, forgetSeenChanges, isSolidAt, setTile, tileAt } from './tiles'
 
 describe('tiles', () => {
   it('treats everything outside the map as bedrock', () => {
@@ -33,5 +33,25 @@ describe('tiles', () => {
     grid.dirtyChunks.clear()
     setTile(grid, 0, 0, 'brick')
     expect([...grid.dirtyChunks]).toEqual([chunkIndex(grid, 0, 0)])
+  })
+
+  it('lists tiles whose kind changed, for each reader from its own mark, until a whole step has passed', () => {
+    const grid = createGrid(4, 4)
+    const reader = changeMark(grid)
+    setTile(grid, 1, 1, 'brick')
+    setTile(grid, 1, 1, 'brick')
+    damageTile(grid, 1, 1, 10)
+    setTile(grid, 2, 1, 'brick')
+    const listed = (mark: number) => grid.changes.tiles.slice(changesFrom(grid, mark))
+    expect(listed(reader)).toEqual([5, 6])
+    const late = changeMark(grid)
+    forgetSeenChanges(grid)
+    setTile(grid, 3, 3, 'wood')
+    expect(listed(late)).toEqual([15])
+    // Kept through the first end of step, so a system that ran before the change still sees it on the next step.
+    expect(listed(reader)).toEqual([5, 6, 15])
+    forgetSeenChanges(grid)
+    expect(changesFrom(grid, reader)).toBe(-1)
+    expect(listed(late)).toEqual([15])
   })
 })
