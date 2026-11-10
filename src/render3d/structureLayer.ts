@@ -1,6 +1,7 @@
 import { Group } from 'three'
 import { buildElevator } from './devices/structure/elevator'
 import { buildStairwell } from './devices/structure/stairs'
+import type { World } from '../game/world'
 import { DRAW_DISTANCE, type LayerFactory } from './layer'
 
 /**
@@ -9,11 +10,13 @@ import { DRAW_DISTANCE, type LayerFactory } from './layer'
  */
 export const createStructureLayer: LayerFactory = (world, materials) => {
   const group = new Group()
-  const stairs = world.stairwells.map((well) => {
+  const buildStairs = (wells: World['stairwells']) => wells.map((well) => {
     const mesh = buildStairwell(well, world.groundY, materials.concrete)
     group.add(mesh)
     return { mesh, left: Math.min(well.leftX, well.rightX), right: Math.max(well.leftX, well.rightX) }
   })
+  let builtFrom = world.stairwells
+  let stairs = buildStairs(builtFrom)
   const elevators = world.elevators.map((shaft) => {
     const rig = buildElevator(shaft)
     group.add(rig.group)
@@ -25,6 +28,12 @@ export const createStructureLayer: LayerFactory = (world, materials) => {
     update(now, frame) {
       const reachX = DRAW_DISTANCE + 4
       const reachY = DRAW_DISTANCE * 0.62 + 6
+      // The list is replaced whenever a flight is blown away, so the meshes are rebuilt to match.
+      if (now.stairwells !== builtFrom) {
+        for (const stair of stairs) group.remove(stair.mesh)
+        builtFrom = now.stairwells
+        stairs = buildStairs(builtFrom)
+      }
       for (const stair of stairs) stair.mesh.visible = stair.right > frame.view.x - reachX && stair.left < frame.view.x + reachX
       const near = (y: number) => Math.abs(y - frame.view.y) < reachY
       for (const { shaft, rig } of elevators) {
