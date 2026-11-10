@@ -95,6 +95,8 @@ export function createMenus(host: MenuHost): Menus {
     const top = stack.top()
     const plain = !event.ctrlKey && !event.metaKey && !event.altKey
     if (!top) {
+      // The loading screen covers the menus: one opened now would sit unseen behind it and pause the heist that follows.
+      if (document.querySelector<HTMLElement>('#loading')?.hidden === false) return
       if (event.code === 'Escape' || (event.code === 'KeyP' && plain)) openPause()
       else if (event.code === 'KeyH' && plain) openModal('help')
       else if ((event.code === 'KeyK' && plain) || event.code === 'F1') openModal('controls')
