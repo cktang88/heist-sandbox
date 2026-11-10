@@ -96,4 +96,13 @@ describe('gunfire through a hole in the floor', () => {
     const under = Math.abs(feetOf(listener).x - (HOLE.from + HOLE.to + 1) / 2) < 1.5
     expect(under).toBe(false)
   })
+
+  it.each([8, 20, 35])('a pistol round at an unaware guard %i tiles away drops him: it is a hit, not a near miss that warns him first', (gap) => {
+    const world = arena()
+    putPlayer(world, 20)
+    const guard = addGuard(world, 20 + gap, 1)
+    playerFires(world, { x: guard.x + guard.w / 2, y: guard.y + 0.5 }, 'pistol')
+    run(world, 1.5)
+    expect(guard.mode).toBe('dead')
+  })
 })

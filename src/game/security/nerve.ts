@@ -174,7 +174,7 @@ export function watchIncomingFire(world: World, dt: number, onShotAt: (world: Wo
       const body = eyeOf(guard)
       if (body.x < Math.min(from.x, shot.x) - range || body.x > Math.max(from.x, shot.x) + range) continue
       if (body.y < Math.min(from.y, shot.y) - range || body.y > Math.max(from.y, shot.y) + range) continue
-      if (gapToSegment(body, from, shot) > range) continue
+      if (gapToSegment(body, from, shot) > range || headedInto(guard, shot)) continue
       nearMiss(world, guard, shot, onShotAt)
     }
   }
@@ -192,6 +192,31 @@ function nearMiss(world: World, guard: Guard, shot: Projectile, onShotAt: (world
     frighten(guard, NERVE.nearMiss)
   }
   if (isActive(guard)) onShotAt(world, guard)
+}
+
+/** Seconds of flight ahead in which a round still on its way into a man is a hit to come, not a miss. */
+const HIT_LOOKAHEAD = 0.1
+
+/**
+ * Is the round still on its way into him? Then it is about to hit, not crack past: warning him now would cost the shot
+ * its surprise (an unaware man takes far more from it, see guards.ts).
+ */
+function headedInto(guard: Guard, shot: Projectile): boolean {
+  const to = { x: shot.x + shot.vx * HIT_LOOKAHEAD, y: shot.y + shot.vy * HIT_LOOKAHEAD }
+  let enter = 0
+  let exit = 1
+  for (const [start, step, low, high] of [[shot.x, to.x - shot.x, guard.x, guard.x + guard.w], [shot.y, to.y - shot.y, guard.y, guard.y + guard.h]] as const) {
+    if (Math.abs(step) < 1e-9) {
+      if (start < low || start > high) return false
+      continue
+    }
+    const a = (low - start) / step
+    const b = (high - start) / step
+    enter = Math.max(enter, Math.min(a, b))
+    exit = Math.min(exit, Math.max(a, b))
+    if (enter > exit) return false
+  }
+  return true
 }
 
 function gapToSegment(point: Vec, a: Vec, b: Vec): number {
