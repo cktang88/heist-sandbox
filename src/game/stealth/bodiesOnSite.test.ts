@@ -22,6 +22,19 @@ function victimAndCupboard(run: Run): { victim: Guard; cupboard: Run['world']['p
   throw new Error('no patrol with a cupboard near')
 }
 
+/** A patrol in the tower standing on another patrol's beat: whoever walks it will come across him. */
+function onAnotherBeat(run: Run): Guard {
+  const { world } = run
+  const patrols = world.guards.filter((guard) => guard.role === 'patrol' && world.rooms[guard.roomId ?? -1]?.building === 'tower')
+  const victim = patrols.find((guard) => patrols.some((other) => {
+    if (other === guard || Math.abs(other.home.y - feetOf(guard).y) > 0.5) return false
+    const xs = other.route.map((point) => point.x)
+    return feetOf(guard).x > Math.min(...xs) + 1 && feetOf(guard).x < Math.max(...xs) - 1
+  }))
+  if (!victim) throw new Error('no patrol on another one\'s beat')
+  return victim
+}
+
 /** The player waits it out in the sewer, out of everyone's way. */
 function playerAway(run: Run): void {
   const sewer = run.world.rooms.find((room) => room.kind === 'sewer')!
@@ -43,9 +56,9 @@ describe('bodies on the site', () => {
     expect(run.world.security.log.some((line) => line.includes('Man down'))).toBe(false)
   }, 60_000)
 
-  it.each([1, 2])('seed %i: the same body left lying on the patrol route is found within a couple of minutes', (seed) => {
+  it.each([1, 2])('seed %i: a body left lying where another patrol walks is found within a couple of minutes', (seed) => {
     const run = startRun(seed)
-    const { victim } = victimAndCupboard(run)
+    const victim = onAnotherBeat(run)
     quickKill(run.world, victim)
     playerAway(run)
     const found = wait(run, 150, () => run.world.stealth.found.has(run.world.guards.indexOf(victim)))

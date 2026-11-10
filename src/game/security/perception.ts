@@ -132,6 +132,9 @@ export function detectPlayer(world: World, guard: Guard): Detection | null {
  * the open. The same rules as for seeing the player: his central cone, a clear view, enough light, and low cover
  * hides a body (it lies on the floor) from a guard on the same level.
  */
+/** A body this close along the floor (horizontally from his eye) is noticed whatever the light or his cone. */
+const UNDERFOOT = 1
+
 export function spotBody(world: World, guard: Guard): number | null {
   const eye = eyeOf(guard)
   const darkRange = hasTorchOut(guard) ? VISION.torchDarkRange : VISION.darkRange
@@ -139,6 +142,9 @@ export function spotBody(world: World, guard: Guard): number | null {
     const other = world.guards[index]
     if (!bodyInOpen(world, other) || guard.bodiesSeen.includes(index)) continue
     const at = bodyAt(other)
+    // A man lying right at his feet is below his eye line but not missed: he all but steps on him.
+    const underfoot = Math.abs(at.x - eye.x) < UNDERFOOT && at.y > eye.y && at.y - eye.y < 2
+    if (underfoot) return index
     if (zoneOf(guard, eye, at) !== 'central' || !clearView(world, eye, at)) continue
     const gap = distance(eye, at)
     if (lightFactor(lightLevelAt(world, at), gap, darkRange) <= 0) continue
