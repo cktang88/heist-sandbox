@@ -9,6 +9,7 @@ import { footingAt } from './footing'
 import { strikeAt } from './lightning'
 import { addSource } from './sources'
 import { addRoomOf, freshSystems, runAll } from './testKit'
+import { stepFallingProps } from '../vehicles/fallingProps'
 
 const CIRCUIT = circuitOf('test', 0)
 
@@ -69,6 +70,19 @@ describe('electricity', () => {
     Object.assign(world.player, { x: 32.2, y: 22 - world.player.h, vx: 0, vy: 0, hp: 100, onGround: true })
     runAll(world, 0.6)
     expect(world.player.hp).toBeLessThan(100)
+  })
+
+  it('switchgear that falls through a blown floor into the flooded room below electrifies the water there', () => {
+    const world = plantRoom()
+    const gear = addProp(world, 'switchgear', 10, 16, 0)
+    addSource(world, 'water', { x: 14, y: 21 }, 1, 4, 'test')
+    runAll(world, 4, () => stepFallingProps(world, 1 / 60))
+    expect(world.systems.energized.size).toBe(0)
+    fillTiles(world.grid, 8, 16, 12, 16, 'air')
+    runAll(world, 1.5, () => stepFallingProps(world, 1 / 60))
+    expect(gear.y).toBe(22)
+    expect(gear.broken).toBe(false)
+    expect(world.systems.energized.size).toBeGreaterThan(0)
   })
 
   it('lightning striking a puddle shocks whoever is standing in it', () => {
