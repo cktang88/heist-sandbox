@@ -10,6 +10,7 @@ import { blindBehaviour, combatBehaviour, enterCombat } from './combat'
 import { alreadyCalling, progressRadio, shout, startRadio } from './comms'
 import { escapeHazard, markFireReported, spotFire } from './danger'
 import { lookForTrouble } from './discoveries'
+import { openDoorWorthReporting, shutFoundDoor } from './doorCheck'
 import { cutLineNear, untieNear } from './intrusions'
 import { holdsBack, panicBehaviour, surrenderedBehaviour } from './fear'
 import { isGuardBlast } from './guardFrags'
@@ -180,7 +181,7 @@ function noticeTrouble(world: World, guard: Guard): void {
   const found = lookForTrouble(world, guard)
   if (!found || !wouldNotice(guard, found.priority)) return
   noticeSomething(guard, found.at, found.kind, found.priority)
-  if (guard.interest) Object.assign(guard.interest, { tamper: found.tamper, canister: found.canister })
+  if (guard.interest) Object.assign(guard.interest, { tamper: found.tamper, canister: found.canister, door: found.door })
   barkLine(world, guard, found.line, true)
   // That was his line for it: no second "Huh?" for the same thing.
   guard.announced = guard.mode
@@ -367,6 +368,7 @@ function arrive(world: World, guard: Guard): void {
     barkLine(world, guard, 'cutRope')
   }
   if (interest.kind === 'tamper' && interest.tamper === 'line') cutLineNear(world, guard, interest.at)
+  if (interest.kind === 'tamper' && interest.tamper === 'door') guard.wait = shutFoundDoor(world, guard, interest)
   if (interest.kind === 'tamper' && interest.tamper === 'hostage') untieNear(world, interest.at)
   // Blood leads somewhere: he looks in every hiding place around it.
   if (interest.kind === 'tamper' && interest.tamper === 'blood') searchSpotsNear(world, guard, interest.at, true)
@@ -389,6 +391,7 @@ function conclude(world: World, guard: Guard, at: Vec): void {
   const kind = interest?.kind
   if (kind === 'body' || kind === 'gunfire' || kind === 'shout') startSearch(world, guard, at)
   else if (kind === 'order') startSearch(world, guard, at, TIMING.searchSeconds / 2)
+  else if (kind === 'tamper' && interest?.tamper === 'door' && !openDoorWorthReporting(world)) standDown(world, guard)
   else if (kind === 'tamper') {
     startRadio(world, guard, { kind: 'tamper', at, what: interest?.tamper ?? 'door' })
     startSearch(world, guard, at, TIMING.searchSeconds / 2)

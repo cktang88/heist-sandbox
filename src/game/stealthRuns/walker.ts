@@ -219,7 +219,7 @@ function openAhead(run: Run, move: number, maxAlert: number): boolean {
   for (let frame = 0; frame < 600 && doorAhead(world, move); frame += 1) {
     if (blown(run, maxAlert)) return false
     const prompt = world.prompt ?? ''
-    const door = /door|lock|keypad/.test(prompt)
+    const door = /door|lock|keypad/.test(prompt) && !/shut|close/.test(prompt)
     tick(run, door ? { interact: true, interactPressed: prompt.startsWith('E:') && frame % 2 === 0 } : { left: move < 0, right: move > 0 })
   }
   return true

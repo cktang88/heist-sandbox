@@ -53,7 +53,7 @@ export function climbLadder(run: Run, x: number, toY: number, maxAlert = 1): boo
     if (Math.abs(at.y - toY) < 0.15 && world.player.onGround) return true
     const offCentre = x + 0.5 - at.x
     const prompt = world.prompt ?? ''
-    const hatch = stalled > 0.2 && /lock|door/.test(prompt)
+    const hatch = stalled > 0.2 && /lock|door/.test(prompt) && !/shut|close/.test(prompt)
     if (hatch) {
       tick(run, { interact: true, interactPressed: prompt.startsWith('E:') && frame % 2 === 0, crouch: false })
       continue

@@ -2,13 +2,14 @@ import { closeTerminal, chooseOption, openTerminal, switchOff } from './devices/
 import { lockSeconds, keypadFor } from './devices/locks'
 import { deviceCenter, flipPower } from './devices/power'
 import { deviceState } from './devices/state'
-import { callElevator, carUnderPlayer, elevatorRefuses, shaftDoorAt, shaftOf } from './elevators'
+import { callElevator, carUnderPlayer, doorColumn, elevatorRefuses, shaftDoorAt, shaftOf } from './elevators'
+import { canClose, closeDoor, doorCentre, openDoor as openDoorTiles, openDoorBy, openedDoors, type DoorHow } from './doors/doors'
 import { windowAction } from './grapple/windows'
 import type { Input } from './input'
 import { interrogateAction, readAction } from './intel/intel'
 import { emitNoise } from './noise'
 import { playSound } from './sounds'
-import { setTile, tileAt, type Grid } from './tiles'
+import { tileAt, type Grid } from './tiles'
 import { TOOLS } from './toolDefs'
 import { centerOf, distance, overlaps, type Vec } from './types'
 import type { Device, World } from './world'
@@ -18,7 +19,7 @@ import { rigBreaker, rigSecondsLeft } from './stealth/sabotage'
 import { SABOTAGE } from './stealth/tuning'
 
 const PICK_REACH = 2
-const MAX_DOOR_TILES = 8
+
 const MEDKIT_HEAL = 50
 const AMMO_REFILL_SHARE = 0.5
 /**
@@ -38,7 +39,7 @@ const TYPING_GAP = 0.3
  * One thing the player can do right now. `hold` is how many seconds E must be held;
  * without it a single press does it. `key` names the target so changing target restarts the progress.
  */
-export type Action = { prompt: string; key: string; run: () => void; hold?: number; typing?: boolean; hint?: string }
+export type Action = { prompt: string; key: string; run: () => void; hold?: number; typing?: boolean; hint?: string; at?: Vec }
 
 /**
  * The hands-on actions. Loot and supplies are picked up by walking over them; everything else
@@ -69,9 +70,32 @@ function bestAction(world: World): Action | null {
   if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
   if (world.stealth.carried !== null) return stashAction(world) ?? doorAction(world)
   if (world.player.hidden) return null
-  return tieUpAction(world) ?? takedownAction(world) ?? bodyAction(world) ?? interrogateAction(world) ?? deviceAction(world, 'near') ?? elevatorAction(world)
-    ?? windowAction(world) ?? doorAction(world) ?? deviceAction(world, 'camera') ?? readAction(world) ?? hideAction(world) ?? noisemakerAction(world)
-    ?? deviceAction(world, 'lightSwitch')
+  return tieUpAction(world) ?? takedownAction(world) ?? bodyAction(world) ?? interrogateAction(world)
+    ?? nearestAtHand(world, [deviceAction(world, 'near'), elevatorAction(world), windowAction(world), doorAction(world), closeDoorAction(world)])
+    ?? deviceAction(world, 'camera') ?? readAction(world) ?? hideAction(world) ?? noisemakerAction(world) ?? deviceAction(world, 'lightSwitch')
+}
+
+/** Something behind the player counts this much further away than it is: E goes to what he faces first. */
+const BEHIND_PENALTY = 0.6
+
+/**
+ * Of the things at arm's length (a device, an elevator call, a window, a door to open or shut), the nearest wins,
+ * favouring what the player faces, so a fuse box beside a door never hides the door from someone standing at it.
+ * An action with no position (a window) counts as right there, as it always won before.
+ */
+function nearestAtHand(world: World, actions: (Action | null)[]): Action | null {
+  const center = centerOf(world.player)
+  let best: Action | null = null
+  let bestScore = Number.POSITIVE_INFINITY
+  for (const action of actions) {
+    if (!action) continue
+    const behind = action.at !== undefined && (action.at.x - center.x) * world.player.facing < -0.3
+    const score = action.at ? distance(center, action.at) + (behind ? BEHIND_PENALTY : 0) : 0
+    if (score >= bestScore) continue
+    best = action
+    bestScore = score
+  }
+  return best
 }
 
 function collect(world: World): void {
@@ -167,7 +191,7 @@ function deviceAction(world: World, rank: DeviceRank): Action | null {
     if (gap > reach || gap >= bestGap) continue
     const action = actionFor(world, device)
     if (!action) continue
-    best = action
+    best = { ...action, at: deviceCenter(device) }
     bestGap = gap
   }
   return best
@@ -251,7 +275,9 @@ function elevatorAction(world: World): Action | null {
   if (!car.moving && car.stop === stop && car.doorsOpen) return null
   // During a lockdown the button is dead, so the hint falls through to prying the doors.
   if (elevatorRefuses(world, car)) return null
-  return { prompt: 'E: call elevator', key: 'call', run: () => callElevator(world, car, stop) }
+  const shaft = shaftOf(world, car)
+  const at = { x: doorColumn(shaft) + 0.5, y: shaft.stops[stop] - 1.5 }
+  return { prompt: 'E: call elevator', key: 'call', at, run: () => callElevator(world, car, stop) }
 }
 
 function doorAction(world: World): Action | null {
@@ -261,24 +287,53 @@ function doorAction(world: World): Action | null {
   const seconds = lockSeconds(world, door)
   // Crouched, the door is eased open without a sound; standing it clunks; a kick (V) bursts it.
   const easy = world.player.crouching
-  const run = () => {
-    openDoor(world.grid, door)
-    world.structureChanged = true
+  // An elevator's doors have no lock to pick: working them open by hand is prying, and it shows.
+  const pried = world.elevators.some((shaft) => doorColumn(shaft) === door.x)
+  // While its button works, the elevator is called, not pried.
+  if (pried && elevatorAction(world)) return null
+  const open = (how: DoorHow) => () => {
+    openDoorBy(world, door, pried ? 'forced' : how, 'player')
     if (easy) return
     emitNoise(world, center, 2)
     playSound(world, 'door', center)
   }
   const key = `door:${door.x}`
+  const at = { x: door.x + 0.5, y: door.y + 0.5 }
   const keypad = keypadFor(world, door)
   if (seconds > 0 && keypad && world.stealth.keycards.size > 0) {
-    return { prompt: 'E: swipe the keycard', key, run: () => {
+    const swipe = open('keycard')
+    return { prompt: 'E: swipe the keycard', key, at, run: () => {
       keypad.hacked = true
       playSound(world, 'beep', center)
-      run()
+      swipe()
     } }
   }
-  if (seconds === 0) return easy ? { prompt: 'E: ease the door open (silent)', key, run } : { prompt: 'E: open door', key, run, hint: 'Crouch to ease it open silently' }
-  return { prompt: keypad ? 'Hold E: pick secure lock' : 'Hold E: pick lock', key, hold: seconds, run }
+  if (seconds === 0) return easy ? { prompt: 'E: ease the door open (silent)', key, at, run: open('opened') } : { prompt: 'E: open door', key, at, run: open('opened'), hint: 'Crouch to ease it open silently' }
+  return { prompt: keypad ? 'Hold E: pick secure lock' : 'Hold E: pick lock', key, at, hold: seconds, run: open('picked') }
+}
+
+/** Beside a doorway the player opened by hand: shut it again (silently, crouched), so a patrol finds nothing amiss. */
+function closeDoorAction(world: World): Action | null {
+  const center = centerOf(world.player)
+  let best: { key: string; at: Vec } | null = null
+  let bestGap = PICK_REACH
+  for (const [key, door] of openedDoors(world)) {
+    if (door.by !== 'player' || door.how === 'forced') continue
+    const at = doorCentre(door)
+    const gap = Math.hypot(at.x - center.x, at.y - center.y)
+    if (gap >= bestGap || !canClose(world, door)) continue
+    best = { key, at }
+    bestGap = gap
+  }
+  if (!best) return null
+  const { key, at } = best
+  const quiet = world.player.crouching
+  const run = () => {
+    if (!closeDoor(world, key) || quiet) return
+    emitNoise(world, center, 2)
+    playSound(world, 'door', center)
+  }
+  return quiet ? { prompt: 'E: ease the door shut (silent)', key: `close:${key}`, at, run } : { prompt: 'E: close door', key: `close:${key}`, at, run, hint: 'Crouch to shut it silently' }
 }
 
 export function nearestDoor(grid: Grid, from: Vec): Vec | null {
@@ -296,13 +351,7 @@ export function nearestDoor(grid: Grid, from: Vec): Vec | null {
   return best
 }
 
-/** Opens the whole door, not just the tile that was picked. */
+/** Opens the whole door without anyone's hand on it (tests setting a scene). */
 export function openDoor(grid: Grid, start: Vec): void {
-  const queue: Vec[] = [start]
-  for (let opened = 0; queue.length > 0 && opened < MAX_DOOR_TILES; opened += 1) {
-    const { x, y } = queue.pop()!
-    if (tileAt(grid, x, y) !== 'door') continue
-    setTile(grid, x, y, 'air')
-    queue.push({ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 })
-  }
+  openDoorTiles(grid, start)
 }

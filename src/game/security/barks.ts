@@ -63,6 +63,7 @@ export const LINES = {
   pinned: ['I\'m pinned!', 'Can\'t get my head up!', 'Rounds everywhere!'],
   rocket: ['RPG!', 'He\'s got a launcher!', 'Rocket! Take cover!'],
   doorOpen: ['This door was shut...', 'Who left this open?', 'Door\'s open. That\'s not right.'],
+  doorShut: ['Shut the door behind you, people.', 'There. Keep it shut.', 'Who keeps leaving these open?'],
   lockPicked: ['Lock\'s been picked.', 'Someone forced this lock.', 'Scratches on the lock... we\'ve got company.'],
   smokeGrenade: ['That\'s a smoke canister!', 'Smoke grenade! Someone\'s here!'],
   flashCover: ['Ahh! My face!', 'I\'m blind, I\'m blind!', 'Don\'t hurt me!'],

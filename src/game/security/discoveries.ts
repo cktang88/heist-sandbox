@@ -1,4 +1,4 @@
-import { isDoorUnlocked } from '../devices/locks'
+import { openedDoors } from '../doors/doors'
 import { smokeDensityAt } from '../hazards/hazards'
 import { tileAt, type Grid } from '../tiles'
 import { centerOf, distance, type Vec } from '../types'
@@ -25,7 +25,7 @@ import { furnitureMoved } from './oddities'
  */
 
 /** What a guard found: where to go and look, what to say, and anything worth radioing in at once. */
-export type Finding = { at: Vec; kind: InterestKind; priority: number; line: LineKind; tamper?: Tamper; canister?: boolean; report?: SecurityEvent }
+export type Finding = { at: Vec; kind: InterestKind; priority: number; line: LineKind; tamper?: Tamper; canister?: boolean; report?: SecurityEvent; door?: string }
 
 const CHUTE_REPORT_AGAIN = 30
 const CHUTE_BEHIND = 2
@@ -65,14 +65,11 @@ export function indexDoors(world: World): void {
   doorsByRow(world.grid)
 }
 
-/** The key of the door with a tile at this spot: its column and bottom row. */
-export function doorKeyAt(world: World, column: number, row: number): string {
-  let bottom = row
-  while (tileAt(world.grid, column, bottom + 1) === 'door') bottom += 1
-  return `${column},${bottom}`
-}
-
-/** A door ahead on his floor that is now open, that no guard opened. Opened without a key, its lock was picked (or blown). */
+/**
+ * A door ahead on his floor standing open that should be shut, that no guard opened. Opened by hand (a handle, a
+ * picked lock, a keycard) it is only odd: he goes and shuts it. Kicked in, pried, shot or blown out, it is forced.
+ * A door shut again shows nothing, and an elevator's doors standing open at its stop are just the elevator.
+ */
 function doorTampered(world: World, guard: Guard): Finding | null {
   const feet = feetOf(guard)
   const row = Math.round(feet.y) - 1
@@ -84,13 +81,22 @@ function doorTampered(world: World, guard: Guard): Finding | null {
     const ahead = (x + 0.5 - feet.x) * guard.facing
     if (ahead < -1 || ahead > DISCOVERY.doorSight || tileAt(world.grid, x, row) === 'door') continue
     const key = `${x},${row}`
-    if (security.guardDoors.has(key) || security.doorsNoticed.has(key)) continue
+    if (security.guardDoors.has(key) || security.doorsNoticed.has(key) || elevatorDoorOpen(world, x, row)) continue
     if (!clearView(world, eye, { x: x + 0.5, y: row - 0.5 })) continue
     security.doorsNoticed.add(key)
-    const forced = !isDoorUnlocked(world, { x, y: row })
-    return { at: { x: x + 0.5, y: feet.y }, kind: 'tamper', priority: forced ? 4 : 3, line: forced ? 'lockPicked' : 'doorOpen', tamper: forced ? 'lock' : 'door' }
+    const opened = openedDoors(world).get(key)
+    const at = { x: x + 0.5, y: feet.y }
+    // He stops on his side of the doorway, where he can reach the door to shut it without standing in it.
+    const beside = { x: x + 0.5 - guard.facing * 1.3, y: feet.y }
+    if (!opened || opened.how === 'forced') return { at, kind: 'tamper', priority: 4, line: 'lockPicked', tamper: 'lock' }
+    return { at: beside, kind: 'tamper', priority: 2, line: 'doorOpen', tamper: 'door', door: key }
   }
   return null
+}
+
+/** An elevator car standing at this stop with its doors open: normal use, nothing to report. */
+function elevatorDoorOpen(world: World, x: number, row: number): boolean {
+  return world.elevatorCars.some((car) => car.doorTiles.some((tile) => tile.x === x && Math.abs(tile.y - row) <= 3))
 }
 
 // --- Smoke, the vault, the sky -------------------------------------------------------------------

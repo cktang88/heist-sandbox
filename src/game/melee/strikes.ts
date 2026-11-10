@@ -1,7 +1,7 @@
 import type { PropState } from '../cover'
 import { hurtGuard, type Guard } from '../guards'
 import { propBox } from '../hazards/props'
-import { openDoor } from '../interact'
+import { openDoorBy } from '../doors/doors'
 import { emitNoise } from '../noise'
 import { isPushable, isThrowable } from '../physprops/kinds'
 import { propsAround } from '../physprops/nearby'
@@ -147,8 +147,7 @@ function doorAhead(world: World): Vec | null {
 function burstDoor(world: World, door: Vec): void {
   const facing = world.player.facing
   const feet = world.player.y + world.player.h
-  openDoor(world.grid, door)
-  world.structureChanged = true
+  openDoorBy(world, door, 'forced', 'player')
   const at = { x: door.x + 0.5, y: door.y + 0.5 }
   playSound(world, 'door', at)
   emitNoise(world, at, DOOR_BURST_NOISE)

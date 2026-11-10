@@ -1,4 +1,4 @@
-import { openDoor } from '../interact'
+import { openDoorBy } from '../doors/doors'
 import { nextHop } from '../nav'
 import { emitNoise } from '../noise'
 import { boxHitsSolid, GRAVITY, moveBody } from '../physics'
@@ -8,7 +8,6 @@ import { climbStairs } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
 import type { Body, Vec } from '../types'
 import type { World } from '../world'
-import { doorKeyAt } from './discoveries'
 import { holesFor, readyToDrop } from './holeDrop'
 import { detourStep, doorHeld, reachedDetourStep } from './blockedDoors'
 import { feetOf, type Guard } from './model'
@@ -136,9 +135,7 @@ function ledgeAhead(world: World, guard: Guard): boolean {
 
 /** Opens a floor hatch (or manhole cover) as quietly as a door, remembering it was one of their own. */
 function openHatch(world: World, at: Vec): void {
-  world.security.guardDoors.add(doorKeyAt(world, at.x, at.y))
-  openDoor(world.grid, at)
-  world.structureChanged = true
+  world.security.guardDoors.add(openDoorBy(world, at, 'opened', 'guard'))
   emitNoise(world, at, QUIET_DOOR_NOISE, 'guard')
   playSound(world, 'door', at)
 }
@@ -158,9 +155,7 @@ function openDoorAhead(world: World, guard: Guard, kick: boolean, goal: Vec): bo
   const at = { x: column, y: row }
   if (doorHeld(world, guard, at, goal)) return true
   // Remembered, so colleagues who find it open later know it was one of their own.
-  world.security.guardDoors.add(doorKeyAt(world, column, row))
-  openDoor(world.grid, at)
-  world.structureChanged = true
+  world.security.guardDoors.add(openDoorBy(world, at, kick ? 'forced' : 'opened', 'guard'))
   emitNoise(world, at, kick ? KICKED_DOOR_NOISE : QUIET_DOOR_NOISE, 'guard')
   playSound(world, 'door', at)
   return true
