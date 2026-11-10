@@ -135,7 +135,7 @@ export function createRubble3d(): Rubble3d {
       next = (index + 1) % MAX_RUBBLE
       const color = new Color(particle.color).multiplyScalar(0.55 + random() * 0.4)
       slots[index] = {
-        x: particle.x, y: particle.y, vx: particle.vx, vy: particle.vy, size: 0.07 + random() * 0.17, resting: false,
+        x: particle.x, y: particle.y, vx: particle.vx, vy: particle.vy, size: 0.1 + random() * 0.2, resting: false,
         z: -2.1 + random() * 2.3, spin: (random() - 0.5) * 18, angle: random() * 6, axis: new Vector3(random() - 0.5, random() - 0.5, random() - 0.5).normalize(), color,
       }
       chunks.setColorAt(index, color)
