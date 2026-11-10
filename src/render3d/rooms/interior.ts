@@ -78,14 +78,37 @@ function walls(place: Place, finish: Finish): void {
     for (let x = place.left + wall.joints; x < place.right - 0.3; x += wall.joints) trims.facing(x - 0.015, place.floor, x + 0.015, place.ceiling, Z_DETAIL, 1, dark)
     for (let y = wall.joints; y < place.h - 0.3; y += wall.joints) trims.facing(place.left, place.floor + y - 0.015, place.right, place.floor + y + 0.015, Z_DETAIL, 1, dark)
   }
-  if (wall.hazard) batchFor(place, kit.hazard).facing(place.left, place.floor, place.right, place.floor + 0.38, Z_DETAIL, 0.9, WHITE)
+  if (wall.hazard) alongFloor(place, kit.hazard, (batch, x0, x1) => batch.facing(x0, place.floor, x1, place.floor + 0.38, Z_DETAIL, 0.9, WHITE))
   if (wall.rail !== undefined && wall.bands[0].upTo !== undefined) {
     const y = place.floor + wall.bands[0].upTo
     trims.facing(place.left, y - 0.04, place.right, y + 0.04, Z_TRIM, 1, tintOf(wall.rail))
   }
   if (wall.skirting !== undefined) {
-    trims.facing(place.left, place.floor, place.right, place.floor + 0.14, Z_TRIM, 1, tintOf(wall.skirting))
-    trims.level(place.left, place.right, place.floor + 0.14, BACK, Z_TRIM, true, 1, tintOf(wall.skirting))
+    const tint = tintOf(wall.skirting)
+    alongFloor(place, kit.trim, (batch, x0, x1) => {
+      batch.facing(x0, place.floor, x1, place.floor + 0.14, Z_TRIM, 1, tint)
+      batch.level(x0, x1, place.floor + 0.14, BACK, Z_TRIM, true, 1, tint)
+    })
+  }
+}
+
+/**
+ * Faces along the foot of the back wall, added one tile column at a time, each resting on the slab under it:
+ * blow a hole in the floor and the skirting over the hole goes with it instead of hanging in the air.
+ */
+export function floorSpans(left: number, right: number): [number, number][] {
+  const spans: [number, number][] = []
+  for (let x = left; x < right; x += 1) spans.push([x, Math.min(right, x + 1)])
+  return spans
+}
+
+function alongFloor(place: Place, material: Material, add: (batch: QuadBatch, x0: number, x1: number) => void): void {
+  const { scene } = place.ctx
+  const batch = batchFor(place, material)
+  for (const [x0, x1] of floorSpans(place.left, place.right)) {
+    const mark = batch.mark
+    add(batch, x0, x1)
+    scene.restOn(place.centre[0], place.centre[1], material, mark, [[Math.floor(x0), place.floorRow]])
   }
 }
 
@@ -129,9 +152,12 @@ function wear(place: Place, grime: number): void {
   const batch = batchFor(place, place.ctx.kit.grime)
   const top = place.floor + 0.3 + grime * 0.9
   const [u0, v0, u1, v1] = SCUFF_CELL
-  for (let x = place.left; x < place.right; x += 3) {
-    batch.facingCell(x, place.floor, Math.min(place.right, x + 3), top, Z_DETAIL, [u0, v0, u0 + (u1 - u0) * (Math.min(place.right, x + 3) - x) / 3, v1], WHITE)
-  }
+  // The scuff texture spans three tiles; each column takes its third of it, so it can fall with its slab.
+  alongFloor(place, place.ctx.kit.grime, (strip, x0, x1) => {
+    const from = ((x0 - place.left) % 3) / 3
+    const to = from + (x1 - x0) / 3
+    strip.facingCell(x0, place.floor, x1, top, Z_DETAIL, [u0 + (u1 - u0) * from, v0, u0 + (u1 - u0) * to, v1], WHITE)
+  })
   const stains = Math.floor(grime * place.w / 7 + roll(place.id, 30))
   for (let stain = 0; stain < stains; stain += 1) {
     const width = 1 + roll(place.id * 8 + stain, 31) * 0.9

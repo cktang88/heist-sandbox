@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createGrid, damageTile, setTile } from '../../game/tiles'
 import { WHITE } from './batch'
 import { ChunkedFinishes } from './chunks'
+import { floorSpans } from './interior'
 
 const near = { dt: 0, view: { x: 10, y: 10 }, aim: { x: 10, y: 10 } }
 const far = { dt: 0, view: { x: 400, y: 10 }, aim: { x: 400, y: 10 } }
@@ -58,5 +59,11 @@ describe('ChunkedFinishes', () => {
     expect(drawnWidth(mesh)).toBe(4)
     finishes.update(grid, near)
     expect(drawnWidth(mesh)).toBe(3)
+  })
+})
+
+describe('floorSpans', () => {
+  it('splits the foot of a wall into one span per floor tile, so each can fall with its own slab', () => {
+    expect(floorSpans(3, 7)).toEqual([[3, 4], [4, 5], [5, 6], [6, 7]])
   })
 })

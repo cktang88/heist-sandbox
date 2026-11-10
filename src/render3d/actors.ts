@@ -5,7 +5,9 @@ import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import { guardMotion, playerMotion } from '../render/human/motion'
 import { createEffects3d } from './fx3d'
-import type { SurfaceMaterials, SurfaceName } from './levelMesh'
+import { BACK, FRONT, type SurfaceMaterials, type SurfaceName } from './levelMesh'
+import { MeshBuilder } from './meshBuilder'
+import type { FallingTile } from '../game/collapse'
 import { Figure, outfitFor, weaponFor } from './people3d'
 import { BOX, buildDrone, buildLoot, buildParachute, buildPickup, buildVan, CHARGE_LIGHT, CHARGE_MATERIAL } from './props3d'
 import { createDevicesLayer } from './devicesLayer'
@@ -25,6 +27,15 @@ export type Actors = { group: Group; update(world: World, aim: Vec, view: Vec): 
 
 /** People on a staircase are drawn further back, on the stairs behind the walking lane. */
 const STAIR_LANE = -1.5
+
+/** A tile-sized piece of wall, a hair smaller than its cell so a falling stack shows its cracks, textured like the level. */
+const FALLING_SHRINK = 0.96
+const FALLING_BLOCK = (() => {
+  const block = new MeshBuilder()
+  const [half, depth] = [FALLING_SHRINK / 2, (FRONT - BACK) / 2 - 0.02]
+  block.box(-half, -half, -depth, half, half, depth, 0.5, 0.82)
+  return block.build()
+})()
 
 const FALLING_SURFACE: Partial<Record<TileKind, SurfaceName>> = {
   dirt: 'dirt', brick: 'brick', concrete: 'concrete', steel: 'steel', wood: 'wood', door: 'door', glass: 'glass',
@@ -61,6 +72,8 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
     return { block, light }
   })
   const falling: Mesh[] = []
+  // Where each falling piece was last seen, so a piece that vanished (landed or broke up) leaves a puff of dust.
+  let fallingSeen = new Map<FallingTile, Vec & { slab: boolean }>()
   let lastClock = world.clock
 
   return {
@@ -121,20 +134,37 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
         light.scale.setScalar(0.08)
       })
 
+      // A storey that comes loose falls as one slab: its tiles share a row and speed, and are drawn as one solid
+      // piece (no cracks, no tipping). A lone piece shows its cracks and tips a little as it drops.
+      const rows = new Set(now.falling.map((tile) => `${tile.x},${tile.y}`))
+      const inSlab = (tile: FallingTile) => rows.has(`${tile.x - 1},${tile.y}`) || rows.has(`${tile.x + 1},${tile.y}`)
+      const stillFalling = new Map<FallingTile, Vec & { slab: boolean }>()
       now.falling.forEach((tile, index) => {
         let mesh = falling[index]
         if (!mesh) {
-          mesh = new Mesh(BOX, materials.concrete)
+          mesh = new Mesh(FALLING_BLOCK, materials.concrete)
           mesh.castShadow = true
           falling.push(mesh)
           group.add(mesh)
         }
         mesh.visible = true
         mesh.material = materials[FALLING_SURFACE[tile.kind] ?? 'concrete']
-        mesh.position.set(tile.x + 0.5, -(tile.y + 0.5), -0.95)
-        mesh.scale.set(1, 1, 2.9)
+        const slab = inSlab(tile)
+        // Kept slight because the piece snaps square again when it lands.
+        const lean = slab ? 0 : (((tile.x * 7919) % 13) / 13 - 0.5) * 0.12 * Math.min(1, tile.vy / 12)
+        mesh.position.set(tile.x + 0.5, -(tile.y + 0.5), (FRONT + BACK) / 2)
+        mesh.rotation.set(lean * 0.4, 0, lean)
+        mesh.scale.set(slab ? 1 / FALLING_SHRINK : 1, 1, 1)
+        stillFalling.set(tile, { x: tile.x + 0.5, y: tile.y + 1, slab })
       })
       for (let index = now.falling.length; index < falling.length; index += 1) falling[index].visible = false
+      // A landing slab raises one long cloud: a puff every few tiles along it, bigger than a lone piece's.
+      for (const [tile, at] of fallingSeen) {
+        if (stillFalling.has(tile)) continue
+        if (!at.slab) effects.dust(at.x, at.y, 1)
+        else if (tile.x % 3 === 0) effects.dust(at.x, at.y, 1.6)
+      }
+      fallingSeen = stillFalling
 
       const dt = Math.max(0, now.clock - lastClock)
       effects.update(now, dt)

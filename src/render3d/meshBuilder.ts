@@ -59,6 +59,19 @@ export class MeshBuilder {
     this.quad([[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [1, 0, 0], [[z1 * s, y0 * s], [z0 * s, y0 * s], [z0 * s, y1 * s], [z1 * s, y1 * s]], shade)
   }
 
+  /**
+   * The four sides of a box and its back, without the front (z1) face, textured in world space per facing.
+   * `front` and `back` colour the corners nearest and furthest from the camera, so deep faces can darken inward.
+   */
+  sides(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, uvScale: number, front: Rgb, back: Rgb): void {
+    const s = uvScale
+    this.face([[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], [[x1 * s, y0 * s], [x0 * s, y0 * s], [x0 * s, y1 * s], [x1 * s, y1 * s]], [back, back, back, back])
+    this.face([[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [[x0 * s, z1 * s], [x1 * s, z1 * s], [x1 * s, z0 * s], [x0 * s, z0 * s]], [front, front, back, back])
+    this.face([[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], [[x0 * s, z0 * s], [x1 * s, z0 * s], [x1 * s, z1 * s], [x0 * s, z1 * s]], [back, back, front, front])
+    this.face([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], [[z0 * s, y0 * s], [z1 * s, y0 * s], [z1 * s, y1 * s], [z0 * s, y1 * s]], [back, front, front, back])
+    this.face([[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [[z1 * s, y0 * s], [z0 * s, y0 * s], [z0 * s, y1 * s], [z1 * s, y1 * s]], [front, back, back, front])
+  }
+
   build(): BufferGeometry {
     const geometry = new BufferGeometry()
     geometry.setAttribute('position', new Float32BufferAttribute(this.positions, 3))
