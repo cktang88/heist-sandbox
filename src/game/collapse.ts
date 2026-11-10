@@ -8,7 +8,9 @@ import { GRAVITY } from './physics'
 import { playSound } from './sounds'
 import { builtAs, BUILT_NONE } from './gaps/holes'
 import { currentHoles } from './gaps/state'
-import { CLEAR_OF_LANE, RUBBLE, setLaneFlags, setTile, TILE_DEFS, TILE_KINDS, tileAt, type Grid, type TileKind } from './tiles'
+import { findUnsupportedNear } from './collapseNear'
+import { bandOf, CARRIES, DUCT, HANGER_ROWS, SOLID, STOREY, type SlabRow } from './support'
+import { changeMark, changesFrom, CLEAR_OF_LANE, RUBBLE, setLaneFlags, setTile, TILE_DEFS, tileAt, type Grid, type TileKind } from './tiles'
 import type { Interior } from './site'
 import type { Rect } from './types'
 import type { World } from './world'
@@ -20,20 +22,7 @@ const CRUSH_SPEED = 6
 const CRUSH_DAMAGE = 60
 const PLAYER_CRUSH_DAMAGE = 25
 const MAX_FALL_SPEED = 30
-/** A duct floor sits this many rows under the slab it hangs from (one row of crawl space between). */
-const HANGER_ROWS = 2
-/** Rows from one floor slab to the next. */
-const STOREY = 6
-const SOLID = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid ? 1 : 0))
-/** Ladders are bolted to the walls beside them, so they hold the two sides of a shaft together. */
-const CARRIES = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid || kind === 'ladder' ? 1 : 0))
-const DUCT = TILE_KINDS.indexOf('duct')
-
-/**
- * One slab row of a building, columns x0..x1: where floors are also held by the back wall the side view cuts away.
- * `top` and `bottom` are the building's first and last rows, so holding a slab never reaches outside it.
- */
-export type SlabRow = { y: number; x0: number; x1: number; top: number; bottom: number }
+export type { SlabRow } from './support'
 
 /**
  * Finds solid tiles that are no longer held up. A tile is supported when a chain of touching solid tiles
@@ -118,16 +107,13 @@ function spread(grid: Grid): void {
  */
 function holdSlab(grid: Grid, slab: SlabRow): boolean {
   if (slab.y < 0 || slab.y >= grid.height) return false
-  const x0 = Math.max(0, slab.x0)
-  const x1 = Math.min(grid.width - 1, slab.x1)
+  const band = bandOf(grid, slab)
   const row = slab.y * grid.width
   let standing = false
-  for (let x = x0; x <= x1 && !standing; x += 1) standing = supported[row + x] === 1 && SOLID[grid.kinds[row + x]] === 1
+  for (let x = band.x0; x <= band.x1 && !standing; x += 1) standing = supported[row + x] === 1 && SOLID[grid.kinds[row + x]] === 1
   if (!standing) return false
-  const from = Math.max(0, slab.top, slab.y - STOREY + 1)
-  const to = Math.min(grid.height - 1, slab.bottom, slab.y + STOREY - 1)
-  for (let y = from; y <= to; y += 1) {
-    for (let x = x0; x <= x1; x += 1) if (SOLID[grid.kinds[y * grid.width + x]]) reach(grid.kinds, y * grid.width + x)
+  for (let y = band.y0; y <= band.y1; y += 1) {
+    for (let x = band.x0; x <= band.x1; x += 1) if (SOLID[grid.kinds[y * grid.width + x]]) reach(grid.kinds, y * grid.width + x)
   }
   return true
 }
@@ -147,16 +133,35 @@ export function slabRows(world: World): SlabRow[] {
 }
 const slabCache = new WeakMap<readonly Interior[], SlabRow[]>()
 
+/**
+ * What the support check has already taken into account for a grid: its position in the grid's change list, and the
+ * changed tiles collected since the last check (most changes, such as rubble landing, do not ask for one).
+ */
+type Watch = { mark: number; pending: number[] }
+const watches = new WeakMap<Grid, Watch>()
+
+/**
+ * Checks the whole site once, before play, so the first check during play can look only around what changed. If
+ * something is already loose, the next step drops it.
+ */
+export function prepareCollapse(world: World): void {
+  if (findUnsupported(world.grid, slabRows(world)).length > 0) world.structureChanged = true
+  else watches.set(world.grid, { mark: changeMark(world.grid), pending: [] })
+}
+
 /** Turns unsupported tiles into falling ones, then moves everything that is falling. */
 export function stepCollapse(world: World, dt: number): void {
+  const watch = collectChanges(world.grid)
   if (world.structureChanged) {
     world.structureChanged = false
-    for (const index of findUnsupported(world.grid, slabRows(world))) {
+    for (const index of unsupportedNow(world, watch)) {
       const x = index % world.grid.width
       const y = Math.floor(index / world.grid.width)
       world.falling.push({ x, y, vy: 0, kind: fallsAs(tileAt(world.grid, x, y)) })
       setTile(world.grid, x, y, 'air')
     }
+    // The tiles just dropped were all loose, so what was beside them needs no second look.
+    watches.set(world.grid, { mark: changeMark(world.grid), pending: [] })
   }
   if (world.falling.length === 0) return
 
@@ -182,6 +187,30 @@ function sortLowestFirst(falling: FallingTile[]): void {
     }
     falling[at] = tile
   }
+}
+
+/**
+ * Adds the tiles changed since the last look to the watch's pending list. Returns null when the grid has no watch
+ * yet, or changes were missed, so only a whole-site check can be trusted.
+ */
+function collectChanges(grid: Grid): Watch | null {
+  const watch = watches.get(grid)
+  if (!watch) return null
+  const from = changesFrom(grid, watch.mark)
+  if (from < 0) {
+    watches.delete(grid)
+    return null
+  }
+  const { tiles } = grid.changes
+  for (let entry = from; entry < tiles.length; entry += 1) watch.pending.push(tiles[entry])
+  watch.mark = changeMark(grid)
+  return watch
+}
+
+/** The loose tiles: worked out around the changed tiles where that settles it, otherwise over the whole site. */
+function unsupportedNow(world: World, watch: Watch | null): readonly number[] {
+  const slabs = slabRows(world)
+  return (watch && findUnsupportedNear(world.grid, slabs, watch.pending)) ?? findUnsupported(world.grid, slabs)
 }
 
 /** A piece of the reinforced frame that comes loose is wrecked by the fall: it lands as ordinary rubble. */

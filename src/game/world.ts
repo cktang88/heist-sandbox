@@ -1,6 +1,6 @@
 import { setupIntel } from './intel/intel'
 import type { Charge } from './charges'
-import type { FallingTile } from './collapse'
+import { prepareCollapse, type FallingTile } from './collapse'
 import type { Drone } from './drone'
 import type { Effects } from './effects'
 import type { Guard } from './guards'
@@ -153,5 +153,6 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
   setupIntel(world)
   // Building the site set every tile; play reacts only to what changes from here on.
   forgetAllChanges(world.grid)
+  prepareCollapse(world)
   return world
 }
