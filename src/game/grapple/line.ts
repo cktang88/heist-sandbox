@@ -13,8 +13,8 @@ const PAY_OUT_SPEED = 10
 export const MIN_LINE = 1
 export const MAX_LINE = 34
 /** A to D pumps the swing. With the damping this stays a short, firm arc rather than a floaty one. */
-const SWING_ACCEL = 16
-const SWING_DAMPING = 0.7
+const SWING_ACCEL = 26
+const SWING_DAMPING = 0.45
 /** Space throws him off the line with a little hop on top of the swing. */
 const JUMP_OFF_HOP = 6
 /** How long a jump off the line keeps its swing before the normal air control takes over again. */

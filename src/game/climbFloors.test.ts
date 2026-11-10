@@ -100,6 +100,40 @@ describe('climbing floors with C4 and the grapple', () => {
     expect(Math.round(world.player.y + world.player.h)).toBe(upper)
   })
 
+  it('swings to one side, lets go by firing again, and lands on the floor above further that way', () => {
+    const { world, upper } = climbToHang()
+    const start = world.player.x
+    let far = 0
+    // Let go at the far end of the first swing.
+    for (let frame = 0; frame < 120; frame += 1) {
+      play(world, FRAME, { right: true })
+      if (world.player.x - start < far - 0.02) break
+      far = Math.max(far, world.player.x - start)
+    }
+    expect(far).toBeGreaterThan(2.4)
+    play(world, FRAME, { fire: true, firePressed: true, right: true })
+    play(world, 1, { right: true })
+    expect(world.grapple.hanging).toBe(false)
+    expect(world.player.onGround).toBe(true)
+    expect(Math.round(world.player.y + world.player.h)).toBe(upper)
+    expect(world.player.x - start).toBeGreaterThan(3)
+  })
+
+  it('pumps the swing left and right to go further than one push', () => {
+    const { world } = climbToHang()
+    const start = world.player.x
+    let far = 0
+    let side = 1
+    for (let frame = 0; frame < 480; frame += 1) {
+      const before = world.grapple.vel.x
+      play(world, FRAME, side > 0 ? { right: true } : { left: true })
+      // Push the way he is already moving: switch when the swing turns round.
+      if (Math.sign(world.grapple.vel.x) !== 0 && Math.sign(world.grapple.vel.x) !== Math.sign(before) && Math.sign(before) !== 0) side = Math.sign(world.grapple.vel.x)
+      far = Math.max(far, Math.abs(world.player.x - start))
+    }
+    expect(far).toBeGreaterThan(3)
+  })
+
   it('lets go straight over the hole and stands on what is left of the floor', () => {
     const { world, upper } = climbToHang()
     play(world, FRAME, { jumpPressed: true })
