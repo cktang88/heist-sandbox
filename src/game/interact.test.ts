@@ -179,3 +179,38 @@ describe('hiding when the hiding place is lost', () => {
     expect(world.player.y).toBeGreaterThan(y + 1)
   })
 })
+
+describe('a held action started over', () => {
+  /** At the outpost's locked door with the pick most of the way through. */
+  function halfPicked(): World {
+    const world = createWorld(1)
+    world.guards = []
+    placePlayer(world, 68.55, GROUND)
+    play(world, 0.1)
+    expect(world.prompt).toBe('Hold E: pick lock')
+    play(world, 0.4, { interact: true })
+    expect(world.player.pick).toBeGreaterThan(0.1)
+    return world
+  }
+
+  it('walking while holding E drops the pick', () => {
+    const world = halfPicked()
+    play(world, FRAME, { interact: true, left: true })
+    expect(world.player.pick).toBe(0)
+  })
+
+  it('jumping while holding E drops the pick', () => {
+    const world = halfPicked()
+    play(world, FRAME, { interact: true, jumpPressed: true, jumpHeld: true })
+    expect(world.player.pick).toBe(0)
+  })
+
+  it('a hit while holding E drops the pick', () => {
+    const world = halfPicked()
+    world.player.hp -= 10
+    play(world, FRAME, { interact: true })
+    expect(world.player.pick).toBe(0)
+    play(world, 0.2, { interact: true })
+    expect(world.player.pick).toBeGreaterThan(0)
+  })
+})

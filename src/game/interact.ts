@@ -136,20 +136,35 @@ function collect(world: World): void {
 function perform(world: World, input: Input, dt: number, action: Action | null): boolean {
   const state = deviceState(world)
   const player = world.player
-  if (!action || action.hold === undefined || !input.interact || state.holding !== action.key) player.pick = 0
+  const steady = steadyHands(world, input)
+  if (!action || action.hold === undefined || !input.interact || state.holding !== action.key || !steady) player.pick = 0
   state.holding = action?.key ?? null
   if (!action) return false
   if (action.hold === undefined) {
     if (input.interactPressed) action.run()
     return input.interactPressed
   }
-  if (!input.interact) return false
+  if (!input.interact || !steady) return false
   player.pick += dt / action.hold
   if (action.typing) typeAway(world, dt)
   if (player.pick < 1) return false
   player.pick = 0
   action.run()
   return true
+}
+
+/** The player's health at the last E check, to tell when a hit lands in the middle of a held action. */
+const healthBefore = new WeakMap<World, number>()
+
+/**
+ * A held action (a lock, a hack, a cable) needs him to stay put: walking off, jumping, falling or taking a hit
+ * starts it over.
+ */
+function steadyHands(world: World, input: Input): boolean {
+  const player = world.player
+  const hit = player.hp < (healthBefore.get(world) ?? player.hp)
+  healthBefore.set(world, player.hp)
+  return !hit && !input.left && !input.right && !input.jumpPressed && (player.onGround || player.onLadder)
 }
 
 function typeAway(world: World, dt: number): void {
