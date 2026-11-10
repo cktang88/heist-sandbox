@@ -89,4 +89,17 @@ describe('player-made traps', () => {
     expect(guard.stunSeconds).toBeGreaterThan(0)
     expect(world.systems.rigged).toHaveLength(0)
   })
+
+  it('the bucket lands on the player too, if he forgets and opens the rigged door himself', () => {
+    const world = roomWithDoor()
+    standAt(world, 28)
+    rigDoorAction(world)!.run()
+    runAll(world, 0.1)
+    standAt(world, 29.4)
+    world.player.hp = 100
+    openDoor(world.grid, { x: 30, y: 19 })
+    runAll(world, 0.1)
+    expect(world.player.hp).toBeLessThan(100)
+    expect(world.systems.rigged).toHaveLength(0)
+  })
 })

@@ -60,6 +60,30 @@ describe('gas, air and fuel', () => {
     expect([...world.hazards.fires.values()].some((fire) => fire.x >= 32)).toBe(true)
   })
 
+  it('a backdraft goes off once: windows its blast breaks do not set off another', () => {
+    const world = freshSystems(bareWorld(60, 24))
+    fillTiles(world.grid, 1, 16, 58, 16, 'concrete')
+    fillTiles(world.grid, 30, 17, 30, 18, 'glass')
+    fillTiles(world.grid, 30, 19, 30, 21, 'door')
+    startFire(world, 24, 21, 1, 60)
+    for (let y = 17; y <= 21; y += 1) for (let x = 20; x <= 29; x += 1) addSmoke(world, x, y, 2, 'toxic')
+    runAll(world, 0.1)
+    fillTiles(world.grid, 30, 19, 30, 21, 'air')
+    let bangs = 0
+    runAll(world, 3, () => {
+      bangs += world.sounds.filter((sound) => sound.kind === 'explosion').length
+      world.sounds.length = 0
+    })
+    expect(bangs).toBe(1)
+    // A second way in opened a moment later finds a smoky room, not a second backdraft.
+    fillTiles(world.grid, 30, 17, 30, 18, 'air')
+    runAll(world, 1, () => {
+      bangs += world.sounds.filter((sound) => sound.kind === 'explosion').length
+      world.sounds.length = 0
+    })
+    expect(bangs).toBe(1)
+  })
+
   it('a fan blowing toward the doorway pushes the gas out of a room', () => {
     const gasInKitchen = (world: World) => {
       let total = 0

@@ -5,7 +5,7 @@ import { hasGas } from '../hazards/smoke'
 import type { Lamp } from '../site'
 import type { Vec } from '../types'
 import type { World } from '../world'
-import { circuitLive } from './circuits'
+import { circuitLive, isEnergized } from './circuits'
 
 /**
  * Things that light gas: flames, live cables, current in water, a switch being thrown (every fitting on the circuit
@@ -18,7 +18,7 @@ const CIGARETTE_REACH = 1
 export function ignitionSourceAt(world: World, at: Vec): boolean {
   if (nearestFire(world, at, 1.5)) return true
   const key = Math.floor(at.y) * world.grid.width + Math.floor(at.x)
-  if (world.systems.energized.has(key) || world.systems.energized.has(key + world.grid.width)) return true
+  if (isEnergized(world, key) || isEnergized(world, key + world.grid.width)) return true
   for (const wire of world.systems.wires) {
     if (circuitLive(world, wire.circuit) && Math.abs(wire.x - at.x) < 1 && at.y >= wire.top - 1 && at.y <= wire.y + 1) return true
   }

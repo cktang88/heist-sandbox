@@ -37,7 +37,11 @@ export function settleLooseProps(world: World, dt: number): void {
       glide(world, prop, loose, dt)
       continue
     }
-    if (loose.vx === 0 && loose.vy === 0 && (isResting(world.grid, prop) || restsOnRim(world.grid, prop))) continue
+    if (loose.vx === 0 && loose.vy === 0 && (isResting(world.grid, prop) || restsOnRim(world.grid, prop))) {
+      // A door shut on it, or a wall or heap filled in around it: it is shoved out of the way.
+      if (boxHitsSolid(world.grid, propBox(prop))) unbury(world, prop, loose)
+      continue
+    }
     fall(world, prop, loose, dt)
   }
 }
@@ -178,7 +182,7 @@ function slideToFit(grid: Grid, box: Rect, dx: number, dy: number): number | nul
  * A prop that dropped through a hole narrower than itself (only its footing has to fit) lands with an edge in the
  * floor it fell through or a wall beside it. It shifts sideways, as little as it can, to stand clear.
  */
-function standClear(grid: Grid, prop: PropState): void {
+export function standClear(grid: Grid, prop: PropState): void {
   const box = propBox(prop)
   if (!boxHitsSolid(grid, box)) return
   for (let nudge = NUDGE_STEP; nudge <= box.w; nudge += NUDGE_STEP) {
@@ -194,6 +198,11 @@ function standClear(grid: Grid, prop: PropState): void {
     shiftProp(prop, 0, -lift)
     return
   }
+}
+
+function unbury(world: World, prop: PropState, loose: LooseProp): void {
+  standClear(world.grid, prop)
+  rekeyIfMoved(world, prop, loose, true)
 }
 
 /** Whoever the falling prop comes down on is hurt once per fall, harder for heavy things falling fast. */

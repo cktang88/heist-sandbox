@@ -1,6 +1,6 @@
 import { explode } from '../explosions'
 import { nearestFire, startFire } from '../hazards/fire'
-import { toxicPressureAt } from '../hazards/smoke'
+import { thinSmoke, toxicPressureAt } from '../hazards/smoke'
 import { playSound } from '../sounds'
 import { isSolidAt } from '../tiles'
 import type { World } from '../world'
@@ -42,5 +42,20 @@ function flare(world: World, x: number, y: number, outward: number): void {
     startFire(world, tx, y - 1, 1, 0.9)
   }
   playSound(world, 'fire', { x: x + 0.5, y: y + 0.5 })
+  burnOffPackedSmoke(world, x, y, -outward)
   explode(world, { x: x + 0.5 + outward, y: y + 0.5 }, BLAST)
+}
+
+/** Room behind the opening whose hot smoke the flare burns: as far as the fire it needs, a storey up and down. */
+const ROOM_REACH = 5
+const SMOKE_LEFT = 0.3
+
+/**
+ * The flare is the packed smoke igniting, so it is used up: windows the blast then breaks, or a second door opened a
+ * moment later, find a smoky room, not another backdraft.
+ */
+function burnOffPackedSmoke(world: World, x: number, y: number, inward: number): void {
+  for (let step = 1; step <= FIRE_REACH; step += 1) {
+    for (let dy = -ROOM_REACH; dy <= ROOM_REACH; dy += 1) thinSmoke(world, x + inward * step, y + dy, SMOKE_LEFT)
+  }
 }

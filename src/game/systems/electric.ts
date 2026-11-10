@@ -3,7 +3,7 @@ import { burst } from '../effects'
 import { breakProp } from '../hazards/reactions'
 import { igniteGasNear } from '../hazards/gas'
 import { startFire } from '../hazards/fire'
-import { propById } from '../hazards/props'
+import { propById, propsAt } from '../hazards/props'
 import { emitNoise } from '../noise'
 import type { PropKind } from '../propCatalog'
 import { propSpec } from '../propCatalog'
@@ -34,27 +34,9 @@ const SHORT_SECONDS = 2
 const MAX_PUDDLE = 600
 const SPARK = '#bfe4ff'
 
-/** Floor props that carry current, filed by the tiles at their base, found once per prop list. */
-const basesCache = new WeakMap<object, { count: number; byKey: Map<number, number[]> }>()
-
-function propBases(world: World): Map<number, number[]> {
-  const known = basesCache.get(world.props)
-  if (known && known.count === world.props.length) return known.byKey
-  const byKey = new Map<number, number[]>()
-  const width = world.grid.width
-  for (const prop of world.props) {
-    if (!PLANT.has(prop.kind) && !ELECTRONICS.has(prop.kind)) continue
-    const spec = propSpec(prop.kind)
-    if (spec.mount !== 'floor') continue
-    const left = Math.floor(prop.x + 0.5 - spec.w / 2)
-    const right = Math.max(left, Math.ceil(prop.x + 0.5 + spec.w / 2) - 1)
-    for (let x = left; x <= right; x += 1) {
-      const key = (prop.y - 1) * width + x
-      byKey.set(key, [...(byKey.get(key) ?? []), prop.id])
-    }
-  }
-  basesCache.set(world.props, { count: world.props.length, byKey })
-  return byKey
+/** Floor kit that carries current, standing with its base in row `y`. */
+function isKitBasedIn(prop: PropState | undefined, y: number): prop is PropState {
+  return !!prop && !prop.broken && (PLANT.has(prop.kind) || ELECTRONICS.has(prop.kind)) && propSpec(prop.kind).mount === 'floor' && prop.y - 1 === y
 }
 
 /** Live kit and cables touching water this tick: the wet tile, the circuit, and the prop (or -1 for a cable). */
@@ -63,19 +45,21 @@ type Contact = { key: number; circuit: number | undefined; prop: number }
 function contacts(world: World): Contact[] {
   const found: Contact[] = []
   const field = world.systems.water
+  const width = world.grid.width
   if (field && field.active.length > 0) {
-    const bases = propBases(world)
     for (const key of field.active) {
       if (field.depth[key] < TOUCHES) continue
-      for (const id of bases.get(key) ?? []) {
+      const x = key % width
+      const y = (key - x) / width
+      // The shared prop index follows props that fall or are dragged: kit dropped into a flooded room is live there.
+      for (const id of propsAt(world, x, y)) {
         const prop = propById(world, id)
-        if (!prop || prop.broken) continue
+        if (!isKitBasedIn(prop, y)) continue
         const circuit = propCircuit(world, prop)
         if (circuitLive(world, circuit) && !found.some((contact) => contact.prop === id)) found.push({ key, circuit, prop: id })
       }
     }
   }
-  const width = world.grid.width
   for (const wire of world.systems.wires) {
     if (!circuitLive(world, wire.circuit)) continue
     const x = Math.floor(wire.x)
