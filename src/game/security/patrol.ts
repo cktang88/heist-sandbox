@@ -5,7 +5,7 @@ import type { World } from '../world'
 import { barkLine } from './barks'
 import { feetOf, type Guard } from './model'
 import { goTo, hold } from './movement'
-import { roomById, sameFloor } from './places'
+import { buildingAt, roomById, sameFloor } from './places'
 import { PATROL } from './tuning'
 
 /**
@@ -79,10 +79,15 @@ function pickPause(world: World, guard: Guard, caution: boolean, mayDetour: bool
   }
 }
 
-/** A look into the stairwell: the landing on the floor above or below, if a staircase is near. */
-function stairCheck(world: World, guard: Guard): Vec | null {
+/**
+ * A look into the stairwell: the landing on the floor above or below, if a staircase in his own building is near.
+ * Never another building's stairs: the way there is not his to walk, and he would wander off and get stuck.
+ */
+export function stairCheck(world: World, guard: Guard): Vec | null {
   const feet = feetOf(guard)
+  const building = buildingAt(world, feet)
   for (const well of world.stairwells) {
+    if (well.building !== building) continue
     const stop = well.stops.findIndex((y) => Math.abs(y - feet.y) < 0.5)
     if (stop < 0 || Math.abs(landingX(well, stop) - feet.x) > STAIR_CHECK_REACH) continue
     const other = stop + 1 < well.stops.length ? stop + 1 : stop - 1

@@ -1,5 +1,5 @@
 import { feetOf, type Guard } from '../security/model'
-import { sameFloor } from '../security/places'
+import { buildingAt, sameFloor } from '../security/places'
 import { hasLineOfSight } from '../vision'
 import type { World } from '../world'
 import { bondsOf, otherIn } from './bonds'
@@ -133,7 +133,8 @@ function startChat(world: World, people: PeopleState, person: Person): boolean {
     const mine = feetOf(guard)
     const theirs = feetOf(them)
     const gap = Math.abs(mine.x - theirs.x)
-    if (!sameFloor(mine, theirs) || gap > CHAT_REACH) continue
+    // Only someone on his own floor of his own building: never across a gap or through a window into the next one.
+    if (!sameFloor(mine, theirs) || gap > CHAT_REACH || buildingAt(world, mine) !== buildingAt(world, theirs)) continue
     if (gap < CHAT_CLOSE && idleOk(world, guard) && idleOk(world, them)) {
       chat(world, people, person, other, talk)
       return true
