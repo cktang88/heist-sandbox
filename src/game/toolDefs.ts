@@ -1,7 +1,9 @@
+import { GRAPPLE_TOOL } from './grapple/tool'
+
 export type ToolId = 'pistol' | 'rifle' | 'shotgun' | 'sniper' | 'rocket' | 'c4' | 'drill' | 'drone' | 'smoke' | 'flash'
 
 /** What a tool does when it differs from what the hands hold: `id` is the item the renderers draw in the hands. */
-export type ToolAction = 'frag' | 'rope'
+export type ToolAction = 'frag' | 'rope' | 'grapple'
 
 /**
  * `slot` is the hotkey a second-page tool shares with a first-page one: pressing that key again swaps between them.
@@ -27,6 +29,7 @@ export const TOOLS: readonly ToolDef[] = [
   // Second page: a frag shares the smoke key (9), the rope shares the drill key (7).
   { id: 'flash', name: 'Frag', ammo: 4, cooldown: 0.6, auto: false, quiet: false, action: 'frag', slot: 8 },
   { id: 'c4', name: 'Rope', ammo: 3, cooldown: 0.5, auto: false, quiet: true, action: 'rope', slot: 6 },
+  GRAPPLE_TOOL,
 ]
 
 /** The first tool with this held item: always the first-page one. */
@@ -42,13 +45,23 @@ function slotOf(index: number): number {
   return TOOLS[index].slot ?? index
 }
 
-/**
- * The tool a hotkey press picks. Pressing the key of the tool in hand swaps to the next tool on that key.
- * A number past the hotkeys is read as a key too (the input device counts all tools and wraps its digits).
- */
+/** The tool a hotkey press picks. Pressing the key of the tool in hand swaps to the next tool on that key. */
 export function toolForKey(key: number, current: number): number {
-  const slot = key % HOTKEYS
-  const onKey = TOOLS.map((_, index) => index).filter((index) => slotOf(index) === slot)
+  const onKey = TOOLS.map((_, index) => index).filter((index) => slotOf(index) === key)
   const at = onKey.indexOf(current)
   return at < 0 ? onKey[0] : onKey[(at + 1) % onKey.length]
+}
+
+/**
+ * The mouse wheel steps through every tool in order, second page included. `Input.selectTool` carries it as a number
+ * past the hotkeys, so it never reads as a key (or as a choice in an open terminal menu).
+ */
+export function wheelSelection(steps: number): number {
+  return HOTKEYS + (((steps % TOOLS.length) + TOOLS.length) % TOOLS.length)
+}
+
+/** The tool an `Input.selectTool` picks: 0-9 is a hotkey, anything past that is a step of the wheel. */
+export function toolForSelection(selection: number, current: number): number {
+  if (selection >= HOTKEYS) return (current + selection - HOTKEYS) % TOOLS.length
+  return toolForKey(selection, current)
 }

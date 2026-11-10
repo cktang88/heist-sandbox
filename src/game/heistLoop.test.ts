@@ -1,3 +1,4 @@
+import { hideCaseIn } from './intel/intel'
 import { describe, expect, it } from 'vitest'
 import { costInReferenceUnits } from './benchmark'
 import { elevatorRefuses, groundStop, shaftOf } from './elevators'
@@ -31,6 +32,7 @@ const storeyOf = (world: World, feetY: number) => Math.round((world.groundY - fe
 describe('the whole site', () => {
   it('a quiet run: take down the vault guard, cut the camera, take the gold and get out without the alert level moving', () => {
     const world = createWorld(1, 'complex')
+    hideCaseIn(world, 'vault')
     world.player.hp = 1e6
     const vault = world.rooms.find((room) => room.kind === 'vault')!
     const heavy = world.guards.find((guard) => guard.role === 'heavy' && guard.roomId === vault.id)!

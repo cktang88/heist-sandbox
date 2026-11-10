@@ -44,13 +44,15 @@ npm run build
 | C or Ctrl | Crouch (quieter, hides behind low cover); slide when running |
 | Mouse | Aim and use the tool in hand |
 | R | Reload |
-| 1-9, 0 or wheel | Pick a tool. Press 9 again for Frag, 7 again for Rope |
-| E | Do the thing in reach: pick locks, take down, hack, cut wires, switches, call elevators |
+| 1-9, 0 or wheel | Pick a tool. Press 9 again for Frag; 7 again for Rope, then Grapple |
+| E | Do the thing in reach: break in through a window (tap to smash, hold to cut quietly), pick locks, take down, hack, cut wires, switches, call elevators |
 | F / V | Punch / kick (kick also tips tables and bursts doors) |
 | Hold G | Drag furniture, or hold a guard from behind as a shield |
 | T | Throw the nearest small object where you aim |
-| Q | Set off all C4 |
+| Q or right-click | Set off all C4. C4 sticks to walls, doors and ceilings |
 | Shift | Focus: slow motion, slowest when you hold still |
+| Esc or P | Pause menu: controls, help, settings (art style, quality, site, seed, sound) |
+| H / K or F1 | Help / controls list |
 | Enter | New heist after winning or losing |
 
 ## Tools
@@ -63,13 +65,15 @@ npm run build
 | 4 | Sniper | No | One heavy shot; goes through doors, brick and people |
 | 5 | Rockets | No | Blast holes anywhere |
 | 6 | C4 | Until it goes off | Throw, then press Q. Breaks even the steel vault |
-| 7 | Drill / Rope | Mostly | Tunnel slowly, or tie a rope at an edge and climb the outside |
+| 7 | Drill / Rope / Grapple | Mostly | Tunnel slowly; tie a rope at an edge; or fire a hook, reel with W/S, swing with A/D |
 | 8 | Drone | Yes | Fly it with the move keys to scout, click to detonate |
 | 9 | Smoke / Frag | Yes / No | Hide in smoke, or roll a frag down the stairs |
 | 0 | Flash | No | Blinds and deafens anyone looking |
 
 ## Things the world lets you do
 
+- The gold case is hidden. Question guards who surrender, are tied up or are held as a shield (about 70% tell the truth); read notes and hack files for better clues. Go loud and the guards move it.
+- Walk past a hole blown in a floor, hold S over it to drop through, or jump up through it.
 - Shoot out lamps, cameras, alarm buttons, radio relays and fuse boxes.
 - Push a desk against a door to block it, or under a hole in the ceiling to climb up.
 - Blow up a stair flight or cut an elevator cable to stop guards following.

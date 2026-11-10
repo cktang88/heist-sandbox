@@ -1,3 +1,4 @@
+import { setupIntel } from './intel/intel'
 import type { Charge } from './charges'
 import type { FallingTile } from './collapse'
 import type { Drone } from './drone'
@@ -22,10 +23,12 @@ import type { Body, Rect } from './types'
 import { createGuard } from './guards'
 import type { Frag } from './frag/frag'
 import type { Rope } from './rope/rope'
+import { createGrapple, type GrappleState } from './grapple/state'
 import { createFallingProps, type FallingPropsState } from './vehicles/fallingProps'
 import { createPhysProps, type PhysPropsState } from './physprops/state'
 import { createMelee, type MeleeState } from './melee/state'
 import { createIntel, type IntelState } from './intel/types'
+import { createGaps, type GapState } from './gaps/state'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -74,8 +77,12 @@ export type World = {
   frags: Frag[]
   /** Climbing ropes the player has tied off. */
   ropes: Rope[]
+  /** The grappling hook: in the launcher, flying, bitten with the player on its line, or left hanging. */
+  grapple: GrappleState
   /** Floor props dropping through a destroyed floor. */
   fallingProps: FallingPropsState
+  /** Holes in floor slabs that people can walk past, drop through or climb up through. */
+  gaps: GapState
   /** Lighting circuits whose fuse box has been cut. */
   deadCircuits: Set<number>
   /** The hacking menu that is open, if any. */
@@ -97,7 +104,7 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
   // Even seeds are flipped, so the van and the building swap sides.
   const built = kind === 'complex' ? createComplex(seed) : createLevel(seed)
   const level = seed % 2 === 0 ? mirrorLevel(built) : built
-  return {
+  const world: World = {
     grid: level.grid,
     player: createPlayer(level.playerStart),
     guards: level.guards.map((spawn) => createGuard(spawn)),
@@ -128,7 +135,9 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     elevatorCars: createElevators(level.elevators),
     frags: [],
     ropes: [],
+    grapple: createGrapple(),
     fallingProps: createFallingProps(),
+    gaps: createGaps(level),
     deadCircuits: new Set(),
     terminal: null,
     prompt: null,
@@ -141,4 +150,6 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     rng: createRng(seed ^ 0x9e3779b9),
     intel: createIntel(),
   }
+  setupIntel(world)
+  return world
 }

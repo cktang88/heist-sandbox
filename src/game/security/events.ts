@@ -36,6 +36,12 @@ export type Bark = Vec & { text: string; life: number }
 /** A guard who died, where and when: colleagues who know think twice before walking in there. */
 export type Death = { at: Vec; room: number; clock: number; victim: number }
 
+/**
+ * A spot (feet position) where guards have been killed: a doorway, a stair head, a stretch of corridor the intruder has covered.
+ * Nobody else walks into it for a while; they go round, throw something through it first (`clearedAt`), or wait.
+ */
+export type KillZone = { at: Vec; deaths: number; lastDeath: number; clearedAt: number }
+
 /** Guards already answering trouble at a spot, so the next ones who hear it leave it to them. */
 export type Response = { at: Vec; kind: 'noise' | 'gunfire' | 'blast'; count: number; clock: number }
 
@@ -105,6 +111,10 @@ export type SecurityState = {
   chuteReportedAt: number
   /** The last few lines spoken, so nobody repeats what was just said. */
   recentLines: string[]
+  killZones: KillZone[]
+  /** Shield teams called in so far, and when the last one was. */
+  shieldTeams: number
+  shieldTeamAt: number
 }
 
 export function createSecurity(): SecurityState {
@@ -115,5 +125,6 @@ export function createSecurity(): SecurityState {
     confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
     deaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), camerasDeadSince: new Map(), camerasReported: new Set(),
     vaultReported: false, lampsNoticed: new Set(), ropesNoticed: new Set(), chuteReportedAt: -Infinity, recentLines: [],
+    killZones: [], shieldTeams: 0, shieldTeamAt: -Infinity,
   }
 }

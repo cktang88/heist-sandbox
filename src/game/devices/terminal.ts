@@ -1,5 +1,7 @@
 import { callElevator, carsOf, elevatorRefuses, holdElevators, releaseElevators, shaftOf } from '../elevators'
+import { terminalClue, terminalLine } from '../intel/intel'
 import { emitNoise } from '../noise'
+import { sayAt } from '../security/barks'
 import { reportEvent } from '../security/dispatch'
 import type { RoomKind } from '../site'
 import { playSound } from '../sounds'
@@ -72,6 +74,12 @@ function terminalOptions(world: World, device: Device): Option[] {
   if (has(CAN_UNLOCK)) options.push({ label: 'Unlock doors on this floor', run: () => unlockFloorDoors(world, floor) })
   if (has(CAN_JAM)) options.push({ label: 'Jam radios', run: () => switchOff(world, inBuilding(world, floor, 'radioRelay'), RADIOS_JAMMED_SECONDS) })
   if (has(CAN_LOCATE_VAULT)) options.push({ label: 'Show vault location', run: () => revealVaults(world) })
+  if (!world.intel.used.has(`device:${device.id}`)) {
+    options.push({ label: 'Search files for the case', run: () => {
+      const clue = terminalClue(world, device)
+      if (clue) sayAt(world, deviceCenter(device), terminalLine(clue))
+    } })
+  }
   if (has(CAN_FAKE_ALARM)) options.push({ label: 'Trigger false alarm on another floor', run: () => falseAlarm(world, floor) })
   options.push(...elevatorOptions(world, floor, has(CAN_HOLD_ELEVATORS)))
   return options
