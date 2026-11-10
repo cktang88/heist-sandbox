@@ -178,7 +178,7 @@ function buildPerimeter(site: SiteDraft): void {
   site.devices.push({ kind: 'camera', x: 36, y: ground - 5, roomId: gatehouse.id, facing: -1 })
 
   for (const [x, facing] of [[46, -1], [267, 1]] as const) buildWatchtower(site, x, facing)
-  for (const x of [8, 24, 60, 82, 190, 236, 280]) {
+  for (const x of [8, 24, 44, 82, 190, 236, 280]) {
     site.lamps.push({ x: x + 0.5, y: ground - 5.5, fixture: 'streetLight', color: LIGHT.sodium, radius: 10, strength: 2.4, hung: false })
   }
 }
