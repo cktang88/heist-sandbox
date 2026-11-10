@@ -127,4 +127,16 @@ describe('the E key with several things in reach', () => {
     play(world, 0.1)
     expect(world.prompt).toBe('E: open valve')
   })
+
+  it('at a shut door with a fuse box on the wall beside it, E goes to the door the player faces, and the prompt says so', () => {
+    const world = createWorld(1)
+    world.guards = []
+    placePlayer(world, 68.55, GROUND)
+    world.player.facing = 1
+    world.devices.push({ kind: 'fusebox', x: 67, y: GROUND - 2, id: world.devices.length, disabled: false, hacked: false, circuit: 0 })
+    play(world, 0.1)
+    expect(world.prompt).toBe('Hold E: pick lock')
+    play(world, 2, { interact: true })
+    expect(tileAt(world.grid, 70, GROUND - 1)).toBe('air')
+  })
 })

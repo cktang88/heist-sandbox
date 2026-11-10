@@ -301,7 +301,8 @@ function doorAction(world: World): Action | null {
     playSound(world, 'door', center)
   }
   const key = `door:${door.x}`
-  const at = { x: door.x + 0.5, y: door.y + 0.5 }
+  // Measured to the face of the door on his side: that is what his hand reaches for.
+  const at = { x: Math.max(door.x, Math.min(door.x + 1, center.x)), y: door.y + 0.5 }
   const keypad = keypadFor(world, door)
   if (seconds > 0 && keypad && world.stealth.keycards.size > 0) {
     const swipe = open('keycard')
