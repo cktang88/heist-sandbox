@@ -81,7 +81,9 @@ function takeStairs(world: World, frag: Frag): void {
 function rattleDown(world: World, frag: Frag, dt: number): void {
   const on = frag.stairs!
   const well = world.stairwells.find((candidate) => candidate.id === on.well)
-  if (!well || on.u <= 0) {
+  // A blown flight leaves the lower piece with the old id and fewer stops (stairs.ts `breakFlight`): past its top,
+  // the frag was on the flight that went, or above it, and it drops from where it is.
+  if (!well || on.u <= 0 || on.u > well.stops.length - 1) {
     frag.stairs = null
     return
   }
