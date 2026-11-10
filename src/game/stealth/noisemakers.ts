@@ -1,5 +1,5 @@
 import type { PropState } from '../cover'
-import { propCenter, propsNear } from '../hazards/props'
+import { propById, propCenter, propsNear } from '../hazards/props'
 import { emitNoise } from '../noise'
 import type { PropKind } from '../propCatalog'
 import { bark } from '../security/barks'
@@ -48,6 +48,8 @@ export function switchOn(world: World, prop: PropState): void {
 export function stepNoisemakers(world: World): void {
   const stealth = world.stealth
   stealth.noisemakers = stealth.noisemakers.filter((on) => {
+    // Shot, burnt or smashed, it has gone quiet for good.
+    if (propById(world, on.prop)?.broken !== false) return false
     const off = world.guards.find((guard) => isActive(guard) && distance(centerOf(guard), on.at) < NOISEMAKER.switchReach + 1 && Math.abs(guard.y + guard.h - (on.at.y + 1)) < 3)
     if (off) {
       const used = stealth.noisemakerUses.get(on.prop) ?? 1
