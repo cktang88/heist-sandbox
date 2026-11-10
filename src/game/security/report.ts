@@ -1,7 +1,7 @@
 import type { Vec } from '../types'
 import type { World } from '../world'
 import type { AlertLevel, SecurityEvent } from './events'
-import { COMMS } from './tuning'
+import { COMMS, RESPONSE } from './tuning'
 import { broadcastContact, sendPair } from './orders'
 import { floorBelow, floorName, unitName } from './places'
 import { deployResponders } from './response'
@@ -13,6 +13,7 @@ import { assignStations } from './stations'
  */
 
 const QUIET_LOG = 30
+const TAMPER_NAMES = { door: 'open door', lock: 'forced lock', rope: 'rope on the facade' } as const
 const LEVEL_NAMES = ['all clear', 'stay sharp', 'possible intruder, posts doubled', 'intruder confirmed, response team deploying', 'lockdown, lock it all down']
 
 /** Adds a line to the radio log, unless it would only repeat the line before it. */
@@ -106,8 +107,43 @@ export function reportEvent(world: World, event: SecurityEvent): void {
       return
     case 'fault':
       security.focus = floorBelow(world, event.at)
-      log(world, `Control: Power fault on ${floorName(world, event.at)}. Noted.`)
+      if (event.what === 'camera') {
+        log(world, `Control: Lost a camera feed on ${floorName(world, event.at)}. Sending someone.`)
+        sendPair(world, floorBelow(world, event.at))
+      } else {
+        log(world, `Control: Power fault on ${floorName(world, event.at)}. Noted.`)
+      }
       raiseLevel(world, 1)
+      return
+    case 'backup':
+      security.focus = floorBelow(world, event.at)
+      log(world, `${unitName(event.by)}: Need backup on ${floorName(world, event.at)}!`)
+      raiseLevel(world, Math.max(2, security.level) as AlertLevel)
+      sendPair(world, floorBelow(world, event.at))
+      return
+    case 'explosion':
+      // A bomb is the intruder's work: where it went off is the best idea of where he is.
+      contact(world, event.at)
+      log(world, `Control: Explosion on ${floorName(world, event.at)}! All units!`)
+      raiseLevel(world, 3)
+      security.lockdownAt = Math.min(security.lockdownAt, world.clock + RESPONSE.lockdownDelay)
+      return
+    case 'tamper':
+      security.focus = floorBelow(world, event.at)
+      log(world, `Control: Copy, ${TAMPER_NAMES[event.what]} on ${floorName(world, event.at)}.`)
+      raiseLevel(world, event.what === 'door' ? 1 : 2)
+      return
+    case 'vault':
+      security.focus = floorBelow(world, event.at)
+      log(world, `${unitName(event.by)}: The vault's been hit!`)
+      raiseLevel(world, 3)
+      security.lockdownAt = Math.min(security.lockdownAt, world.clock + RESPONSE.lockdownDelay)
+      return
+    case 'parachute':
+      contact(world, event.at)
+      log(world, `Control: Parachute reported over ${floorName(world, event.at)}.`)
+      raiseLevel(world, Math.max(2, security.level) as AlertLevel)
+      sendPair(world, floorBelow(world, event.at))
       return
     case 'fire':
       reportFire(world, event.at, event.alarm)

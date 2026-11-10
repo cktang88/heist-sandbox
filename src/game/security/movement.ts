@@ -8,6 +8,7 @@ import { climbStairs } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
 import type { Vec } from '../types'
 import type { World } from '../world'
+import { doorKeyAt } from './discoveries'
 import { feetOf, type Guard } from './model'
 
 /**
@@ -105,6 +106,8 @@ function openDoorAhead(world: World, guard: Guard, kick: boolean): boolean {
   }
   const at = { x: column, y: row }
   if (doorBlockedAt(world, at)) return true
+  // Remembered, so colleagues who find it open later know it was one of their own.
+  world.security.guardDoors.add(doorKeyAt(world, column, row))
   openDoor(world.grid, at)
   world.structureChanged = true
   emitNoise(world, at, kick ? KICKED_DOOR_NOISE : QUIET_DOOR_NOISE, 'guard')

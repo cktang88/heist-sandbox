@@ -4,6 +4,8 @@ import type { GuardRole, Room } from '../site'
 import { stepWorld } from '../step'
 import { createGrid, fillTiles, type TileKind } from '../tiles'
 import { createWorld, type Device, type World } from '../world'
+import type { Tier } from './model'
+import { TIERS } from './tuning'
 
 /**
  * A bare test site for guard behaviour: one long dark floor at row GROUND (night, no lamps), nobody on it,
@@ -31,9 +33,12 @@ export function putPlayer(world: World, x: number, feetY = GROUND): void {
   Object.assign(world.player, { x: x - world.player.w / 2, y: feetY - world.player.h - 0.01, vx: 0, vy: 0, chute: false })
 }
 
-export function addGuard(world: World, x: number, facing: 1 | -1, role: GuardRole = 'post', feetY = GROUND): Guard {
+/** Guards are steady regulars (heavies and officers veterans) unless a test asks otherwise. */
+export function addGuard(world: World, x: number, facing: 1 | -1, role: GuardRole = 'post', feetY = GROUND, tier: Tier = role === 'heavy' || role === 'officer' ? 'veteran' : 'regular'): Guard {
   const guard = createGuard({ x: x - 0.5, y: feetY, facing, role })
   guard.checkInAt = 1e9
+  guard.tier = tier
+  guard.nerve = TIERS[tier].nerve
   world.guards.push(guard)
   return guard
 }
@@ -65,4 +70,14 @@ export function run(world: World, seconds: number, input: Partial<Input> = {}, e
     stepWorld(world, { ...idleInput({ x: world.player.x + 5, y: world.player.y }), ...input }, FRAME)
     if (each?.()) return
   }
+}
+
+/** Like `run`, but also returns every line spoken during it, so a test can check what was said after it has faded. */
+export function runListening(world: World, seconds: number, input: Partial<Input> = {}, each?: () => boolean | void): string[] {
+  const heard = new Set<string>()
+  run(world, seconds, input, () => {
+    for (const line of world.security.barks) heard.add(line.text)
+    return each?.()
+  })
+  return [...heard]
 }

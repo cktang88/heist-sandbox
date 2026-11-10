@@ -2,11 +2,13 @@ import { distance } from '../types'
 import type { World } from '../world'
 import { barkLine, type LineKind } from './barks'
 import { feetOf, isActive, type CombatRole, type Guard } from './model'
+import { isBreaking, isShaken } from './nerve'
 import { COMBAT } from './tuning'
 
 /**
  * The squad layer above each fighting guard: who may fire aimed shots (attack tokens, so not everyone
- * opens up at once), who suppresses, who flanks, who holds a choke point and who falls back.
+ * opens up at once), who suppresses, who flanks, who holds a choke point and who falls back
+ * (the badly hurt, and anyone whose nerve is breaking).
  * Also tracks how long the player has stayed put, which is what earns him a flashbang.
  */
 
@@ -38,10 +40,10 @@ export function organiseSquad(world: World, dt: number): void {
     const index = world.guards.indexOf(guard)
     if (tokens.has(guard) && guard.seesPlayer) security.shooters.push(index)
     let role: CombatRole
-    if (guard.hp < guard.maxHp * COMBAT.fallbackHealth) role = 'fallback'
+    if (guard.hp < guard.maxHp * COMBAT.fallbackHealth || isBreaking(guard)) role = 'fallback'
     else if (tokens.has(guard)) role = 'assault'
     else if (guard.seesPlayer && !suppressor) role = 'suppress'
-    else if (killingZone && fighters.length >= 3 && !flanker && !guard.armored) role = 'flank'
+    else if (killingZone && fighters.length >= 3 && !flanker && !guard.armored && !isShaken(guard)) role = 'flank'
     else role = 'hold'
     if (role === 'suppress') suppressor = true
     if (role === 'flank') flanker = true

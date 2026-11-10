@@ -1,4 +1,6 @@
 import type { PropState } from '../cover'
+import { isTable } from '../physprops/kinds'
+import { propCover } from '../physprops/tip'
 import { propSpec } from '../propCatalog'
 import { isSolidAt } from '../tiles'
 import type { Vec } from '../types'
@@ -19,9 +21,9 @@ function coverByFloor(props: readonly PropState[]): Map<number, CoverProp[]> {
   index = new Map()
   for (const prop of props) {
     const spec = propSpec(prop.kind)
-    if (spec.mount !== 'floor' || spec.cover === 'none') continue
+    if (spec.mount !== 'floor' || (spec.cover === 'none' && !isTable(prop.kind))) continue
     const centre = prop.x + 0.5
-    const entry = { prop, left: centre - spec.w / 2, right: centre + spec.w / 2, high: spec.cover === 'high' }
+    const entry = { prop, left: centre - spec.w / 2, right: centre + spec.w / 2, high: false }
     const row = Math.round(prop.y)
     index.set(row, [...(index.get(row) ?? []), entry])
   }
@@ -29,10 +31,19 @@ function coverByFloor(props: readonly PropState[]): Map<number, CoverProp[]> {
   return index
 }
 
-/** Intact cover props on the floor with this feet row whose footprint comes within `reach` of x. */
+/**
+ * Intact cover props on the floor with this feet row whose footprint comes within `reach` of x. Tables count
+ * only once kicked over onto their side, when their top hides a standing man.
+ */
 export function coverNear(world: World, x: number, floorY: number, reach: number): CoverProp[] {
   const row = coverByFloor(world.props).get(Math.round(floorY)) ?? []
-  return row.filter((entry) => !entry.prop.broken && entry.right >= x - reach && entry.left <= x + reach)
+  const near: CoverProp[] = []
+  for (const entry of row) {
+    if (entry.prop.broken || entry.right < x - reach || entry.left > x + reach) continue
+    const cover = propCover(world, entry.prop)
+    if (cover !== 'none') near.push({ ...entry, high: cover === 'high' })
+  }
+  return near
 }
 
 /** Is there cover right beside this body, between it and the threat? */
