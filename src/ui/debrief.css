@@ -67,7 +67,8 @@
 .sg-tonight li::before { content: '\2022'; position: absolute; left: 0.2em; color: var(--sg-cyan); }
 .sg-dossier .sg-seed { margin-top: 1em; }
 
-.sg-debrief-actions { display: flex; flex-wrap: wrap; gap: 0.7em; padding-top: 0.9em; border-top: 1px dashed rgba(255, 255, 255, 0.1); }
+/* Kept at the bottom of the scrolling sheet, so on a short window the buttons stay in sight while the story starts at its headline. */
+.sg-debrief-actions { position: sticky; bottom: -1.1em; z-index: 1; display: flex; flex-wrap: wrap; gap: 0.7em; padding: 0.9em 0 1.1em; background: var(--sg-panel); border-top: 1px dashed rgba(255, 255, 255, 0.1); }
 .sg-debrief-actions .sg-btn:focus-visible { outline: 1px solid var(--sg-cyan); outline-offset: 2px; }
 
 /* In the past-heists list. */

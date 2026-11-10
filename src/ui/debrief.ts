@@ -28,7 +28,8 @@ export function showDebrief(entry: PastHeist, actions: DebriefActions): () => vo
     event.stopPropagation()
   })
   document.body.append(root)
-  same.focus()
+  // Without preventScroll a short window scrolls down to the buttons and the headline starts out of sight.
+  same.focus({ preventScroll: true })
   return close
 }
 
@@ -52,7 +53,8 @@ export function pastHeistsModal(): HTMLElement {
   const open = (entry: PastHeist) => {
     const back = button('Back to the list', list, true)
     body.replaceChildren(debriefPanel(entry, [back, copyButton(entry.debrief)], true))
-    back.focus()
+    back.focus({ preventScroll: true })
+    body.scrollTop = 0
   }
   list()
   return panel('Past heists', '// CASE.FILES', body, true)
