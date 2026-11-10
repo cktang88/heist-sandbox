@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { doorColumn, groundStop, type ElevatorCar } from './elevators'
+import { callElevator, doorColumn, groundStop, type ElevatorCar } from './elevators'
+import { elevatorsRecalled, isLockedDown } from './security/dispatch'
+import { raiseLevel, reportEvent } from './security/report'
 import { createGuard } from './guards'
 import { idleInput, type Input } from './input'
 import type { ElevatorShaft } from './site'
@@ -118,6 +120,33 @@ describe('elevators', () => {
     run(world, 4)
     expect(car.stop).toBe(caller)
     expect(car.doorsOpen).toBe(true)
+  })
+
+  it('obeys the security force: recalled once an intruder is reported, frozen in lockdown', () => {
+    const { world, shaft, car } = setUp()
+    const ground = groundStop(world, shaft)
+    const start = rideableStop(world, shaft) + 2
+    callElevator(world, car, start)
+    run(world, 8)
+    expect(car.stop).toBe(start)
+    expect(elevatorsRecalled(world)).toBe(false)
+
+    reportEvent(world, { kind: 'sighting', at: { x: 150, y: shaft.stops[start] - 1 }, by: 0 })
+    expect(world.security.level).toBe(3)
+    expect(elevatorsRecalled(world)).toBe(true)
+    expect(isLockedDown(world)).toBe(false)
+    expect(callElevator(world, car, start)).toBe(false)
+    run(world, 1)
+    expect(car.moving).toBe(true)
+
+    raiseLevel(world, 4)
+    expect(isLockedDown(world)).toBe(true)
+    run(world, FRAME)
+    const frozenAt = car.y
+    run(world, 3)
+    expect(car.moving).toBe(false)
+    expect(car.y).toBe(frozenAt)
+    expect(car.stop).not.toBe(ground)
   })
 
   it('stalls between floors at alert level 4 without leaving its passengers hanging', () => {
