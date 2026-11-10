@@ -73,6 +73,7 @@ export const LINES = {
   cutRope: ['Cutting it down.', 'Not coming back up this way.', 'Rope\'s gone.'],
   trick: ['Nice try.', 'Old trick. Not falling for it.', 'Throwing things now? I know you\'re there.'],
   shotLamp: ['Somebody shot the light out!', 'Light\'s been shot out.', 'Who took out that lamp?'],
+  fragOut: ['Frag out!', 'Frag, frag!', 'Fire in the hole!'],
   holeDown: ['He\'s right under us!', 'Through the floor, fire!', 'Clearing the hole!'],
   dropping: ['Going down the hole!', 'Dropping through!', 'Down we go!'],
   camera: ['Camera\'s feed just died.', 'Lost a camera. Somebody check it.', 'Camera\'s gone dark.'],

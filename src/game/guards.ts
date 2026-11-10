@@ -9,6 +9,7 @@ import { beingDragged } from './security/selfPreservation'
 import { deployResponders } from './security/response'
 import { raiseLevel } from './security/report'
 import { markUnderFire, witnessHit } from './security/takingFire'
+import { isGuardBlast } from './security/guardFrags'
 import { centerOf, type Vec } from './types'
 import type { World } from './world'
 
@@ -52,8 +53,10 @@ export function updateGuard(world: World, guard: Guard, dt: number): void {
  * so stealth kills are quick, and tells him roughly where it came from. Hazards (fire, smoke, a flash) hurt
  * at face value and say nothing about the player. Returns true if killed.
  */
-export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec, cause: 'attack' | 'hazard' = 'attack'): boolean {
+export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec, reported: 'attack' | 'hazard' = 'attack'): boolean {
   if (guard.mode === 'dead') return false
+  // A colleague's frag hurts like any blast but says nothing about where the intruder is.
+  const cause = reported === 'attack' && isGuardBlast(world, from) ? 'hazard' : reported
   const bonus = cause === 'attack' && guard.state !== 'alert' ? UNAWARE_DAMAGE_BONUS : 1
   guard.hp -= damage * bonus
   guard.hitFlash = 0.1
@@ -65,7 +68,7 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec,
     guard.announced = 'dead'
     guard.radio = null
     guard.ragdoll = createRagdoll({ x: guard.x + guard.w / 2, y: guard.y + guard.h }, { x: guard.vx, y: guard.vy }, world.rng)
-    world.stats.kills += 1
+    if (cause === 'attack') world.stats.kills += 1
     playSound(world, 'kill', guard)
     onKilled(world, guard)
     return true

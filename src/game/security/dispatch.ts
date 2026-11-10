@@ -8,6 +8,7 @@ import { noticeDeadCircuits, stepCheckIns, watchRelays } from './checkins'
 import type { AlertLevel } from './events'
 import { log, raiseLevel } from './report'
 import { organiseSquad } from './squad'
+import { forgetSpentFrags } from './guardFrags'
 import { considerShieldTeam } from './shieldTeam'
 import { assignStations } from './stations'
 import { FEAR, LEVELS, RESPONSE } from './tuning'
@@ -31,6 +32,7 @@ export function stepSecurity(world: World, dt: number): void {
   const security = world.security
   indexDoors(world)
   expireBarks(world, dt)
+  forgetSpentFrags(world)
   // Something else (a tripped sensor, an old code path) rang the alarm: that is a confirmed intruder.
   if (world.alarm && security.level < 3) raiseLevel(world, 3)
   stepLevel(world)

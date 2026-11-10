@@ -1,9 +1,10 @@
 import { throwGrenade } from '../hazards/hazards'
 import { nextHop } from '../nav'
-import type { Vec } from '../types'
+import { distance, type Vec } from '../types'
 import { hasLineOfSight, normalize } from '../vision'
 import type { World } from '../world'
 import { barkLine } from './barks'
+import { clearOfOurMen, FRAG_DANGER, throwGuardFrag } from './guardFrags'
 import type { KillZone } from './events'
 import { eyeOf, feetOf, type Guard } from './model'
 import { hold } from './movement'
@@ -30,6 +31,8 @@ export function markKillZone(world: World, victim: Guard): void {
 
 /** A thrown flashbang or smoke grenade pops after about this long; the zone is passable from then. */
 const POP_SECONDS = 1.4
+/** A frag goes off a little later (frag.ts fuse). */
+const FRAG_FUSE = 2.6
 
 /**
  * A fighting guard about to walk into a kill zone on his way to `goal` stops short of it. If he can, he throws a
@@ -63,10 +66,16 @@ export function respectKillZones(world: World, guard: Guard, goal: Vec, dt: numb
 
 function clearWithGrenade(world: World, guard: Guard, zone: KillZone): void {
   const eye = eyeOf(guard)
-  const kind = world.rng() < 0.65 ? 'flash' : 'smoke'
   // Lobbed to land just beyond the middle of the zone.
   const side = Math.sign(zone.at.x - eye.x) || guard.facing
   const target = { x: zone.at.x + side, y: zone.at.y - 1 }
+  // A heavy carries frags: he uses one when the blast can only catch the man in there, never one of his own.
+  if (guard.armored && distance(eye, target) > FRAG_DANGER + 0.5 && clearOfOurMen(world, guard, target)) {
+    throwGuardFrag(world, guard, target)
+    zone.clearedAt = world.clock + FRAG_FUSE
+    return
+  }
+  const kind = world.rng() < 0.65 ? 'flash' : 'smoke'
   const dx = target.x - eye.x
   throwGrenade(world, kind, eye, normalize(dx, target.y - eye.y - Math.abs(dx) * 0.35), 'guard')
   barkLine(world, guard, kind === 'flash' ? 'flashOut' : 'smokeOut', true)

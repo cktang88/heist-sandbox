@@ -1,3 +1,4 @@
+import type { Frag } from '../frag/frag'
 import type { Rope } from '../rope/rope'
 import type { Lamp } from '../site'
 import type { Vec } from '../types'
@@ -115,6 +116,8 @@ export type SecurityState = {
   /** Shield teams called in so far, and when the last one was. */
   shieldTeams: number
   shieldTeamAt: number
+  /** Frags guards have thrown that have not gone off yet (see guardFrags.ts). */
+  guardFrags: Frag[]
 }
 
 export function createSecurity(): SecurityState {
@@ -125,6 +128,6 @@ export function createSecurity(): SecurityState {
     confirmedAt: -Infinity, focus: null, lastCasualtyAt: -Infinity, stationsAt: -Infinity, responders: 0, responseSent: false,
     deaths: [], responses: [], lockdownAt: Infinity, guardDoors: new Set(), doorsNoticed: new Set(), camerasDeadSince: new Map(), camerasReported: new Set(),
     vaultReported: false, lampsNoticed: new Set(), ropesNoticed: new Set(), chuteReportedAt: -Infinity, recentLines: [],
-    killZones: [], shieldTeams: 0, shieldTeamAt: -Infinity,
+    killZones: [], shieldTeams: 0, shieldTeamAt: -Infinity, guardFrags: [],
   }
 }

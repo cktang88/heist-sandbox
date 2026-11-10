@@ -11,6 +11,7 @@ import { alreadyCalling, progressRadio, shout, startRadio } from './comms'
 import { escapeHazard, markFireReported, spotFire } from './danger'
 import { lookForTrouble } from './discoveries'
 import { holdsBack, panicBehaviour, surrenderedBehaviour } from './fear'
+import { isGuardBlast } from './guardFrags'
 import { noiseKind, type NoiseSource } from './hearing'
 import { eyeOf, feetOf, isActive, setMode, type Guard, type GuardMode, type InterestKind } from './model'
 import { goTo, hold } from './movement'
@@ -204,8 +205,10 @@ export function investigate(guard: Guard, at: Vec): void {
  * A sound reached this guard. Shots and blasts are solid evidence: he calls them in and goes to look.
  * Colleagues' own gunfire and doors only bring calm guards running to help.
  */
-export function hearNoise(world: World, guard: Guard, at: Vec, radius: number, source: NoiseSource, what?: 'scrape'): void {
+export function hearNoise(world: World, guard: Guard, at: Vec, radius: number, heard: NoiseSource, what?: 'scrape'): void {
   if (guard.mode === 'surrendered') return
+  // A colleague's frag going off is his own side's bang, whatever the blast itself reports.
+  const source = heard === 'player' && isGuardBlast(world, at) ? 'guard' : heard
   const kind = noiseKind(radius)
   const blast = source === 'player' && radius >= RESPONSE.blastRadius
   if (blast) onBlast(guard, at)
