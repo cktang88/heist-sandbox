@@ -340,11 +340,17 @@ function drawEndScreen(context: CanvasRenderingContext2D, world: World, width: n
   const stats = world.stats
   const lines = [
     won ? `${rating.name}: ${rating.line}` : 'The heist is over.',
-    `TIME ${world.clock.toFixed(1)}s    KILLS ${stats.kills}    KNOCKOUTS ${stats.knockouts}    TILES DESTROYED ${stats.tilesDestroyed}`,
+    `TIME ${clockText(world.clock)}    KILLS ${stats.kills}    KNOCKOUTS ${stats.knockouts}    TILES DESTROYED ${stats.tilesDestroyed}`,
     `TIMES SPOTTED ${stats.timesSpotted}    BODIES FOUND ${stats.bodiesFound}    ALARMS ${stats.alarms}    ALERT AT THE END ${peak}`,
   ]
   lines.forEach((line, index) => caption(context, line, width / 2, height * 0.47 + index * unit * 1.9, TEXT, Math.min(unit * 1.05, width / 52), 'center'))
   caption(context, 'PRESS ENTER FOR A NEW HEIST', width / 2, height * 0.47 + unit * 7, '#ffd27a', unit, 'center')
+}
+
+/** Minutes and seconds, as the debrief writes the time: 734.2 seconds is "12:14". */
+export function clockText(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds))
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`
 }
 
 function drawSlowmoTint(context: CanvasRenderingContext2D, world: World, width: number, height: number): void {

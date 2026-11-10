@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from '../game/input'
 import { stepWorld } from '../game/step'
 import { createWorld, type World } from '../game/world'
-import { helpTop, hudUnit, intelTop, objectiveLine, optionKey, visibility } from './drawHud'
+import { clockText, helpTop, hudUnit, intelTop, objectiveLine, optionKey, visibility } from './drawHud'
 
 const FRAME = 1 / 60
 
@@ -63,5 +63,11 @@ describe('the first-seconds help panel', () => {
 describe('the terminal menu', () => {
   it('numbers options by the key that picks them: 1-9, then 0, then none', () => {
     expect([0, 8, 9, 10].map(optionKey)).toEqual(['1', '9', '0', null])
+  })
+})
+
+describe('the end screen', () => {
+  it('writes the time as minutes and seconds, like the debrief', () => {
+    expect([0.3, 21.9, 734.2, 3600].map(clockText)).toEqual(['0:00', '0:21', '12:14', '60:00'])
   })
 })
