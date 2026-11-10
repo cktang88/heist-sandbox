@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { COMMS } from './tuning'
 import { hurtGuard } from '../guards'
 import { stepSecurity } from './dispatch'
 import { reportEvent } from './report'
@@ -18,7 +19,7 @@ describe('radio, check-ins and the control room', () => {
     run(world, 3)
     expect(world.security.log.some((line) => line.includes('check in'))).toBe(true)
     expect(world.security.level).toBe(0)
-    run(world, 10)
+    run(world, COMMS.pollSeconds)
     expect(world.security.level).toBe(1)
     expect(world.security.log.some((line) => line.includes('not answering'))).toBe(true)
     expect(patrol.mode).toBe('investigating')

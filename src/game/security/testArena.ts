@@ -1,4 +1,4 @@
-import { createGuard, type Guard } from '../guards'
+import { createGuard, hurtGuard, type Guard } from '../guards'
 import { GUNS } from '../guns'
 import { idleInput, type Input } from '../input'
 import { emitNoise } from '../noise'
@@ -10,6 +10,8 @@ import type { Vec } from '../types'
 import { normalize } from '../vision'
 import { createWorld, type Device, type World } from '../world'
 import type { Tier } from './model'
+import { enterCombat } from './combat'
+import { deathFound } from './nerve'
 import { TIERS } from './tuning'
 
 /**
@@ -45,6 +47,18 @@ export function addGuard(world: World, x: number, facing: 1 | -1, role: GuardRol
   guard.tier = tier
   guard.nerve = TIERS[tier].nerve
   world.guards.push(guard)
+  return guard
+}
+
+/**
+ * A guard shot dead in a fight, seen by his side: a death the force knows about, so it marks a kill zone and counts
+ * toward the shield team. `from` is where the shot came from.
+ */
+export function killInFight(world: World, x: number, from: Vec): Guard {
+  const guard = addGuard(world, x, 1)
+  enterCombat(world, guard, from)
+  hurtGuard(world, guard, 1e4, from)
+  deathFound(world, world.guards.indexOf(guard))
   return guard
 }
 

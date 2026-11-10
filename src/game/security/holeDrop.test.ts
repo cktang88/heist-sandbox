@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { canWalkAcross } from '../gaps/gaps'
-import { hurtGuard } from '../guards'
 import { setTile } from '../tiles'
 import type { World } from '../world'
 import { enterCombat } from './combat'
 import { guardDropsThrough } from './holeDrop'
 import { feetOf, setMode, type Guard } from './model'
-import { addGuard, addRoom, addUpperFloor, arena, GROUND, putPlayer, run } from './testArena'
+import { addGuard, addRoom, addUpperFloor, arena, GROUND, putPlayer, run, killInFight } from './testArena'
 
 /** Holes blasted in a floor are a way down for guards in a fight, taken with care: soften the room below, never into a kill zone. */
 
@@ -78,7 +77,7 @@ describe('guards and holes in the floor', () => {
   it('he does not drop into the room below where colleagues were just killed', () => {
     const { world, upper } = holedFloor()
     putPlayer(world, 60)
-    for (const x of [44, 45]) hurtGuard(world, addGuard(world, x, 1), 1e4, { x: 60, y: GROUND - 1 })
+    for (const x of [44, 45]) killInFight(world, x, { x: 60, y: GROUND - 1 })
     const guard = upstairsGuard(world, upper, 34)
     enterCombat(world, guard, { x: 60, y: GROUND - 1 })
     let droppedThrough = false
@@ -96,7 +95,7 @@ describe('guards and holes in the floor', () => {
     // What a fighting guard heads for: the man's last known position (combat sets it every frame).
     guard.target = guard.lastKnown
     expect(guardDropsThrough(world, guard, upper)).toBe(true)
-    for (const x of [44, 45]) hurtGuard(world, addGuard(world, x, 1), 1e4, { x: 60, y: GROUND - 1 })
+    for (const x of [44, 45]) killInFight(world, x, { x: 60, y: GROUND - 1 })
     expect(guardDropsThrough(world, guard, upper)).toBe(false)
   })
 

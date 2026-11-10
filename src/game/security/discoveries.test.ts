@@ -20,11 +20,11 @@ function doorAt50(world: World): void {
 }
 
 describe('things out of place', () => {
-  it('a door the player picked open is noticed, called in as a forced lock, and searched around', () => {
+  it('a door forced open (no hand on it: kicked, shot or blown) is noticed, called in as a forced lock, and searched around', () => {
     const world = arena()
     putPlayer(world, 140)
     doorAt50(world)
-    const guard = addGuard(world, 45, 1)
+    const guard = addGuard(world, 46, 1)
     run(world, 0.5)
     openDoor(world.grid, { x: 50, y: GROUND - 1 })
     const lines = runListening(world, 20)
@@ -105,7 +105,7 @@ describe('things out of place', () => {
     const world = arena()
     putPlayer(world, 20, GROUND - 14)
     world.player.chute = true
-    addGuard(world, 40, -1)
+    addGuard(world, 32, -1)
     const lines = runListening(world, 4, { jumpHeld: true })
     expect(saidAny(lines, ['Parachute', 'chute', 'sky'])).toBe(true)
     expect(world.security.level).toBeGreaterThanOrEqual(2)

@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { hurtGuard } from '../guards'
 import { fillTiles } from '../tiles'
 import { enterCombat } from './combat'
 import { throwGuardFrag } from './guardFrags'
 import { feetOf } from './model'
-import { addGuard, addLamp, arena, GROUND, putPlayer, run } from './testArena'
+import { addGuard, addLamp, arena, GROUND, putPlayer, run, killInFight } from './testArena'
 
 /** A guard's own frag is not the intruder's: colleagues know whose it was, and heavies use frags to clear a covered doorway. */
 
@@ -32,7 +31,7 @@ describe("guards' frags", () => {
     fillTiles(world.grid, 40, GROUND - 6, 40, GROUND - 4, 'brick')
     putPlayer(world, 50)
     addLamp(world, 50)
-    for (const x of [39.6, 40.6]) hurtGuard(world, addGuard(world, x, 1), 1e4, { x: 50, y: GROUND - 1 })
+    for (const x of [39.6, 40.6]) killInFight(world, x, { x: 50, y: GROUND - 1 })
     const heavy = addGuard(world, 30, 1, 'heavy')
     heavy.hp = heavy.maxHp = 1e5
     enterCombat(world, heavy, { x: 50, y: GROUND - 1 })
@@ -49,7 +48,7 @@ describe("guards' frags", () => {
     fillTiles(world.grid, 40, GROUND - 6, 40, GROUND - 4, 'brick')
     putPlayer(world, 50)
     addLamp(world, 50)
-    for (const x of [39.6, 40.6]) hurtGuard(world, addGuard(world, x, 1), 1e4, { x: 50, y: GROUND - 1 })
+    for (const x of [39.6, 40.6]) killInFight(world, x, { x: 50, y: GROUND - 1 })
     const heavy = addGuard(world, 30, 1, 'heavy')
     const wounded = addGuard(world, 38, 1)
     wounded.stunSeconds = 1e9

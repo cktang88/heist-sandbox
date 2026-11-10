@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { COMMS } from '../security/tuning'
 import { hurtGuard, stunGuard, type Guard } from '../guards'
 import { enterCombat } from '../security/combat'
 import { addGuard, arena, GROUND, putPlayer, run, runListening } from '../security/testArena'
@@ -169,6 +170,6 @@ describe('bonds between guards change what they do', () => {
     missing.guard.checkInAt = world.clock + 0.1
     run(world, 1)
     const poll = world.security.polls.find((each) => world.guards[each.guard] === missing.guard)!
-    expect(poll.at - world.clock).toBeLessThan(11)
+    expect(poll.at - world.clock).toBeLessThan(COMMS.pollSeconds + 1)
   })
 })
