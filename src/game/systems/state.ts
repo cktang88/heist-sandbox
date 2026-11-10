@@ -48,7 +48,8 @@ export type FanMode = 'off' | 'extract' | 'left' | 'right'
 
 /** A seeded fault: a dripping pipe, a sparking lamp, a gas ring left on, a loose chandelier or fan. */
 export type FaultKind = 'leak' | 'sparkingLamp' | 'gasRing' | 'looseFitting'
-export type Fault = Vec & { kind: FaultKind; lamp: Lamp | null; prop: number; clock: number }
+/** `awake` once the player has come near: a fault far from anyone does nothing yet (and costs nothing). */
+export type Fault = Vec & { kind: FaultKind; lamp: Lamp | null; prop: number; clock: number; awake: boolean }
 
 /** Something the player can do with E, in the shape the interact code uses: a single press, or a hold of `hold` seconds. */
 export type SystemAction = { prompt: string; key: string; run: () => void; hold?: number }

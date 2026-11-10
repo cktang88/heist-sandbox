@@ -5,9 +5,13 @@ import type { World } from '../world'
 import { createSystems } from './state'
 import { stepSystems } from './systems'
 
-/** Test helpers for the couplings. Worlds come from `bareWorld` (hazards/testWorld.ts); this gives them fresh couplings state. */
+/**
+ * Test helpers for the couplings. Worlds come from `bareWorld` (hazards/testWorld.ts); this gives them fresh couplings
+ * state, with no seeded faults: a hand-built test room should hold only what the test puts in it.
+ */
 export function freshSystems(world: World): World {
   world.systems = createSystems(1)
+  world.systems.faultsSeeded = true
   world.deadCircuits.clear()
   return world
 }

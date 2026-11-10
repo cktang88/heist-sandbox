@@ -4,6 +4,7 @@ import { checkBackdrafts } from './backdraft'
 import { openedTiles } from './changes'
 import { stepElectric } from './electric'
 import { stepFans } from './fans'
+import { seedFaults, stepFaults } from './faults'
 import { burnFuel, watchTanks } from './fuel'
 import { stepHeat } from './heat'
 import { dropBrokenFittings, loosenFittings, stepFallingFittings } from './hanging'
@@ -23,7 +24,8 @@ import { sparkWires, wiresFromOpenedCeilings } from './wires'
  * The couplings between systems: water from burst pipes and fixtures that pools, runs downstairs, puts out fire and
  * shorts electronics; live kit and cables that electrify the water they touch until a breaker trips; gas that rises,
  * fans, backdrafts and sparks; fuel trails that burn; long fires that crack glass, heat doors and burn through floors;
- * fittings that come down on whoever is under them and vehicles that roll. Fields tick a few times a second, and only where something is
+ * fittings that come down on whoever is under them and vehicles that roll; the site's own faults (a dripping pipe,
+ * a sparking tube, a gas ring left on, a loose fitting). Fields tick a few times a second, and only where something is
  * happening.
  */
 export { createSystems, type SystemsState } from './state'
@@ -44,6 +46,7 @@ const HEAT_TICK = 0.5
 
 export function stepSystems(world: World, dt: number): void {
   const systems = world.systems
+  if (!systems.faultsSeeded) seedFaults(world)
   followShots(world, dt, (target, at, heading) => hitTarget(world, target, at, heading))
   if (world.effects.flashes.length > 0) blastPipes(world)
   const opened = openedTiles(world)
@@ -75,6 +78,7 @@ function liquidTick(world: World, tick: number): void {
   watchFixtures(world)
   watchTanks(world)
   dropBrokenFittings(world)
+  if (world.systems.faults.length > 0) stepFaults(world, tick)
   stepSources(world, tick)
   stepLiquid(world, 'water', tick)
   stepLiquid(world, 'fuel', tick)
