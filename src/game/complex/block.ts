@@ -156,7 +156,7 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
   }
 
   let cursor = left
-  for (const zone of zones) {
+  zones.forEach((zone, index) => {
     if (zone.from - 2 >= cursor + MIN_LEFTOVER - 1) {
       furnish({ from: cursor, to: zone.from - 2 })
       partition(site, zone.from - 1, floorY, zone.kind === 'void' ? 'overlook' : 'door')
@@ -171,8 +171,12 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
       site.devices.push({ kind: 'fusebox', x: middle, y: floorY - 2, roomId: lobby.id, circuit: circuitOf(spec.name, storey) })
     }
     cursor = zone.to + 2
-    if (cursor - 1 <= right) partition(site, zone.to + 1, floorY, zone.kind === 'void' ? 'overlook' : 'door')
-  }
+    // A stair lobby that opens straight onto the void over a double-height room gets an overlook there, not a door
+    // that a guard would open and walk out of into the drop.
+    const next = zones[index + 1]
+    const ontoVoid = zone.kind === 'void' || (next?.kind === 'void' && next.from === zone.to + 2)
+    if (cursor - 1 <= right) partition(site, zone.to + 1, floorY, ontoVoid ? 'overlook' : 'door')
+  })
   if (right >= cursor + MIN_LEFTOVER - 1) furnish({ from: cursor, to: right })
   else if (right >= cursor) fill(site, cursor, floorY - ROOM_HEIGHT, right, floorY - 1, spec.facade)
 
@@ -252,6 +256,7 @@ export function staff(site: SiteDraft, room: Room): void {
     site.devices.push({ kind: 'computer', x: randomInt(rng, room.x + 2, room.x + room.w - 3), y: room.floorY, roomId: room.id })
   }
   if (room.kind === 'security' || room.kind === 'lobby') {
-    site.devices.push({ kind: 'alarmButton', x: room.x + room.w - 2, y: room.floorY - 2, roomId: room.id })
+    // Well in from the walls: beside a doorway it took the E key, and the door could not be opened from that side.
+    site.devices.push({ kind: 'alarmButton', x: room.x + Math.max(1, room.w - 3), y: room.floorY - 2, roomId: room.id })
   }
 }

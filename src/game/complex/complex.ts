@@ -222,7 +222,7 @@ function buildPerimeter(site: SiteDraft): void {
   site.interiors.push({ kind: 'room', x: 36, y: ground - STOREY, w: 8, h: STOREY })
   const gatehouse = addRoom(site, 'gatehouse', 'gatehouse', 0, 36, 42, ground)
   site.guards.push({ x: 39, y: ground, facing: -1, role: 'post', roomId: gatehouse.id })
-  site.devices.push({ kind: 'alarmButton', x: 41, y: ground - 2, roomId: gatehouse.id })
+  site.devices.push({ kind: 'alarmButton', x: 39, y: ground - 2, roomId: gatehouse.id })
   site.devices.push({ kind: 'camera', x: 36, y: ground - 5, roomId: gatehouse.id, facing: -1 })
   site.devices.push({ kind: 'computer', x: 38, y: ground, roomId: gatehouse.id })
 
