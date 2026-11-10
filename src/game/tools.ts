@@ -6,6 +6,7 @@ import { GUNS, MAX_BLOOM } from './guns'
 import type { Input } from './input'
 import { emitNoise } from './noise'
 import { fireShot } from './projectiles'
+import { playSound, type SoundKind } from './sounds'
 import { isSolidAt } from './tiles'
 import { TOOLS } from './toolDefs'
 import type { Vec } from './types'
@@ -59,6 +60,7 @@ export function useTool(world: World, input: Input, dt: number): void {
   const wantsReload = input.reloadPressed && player.mags[player.tool] < gun.magSize
   if ((wantsReload || (empty && pulled)) && player.ammo[player.tool] > 0) {
     player.reload = gun.reloadSeconds
+    playSound(world, 'reload', hand)
     return
   }
   if (!pulled || player.cooldown > 0 || empty) return
@@ -73,6 +75,7 @@ export function useTool(world: World, input: Input, dt: number): void {
   }
   if (gun.ejectsShell) ejectShell(world.effects, world.rng, hand, player.facing)
   emitNoise(world, hand, gun.noise)
+  playSound(world, tool.id as SoundKind, muzzle)
   player.bloom = Math.min(MAX_BLOOM, player.bloom + gun.bloomPerShot)
   player.kick = Math.min(1, player.kick + gun.kick)
   world.shake = Math.min(1, world.shake + gun.shake)

@@ -1,3 +1,4 @@
+import { createAudio } from './audio'
 import { stepWorld } from './game/step'
 import { TOOLS } from './game/toolDefs'
 import { centerOf } from './game/types'
@@ -13,6 +14,7 @@ const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const context = canvas.getContext('2d')!
 const input = attachInput(canvas, TOOLS.length)
 const scene = createSceneRenderer()
+const audio = createAudio()
 
 function newSeed(): number {
   const fromUrl = Number(new URLSearchParams(location.search).get('seed'))
@@ -47,6 +49,7 @@ function frame(now: number): void {
   } else input.consumeRestart()
 
   stepWorld(world, frameInput, realDt)
+  audio.update(world)
   scene.draw(context, world, camera, frameInput.aim)
   drawHud(context, world, camera, frameInput.aim)
   ;(globalThis as { __game?: { world: World } }).__game = { world }

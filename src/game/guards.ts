@@ -3,6 +3,7 @@ import { openDoor } from './interact'
 import { GROUND, type GuardSpawn } from './level'
 import { emitNoise } from './noise'
 import { GRAVITY, moveBody } from './physics'
+import { playSound } from './sounds'
 import { createRagdoll, stepRagdoll, type Ragdoll } from './ragdoll'
 import { fireShot } from './projectiles'
 import { isSolidAt, tileAt } from './tiles'
@@ -78,6 +79,7 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec)
     guard.state = 'dead'
     guard.ragdoll = createRagdoll({ x: guard.x + guard.w / 2, y: guard.y + guard.h }, { x: guard.vx, y: guard.vy }, world.rng)
     world.stats.kills += 1
+    playSound(world, 'kill', guard)
     return true
   }
   becomeAlert(guard, from)
@@ -144,6 +146,7 @@ function kickDoorOpen(world: World, guard: Guard): boolean {
   openDoor(world.grid, ahead)
   world.structureChanged = true
   emitNoise(world, ahead, 16)
+  playSound(world, 'door', ahead)
   return true
 }
 
@@ -249,6 +252,7 @@ function fight(world: World, guard: Guard, sees: boolean, gap: number, playerCen
     const aim = normalize(playerCenter.x - eye.x, playerCenter.y - eye.y)
     fireShot(world, eye, aim, { kind: 'bullet', fromPlayer: false, ...SHOT })
     emitNoise(world, eye, SHOT_NOISE)
+    playSound(world, 'guardShot', eye)
     guard.kick = 0.7
     guard.shootCooldown = 0.5 + world.rng() * 0.45
   }

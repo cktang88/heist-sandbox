@@ -2,6 +2,7 @@ import { burst } from './effects'
 import { hurtGuard } from './guards'
 import { emitNoise } from './noise'
 import { GRAVITY } from './physics'
+import { playSound } from './sounds'
 import { setTile, TILE_DEFS, TILE_KINDS, tileAt, type Grid, type TileKind } from './tiles'
 import type { Rect } from './types'
 import type { World } from './world'
@@ -87,7 +88,10 @@ function dropTile(world: World, tile: FallingTile, dt: number): boolean {
   setTile(world.grid, tile.x, below - 1, tile.kind)
   burst(world.effects, world.rng, { x: tile.x + 0.5, y: below }, 3, '#8a8f98', 4)
   world.shake = Math.min(1, world.shake + 0.04)
-  if (tile.vy > CRUSH_SPEED) emitNoise(world, { x: tile.x + 0.5, y: below }, 14)
+  if (tile.vy > CRUSH_SPEED) {
+    emitNoise(world, { x: tile.x + 0.5, y: below }, 14)
+    playSound(world, 'collapse', { x: tile.x + 0.5, y: below })
+  }
   return true
 }
 

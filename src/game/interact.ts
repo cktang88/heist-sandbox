@@ -1,6 +1,7 @@
 import { hurtGuard } from './guards'
 import type { Input } from './input'
 import { emitNoise } from './noise'
+import { playSound } from './sounds'
 import { setTile, tileAt, type Grid } from './tiles'
 import { centerOf, distance, overlaps, type Vec } from './types'
 import type { World } from './world'
@@ -17,6 +18,7 @@ export function interact(world: World, input: Input, dt: number): void {
 
   if (!world.loot.taken && overlaps(player, world.loot)) {
     world.loot.taken = true
+    playSound(world, 'pickup', center)
     player.hasLoot = true
   }
 
@@ -39,6 +41,7 @@ export function interact(world: World, input: Input, dt: number): void {
   openDoor(world.grid, door)
   world.structureChanged = true
   emitNoise(world, center, 2)
+  playSound(world, 'door', center)
 }
 
 export function nearestDoor(grid: Grid, from: Vec): Vec | null {

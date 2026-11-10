@@ -8,6 +8,7 @@ import { createPlayer, type Player } from './player'
 import type { Projectile } from './projectiles'
 import { createRng, type Rng } from './rng'
 import type { Grid } from './tiles'
+import type { SoundEvent } from './sounds'
 import { createTime, type TimeState } from './time'
 import type { Body, Rect } from './types'
 import { createGuard } from './guards'
@@ -27,6 +28,8 @@ export type World = {
   structureChanged: boolean
   drone: Drone | null
   effects: Effects
+  /** Sounds waiting to be played. Whoever plays them empties the list. */
+  sounds: SoundEvent[]
   loot: Loot
   extraction: Rect
   interiors: Interior[]
@@ -52,6 +55,7 @@ export function createWorld(seed: number): World {
     structureChanged: false,
     drone: null,
     effects: { particles: [], flashes: [] },
+    sounds: [],
     loot: { x: level.loot.x, y: level.loot.y - 0.8, w: 0.8, h: 0.8, vx: 0, vy: 0, onGround: false, taken: false },
     extraction: level.extraction,
     interiors: level.interiors,
