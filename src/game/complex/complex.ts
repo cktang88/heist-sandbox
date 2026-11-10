@@ -4,7 +4,7 @@ import { createGrid, setTile, tileAt } from '../tiles'
 import { furnishSite } from '../furnish/furnish'
 import { buildBlock } from './block'
 import { addDucts } from './ducts'
-import { addRoom, chance, createDraft, fill, pick, ROOM_HEIGHT, STOREY, type SiteDraft } from './kit'
+import { addRoom, chance, circuitOf, createDraft, fill, pick, ROOM_HEIGHT, STOREY, type SiteDraft } from './kit'
 
 export const COMPLEX_WIDTH = 300
 export const COMPLEX_HEIGHT = 204
@@ -114,7 +114,9 @@ function buildSewer(site: SiteDraft): void {
   fill(site, SEWER.left - 1, SEWER.top - 1, SEWER.right + 1, SEWER.bottom + 1, 'brick')
   fill(site, SEWER.left, SEWER.top, SEWER.right, SEWER.bottom, 'air')
   fill(site, SEWER.left, SEWER.bottom, SEWER.right, SEWER.bottom, 'water')
-  addRoom(site, 'sewer', 'sewer', -5, SEWER.left, SEWER.right, SEWER.bottom + 1, 4)
+  const sewer = addRoom(site, 'sewer', 'sewer', -5, SEWER.left, SEWER.right, SEWER.bottom + 1, 4)
+  // The sewer lights' fuse box, on the wall at the foot of the yard manhole.
+  site.devices.push({ kind: 'fusebox', x: 83, y: sewer.floorY - 2, roomId: sewer.id, circuit: circuitOf('sewer', sewer.storey) })
   // Manholes on the street, in the yard and behind the rear fence. The ladders reach down into the water,
   // so someone standing on the sewer floor can take hold of them.
   for (const x of [22, 82, 285]) fill(site, x, ground, x, SEWER.bottom, 'ladder')
