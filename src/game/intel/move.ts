@@ -26,8 +26,8 @@ export function stepLootMove(world: World, dt: number): void {
   const intel = world.intel
   const move = intel.move
   if (world.loot.taken || intel.places.length < 2 || move.moves >= MAX_MOVES) return
-  // Guards who learn the intruder was asking about the case move it at once, whatever the alert level.
-  const tippedOff = caseAskedAbout(world)
+  // Guards who learn the intruder was asking about the case move it at once, whatever the alert level: once per tip-off.
+  const tippedOff = caseAskedAbout(world) && world.security.caseAskedAt > move.movedAt
   if (world.security.level < MOVE_LEVEL && !tippedOff) {
     Object.assign(move, { alertSeconds: Math.min(0, move.alertSeconds), ordered: false, to: null })
     return
@@ -64,5 +64,5 @@ export function relocate(world: World, to: Place): void {
   intel.real = to.id
   putLootIn(world, to)
   markAllStale(world)
-  Object.assign(intel.move, { moves: intel.move.moves + 1, alertSeconds: -REARM_SECONDS, ordered: false, to: null })
+  Object.assign(intel.move, { moves: intel.move.moves + 1, alertSeconds: -REARM_SECONDS, ordered: false, to: null, movedAt: world.clock })
 }

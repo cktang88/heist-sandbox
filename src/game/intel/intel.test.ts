@@ -154,4 +154,15 @@ describe('going loud', () => {
     for (let time = 0; time < 25; time += FRAME) stepIntel(world, FRAME)
     expect(world.intel.move.moves).toBe(0)
   })
+
+  it('moves it once when a freed guard says the intruder asked about it, not again a minute later', () => {
+    const world = freshWorld(1)
+    Object.assign(world.player, { x: 5, y: world.groundY - 2 })
+    world.security.caseAskedAt = 0
+    for (let time = 0; time < 1; time += FRAME) stepIntel(world, FRAME)
+    expect(world.intel.move.moves).toBe(1)
+    for (let time = 0; time < 120; time += FRAME) stepIntel(world, FRAME)
+    expect(world.intel.move.moves).toBe(1)
+  })
+
 })
