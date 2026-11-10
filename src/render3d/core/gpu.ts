@@ -1,4 +1,4 @@
-import { BufferGeometry, Float32BufferAttribute, HalfFloatType, Mesh, MeshBasicMaterial, OrthographicCamera, Scene, Vector4, WebGLRenderTarget, type Camera, type Material, type Object3D, type Texture, type WebGLProgram, type WebGLRenderer, Vector3 } from 'three'
+import { BufferGeometry, Float32BufferAttribute, HalfFloatType, Mesh, MeshBasicMaterial, OrthographicCamera, Scene, Vector4, WebGLRenderTarget, type Camera, type Light, type LightShadow, type Material, type Object3D, type Texture, type WebGLProgram, type WebGLRenderer, Vector3 } from 'three'
 import { addBuildJob, type StepResult } from './buildQueue'
 
 /**
@@ -134,6 +134,13 @@ const WARM_LAYER = 31
 const FULL_SCREEN = new OrthographicCamera(-1, 1, 1, -1, 0, 1)
 const viewport = new Vector4()
 
+/**
+ * Shadow maps exist only once drawn. The first warm-up draw of a level lets them be drawn, so later ones never sample a
+ * missing map (WebGL refuses such a draw: "Mismatch between texture format and sampler type"); the first real frame
+ * draws them again from where the lights then are (see `redrawShadows`).
+ */
+let shadowMapsMade = false
+
 /** Draws `mesh` alone into the one-pixel buffer, with the scene's lights, so its shader is the one the frame will use. */
 function drawAlone(renderer: WebGLRenderer, scene: Scene, camera: Camera, mesh: Mesh): void {
   const [cameraMask, meshMask, culled] = [camera.layers.mask, mesh.layers.mask, mesh.frustumCulled]
@@ -141,7 +148,8 @@ function drawAlone(renderer: WebGLRenderer, scene: Scene, camera: Camera, mesh: 
   camera.layers.set(WARM_LAYER)
   mesh.layers.enable(WARM_LAYER)
   mesh.frustumCulled = false
-  renderer.shadowMap.autoUpdate = false
+  renderer.shadowMap.autoUpdate = !shadowMapsMade
+  shadowMapsMade = true
   asSceneDraw(renderer, () => renderer.render(scene, camera))
   renderer.shadowMap.autoUpdate = shadows
   mesh.frustumCulled = culled
@@ -196,6 +204,7 @@ export function compileScene(renderer: WebGLRenderer, scene: Scene, camera: Came
   compilePassMaterials(renderer, camera, passMaterials)
   const programs = (renderer.info.programs ?? []).filter((program) => !before.has(program)) as (WebGLProgram & { isReady?: () => boolean })[]
   const draws = warmDraws(renderer, scene, camera, passMaterials)
+  shadowMapsMade = false
   linking = { done: 0, total: programs.length + draws.length }
   return new Promise((resolve) => {
     const next = () => {
@@ -329,4 +338,12 @@ export function uploadSpread(root: Object3D, cause: string): void {
       },
     })
   }
+}
+
+/** Marks every shadow map in `scene` for redrawing: the warm-up drew them before the lights were placed for play. */
+export function redrawShadows(scene: Scene): void {
+  scene.traverse((object) => {
+    const light = object as Light & { shadow?: LightShadow }
+    if (light.isLight && light.castShadow && light.shadow) light.shadow.needsUpdate = true
+  })
 }

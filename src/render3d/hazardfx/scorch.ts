@@ -1,6 +1,6 @@
 import { CanvasTexture, Color, Group, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, Quaternion, Vector3 } from 'three'
 import type { World } from '../../game/world'
-import { isSolidAt } from '../../game/tiles'
+import { isSolidAt, type Grid } from '../../game/tiles'
 import { BACK } from '../levelMesh'
 import { fractalNoise } from '../noise'
 import { cellSeed } from './quads'
@@ -43,6 +43,22 @@ const wallSoot = (x: number, y: number, grain: number) => {
   return body * Math.pow(1 - up, 1.2) * Math.min(1, up * 5) * (0.35 + streaks * 0.75)
 }
 
+/**
+ * How far up and down the back wall a soot plume from a burn at (x, y) reaches, in game rows (y down). It climbs about
+ * 1.3 sizes and hangs 0.2 below, but stops at the ceiling: soot does not go on through the slab onto the wall of the
+ * room upstairs (a charge on the ceiling used to stain the room above).
+ */
+export function plumeSpan(grid: Grid, x: number, y: number, size: number): { top: number; bottom: number } {
+  const bottom = y + size * 0.2
+  let top = y - size * 1.3
+  for (let row = Math.floor(y) - 1; row >= Math.floor(top); row -= 1) {
+    if (!isSolidAt(grid, x, row + 0.5)) continue
+    top = row + 1
+    break
+  }
+  return { top: Math.min(top, bottom - 0.3), bottom }
+}
+
 function decals(texture: CanvasTexture): InstancedMesh {
   const material = new MeshBasicMaterial({ color: 0xffffff, alphaMap: texture, transparent: true, opacity: 0.45, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })
   const mesh = new InstancedMesh(new PlaneGeometry(1, 1), material, MAX_SCORCH)
@@ -53,7 +69,12 @@ function decals(texture: CanvasTexture): InstancedMesh {
   return mesh
 }
 
-export type ScorchFx = { group: Group; burn(world: World, x: number, y: number, size: number): void }
+export type ScorchFx = {
+  group: Group
+  burn(world: World, x: number, y: number, size: number): void
+  /** Drops burns whose floor has since been blown away, so none is left floating in the air. */
+  refresh(world: World): void
+}
 
 /**
  * Soot left on the back wall and floor where fire burned or something exploded.
@@ -75,6 +96,9 @@ export function createScorch(): ScorchFx {
   const place = new Vector3()
   const scale = new Vector3()
   const soot = new Color()
+  /** The floor tile under each floor burn (-1 for an empty slot), and the grid version they were last checked at. */
+  const under = new Int32Array(MAX_SCORCH).fill(-1)
+  let checked = -1
 
   const add = (mesh: InstancedMesh, seed: number, rotation: Quaternion) => {
     const slot = next.get(mesh)!
@@ -99,8 +123,9 @@ export function createScorch(): ScorchFx {
       const indoors = world.interiors.some((area) => area.kind === 'room' && x >= area.x && x < area.x + area.w && y >= area.y && y < area.y + area.h)
       if (indoors) {
         // Heat climbs, so the plume's foot sits at the flames and it widens up the wall.
-        place.set(x + (seed - 0.5) * 0.4, -y + size * 0.55, BACK + 0.03 + seed * 0.01)
-        scale.set(size * (0.8 + seed * 0.3), size * 1.5, 1)
+        const span = plumeSpan(world.grid, x, y, size)
+        place.set(x + (seed - 0.5) * 0.4, -(span.top + span.bottom) / 2, BACK + 0.03 + seed * 0.01)
+        scale.set(size * (0.8 + seed * 0.3), span.bottom - span.top, 1)
         add(wall, seed, upright)
       }
       for (let below = tileY; below <= tileY + 2; below += 1) {
@@ -108,9 +133,24 @@ export function createScorch(): ScorchFx {
         turn.copy(flat).multiply(spin.setFromAxisAngle(axis, seed * 9))
         place.set(x, -below + 0.012, -0.95)
         scale.set(size, size * 1.4, 1)
+        under[next.get(floor)!] = below * world.grid.width + tileX
         add(floor, seed, turn)
         break
       }
+    },
+    refresh(world) {
+      if (world.grid.version === checked) return
+      checked = world.grid.version
+      const width = world.grid.width
+      let changed = false
+      for (let slot = 0; slot < MAX_SCORCH; slot += 1) {
+        const key = under[slot]
+        if (key < 0 || isSolidAt(world.grid, (key % width) + 0.5, Math.floor(key / width) + 0.5)) continue
+        floor.setMatrixAt(slot, HIDDEN)
+        under[slot] = -1
+        changed = true
+      }
+      if (changed) floor.instanceMatrix.needsUpdate = true
     },
   }
 }

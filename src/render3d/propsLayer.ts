@@ -149,7 +149,7 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
       // Regions are built by the build queue (nearest first, a few milliseconds a frame); here they are only shown.
       for (const area of areas) {
         const { region } = area
-        region.group.visible = region.ready && overlaps(area, frame, DRAW_DISTANCE, DRAW_DISTANCE * 0.62)
+        region.group.visible = region.drawable && overlaps(area, frame, DRAW_DISTANCE, DRAW_DISTANCE * 0.62)
         if (region.group.visible) syncRegion(region)
       }
       placeLoose(now, frame)

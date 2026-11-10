@@ -24,7 +24,11 @@ function placed(x: number, flip = false): PlacedProp {
 }
 
 function batches(region: Region): BatchedMesh[] {
-  return region.group.children.filter((child): child is BatchedMesh => child instanceof BatchedMesh)
+  const found: BatchedMesh[] = []
+  region.group.traverse((child) => {
+    if (child instanceof BatchedMesh) found.push(child)
+  })
+  return found
 }
 
 describe('a region of batched props', () => {
@@ -70,5 +74,19 @@ describe('which props become cards', () => {
   it('makes cards only of small props under perspective', () => {
     expect(suitsCard(desk, 0, 'straight')).toBe(false)
     expect(suitsCard(new Box3(new Vector3(-0.2, 0, -1.2), new Vector3(0.2, 0.4, -0.9)), 0, 'straight')).toBe(true)
+  })
+
+  it('keeps its last build on screen while it is built again, then shows only the new one', () => {
+    const region = new Region([0, 1])
+    const props = [placed(0), placed(2)]
+    region.build(props, () => false)
+    const first = batches(region)
+    region.start(() => false)
+    expect(region.drawable).toBe(true)
+    expect(batches(region)).toEqual(first)
+    while (region.step((prop) => props[prop]) === 'more');
+    const second = batches(region)
+    expect(second).toHaveLength(first.length)
+    expect(second.some((mesh) => first.includes(mesh))).toBe(false)
   })
 })

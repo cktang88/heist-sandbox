@@ -1,5 +1,6 @@
 import { Group } from 'three'
 import { isCircuitLive } from '../game/devices/devices'
+import { feedLooped } from '../game/stealth/cameraLoop'
 import type { Device, World } from '../game/world'
 import { addBuildJob } from './core/buildQueue'
 import { prepareJob } from './core/gpu'
@@ -13,8 +14,10 @@ const WALL_DEVICE_SCALE = 1.35
 
 type Placed = { model: DeviceModel; key: string; ready: boolean }
 
-function stateOf(world: World, device: Device): DeviceState {
-  return { live: isCircuitLive(world, device.circuit), disabled: device.disabled, hacked: device.hacked, open: world.terminal?.device === device.id }
+/** What a device shows. A camera whose feed is looped from a terminal is as harmless as a hacked one and shows it. */
+export function drawnState(world: World, device: Device): DeviceState {
+  const hacked = device.hacked || (device.kind === 'camera' && feedLooped(world, device))
+  return { live: isCircuitLive(world, device.circuit), disabled: device.disabled, hacked, open: world.terminal?.device === device.id }
 }
 
 function keyOf(state: DeviceState): string {
@@ -95,7 +98,7 @@ export const createDevicesLayer: LayerFactory = (world) => {
         }
         entry ??= place(device)
         if (entry.ready && !entry.model.root.parent) group.add(entry.model.root)
-        const state = stateOf(world, device)
+        const state = drawnState(world, device)
         const key = keyOf(state)
         if (key !== entry.key) {
           entry.model.apply(state)

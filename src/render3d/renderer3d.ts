@@ -8,7 +8,8 @@ import type { Camera } from '../render/camera'
 import { createActors, type Actors } from './actors'
 import { clearBuildJobs, isLoading } from './core/buildQueue'
 import { holdBackFarChunks } from './core/chunkBudget'
-import { compileScene, shaderProgress, uploadTextures } from './core/gpu'
+import { compileScene, redrawShadows, shaderProgress, uploadTextures } from './core/gpu'
+import { publishPicker } from './core/debugPick'
 import { createEnvironment } from './core/environment'
 import { lookFor } from './core/looks'
 import { createQualityController, LADDER, LOW_DETAIL } from './core/quality'
@@ -85,7 +86,12 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   let lastFrame = performance.now()
   let artGrid: PixelGrid | null = null
   applyQuality(quality.level)
-  if (options.get('debug') === '1') (globalThis as { __setLook?: (name: StyleName) => void }).__setLook = setStyle
+  if (options.get('debug') === '1') {
+    ;(globalThis as { __setLook?: (name: StyleName) => void }).__setLook = setStyle
+    publishPicker(scene, () => (style.camera === 'ortho' ? cameras.orthographic : cameras.perspective), canvas)
+    // Lets a console session narrow the perspective camera's view to look closely at one spot.
+    ;(globalThis as { __cameras?: unknown }).__cameras = cameras
+  }
 
   function setStyle(name: StyleName): void {
     post.dispose()
@@ -191,6 +197,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     const done = Promise.race([work, limit])
     void done.then(() => {
       warming = null
+      redrawShadows(scene)
     })
     return done
   }

@@ -1,6 +1,6 @@
 import {
-  AdditiveBlending, BoxGeometry, CanvasTexture, Color, DynamicDrawUsage, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial,
-  Quaternion, SphereGeometry, Sprite, SpriteMaterial, Vector3,
+  AdditiveBlending, BoxGeometry, CanvasTexture, Color, DynamicDrawUsage, Group, InstancedMesh, Matrix4, MeshBasicMaterial,
+  Quaternion, Sprite, SpriteMaterial, Vector3,
 } from 'three'
 import type { Flash, Particle } from '../game/effects'
 import type { World } from '../game/world'
@@ -70,12 +70,14 @@ export function createEffects3d(): Effects3d {
     group.add(mesh)
   }
 
-  const fireball = new SphereGeometry(1, 20, 14)
+  const puff = softDisc('rgba(120,120,125,0.8)', 'rgba(60,60,65,0)')
+  // A soft glowing ball that writes no depth (a solid sphere drew as a flat white disc with an ink outline round it).
+  // It shares the smoke puff's soft disc; its colour makes up for the puff's grey.
   const blasts = Array.from({ length: MAX_BLASTS }, () => {
-    const mesh = new Mesh(fireball, new MeshBasicMaterial({ color: new Color(8, 3.5, 0.9), transparent: true, toneMapped: false }))
-    mesh.visible = false
-    group.add(mesh)
-    return mesh
+    const sprite = new Sprite(new SpriteMaterial({ map: puff, color: new Color(17, 7.5, 1.9), blending: AdditiveBlending, depthWrite: false, toneMapped: false }))
+    sprite.visible = false
+    group.add(sprite)
+    return sprite
   })
 
   const star = starBurst()
@@ -86,7 +88,6 @@ export function createEffects3d(): Effects3d {
     return sprite
   })
 
-  const puff = softDisc('rgba(120,120,125,0.8)', 'rgba(60,60,65,0)')
   const smoke: Smoke[] = []
   const smokePool = Array.from({ length: MAX_SMOKE }, () => {
     const sprite = new Sprite(new SpriteMaterial({ map: puff, color: 0x55524f, transparent: true, depthWrite: false }))
@@ -152,17 +153,18 @@ export function createEffects3d(): Effects3d {
 
       let blast = 0
       let muzzle = 0
-      for (const mesh of blasts) mesh.visible = false
+      for (const sprite of blasts) sprite.visible = false
       for (const sprite of muzzles) sprite.visible = false
       for (const flash of world.effects.flashes) {
         const age = 1 - flash.life / flash.duration
         if (flash.kind === 'explosion') {
           if (blast < MAX_BLASTS) {
-            const mesh = blasts[blast++]
-            mesh.visible = true
-            mesh.position.set(flash.x, -flash.y, 0.2)
-            mesh.scale.setScalar(flash.radius * (0.35 + age * 0.75))
-            ;(mesh.material as MeshBasicMaterial).opacity = 1 - age
+            const sprite = blasts[blast++]
+            sprite.visible = true
+            sprite.position.set(flash.x, -flash.y, 0.2)
+            // A sprite's scale is its width, twice the radius the ball used to have.
+            sprite.scale.setScalar(2 * flash.radius * (0.35 + age * 0.75))
+            sprite.material.opacity = 1 - age
           }
           if (!seen.has(flash)) {
             seen.add(flash)

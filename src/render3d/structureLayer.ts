@@ -1,4 +1,4 @@
-import { Group } from 'three'
+import { Group, type Mesh } from 'three'
 import { buildElevator } from './devices/structure/elevator'
 import { buildStairwell } from './devices/structure/stairs'
 import type { World } from '../game/world'
@@ -30,7 +30,11 @@ export const createStructureLayer: LayerFactory = (world, materials) => {
       const reachY = DRAW_DISTANCE * 0.62 + 6
       // The list is replaced whenever a flight is blown away, so the meshes are rebuilt to match.
       if (now.stairwells !== builtFrom) {
-        for (const stair of stairs) group.remove(stair.mesh)
+        // Each staircase's merged geometry is its own; the old ones would otherwise stay on the GPU for the whole heist.
+        for (const stair of stairs) {
+          group.remove(stair.mesh)
+          stair.mesh.traverse((part) => (part as Mesh).geometry?.dispose())
+        }
         builtFrom = now.stairwells
         stairs = buildStairs(builtFrom)
       }

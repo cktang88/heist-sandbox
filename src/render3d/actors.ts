@@ -1,12 +1,13 @@
-import { Group, Mesh } from 'three'
+import { Group, Mesh, type ShaderMaterial, type Texture } from 'three'
 import { guardMood, type Guard } from '../game/guards'
 import type { TileKind } from '../game/tiles'
 import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import { guardMotion, playerMotion } from '../render/human/motion'
+import { chargePose } from './chargePose'
 import { runBuildJobs } from './core/buildQueue'
 import { lastFrameMs, noteFramePart } from './core/frameProbe'
-import { createGpuProbe, uploadSpread } from './core/gpu'
+import { createGpuProbe, releaseTexture, texturesOf, uploadSpread } from './core/gpu'
 import { measured } from './core/timing'
 import { createEffects3d } from './fx3d'
 import { BACK, FRONT, type SurfaceMaterials, type SurfaceName } from './levelMesh'
@@ -46,6 +47,10 @@ function leadOf(world: World, view: Vec): Vec {
   return { x: view.x + ahead(body.vx), y: view.y + ahead(body.vy) }
 }
 
+/** The gold case's model size (see `buildLoot`), and how much smaller it is drawn strapped to the player's back. */
+const CASE_SIZE = { w: 0.8, h: 0.6 }
+const CARRIED_CASE = 0.6
+
 /** People on a staircase are drawn further back, on the stairs behind the walking lane. */
 const STAIR_LANE = -1.5
 
@@ -78,9 +83,11 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
 
   const operative = new Figure('operative')
   // In a stolen uniform the player is drawn as a guard: a second figure, swapped in while the disguise is on.
+  // An officer's uniform looks like an officer's, any other like a patrolman's (the game only tells the two apart).
   const disguised = new Figure(outfitFor('patrol', false))
+  const disguisedOfficer = new Figure(outfitFor('officer', false))
   const parachute = buildParachute()
-  group.add(operative.group, disguised.group, parachute)
+  group.add(operative.group, disguised.group, disguisedOfficer.group, parachute)
   const guards = new Map<Guard, Figure>()
 
   const van = buildVan()
@@ -124,9 +131,9 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       const near = (x: number, y: number) => Math.abs(x - view.x) < DRAW_DISTANCE && Math.abs(y - view.y) < DRAW_DISTANCE * 0.62
       const hero = now.player
       const posed = playerMotion(now, aim)
-      const player = now.stealth.disguise ? disguised : operative
-      const spare = player === operative ? disguised : operative
-      spare.group.visible = false
+      const disguise = now.stealth.disguise
+      const player = disguise ? (disguise.officer ? disguisedOfficer : disguised) : operative
+      for (const spare of [operative, disguised, disguisedOfficer]) if (spare !== player) spare.group.visible = false
       // Shut in a locker or under a desk the player is not drawn; the overlay marks where he is.
       player.group.visible = !hero.hidden
       const body = player.animate(posed.motion, posed.held)
@@ -162,8 +169,16 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       }
 
 
-      loot.visible = !now.loot.taken
-      loot.position.set(now.loot.x, -(now.loot.y + now.loot.h), 0)
+      // Once taken, the case rides on the player's back (as in the flat view) instead of vanishing.
+      const carrying = hero.hasLoot && !hero.hidden
+      loot.visible = !now.loot.taken || carrying
+      if (carrying) {
+        loot.scale.setScalar(CARRIED_CASE)
+        loot.position.set(body.shoulder.x - hero.facing * 0.42 - CASE_SIZE.w * CARRIED_CASE / 2, -(body.shoulder.y + 0.05 + CASE_SIZE.h * CARRIED_CASE), player.group.position.z - 0.3)
+      } else {
+        loot.scale.setScalar(1)
+        loot.position.set(now.loot.x, -(now.loot.y + now.loot.h), 0)
+      }
       for (const { pickup, model } of pickups) {
         model.visible = !pickup.taken
         model.position.set(pickup.x, -(pickup.y + pickup.h), 0)
@@ -177,9 +192,10 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
         block.visible = Boolean(charge)
         light.visible = Boolean(charge) && blink
         if (!charge) return
-        block.position.set(charge.x + charge.w / 2, -(charge.y + charge.h / 2), 0.1)
-        block.scale.set(charge.w, charge.h, 0.3)
-        light.position.set(charge.x + charge.w / 2, -charge.y, 0.2)
+        const pose = chargePose(charge)
+        block.position.set(pose.x, pose.y, pose.z)
+        block.scale.set(pose.sx, pose.sy, pose.sz)
+        light.position.set(pose.light.x, pose.light.y, pose.light.z)
         light.scale.setScalar(0.08)
       })
 
@@ -225,6 +241,22 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       runBuildJobs(view, lastFrameMs(), leadOf(now, view))
       lastClock = now.clock
     },
-    dispose() {},
+    dispose() {
+      // Each heist builds its own canvases (window atlas, signs, smoke puffs...). Free their GPU copies, or every new
+      // heist keeps the last one's. Shared textures are simply sent again when the next heist draws with them.
+      const seen = new Set<Texture>()
+      group.traverse((object) => {
+        const material = (object as Mesh).material
+        if (!material) return
+        for (const entry of Array.isArray(material) ? material : [material]) {
+          for (const texture of texturesOf(entry)) if (!texture.isRenderTargetTexture) seen.add(texture)
+          for (const uniform of Object.values((entry as ShaderMaterial).uniforms ?? {})) {
+            const value = (uniform as { value?: Texture }).value
+            if (value?.isTexture && !value.isRenderTargetTexture) seen.add(value)
+          }
+        }
+      })
+      for (const texture of seen) releaseTexture(texture)
+    },
   }
 }
