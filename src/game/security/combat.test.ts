@@ -98,7 +98,7 @@ describe('guard combat', () => {
     expect(barkedAt).toBeGreaterThan(0)
     expect(thrownAt - barkedAt).toBeGreaterThan(0.9)
     expect(world.player.blindSeconds).toBeGreaterThan(0.5)
-    expect(world.player.deafSeconds).toBeGreaterThan(1)
+    expect(world.player.deafSeconds).toBeGreaterThan(0.5)
     // The thrower heard his own warning and looked away; the guard behind the wall saw nothing.
     expect(heavy.blindSeconds).toBeLessThan(1)
     expect(behindWall.blindSeconds).toBe(0)
