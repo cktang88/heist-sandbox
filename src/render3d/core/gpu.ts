@@ -40,6 +40,11 @@ export function createGpuProbe(): Mesh {
   return probe
 }
 
+/** The renderer, once the first frame has been drawn (null before), for work that must draw off screen. */
+export function currentRenderer(): WebGLRenderer | null {
+  return target?.renderer ?? null
+}
+
 /** True once the renderer has been seen (after the first drawn frame). */
 export function gpuReady(): boolean {
   return target !== null

@@ -24,7 +24,7 @@ export const BACKDROP_LAYER = 1
  * is drawn), which shows the tops of floors and desks like a pixel artist's three-quarter view. Points on the
  * walking lane (z = 0) do not move, so aiming stays exact. Tiles of height per tile of depth.
  */
-const OBLIQUE = 0.2
+export const OBLIQUE = 0.2
 
 /**
  * Both cameras look straight down the z axis at the walking lane from the same point. The perspective one

@@ -20,6 +20,7 @@ import { createLights } from './lights'
 import { createSurfaceMaterials, setWetness } from './materials'
 import { createPost, type PostChain } from './post'
 import { setPeopleOutdoorFill, setPeopleStandOut } from './people/surface'
+import { setCardView } from './propbatch/cardAtlas'
 import { createSky, setSkyStyle } from './sky'
 import { BACKDROP_LAYER, createCameraRig, TILES_TALL } from './style/cameraRig'
 import { pixelGrid, type PixelGrid } from './style/pixelGrid'
@@ -239,10 +240,14 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   }
 }
 
-/** The material side of a look: every standard material's squeeze, and how far people stand out from the room. */
+/**
+ * The material side of a look: every standard material's squeeze, how far people stand out from the room, and which
+ * way furniture cards are baked (leaning with the orthographic camera, or straight on for perspective).
+ */
 function applySurfaceStyle(style: Style): void {
   setSurfaceStyle(style.surface)
   setPeopleStandOut(style.finish.kind === 'pixel' ? 1 : 0)
+  setCardView(style.camera === 'ortho' ? 'oblique' : 'straight')
 }
 
 /** Moves the backdrop and everything in it to its own layer (see `BACKDROP_LAYER`). */

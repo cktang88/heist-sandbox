@@ -1,5 +1,7 @@
 import type { WebGLRenderer } from 'three'
 import { stepTimings, type SlowStep } from '../../game/stepTimings'
+import { cardPageCount } from '../propbatch/cardAtlas'
+import { propKindsKept3d } from '../propbatch/region'
 import { jobCount } from './buildQueue'
 import { playStartedMs, worstFrames, type WorstFrame } from './frameProbe'
 
@@ -30,6 +32,9 @@ export type RenderInfo = {
    * and style work), worst first, with the script that took longest in each. Empty where the browser lacks them.
    */
   longFrames: readonly LongFrame[]
+  /** Furniture card atlas pages (each about 48 MB of GPU memory) and the prop kinds that stayed 3D somewhere. */
+  cardPages: number
+  props3d: readonly string[]
 }
 
 export type LongFrame = { ms: number; at: number; script: string }
@@ -81,6 +86,8 @@ export function createRenderInfo(renderer: WebGLRenderer, enabled: boolean): { p
         loadedAtMs: playStartedMs(),
         buildJobs: jobCount(),
         longFrames: longFrames.slice(),
+        cardPages: cardPageCount(),
+        props3d: propKindsKept3d(),
       }
       ;(globalThis as { __renderInfo?: RenderInfo }).__renderInfo = info
     },

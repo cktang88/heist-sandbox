@@ -10,6 +10,7 @@ import { DRAW_DISTANCE, inView, type Frame, type LayerFactory } from './layer'
 import { placeLooseProp } from './meleeLayer'
 import { modelFromRecipe } from './propbatch/looseModel'
 import { recipeOf, signatureOf } from './propbatch/recipe'
+import { cardViewVersion } from './propbatch/cardAtlas'
 import { Region, type PlacedProp } from './propbatch/region'
 import { showcaseJob } from './propbatch/showcase'
 import { buildProp } from './props'
@@ -83,15 +84,26 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
   for (const area of areas) {
     group.add(area.region.group)
     for (const index of area.region.props) regionOf[index] = area.region
-    area.region.start(isHidden)
-    addBuildJob({
-      x: area.x + REGION_W / 2, y: area.y + REGION_H / 2, halfW: REGION_W / 2, halfH: REGION_H / 2,
-      get cause() {
-        return `props ${area.x},${area.y} ${area.region.phase}`
-      },
-      step: () => area.region.step(placedOf),
-    })
   }
+  /** Starts (or restarts) building every region through the build queue. */
+  function queueRegions(): void {
+    for (const area of areas) {
+      const { region } = area
+      region.start(isHidden)
+      const generation = region.generationNow
+      addBuildJob({
+        x: area.x + REGION_W / 2, y: area.y + REGION_H / 2, halfW: REGION_W / 2, halfH: REGION_H / 2,
+        get cause() {
+          return `props ${area.x},${area.y} ${region.phase}`
+        },
+        // A job from an earlier build of this region (before a change of look) simply stops.
+        step: () => (region.generationNow === generation ? region.step(placedOf) : 'done'),
+      })
+    }
+  }
+  queueRegions()
+  // Cards are baked for one way of seeing; a look that sees the other way needs every region rebuilt.
+  let cardsFor = cardViewVersion()
 
   function pullOut(index: number): void {
     if (loose.has(index)) return
@@ -126,6 +138,10 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
   return {
     group,
     update(now, frame) {
+      if (cardsFor !== cardViewVersion()) {
+        cardsFor = cardViewVersion()
+        queueRegions()
+      }
       for (const id of now.physProps.loose.keys()) {
         const index = indexOf.get(id)
         if (index !== undefined) pullOut(index)

@@ -1,8 +1,10 @@
-import { Group, Matrix4, type BufferGeometry, type Material } from 'three'
+import { Box3, Group, Matrix4, type BufferGeometry, type Material, type Object3D, type WebGLRenderer } from 'three'
 import { loadShared } from '../assets'
 import type { StepResult } from '../core/buildQueue'
-import { prepareJob, type JobArea } from '../core/gpu'
+import { currentRenderer, prepareJob, type JobArea } from '../core/gpu'
 import { BatchPlan, MIRROR, showInstances, type BatchedProps } from './batchPlan'
+import { bakeCard, canBake, cardView, piecesBounds, type CardPiece, type CardView } from './cardAtlas'
+import { buildCards, type CardSet, type CardUse } from './cardBatch'
 import { mergePieces, type BatchLook } from './merge'
 import { mirrorGeometry } from './mirror'
 import { isPlain, plainMaterial } from './plainMaterial'
@@ -10,7 +12,8 @@ import type { Part, Recipe } from './recipe'
 import { scanPieces } from './scanBatch'
 
 /**
- * The props of one large patch of the site, drawn as one batch per material (all plain colours share one), split by
+ * The props of one large patch of the site. Most become flat pre-rendered cards (see `cardAtlas.ts`), drawn as one
+ * instanced set per region; the rest stay 3D, drawn as one batch per material (all plain colours share one), split by
  * whether they throw shadows. Three skips a region whose bounds are outside the view or a shadow camera, and the props
  * layer hides regions away from the view, so drawing cost follows what is near the view, not the size of the site.
  */
@@ -26,36 +29,70 @@ const IDENTITY = new Matrix4()
 const shapes = new Map<string, BufferGeometry>()
 const mirroredScans = new WeakMap<BufferGeometry, BufferGeometry>()
 
+/**
+ * Which props stay 3D. In the pixel looks a card is exact, so only a big, deep prop whose front reaches the walking
+ * lane stays a model (a person passes right in front of it, where a card's single shading plane would show). With
+ * perspective a card is right only at the screen centre and shows the wrong side toward the edges, so only small,
+ * shallow props become cards there (clutter, wall decor, small machines).
+ */
+const LANE_REACH_Z = -0.35
+const DEEP_NEAR_LANE = 1.0
+const WIDEST_CARD = 6
+const SMALL = { w: 1.3, h: 1.6, depth: 0.9 }
+
+export function suitsCard(bounds: Box3, placementZ: number, look: CardView): boolean {
+  const w = bounds.max.x - bounds.min.x
+  const h = bounds.max.y - bounds.min.y
+  const depth = bounds.max.z - bounds.min.z
+  if (look === 'straight') return w <= SMALL.w && h <= SMALL.h && depth <= SMALL.depth
+  return w <= WIDEST_CARD && !(placementZ + bounds.max.z > LANE_REACH_Z && depth > DEEP_NEAR_LANE)
+}
+
+const modelKinds = new Set<string>()
+
+/** Prop kinds that stayed 3D somewhere (for the debug readout): unbakeable, or too big or deep for a card. */
+export function propKindsKept3d(): string[] {
+  return [...modelKinds].sort()
+}
+
 function isMirror(matrix: Matrix4): boolean {
   return matrix.determinant() < 0
 }
 
-/** Where a region's build has got to: props still to sort into batches, batches still to make, scans still to come. */
+/**
+ * Where a region's build has got to: props still to look at, scanned models still to come, props still to sort,
+ * cards still to bake, batches still to make.
+ */
 type Work = {
-  props: number[]
-  plans: BatchPlan[]
-  sorted: Map<string, BatchPlan>
+  gather: number[]
   scans: Set<string>
-  arrived: { url: string; scene: Group }[]
+  scenes: Map<string, Group>
+  sort: number[]
+  bake: number[]
+  sorted: Map<string, BatchPlan>
+  plans: BatchPlan[] | null
+  cards: CardUse[]
 }
 
 export class Region {
   readonly group = new Group()
   private batches: BatchedProps[] = []
+  private cards: CardSet | null = null
   private hidden = new Set<number>()
   /** Goes up on every build, so a scanned model arriving late does not land in a build that has been replaced. */
   private generation = 0
   private work: Work | null = null
-  /** True once every built prop is in a batch (scanned models may still be on their way). */
+  /** True once every prop is in a batch or a card set. */
   built = false
   /** Batches made but still being uploaded and compiled. */
   private preparing = 0
   /** What the last step did, for the frame probe. */
-  phase: 'prop' | 'batch' | 'scan' | 'idle' = 'idle'
+  phase: 'prop' | 'scan' | 'sort' | 'card' | 'batch' | 'idle' = 'idle'
 
   /**
    * `area` places the region for the build queue: each batch is uploaded and compiled there, nearest the view first,
-   * and shown once ready. Without one (a region built away from any renderer) batches are shown at once.
+   * and shown once ready. Without one (a region built away from any renderer) everything stays 3D and batches are
+   * shown at once.
    */
   constructor(readonly props: readonly number[], private readonly area?: JobArea) {
     this.group.matrixAutoUpdate = false
@@ -71,54 +108,77 @@ export class Region {
   start(isHidden: (prop: number) => boolean): void {
     this.dispose()
     this.generation += 1
-    this.work = { props: [...this.props].reverse(), plans: [], sorted: new Map(), scans: new Set(), arrived: [] }
+    const order = [...this.props].reverse()
+    this.work = { gather: order, scans: new Set(), scenes: new Map(), sort: [...order], bake: [], sorted: new Map(), plans: null, cards: [] }
     for (const prop of this.props) if (isHidden(prop)) this.setHidden(prop, true)
   }
 
   /**
-   * One small piece of the build: sorting one prop's parts, making one batch, or sorting one scanned model that has
-   * arrived. `placedOf` builds a prop's recipe the first time it is asked for.
+   * One small piece of the build: looking at one prop, sorting it into a card or batches, baking one card, or making
+   * one batch. `placedOf` builds a prop's recipe the first time it is asked for.
    */
   step(placedOf: (prop: number) => PlacedProp): StepResult {
     const work = this.work
     if (!work) return 'done'
-    const prop = work.props.pop()
-    if (prop !== undefined) {
+    const gathered = work.gather.pop()
+    if (gathered !== undefined) {
       this.phase = 'prop'
-      const entry = placedOf(prop)
-      addParts(work.sorted, prop, entry)
-      for (const scan of entry.recipe.scans) this.requestScan(work, scan.url)
-      if (work.props.length === 0) work.plans.push(...work.sorted.values())
+      for (const scan of placedOf(gathered).recipe.scans) this.requestScan(work, scan.url)
       return 'more'
     }
+    if (work.scans.size > 0) {
+      this.phase = 'scan'
+      return 'waiting'
+    }
+    const sorting = work.sort.pop()
+    if (sorting !== undefined) {
+      this.phase = 'sort'
+      const entry = placedOf(sorting)
+      if (this.area && cardMaterials(entry.recipe)) work.bake.push(sorting)
+      else this.addModel(work, sorting, entry)
+      return 'more'
+    }
+    const baking = work.bake.pop()
+    if (baking !== undefined) {
+      const renderer = currentRenderer()
+      if (!renderer) {
+        work.bake.push(baking)
+        return 'waiting'
+      }
+      this.phase = 'card'
+      const entry = placedOf(baking)
+      const use = cardUse(renderer, work, baking, entry)
+      if (use) work.cards.push(use)
+      else {
+        modelKinds.add(entry.shape.split('|')[0])
+        this.addModel(work, baking, entry)
+      }
+      return 'more'
+    }
+    work.plans ??= [...work.sorted.values()]
     const plan = work.plans.pop()
     if (plan) {
       this.phase = 'batch'
       this.addBatch(plan, placedOf)
       return 'more'
     }
+    if (work.cards.length > 0) this.addCards(work.cards)
     this.built = true
-    const arrived = work.arrived.pop()
-    if (arrived) {
-      this.phase = 'scan'
-      const plans = new Map<string, BatchPlan>()
-      const pieces = scanPieces(arrived.scene)
-      for (const member of this.props) addScanUses(plans, member, placedOf(member), arrived.url, pieces)
-      work.plans.push(...plans.values())
-      work.scans.delete(arrived.url)
-      return 'more'
-    }
-    if (work.scans.size > 0) return 'waiting'
     this.work = null
     return 'done'
   }
 
   /**
-   * True once the whole region is built, scanned models included, and every batch is on the GPU: the props layer
-   * shows a region only then, so nothing in it ever appears piece by piece.
+   * True once the whole region is built and every batch is on the GPU: the props layer shows a region only then, so
+   * nothing in it ever appears piece by piece.
    */
   get ready(): boolean {
     return this.built && this.work === null && this.preparing === 0
+  }
+
+  /** Which build this is: a change means the region was restarted. */
+  get generationNow(): number {
+    return this.generation
   }
 
   isHidden(prop: number): boolean {
@@ -130,6 +190,7 @@ export class Region {
     if (hidden) this.hidden.add(prop)
     else this.hidden.delete(prop)
     for (const batch of this.batches) showInstances(batch, prop, !hidden)
+    this.cards?.setHidden(prop, hidden)
   }
 
   dispose(): void {
@@ -138,19 +199,32 @@ export class Region {
       mesh.dispose()
     }
     this.batches = []
+    if (this.cards) {
+      for (const mesh of this.cards.meshes) this.group.remove(mesh)
+      this.cards.dispose()
+      this.cards = null
+    }
     this.preparing = 0
     this.built = false
     this.work = null
   }
 
-  /** Scanned models load in the background; each one is sorted into batches by a later step once it is here. */
+  /** Scanned models load in the background; the region sorts its props once all of them are here. */
   private requestScan(work: Work, url: string): void {
-    if (work.scans.has(url)) return
+    if (work.scans.has(url) || work.scenes.has(url)) return
     work.scans.add(url)
     const generation = this.generation
     loadShared(url).then((scene) => {
-      if (generation === this.generation) work.arrived.push({ url, scene })
+      if (generation !== this.generation) return
+      work.scenes.set(url, scene)
+      work.scans.delete(url)
     }).catch(() => work.scans.delete(url))
+  }
+
+  /** Sorts a prop that stays 3D into the region's batches: its own parts, then its scanned models. */
+  private addModel(work: Work, prop: number, entry: PlacedProp): void {
+    addParts(work.sorted, prop, entry)
+    for (const [url, scene] of work.scenes) addScanUses(work.sorted, prop, entry, url, scanPieces(scene))
   }
 
   /** A batch joins the region once its shaders are compiled and its textures uploaded, so drawing it never stalls. */
@@ -158,16 +232,70 @@ export class Region {
     const batch = plan.build((prop) => placedOf(prop).placement)
     for (const prop of this.hidden) showInstances(batch, prop, false)
     this.batches.push(batch)
+    this.prepare(batch.mesh, () => this.batches.includes(batch))
+  }
+
+  private addCards(uses: CardUse[]): void {
+    const cards = buildCards(uses)
+    this.cards = cards
+    for (const prop of this.hidden) cards.setHidden(prop, true)
+    const holder = new Group()
+    holder.add(...cards.meshes)
+    this.prepare(holder, () => this.cards === cards, () => {
+      holder.remove(...cards.meshes)
+      this.group.add(...cards.meshes)
+    })
+  }
+
+  private prepare(object: Object3D, current: () => boolean, attach: () => void = () => this.group.add(object)): void {
     const generation = this.generation
     const show = () => {
-      if (generation !== this.generation || !this.batches.includes(batch)) return
+      if (generation !== this.generation || !current()) return
       this.preparing -= 1
-      this.group.add(batch.mesh)
+      attach()
     }
     this.preparing += 1
-    if (this.area) prepareJob(batch.mesh, this.area, show)
+    if (this.area) prepareJob(object, this.area, show)
     else show()
   }
+}
+
+/** True when every part of the prop can be reproduced on a card. */
+function cardMaterials(recipe: Recipe): boolean {
+  return recipe.parts.every((part) => canBake(part.material))
+}
+
+/** Everything a prop is drawn with, in its own space: its parts and its scanned models. */
+function cardPieces(work: Work, entry: PlacedProp): CardPiece[] | null {
+  const pieces: CardPiece[] = entry.recipe.parts.map(({ geometry, material, matrix, start, count }) => ({ geometry, material, matrix, start, count }))
+  for (const scan of entry.recipe.scans) {
+    const scene = work.scenes.get(scan.url)
+    if (!scene) continue
+    for (const piece of scanPieces(scene)) {
+      if (!canBake(piece.material)) return null
+      const count = piece.geometry.index ? piece.geometry.index.count : piece.geometry.attributes.position.count
+      pieces.push({ geometry: piece.geometry, material: piece.material, matrix: scan.matrix, start: 0, count })
+    }
+  }
+  return pieces
+}
+
+/** Card key: the prop's shape plus where its scanned models sit (the shape key covers its own parts only). */
+function cardKey(entry: PlacedProp): string {
+  const scans = entry.recipe.scans.map((scan) => `${scan.url}@${scan.matrix.elements.map((value) => Math.round(value * 1e4)).join(',')}`)
+  return `${entry.shape}#${scans.join(';')}`
+}
+
+/** The card for a prop, or null if it should stay 3D (too big or deep for a card here, or unbakeable). */
+function cardUse(renderer: WebGLRenderer, work: Work, prop: number, entry: PlacedProp): CardUse | null {
+  const pieces = cardPieces(work, entry)
+  if (!pieces || pieces.length === 0) return null
+  const bounds = piecesBounds(pieces)
+  const placementZ = entry.placement.elements[14]
+  if (!suitsCard(bounds, placementZ, cardView())) return null
+  const card = bakeCard(renderer, cardKey(entry), pieces)
+  if (!card) return null
+  return { prop, card, placement: entry.placement, mirrored: isMirror(entry.placement), shadow: entry.castShadow ? bounds : null }
 }
 
 function addScanUses(plans: Map<string, BatchPlan>, prop: number, { recipe, placement, castShadow }: PlacedProp, url: string, pieces: ReturnType<typeof scanPieces>): void {
