@@ -211,6 +211,19 @@ describe('a held action started over', () => {
     expect(world.player.pick).toBe(0)
   })
 
+  it('lifting a keycard goes on while the player follows the man he is lifting it from', () => {
+    const world = arena()
+    const officer = addArenaGuard(world, 20, 1, 'officer')
+    putPlayer(world, 18.6)
+    runArena(world, 0.1, { crouch: true })
+    expect(world.prompt).toBe('Hold E: lift his keycard')
+    // A step after him (as after a man walking his beat), then the rest standing.
+    runArena(world, 0.25, { crouch: true, interact: true, right: true })
+    expect(world.player.pick).toBeGreaterThan(0.15)
+    runArena(world, 1, { crouch: true, interact: true })
+    expect(world.stealth.keycards.has(world.guards.indexOf(officer))).toBe(true)
+  })
+
   it('a hit while holding E drops the pick', () => {
     const world = halfPicked()
     world.player.hp -= 10

@@ -43,7 +43,7 @@ const TYPING_GAP = 0.3
  * One thing the player can do right now. `hold` is how many seconds E must be held;
  * without it a single press does it. `key` names the target so changing target restarts the progress.
  */
-export type Action = { prompt: string; key: string; run: () => void; hold?: number; typing?: boolean; hint?: string; at?: Vec; lastResort?: boolean }
+export type Action = { prompt: string; key: string; run: () => void; hold?: number; typing?: boolean; hint?: string; at?: Vec; lastResort?: boolean; onPerson?: boolean }
 
 /**
  * The hands-on actions. Loot and supplies are picked up by walking over them; everything else
@@ -85,7 +85,7 @@ function bestAction(world: World): Action | null {
   if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
   if (world.stealth.carried !== null) return carryingAction(world)
   if (world.player.hidden) return null
-  return tieUpAction(world) ?? takedownAction(world) ?? bodyAction(world) ?? interrogateAction(world)
+  return tieUpAction(world) ?? onPerson(takedownAction(world)) ?? bodyAction(world) ?? onPerson(interrogateAction(world))
     ?? nearestAtHand(world, [deviceAction(world, 'near'), elevatorAction(world), windowAction(world), doorAction(world), closeDoorAction(world)])
     ?? deviceAction(world, 'camera') ?? readAction(world) ?? hideAction(world) ?? noisemakerAction(world) ?? deviceAction(world, 'lightSwitch')
     ?? systemsAction(world)
@@ -103,6 +103,11 @@ function carryingAction(world: World): Action | null {
 
 /** The key of the plain carrying hint from `stashAction`, which does nothing on E. */
 const CARRY_HINT_KEY = 'carry'
+
+/** Done to a man on his feet, who may be walking: lifting his keycard or questioning him goes on while following him. */
+function onPerson(action: Action | null): Action | null {
+  return action && { ...action, onPerson: true }
+}
 
 /** Something behind the player counts this much further away than it is: E goes to what he faces first. */
 const BEHIND_PENALTY = 0.6
@@ -152,7 +157,7 @@ function collect(world: World): void {
 function perform(world: World, input: Input, dt: number, action: Action | null): boolean {
   const state = deviceState(world)
   const player = world.player
-  const steady = steadyHands(world, input)
+  const steady = steadyHands(world, input) || action?.onPerson === true
   if (!action || action.hold === undefined || !input.interact || state.holding !== action.key || !steady) player.pick = 0
   state.holding = action?.key ?? null
   if (!action) return false
