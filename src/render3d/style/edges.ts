@@ -1,4 +1,4 @@
-import { HalfFloatType, ShaderMaterial, Vector2, WebGLRenderTarget, type Camera, type DepthTexture, type WebGLRenderer } from 'three'
+import { HalfFloatType, ShaderMaterial, Vector2, WebGLRenderTarget, type Camera, type WebGLRenderer } from 'three'
 import { FullScreenQuad, Pass } from 'three/examples/jsm/postprocessing/Pass.js'
 
 /**
@@ -20,6 +20,8 @@ const EdgeShader = {
   fragmentShader: /* glsl */ `
     #include <packing>
     uniform sampler2D tDepth;
+    /** The freshly drawn scene, still in linear light before tone mapping. */
+    uniform sampler2D tScene;
     uniform vec2 texel;
     uniform float cameraNear;
     uniform float cameraFar;
@@ -61,6 +63,8 @@ const EdgeShader = {
       float steep = max(max(abs(left - centre), abs(right - centre)), max(abs(down - centre), abs(up - centre)));
       float crease = smoothstep(0.35, 0.9, max(bendX, bendY) / size) * (1.0 - smoothstep(0.15, 0.3, steep));
       float fade = 1.0 - smoothstep(laneDistance + 6.0, laneDistance + 25.0, centre);
+      // Light is never inked: lamps, neon, fire, sparks and muzzle flashes glow without an outline.
+      fade *= 1.0 - smoothstep(1.5, 3.0, dot(texture2D(tScene, vUv).rgb, vec3(0.2126, 0.7152, 0.0722)));
       gl_FragColor = vec4(silhouette * fade, crease * fade, 0.0, 1.0);
     }`,
 }
@@ -81,6 +85,7 @@ export class EdgePass extends Pass {
       ...EdgeShader,
       uniforms: {
         tDepth: { value: null },
+        tScene: { value: null },
         texel: { value: new Vector2(1, 1) },
         cameraNear: { value: camera.near },
         cameraFar: { value: camera.far },
@@ -96,8 +101,10 @@ export class EdgePass extends Pass {
     this.quad = new FullScreenQuad(this.material)
   }
 
-  setDepth(depth: DepthTexture | null): void {
-    this.material.uniforms.tDepth.value = depth
+  /** The buffer the scene was just drawn into: its depth, and its colour (so glowing things are left unlined). */
+  setScene(scene: WebGLRenderTarget): void {
+    this.material.uniforms.tDepth.value = scene.depthTexture
+    this.material.uniforms.tScene.value = scene.texture
   }
 
   setPixelWorld(pixelWorld: number, reach: number): void {

@@ -121,7 +121,7 @@ function addFinish(composer: EffectComposer, style: Style, edges: EdgePass | nul
     composer.addPass(sketch.pass)
     return {
       setSize: (width, height) => sketch.setSize(width, height),
-      frame: (time, mood) => sketch.setFrame(time, mood.alarm, mood.slow),
+      frame: (time, mood) => sketch.setFrame(time, mood.alarm, mood.slow, mood.timeOfDay === 'night' ? 1 : 0),
       dispose: () => sketch.dispose(),
     }
   }
@@ -196,7 +196,7 @@ export function createPost(renderer: WebGLRenderer, scene: Scene, cameras: Camer
       const depth = composer.readBuffer.depthTexture
       ao.gtaoMaterial.uniforms.tDepth.value = depth
       ao.pdMaterial.uniforms.tDepth.value = depth
-      edges?.setDepth(depth)
+      edges?.setScene(composer.readBuffer)
       finisher.frame(time, mood, snap)
       composer.render()
     },

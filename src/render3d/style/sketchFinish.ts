@@ -29,6 +29,8 @@ const fragmentShader = /* glsl */ `
   uniform float lineWidth;
   uniform float alarm;
   uniform float slow;
+  /** 1 at night: the paper darkens and fewer things count as lit, so night still reads as night. */
+  uniform float night;
   varying vec2 vUv;
 
   float hash(float n) { return fract(sin(n * 12.9898) * 43758.5453); }
@@ -46,7 +48,7 @@ const fragmentShader = /* glsl */ `
 
     // Tone on a log scale, as the eye sees it: lit rooms stay near paper, shadow is cross-hatched, and only
     // near black goes solid charcoal. This keeps light against dark readable.
-    float dark = 1.0 - clamp(log2(max(luma(scene), 1e-4) / 0.03) / log2(0.65 / 0.03), 0.0, 1.0);
+    float dark = 1.0 - clamp(log2(max(luma(scene), 1e-4) / 0.03) / log2(mix(0.65, 1.0, night) / 0.03), 0.0, 1.0);
     vec4 strokes = texture2D(tHatch, (px + jump) / (512.0 * s));
     float hatch = strokes.r * smoothstep(0.3, 0.42, dark);
     hatch = mix(hatch, strokes.g, smoothstep(0.46, 0.58, dark));
@@ -63,7 +65,7 @@ const fragmentShader = /* glsl */ `
     float keep = max(lit, red) * keepColour;
 
     float tooth = texture2D(tPaper, px / (512.0 * s)).r;
-    vec3 sheet = paper * (0.93 + 0.14 * (tooth - 0.5));
+    vec3 sheet = paper * mix(vec3(1.0), vec3(0.78, 0.8, 0.86), night) * (0.93 + 0.14 * (tooth - 0.5));
     // A continuous charcoal wash carries the shapes (small things such as people are smaller than the hatch
     // spacing); the hatching on top gives it the hand-drawn texture. Light tints the paper it falls on.
     vec3 wash = sheet * mix(1.0, 0.3, pow(dark, 1.3));
@@ -83,7 +85,7 @@ const fragmentShader = /* glsl */ `
     gl_FragColor = vec4(clamp(colour, 0.0, 1.0), 1.0);
   }`
 
-export type SketchPass = { pass: ShaderPass; setFrame(time: number, alarm: number, slow: number): void; setSize(width: number, height: number): void; dispose(): void }
+export type SketchPass = { pass: ShaderPass; setFrame(time: number, alarm: number, slow: number, night: number): void; setSize(width: number, height: number): void; dispose(): void }
 
 export function createSketchPass(finish: SketchFinish, edges: Texture): SketchPass {
   const hatch = hatchTexture()
@@ -106,11 +108,13 @@ export function createSketchPass(finish: SketchFinish, edges: Texture): SketchPa
       lineWidth: { value: finish.lineWidth },
       alarm: { value: 0 },
       slow: { value: 0 },
+      night: { value: 0 },
     },
   }))
   return {
     pass,
-    setFrame(time, alarm, slow) {
+    setFrame(time, alarm, slow, night) {
+      pass.uniforms.night.value = night
       pass.uniforms.frame.value = Math.floor(time * finish.boilRate) % 997
       pass.uniforms.alarm.value = alarm
       pass.uniforms.slow.value = slow
