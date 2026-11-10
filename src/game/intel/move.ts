@@ -1,3 +1,4 @@
+import { caseAskedAbout } from '../security/intrusions'
 import { bark } from '../security/barks'
 import { isActive } from '../security/model'
 import { centerOf, distance, type Vec } from '../types'
@@ -25,12 +26,14 @@ export function stepLootMove(world: World, dt: number): void {
   const intel = world.intel
   const move = intel.move
   if (world.loot.taken || intel.places.length < 2 || move.moves >= MAX_MOVES) return
-  if (world.security.level < MOVE_LEVEL) {
+  // Guards who learn the intruder was asking about the case move it at once, whatever the alert level.
+  const tippedOff = caseAskedAbout(world)
+  if (world.security.level < MOVE_LEVEL && !tippedOff) {
     Object.assign(move, { alertSeconds: Math.min(0, move.alertSeconds), ordered: false, to: null })
     return
   }
   move.alertSeconds += dt
-  if (move.alertSeconds < MOVE_DELAY) return
+  if (move.alertSeconds < (tippedOff ? 0 : MOVE_DELAY)) return
   if (move.to === null) orderMove(world)
   const to = intel.places[move.to ?? intel.real]
   if (watched(world, centerOf(world.loot)) || watched(world, spotOf(to))) return

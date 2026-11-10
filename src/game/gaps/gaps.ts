@@ -1,6 +1,6 @@
 import type { Input } from '../input'
 import type { World } from '../world'
-import { guardWantsToDrop } from './intent'
+import { guardDropsThrough } from '../security/holeDrop'
 import { anyWalkPast } from './holes'
 import { currentHoles } from './state'
 import { carryAcross, rememberFooting } from './walk'
@@ -31,7 +31,7 @@ export function stepGaps(world: World, input: Input): void {
   }
   for (const guard of world.guards) {
     if (guard.state === 'dead' || guard.ragdoll || guard.stairs || guard.climbing) continue
-    carryAcross(world, guard, guardWantsToDrop(guard, Math.floor(guard.y + guard.h)))
+    carryAcross(world, guard, guardDropsThrough(world, guard, Math.floor(guard.y + guard.h)))
     rememberFooting(world, guard)
   }
 }
