@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { BONES, createRagdoll, stepRagdoll } from './ragdoll'
+import { BONES, createRagdoll, isAsleep, pushRagdoll, stepRagdoll, type Ragdoll } from './ragdoll'
 import { createRng } from './rng'
-import { createGrid, fillTiles, isSolidAt } from './tiles'
+import { createGrid, fillTiles, isSolidAt, setTile, type Grid } from './tiles'
 
 describe('ragdoll', () => {
   it('flops to the floor without stretching or sinking into it', () => {
@@ -45,5 +45,67 @@ describe('ragdoll', () => {
     for (const point of ragdoll.points) point.vx = 40
     for (let frame = 0; frame < 60; frame += 1) stepRagdoll(grid, ragdoll, 1 / 30)
     for (const point of ragdoll.points) expect(point.x).toBeLessThan(15)
+  })
+
+  describe('sleeping', () => {
+    function restingBody(): { grid: Grid; ragdoll: Ragdoll } {
+      const grid = createGrid(20, 24)
+      fillTiles(grid, 0, 10, 19, 10, 'wood')
+      fillTiles(grid, 0, 22, 19, 23, 'concrete')
+      const ragdoll = createRagdoll({ x: 10, y: 9.9 }, { x: 0, y: 0 }, createRng(1))
+      // Dropped standing, it takes a few seconds to topple over and come to rest.
+      for (let frame = 0; frame < 480; frame += 1) stepRagdoll(grid, ragdoll, 1 / 60)
+      return { grid, ragdoll }
+    }
+    const hipY = (ragdoll: Ragdoll) => ragdoll.points[2].y
+
+    it('a body lying still falls asleep and stays exactly where it lay', () => {
+      const { grid, ragdoll } = restingBody()
+      expect(isAsleep(ragdoll)).toBe(true)
+      const before = ragdoll.points.map((point) => ({ ...point }))
+      for (let frame = 0; frame < 60; frame += 1) stepRagdoll(grid, ragdoll, 1 / 60)
+      expect(ragdoll.points).toEqual(before)
+    })
+
+    it('stays asleep when tiles change far away', () => {
+      const { grid, ragdoll } = restingBody()
+      setTile(grid, 2, 10, 'air')
+      setTile(grid, 18, 3, 'brick')
+      stepRagdoll(grid, ragdoll, 1 / 60)
+      expect(isAsleep(ragdoll)).toBe(true)
+    })
+
+    it('wakes and flies when a blast reaches it', () => {
+      const { grid, ragdoll } = restingBody()
+      const hip = ragdoll.points[2]
+      pushRagdoll(ragdoll, { x: hip.x - 1, y: hip.y + 0.5 }, 3, 20)
+      expect(isAsleep(ragdoll)).toBe(false)
+      const startX = hip.x
+      for (let frame = 0; frame < 10; frame += 1) stepRagdoll(grid, ragdoll, 1 / 60)
+      expect(hip.x).toBeGreaterThan(startX + 0.3)
+    })
+
+    it('ignores a blast that does not reach it', () => {
+      const { grid, ragdoll } = restingBody()
+      pushRagdoll(ragdoll, { x: 1, y: 2 }, 3, 20)
+      stepRagdoll(grid, ragdoll, 1 / 60)
+      expect(isAsleep(ragdoll)).toBe(true)
+    })
+
+    it('wakes and falls when the floor under it is destroyed', () => {
+      const { grid, ragdoll } = restingBody()
+      expect(hipY(ragdoll)).toBeLessThan(10)
+      fillTiles(grid, 0, 10, 19, 10, 'air')
+      for (let frame = 0; frame < 120; frame += 1) stepRagdoll(grid, ragdoll, 1 / 60)
+      expect(hipY(ragdoll)).toBeGreaterThan(19)
+      for (const point of ragdoll.points) expect(point.y).toBeLessThan(22)
+    })
+
+    it('wakes when something moves it from outside', () => {
+      const { grid, ragdoll } = restingBody()
+      for (const point of ragdoll.points) point.y -= 3
+      for (let frame = 0; frame < 60; frame += 1) stepRagdoll(grid, ragdoll, 1 / 60)
+      expect(hipY(ragdoll)).toBeGreaterThan(9)
+    })
   })
 })

@@ -1,8 +1,8 @@
-import type { PropState } from '../cover'
 import type { Blast } from '../explosions'
 import type { NoiseSource } from '../security/hearing'
 import type { Body, Vec } from '../types'
 import type { World } from '../world'
+import type { PropBuckets } from './buckets'
 
 export type GrenadeKind = 'smoke' | 'flash'
 
@@ -54,7 +54,7 @@ export type SmokeField = {
 }
 
 /** Which props cover which tiles, built on first use so the fire can find furniture without scanning every prop. */
-export type PropIndex = { props: readonly PropState[]; count: number; byTile: Map<number, number[]>; sprinklersByRoom: Map<number, number[]> }
+export type PropIndex = { byTile: PropBuckets; sprinklersByRoom: Map<number, number[]> }
 
 export type HazardState = {
   fires: Map<number, Fire>

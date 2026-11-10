@@ -1,6 +1,7 @@
 import { burst } from './effects'
 import { propBroke } from './hazards/hazards'
-import { propsNear } from './hazards/props'
+import { addKey, currentBuckets, type KeyList, type PropBuckets } from './hazards/buckets'
+import { propById, propsNear } from './hazards/props'
 import { propCover } from './physprops/tip'
 import { propSpec } from './propCatalog'
 import type { Prop } from './site'
@@ -38,14 +39,22 @@ export function createProps(props: readonly Prop[]): PropState[] {
  * from right behind it: people fire over their own cover.
  */
 export function shotHitsProp(world: World, at: ShotPoint, damage: number): boolean {
-  const speed = Math.hypot(at.vx ?? 0, at.vy ?? 0)
-  const tail = speed > 0 ? { x: at.x - ((at.vx ?? 0) / speed) * SHOT_STEP, y: at.y - ((at.vy ?? 0) / speed) * SHOT_STEP } : at
-  for (const prop of coverNear(world, at.x)) {
-    const box = coverBox(prop)
-    if (!segmentHitsBox(tail, at, box) || firedFromBehind(world, box, at)) continue
-    burst(world.effects, world.rng, at, 2, DEBRIS, 3)
-    damageProp(world, prop, damage)
-    return true
+  const vx = at.vx ?? 0
+  const vy = at.vy ?? 0
+  const speed = Math.sqrt(vx * vx + vy * vy)
+  const tailX = speed > 0 ? at.x - (vx / speed) * SHOT_STEP : at.x
+  const tailY = speed > 0 ? at.y - (vy / speed) * SHOT_STEP : at.y
+  const buckets = coverBuckets(world)
+  for (let bucket = firstBucket(at.x); bucket <= lastBucket(at.x); bucket += 1) {
+    for (const id of buckets.byKey.get(bucket) ?? NONE) {
+      const prop = propById(world, id)
+      if (!prop || !isStanding(world, prop)) continue
+      const box = coverBox(prop, scratchBox)
+      if (!segmentHitsBox(tailX, tailY, at.x, at.y, box) || firedFromBehind(world, box, at)) continue
+      burst(world.effects, world.rng, at, 2, DEBRIS, 3)
+      damageProp(world, prop, damage)
+      return true
+    }
   }
   return false
 }
@@ -68,12 +77,16 @@ export function hurtPropsInRadius(world: World, at: Vec, radius: number, damage:
  */
 export function sightBlockedByProps(world: World, from: Vec, to: Vec): boolean {
   const crouched = targetIsCrouching(world, to)
-  for (const prop of coverNear(world, to.x)) {
-    if (propCover(world, prop) === 'low' && !crouched) continue
-    const box = coverBox(prop)
-    if (from.x >= box.left && from.x <= box.right) continue
-    const tucked = to.x >= box.left - TUCKED_IN && to.x <= box.right + TUCKED_IN && to.y <= box.bottom
-    if (tucked && segmentHitsBox(from, to, box)) return true
+  const buckets = coverBuckets(world)
+  for (let bucket = firstBucket(to.x); bucket <= lastBucket(to.x); bucket += 1) {
+    for (const id of buckets.byKey.get(bucket) ?? NONE) {
+      const prop = propById(world, id)
+      if (!prop || !isStanding(world, prop) || (propCover(world, prop) === 'low' && !crouched)) continue
+      const box = coverBox(prop, scratchBox)
+      if (from.x >= box.left && from.x <= box.right) continue
+      const tucked = to.x >= box.left - TUCKED_IN && to.x <= box.right + TUCKED_IN && to.y <= box.bottom
+      if (tucked && segmentHitsBox(from.x, from.y, to.x, to.y, box)) return true
+    }
   }
   return false
 }
@@ -82,7 +95,7 @@ export function sightBlockedByProps(world: World, from: Vec, to: Vec): boolean {
 export function isInCover(world: World, body: Body & { crouching?: boolean }): boolean {
   const feet = body.y + body.h
   return coverNear(world, body.x + body.w / 2).some((prop) => {
-    const box = coverBox(prop)
+    const box = coverBox(prop, { left: 0, right: 0, top: 0, bottom: 0 })
     const besideIt = body.x + body.w >= box.left - TUCKED_IN && body.x <= box.right + TUCKED_IN && Math.abs(feet - box.bottom) < 0.3
     return besideIt && (propCover(world, prop) === 'high' || body.crouching === true)
   })
@@ -102,14 +115,18 @@ export function damageProp(world: World, prop: PropState, amount: number): void 
 
 /** True when the shot came from someone standing in or right beside this prop, heading away from them. */
 function firedFromBehind(world: World, box: Box, shot: ShotPoint): boolean {
-  const guards = world.guards.filter((guard) => guard.state !== 'dead')
-  const shooters: Body[] = shot.fromPlayer === true ? [world.player] : shot.fromPlayer === false ? guards : [world.player, ...guards]
-  return shooters.some((body) => {
-    const near = body.x + body.w >= box.left - OWN_COVER_REACH && body.x <= box.right + OWN_COVER_REACH
-    const sameFloor = Math.abs(body.y + body.h - box.bottom) < 0.6
-    const awayFromThem = shot.vx === undefined || (shot.x - (body.x + body.w / 2)) * shot.vx >= 0
-    return near && sameFloor && awayFromThem
-  })
+  if (shot.fromPlayer !== false && shootsOver(world.player, box, shot)) return true
+  if (shot.fromPlayer === true) return false
+  for (const guard of world.guards) if (guard.state !== 'dead' && shootsOver(guard, box, shot)) return true
+  return false
+}
+
+/** Is this body standing at the cover, so that a shot heading away from them passes over it? */
+function shootsOver(body: Body, box: Box, shot: ShotPoint): boolean {
+  const near = body.x + body.w >= box.left - OWN_COVER_REACH && body.x <= box.right + OWN_COVER_REACH
+  const sameFloor = Math.abs(body.y + body.h - box.bottom) < 0.6
+  const awayFromThem = shot.vx === undefined || (shot.x - (body.x + body.w / 2)) * shot.vx >= 0
+  return near && sameFloor && awayFromThem
 }
 
 function targetIsCrouching(world: World, at: Vec): boolean {
@@ -117,11 +134,18 @@ function targetIsCrouching(world: World, at: Vec): boolean {
   return player.crouching && at.x >= player.x && at.x <= player.x + player.w && at.y >= player.y && at.y <= player.y + player.h
 }
 
-function coverBox(prop: PropState): Box {
+/** Fills `box` with the box a floor prop fills. Callers in hot loops pass `scratchBox` to avoid allocating. */
+function coverBox(prop: PropState, box: Box): Box {
   const spec = propSpec(prop.kind)
   const middle = prop.x + 0.5
-  return { left: middle - spec.w / 2, right: middle + spec.w / 2, top: prop.y - spec.h, bottom: prop.y }
+  box.left = middle - spec.w / 2
+  box.right = middle + spec.w / 2
+  box.top = prop.y - spec.h
+  box.bottom = prop.y
+  return box
 }
+
+const scratchBox: Box = { left: 0, right: 0, top: 0, bottom: 0 }
 
 /** Wall and ceiling props give their top edge as `y`; floor props stand on it. */
 function propCenter(prop: PropState): Vec {
@@ -129,40 +153,70 @@ function propCenter(prop: PropState): Vec {
   return { x: prop.x + 0.5, y: spec.mount === 'floor' ? prop.y - spec.h / 2 : prop.y + spec.h / 2 }
 }
 
-/** Does the segment from a to b touch the box? (Clips the segment against each pair of sides in turn.) */
-function segmentHitsBox(a: Vec, b: Vec, box: Box): boolean {
+/**
+ * Does the segment from (ax, ay) to (bx, by) touch the box? Clips the segment against the left and right sides,
+ * then the top and bottom, narrowing the part of it that is inside.
+ */
+function segmentHitsBox(ax: number, ay: number, bx: number, by: number, box: Box): boolean {
   let enter = 0
   let leave = 1
-  const clip = (start: number, delta: number, low: number, high: number): boolean => {
-    if (delta === 0) return start >= low && start <= high
-    let t0 = (low - start) / delta
-    let t1 = (high - start) / delta
-    if (t0 > t1) [t0, t1] = [t1, t0]
-    enter = Math.max(enter, t0)
-    leave = Math.min(leave, t1)
-    return enter <= leave
+  const dx = bx - ax
+  if (dx === 0) {
+    if (ax < box.left || ax > box.right) return false
+  } else {
+    const t0 = (box.left - ax) / dx
+    const t1 = (box.right - ax) / dx
+    enter = Math.max(enter, Math.min(t0, t1))
+    leave = Math.min(leave, Math.max(t0, t1))
+    if (enter > leave) return false
   }
-  return clip(a.x, b.x - a.x, box.left, box.right) && clip(a.y, b.y - a.y, box.top, box.bottom)
+  const dy = by - ay
+  if (dy === 0) return ay >= box.top && ay <= box.bottom
+  const t0 = (box.top - ay) / dy
+  const t1 = (box.bottom - ay) / dy
+  enter = Math.max(enter, Math.min(t0, t1))
+  leave = Math.min(leave, Math.max(t0, t1))
+  return enter <= leave
 }
 
-const coverIndex = new WeakMap<readonly PropState[], Map<number, PropState[]>>()
+const NONE: readonly number[] = []
+const coverIndex = new WeakMap<World, PropBuckets>()
 
-/** Unbroken floor props that give cover and stand near this column. A prop on fire is as good as gone. */
+/** Floor props that can give cover, filed by column band. Follows props that move without rebuilding. */
+function coverBuckets(world: World): PropBuckets {
+  const buckets = currentBuckets(coverIndex.get(world) ?? null, world.props, coverKeyOf)
+  coverIndex.set(world, buckets)
+  return buckets
+}
+
+function coverKeyOf(prop: PropState, keys: KeyList): void {
+  const spec = propSpec(prop.kind)
+  if (spec.mount !== 'floor' || spec.cover === 'none') return
+  addKey(keys, Math.floor((prop.x + 0.5) / BUCKET))
+}
+
+function firstBucket(x: number): number {
+  return Math.floor((x - QUERY_MARGIN) / BUCKET)
+}
+
+function lastBucket(x: number): number {
+  return Math.floor((x + QUERY_MARGIN) / BUCKET)
+}
+
+/** A broken prop gives no cover, and a prop on fire is as good as gone. */
+function isStanding(world: World, prop: PropState): boolean {
+  return !prop.broken && !world.hazards.burningProps.has(prop.id)
+}
+
+/** Unbroken floor props that give cover and stand near this column. */
 function coverNear(world: World, x: number): PropState[] {
-  let index = coverIndex.get(world.props)
-  if (!index) {
-    index = new Map()
-    for (const prop of world.props) {
-      const spec = propSpec(prop.kind)
-      if (spec.mount !== 'floor' || spec.cover === 'none') continue
-      const bucket = Math.floor((prop.x + 0.5) / BUCKET)
-      index.set(bucket, [...(index.get(bucket) ?? []), prop])
-    }
-    coverIndex.set(world.props, index)
-  }
+  const buckets = coverBuckets(world)
   const found: PropState[] = []
-  for (let bucket = Math.floor((x - QUERY_MARGIN) / BUCKET); bucket <= Math.floor((x + QUERY_MARGIN) / BUCKET); bucket += 1) {
-    for (const prop of index.get(bucket) ?? []) if (!prop.broken && !world.hazards.burningProps.has(prop.id)) found.push(prop)
+  for (let bucket = firstBucket(x); bucket <= lastBucket(x); bucket += 1) {
+    for (const id of buckets.byKey.get(bucket) ?? NONE) {
+      const prop = propById(world, id)
+      if (prop && isStanding(world, prop)) found.push(prop)
+    }
   }
   return found
 }

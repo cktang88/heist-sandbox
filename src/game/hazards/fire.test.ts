@@ -97,6 +97,16 @@ describe('fire', () => {
     expect(nearestFire(world, { x: 0, y: FLOOR })).toEqual({ x: 10.5, y: FLOOR + 0.5 })
   })
 
+  it('finds the nearest fire within reach among hundreds, and none past it', () => {
+    const world = bareWorld(80, 40)
+    fillTiles(world.grid, 1, 1, 78, 37, 'wood')
+    for (let y = 2; y < 26; y += 1) for (let x = 2; x < 26; x += 1) igniteAt(world, { x: x + 0.5, y: y + 0.5 }, 0.8)
+    expect(world.hazards.fires.size).toBeGreaterThan(500)
+    expect(nearestFire(world, { x: 29.2, y: 10.5 }, 4)).toEqual({ x: 25.5, y: 10.5 })
+    expect(nearestFire(world, { x: 29.2, y: 10.5 }, 3)).toBeNull()
+    expect(nearestFire(world, { x: 45, y: 35 })).toEqual({ x: 25.5, y: 25.5 })
+  })
+
   it('replays the same way from the same seed', () => {
     const snapshot = (seed: number) => {
       const world = woodenFloor(seed)

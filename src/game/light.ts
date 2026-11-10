@@ -24,14 +24,57 @@ export function lampIsLit(world: World, lamp: World['lamps'][number]): boolean {
  * Guards spot people faster in the light, so cutting the power or shooting out lamps helps the player hide.
  */
 export function lightLevelAt(world: World, at: Vec): number {
-  const indoors = world.interiors.some((area) => area.kind === 'room' && at.x >= area.x && at.x < area.x + area.w && at.y >= area.y && at.y < area.y + area.h)
   const underground = at.y > world.groundY
-  let level = indoors || underground ? 0.03 : world.timeOfDay === 'day' ? DAYLIGHT : MOONLIGHT
-  for (const lamp of world.lamps) {
+  let level = underground || isIndoors(world, at) ? 0.03 : world.timeOfDay === 'day' ? DAYLIGHT : MOONLIGHT
+  // Only lamps whose reach covers this spot's cell, in the same order as `world.lamps`, so the sum is unchanged.
+  for (const lamp of lampsAround(world.lamps, at)) {
     const gap = Math.hypot(lamp.x - at.x, lamp.y - at.y)
     if (gap > lamp.radius || !lampIsLit(world, lamp) || !hasLineOfSight(world.grid, lamp, at)) continue
     level += lamp.strength * (1 - gap / lamp.radius)
     if (level >= 1) return 1
   }
   return Math.min(1, level)
+}
+
+function isIndoors(world: World, at: Vec): boolean {
+  for (const area of world.interiors) {
+    if (area.kind === 'room' && at.x >= area.x && at.x < area.x + area.w && at.y >= area.y && at.y < area.y + area.h) return true
+  }
+  return false
+}
+
+type Lamp = World['lamps'][number]
+
+/** Lamps are filed by the square cells of this many tiles their circle of light touches. */
+const CELL = 8
+const NO_LAMPS: readonly Lamp[] = []
+const lampCells = new WeakMap<readonly Lamp[], { count: number; cells: Map<number, Lamp[]> }>()
+
+/** Lamps that may light a spot: those whose circle touches its cell. Built once per lamp list. */
+function lampsAround(lamps: readonly Lamp[], at: Vec): readonly Lamp[] {
+  let index = lampCells.get(lamps)
+  if (!index || index.count !== lamps.length) {
+    const cells = new Map<number, Lamp[]>()
+    for (const lamp of lamps) {
+      for (let y = cellOf(lamp.y - lamp.radius); y <= cellOf(lamp.y + lamp.radius); y += 1) {
+        for (let x = cellOf(lamp.x - lamp.radius); x <= cellOf(lamp.x + lamp.radius); x += 1) {
+          const list = cells.get(cellKey(x, y))
+          if (list) list.push(lamp)
+          else cells.set(cellKey(x, y), [lamp])
+        }
+      }
+    }
+    index = { count: lamps.length, cells }
+    lampCells.set(lamps, index)
+  }
+  return index.cells.get(cellKey(cellOf(at.x), cellOf(at.y))) ?? NO_LAMPS
+}
+
+function cellOf(value: number): number {
+  return Math.floor(value / CELL)
+}
+
+/** Cell coordinates packed into one number; wide enough for any site, negative cells included. */
+function cellKey(x: number, y: number): number {
+  return (y + 1024) * 2048 + (x + 1024)
 }
