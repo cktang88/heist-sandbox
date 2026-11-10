@@ -3,18 +3,13 @@ import { GLOW_ATTRIBUTE, isPlain, plainLook, SURFACE_ATTRIBUTE } from './plainMa
 import type { Part } from './recipe'
 
 /**
- * Bakes many prop parts into one geometry: each part's vertices are moved to where the part sits in the world,
- * so the whole lot draws in one call. Plain parts also get their colour, glow, roughness and metalness written
+ * Bakes several prop parts into one geometry: each part's vertices are moved to where the part sits,
+ * so the whole lot draws as one shape. Plain parts also get their colour, glow, roughness and metalness written
  * per vertex for the shared plain material.
  */
 
-/** One part of one prop, placed in the world. */
-export type Piece = { part: Part; world: Matrix4; prop: number }
-
-/** Which vertices belong to which prop, so a broken prop can be folded away without rebuilding the batch. */
-export type PropSpan = { prop: number; start: number; count: number }
-
-export type Merged = { geometry: BufferGeometry; spans: PropSpan[] }
+/** One part, with where it goes. */
+export type Piece = { part: Part; world: Matrix4 }
 
 type Layout = { plain: boolean; uv: boolean; color: boolean }
 
@@ -34,7 +29,7 @@ function indexCount(part: Part): number {
   return part.count
 }
 
-export function mergePieces(pieces: Piece[], look: BatchLook): Merged {
+export function mergePieces(pieces: Piece[], look: BatchLook): BufferGeometry {
   const layout = layoutFor(look, pieces)
   const vertices = pieces.reduce((sum, piece) => sum + vertexCount(piece.part), 0)
   const indices = pieces.reduce((sum, piece) => sum + indexCount(piece.part), 0)
@@ -45,13 +40,12 @@ export function mergePieces(pieces: Piece[], look: BatchLook): Merged {
   const glow = layout.plain ? new Float32Array(vertices * 3) : null
   const surface = layout.plain ? new Uint8Array(vertices * 2) : null
   const index = vertices > 65535 ? new Uint32Array(indices) : new Uint16Array(indices)
-  const spans: PropSpan[] = []
   const point = new Vector3()
   const normalMatrix = new Matrix3()
   let vertexAt = 0
   let indexAt = 0
 
-  for (const { part, world, prop } of pieces) {
+  for (const { part, world } of pieces) {
     const source = part.geometry.attributes
     const first = part.geometry.index ? 0 : part.start
     const count = vertexCount(part)
@@ -78,9 +72,6 @@ export function mergePieces(pieces: Piece[], look: BatchLook): Merged {
       index[indexAt + i + 1] = vertexAt + (mirrored ? c : b)
       index[indexAt + i + 2] = vertexAt + (mirrored ? b : c)
     }
-    const last = spans[spans.length - 1]
-    if (last && last.prop === prop) last.count += count
-    else spans.push({ prop, start: vertexAt, count })
     vertexAt += count
     indexAt += part.count
   }
@@ -95,7 +86,7 @@ export function mergePieces(pieces: Piece[], look: BatchLook): Merged {
   geometry.setIndex(new BufferAttribute(index, 1))
   geometry.computeBoundingSphere()
   geometry.computeBoundingBox()
-  return { geometry, spans }
+  return geometry
 }
 
 /** Position of the n-th corner of a part's triangles within the vertices copied for it. */

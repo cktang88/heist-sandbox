@@ -46,3 +46,11 @@ function partsOf(mesh: Mesh, matrix: Matrix4): Part[] {
     geometry, material: materials[group.materialIndex ?? 0], matrix, start: group.start, count: group.count, castShadow,
   }))
 }
+
+/** A key shared by every prop whose built parts are exactly alike (same shapes, materials and placements). */
+export function signatureOf(recipe: Recipe): string {
+  return recipe.parts.map((part) => {
+    const placement = part.matrix.elements.map((value) => Math.round(value * 1e4)).join(',')
+    return `${part.geometry.uuid}/${part.material.uuid}/${part.start}/${part.count}/${part.castShadow}/${placement}`
+  }).join(';')
+}
