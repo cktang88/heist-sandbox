@@ -6,6 +6,7 @@ import type { World } from '../world'
 import { recordClue } from './clues'
 import { spokenLine, type Voice } from './describe'
 import type { Clue, Detail } from './types'
+import { talkTerms } from '../people/tick'
 
 /**
  * Questioning a guard who has given up, is held as a shield or is tied up. What he knows depends on who he is:
@@ -43,9 +44,10 @@ export function interrogateAction(world: World): IntelAction | null {
   return { prompt: 'Hold E: interrogate', key: `intel:ask:${index}`, hold: holdSeconds(guard), run: () => interrogate(world, guard) }
 }
 
-/** Alive and unable to resist: hands up, tied, or held as a shield. Dead men tell nothing. */
+/** Alive, awake and unable to resist: hands up, tied, or held as a shield. Dead men tell nothing. */
 export function canBeQuestioned(world: World, guard: Guard): boolean {
-  if (guard.mode === 'dead') return false
+  // Out cold or shut in a cupboard, he can be asked nothing.
+  if (guard.mode === 'dead' || guard.out || guard.hiddenIn !== null) return false
   return guard.restrained || guard.mode === 'surrendered' || world.melee.shield === guard
 }
 
@@ -70,10 +72,17 @@ function holdSeconds(guard: Guard): number {
 }
 
 /** He talks: a clue goes in the log, he says it out loud, and anyone close enough hears voices. */
-export function interrogate(world: World, guard: Guard): Clue {
+export function interrogate(world: World, guard: Guard): Clue | null {
   world.intel.questioned.add(guard)
   const index = world.guards.indexOf(guard)
-  const clue = recordClue(world, { source: 'interrogation', origin: world.people?.nameOf(guard) ?? nameOf(index), sourceKey: `guard:${index}`, detail: detailKnownBy(world, guard), truth: truthOf(world, guard) })
+  // A loyal man says nothing, whatever is done to him; a greedy or frightened one talks straighter.
+  const terms = talkTerms(world, guard)
+  if (terms.refuses) {
+    if (terms.line) bark(world, guard, terms.line, true)
+    return null
+  }
+  const truth = Math.min(TRUTH_RANGE.max, truthOf(world, guard) + terms.truthBonus)
+  const clue = recordClue(world, { source: 'interrogation', origin: world.people?.nameOf(guard) ?? nameOf(index), sourceKey: `guard:${index}`, detail: detailKnownBy(world, guard), truth })
   bark(world, guard, spokenLine(clue.filter, voiceOf(world, guard)), true)
   emitNoise(world, centerOf(guard), TALK_RADIUS)
   return clue

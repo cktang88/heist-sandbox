@@ -18,10 +18,32 @@ function captive(world: World, traits: Partial<Guard>, roomKind = 'office'): Gua
   const guard = world.guards[0]
   Object.assign(guard, { mode: 'surrendered', state: 'suspicious', roomId: room.id, role: 'patrol', tier: 'regular', nerve: 0.5 }, traits)
   Object.assign(world.player, { x: guard.x + 0.8, y: guard.y, vx: 0, vy: 0 })
+  // No character of his own (loyal, greedy...) unless a test gives him one.
+  const person = world.people?.byGuard.get(guard)
+  if (person) person.traits = []
   return guard
 }
 
 describe('interrogation', () => {
+  it('a loyal man refuses to talk: he is marked questioned, says so, and gives no clue', () => {
+    const world = freshWorld(1)
+    const guard = captive(world, {})
+    world.people!.byGuard.get(guard)!.traits = ['loyal']
+    const before = world.intel.clues.length
+    expect(interrogate(world, guard)).toBeNull()
+    expect(world.intel.questioned.has(guard)).toBe(true)
+    expect(world.intel.clues.length).toBe(before)
+    expect(world.security.barks.some((line) => line.text.includes('not telling'))).toBe(true)
+  })
+
+  it('nobody can be questioned while out cold or shut in a cupboard', () => {
+    const world = freshWorld(1)
+    const guard = captive(world, { mode: 'calm', restrained: true, out: true })
+    expect(interrogateAction(world)).toBeNull()
+    guard.out = false
+    expect(interrogateAction(world)?.prompt).toBe('Hold E: interrogate')
+  })
+
   it('gets the truth about 70% of the time from an ordinary guard', () => {
     const world = freshWorld(1)
     const guard = captive(world, {})
@@ -29,7 +51,7 @@ describe('interrogation', () => {
     let right = 0
     for (let attempt = 0; attempt < tries; attempt += 1) {
       world.intel.questioned.clear()
-      if (interrogate(world, guard).about === world.intel.real) right += 1
+      if (interrogate(world, guard)!.about === world.intel.real) right += 1
     }
     expect(right / tries).toBeGreaterThan(0.66)
     expect(right / tries).toBeLessThan(0.74)
@@ -41,7 +63,7 @@ describe('interrogation', () => {
     let wrong = 0
     for (let attempt = 0; attempt < 300; attempt += 1) {
       world.intel.questioned.clear()
-      const clue = interrogate(world, guard)
+      const clue = interrogate(world, guard)!
       const place = world.intel.places[clue.about]
       expect(place).toBeDefined()
       expect(matches(clue.filter, place)).toBe(true)
@@ -53,11 +75,11 @@ describe('interrogation', () => {
   it('a rookie on the perimeter only knows the building; a veteran operator in the security room knows the room', () => {
     const world = freshWorld(1)
     const rookie = captive(world, { tier: 'rookie', roomId: null })
-    const vague = interrogate(world, rookie)
+    const vague = interrogate(world, rookie)!
     expect(Object.keys(vague.filter).filter((key) => vague.filter[key as keyof typeof vague.filter] !== undefined)).toEqual(['building'])
 
     const veteran = captive(world, { tier: 'veteran', role: 'operator', nerve: 0.8 }, 'security')
-    expect(interrogate(world, veteran).filter.place).toBeDefined()
+    expect(interrogate(world, veteran)!.filter.place).toBeDefined()
   })
 
   it('frightened people are more truthful than steady veterans, and rookies outside are guessing', () => {
