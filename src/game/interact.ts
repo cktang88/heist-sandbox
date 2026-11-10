@@ -313,6 +313,8 @@ function doorAction(world: World): Action | null {
     } }
   }
   if (seconds === 0) return easy ? { prompt: 'E: ease the door open (silent)', key, at, run: open('opened') } : { prompt: 'E: open door', key, at, run: open('opened'), hint: 'Crouch to ease it open silently' }
+  // With its keypad in reach, hacking that (quicker) is what E does; the secure lock is picked only from the far side.
+  if (keypad && !keypad.disabled && distance(center, deviceCenter(keypad)) <= DEVICE_REACH) return null
   return { prompt: keypad ? 'Hold E: pick secure lock' : 'Hold E: pick lock', key, at, hold: seconds, run: open('picked') }
 }
 
