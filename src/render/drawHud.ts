@@ -57,6 +57,7 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   const { width, height } = camera
   const unit = hudUnit(height)
   drawSlowmoTint(context, world, width, height)
+  drawHurt(context, world, width, height)
   const cues = stealthCues(world)
   drawVitals(context, world, unit, cues)
   drawIntel(context, world, unit, width, height, intelTop(unit, cues.length > 0))
@@ -351,6 +352,38 @@ function drawEndScreen(context: CanvasRenderingContext2D, world: World, width: n
 export function clockText(seconds: number): string {
   const whole = Math.max(0, Math.floor(seconds))
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`
+}
+
+/** The red at the screen's edges after a hit: how hard it was, and when. */
+export type Hurt = { hp: number; at: number; strength: number }
+const HURT_SECONDS = 0.6
+const hurts = new WeakMap<World, Hurt>()
+
+/**
+ * Follows the player's health from frame to frame: a drop starts a red flash scaled by the damage, which fades over
+ * `HURT_SECONDS` of game time. Healing only moves the baseline.
+ */
+export function nextHurt(last: Hurt | undefined, hp: number, clock: number): Hurt {
+  if (!last || hp >= last.hp - 0.5) return { hp, at: last?.at ?? -Infinity, strength: last?.strength ?? 0 }
+  return { hp, at: clock, strength: Math.min(1, 0.35 + (last.hp - hp) / 40) }
+}
+
+export function hurtAlpha(hurt: Hurt, clock: number): number {
+  const age = clock - hurt.at
+  return age < 0 || age > HURT_SECONDS ? 0 : hurt.strength * (1 - age / HURT_SECONDS)
+}
+
+/** Without this a hit only showed as a shorter HP bar: easy to miss in a firefight. */
+function drawHurt(context: CanvasRenderingContext2D, world: World, width: number, height: number): void {
+  const hurt = nextHurt(hurts.get(world), world.player.hp, world.clock)
+  hurts.set(world, hurt)
+  const alpha = hurtAlpha(hurt, world.clock)
+  if (alpha <= 0.01) return
+  const edge = context.createRadialGradient(width / 2, height / 2, height * 0.35, width / 2, height / 2, height * 0.85)
+  edge.addColorStop(0, 'rgba(200,20,20,0)')
+  edge.addColorStop(1, `rgba(200,20,20,${(alpha * 0.6).toFixed(3)})`)
+  context.fillStyle = edge
+  context.fillRect(0, 0, width, height)
 }
 
 function drawSlowmoTint(context: CanvasRenderingContext2D, world: World, width: number, height: number): void {

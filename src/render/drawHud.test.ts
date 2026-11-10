@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from '../game/input'
 import { stepWorld } from '../game/step'
 import { createWorld, type World } from '../game/world'
-import { clockText, helpTop, hudUnit, intelTop, objectiveLine, optionKey, visibility } from './drawHud'
+import { clockText, helpTop, hurtAlpha, nextHurt, hudUnit, intelTop, objectiveLine, optionKey, visibility } from './drawHud'
 
 const FRAME = 1 / 60
 
@@ -69,5 +69,21 @@ describe('the terminal menu', () => {
 describe('the end screen', () => {
   it('writes the time as minutes and seconds, like the debrief', () => {
     expect([0.3, 21.9, 734.2, 3600].map(clockText)).toEqual(['0:00', '0:21', '12:14', '60:00'])
+  })
+})
+
+describe('the hit flash', () => {
+  it('flashes harder for a bigger hit and fades within a moment', () => {
+    const start = nextHurt(undefined, 100, 0)
+    expect(hurtAlpha(start, 0)).toBe(0)
+    const graze = nextHurt(start, 95, 1)
+    const heavy = nextHurt(start, 60, 1)
+    expect(hurtAlpha(heavy, 1)).toBeGreaterThan(hurtAlpha(graze, 1))
+    expect(hurtAlpha(heavy, 1.3)).toBeLessThan(hurtAlpha(heavy, 1))
+    expect(hurtAlpha(heavy, 2)).toBe(0)
+  })
+
+  it('does not flash when healing', () => {
+    expect(hurtAlpha(nextHurt(nextHurt(undefined, 50, 0), 80, 1), 1)).toBe(0)
   })
 })
