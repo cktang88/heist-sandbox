@@ -2,6 +2,7 @@ import { openDoor } from '../interact'
 import { nextHop } from '../nav'
 import { emitNoise } from '../noise'
 import { GRAVITY, moveBody } from '../physics'
+import { doorBlockedAt } from '../physprops/physprops'
 import { playSound } from '../sounds'
 import { climbStairs } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
@@ -67,7 +68,8 @@ export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: num
     return level ? 'arrived' : 'moving'
   }
   guard.facing = dx > 0 ? 1 : -1
-  if (careful && ledgeAhead(world, guard)) {
+  // A hole in the floor between him and a goal on this floor stops him: dropping in would only send him back up the stairs to try again.
+  if ((careful || level) && ledgeAhead(world, guard)) {
     walk(world, guard, 0, dt)
     return 'blocked'
   }
@@ -102,6 +104,7 @@ function openDoorAhead(world: World, guard: Guard, kick: boolean): boolean {
     return false
   }
   const at = { x: column, y: row }
+  if (doorBlockedAt(world, at)) return true
   openDoor(world.grid, at)
   world.structureChanged = true
   emitNoise(world, at, kick ? KICKED_DOOR_NOISE : QUIET_DOOR_NOISE, 'guard')

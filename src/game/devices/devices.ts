@@ -2,6 +2,7 @@ import type { Input } from '../input'
 import { reportEvent } from '../security/dispatch'
 import type { Lamp } from '../site'
 import { playSound } from '../sounds'
+import type { Vec } from '../types'
 import type { Device, World } from '../world'
 import { deviceCenter } from './power'
 import { deviceState } from './state'
@@ -38,11 +39,15 @@ export function lampPowered(world: World, lamp: Lamp): boolean {
   return isCircuitLive(world, lamp.circuit)
 }
 
-/** For the security AI: a guard hits the panic button. A button the player has disabled does nothing. Returns whether it worked. */
-export function pressAlarmButton(world: World, device: Device): boolean {
+/**
+ * For the security AI: a guard hits the panic button. `intruderAt` is where he last saw the intruder, which he
+ * tells the control room over the intercom; without it the button itself is the report. A button the player has
+ * disabled does nothing. Returns whether it worked.
+ */
+export function pressAlarmButton(world: World, device: Device, intruderAt?: Vec): boolean {
   if (device.kind !== 'alarmButton' || device.disabled) return false
   const at = deviceCenter(device)
   playSound(world, 'alarm', at)
-  reportEvent(world, { kind: 'alarmButton', at })
+  reportEvent(world, { kind: 'alarmButton', at: intruderAt ? { ...intruderAt } : at })
   return true
 }

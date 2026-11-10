@@ -1,3 +1,4 @@
+import { isLampShot } from './ballistics/lampState'
 import { lampPowered } from './devices/devices'
 import { isSolidAt } from './tiles'
 import type { Vec } from './types'
@@ -12,7 +13,7 @@ const HANG_REACH = 6
 
 /** Is this lamp giving light right now? It needs power, and a hung fitting needs the ceiling it hangs from. */
 export function lampIsLit(world: World, lamp: World['lamps'][number]): boolean {
-  if (!lampPowered(world, lamp)) return false
+  if (!lampPowered(world, lamp) || isLampShot(world, lamp)) return false
   if (!lamp.hung) return true
   for (let rise = 0.7; rise <= HANG_REACH; rise += 1) if (isSolidAt(world.grid, lamp.x, lamp.y - rise)) return true
   return false

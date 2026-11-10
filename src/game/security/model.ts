@@ -20,9 +20,12 @@ export type GuardState = 'patrol' | 'suspicious' | 'alert' | 'dead'
 export type GuardMode = 'calm' | 'noticed' | 'investigating' | 'searching' | 'combat' | 'caution' | 'toAlarm' | 'dead'
 
 /** Something a guard wants to look at. One at a time; newer of equal priority wins. */
-export type InterestKind = 'glimpse' | 'noise' | 'gunfire' | 'body' | 'lightsOut' | 'order' | 'shout'
-/** `at` is a feet position; `reached` once the guard got there and started looking; `body` is the guard index of a body. */
-export type Interest = { at: Vec; kind: InterestKind; priority: number; reached: boolean; body?: number }
+export type InterestKind = 'glimpse' | 'noise' | 'gunfire' | 'body' | 'lightsOut' | 'fire' | 'order' | 'shout'
+/**
+ * `at` is a feet position; `reached` once the guard got there and started looking; `body` is the guard index of a body;
+ * `circuit` is the dead lighting circuit a 'lightsOut' interest is about, which he switches back on when he gets there.
+ */
+export type Interest = { at: Vec; kind: InterestKind; priority: number; reached: boolean; body?: number; circuit?: number }
 
 /** A report being spoken into the radio. Killing or stunning the guard before `seconds` runs out stops it. */
 export type RadioCall = { event: SecurityEvent; seconds: number }

@@ -21,6 +21,38 @@ describe('collapse', () => {
     expect(findUnsupported(grid).length).toBe(2)
   })
 
+  it('keeps a duct hanging from the slab above when the door it rests on is opened, and drops it when the slab goes', () => {
+    const grid = createGrid(12, 9)
+    fillTiles(grid, 0, 8, 11, 8, 'bedrock')
+    fillTiles(grid, 0, 1, 0, 7, 'reinforced')
+    // A slab on row 1 held by the left wall, a duct on row 3, and a door under the duct's far end.
+    fillTiles(grid, 0, 1, 8, 1, 'concrete')
+    fillTiles(grid, 4, 3, 8, 3, 'duct')
+    fillTiles(grid, 8, 4, 8, 7, 'door')
+    fillTiles(grid, 8, 4, 8, 7, 'air')
+    expect(findUnsupported(grid)).toEqual([])
+    fillTiles(grid, 4, 1, 8, 1, 'air')
+    expect(findUnsupported(grid).length).toBe(5)
+  })
+
+  it('opening every door a duct passes over on the complex never brings a duct down', () => {
+    const world = createWorld(1, 'complex')
+    let opened = 0
+    for (let y = 0; y < world.grid.height; y += 1) {
+      for (let x = 0; x < world.grid.width; x += 1) {
+        if (tileAt(world.grid, x, y) !== 'duct') continue
+        for (let below = y + 1; below <= y + 3; below += 1) {
+          if (tileAt(world.grid, x, below) !== 'door') continue
+          setTile(world.grid, x, below, 'air')
+          opened += 1
+        }
+      }
+    }
+    expect(opened).toBeGreaterThan(10)
+    const loose = findUnsupported(world.grid).map((index) => tileAt(world.grid, index % world.grid.width, Math.floor(index / world.grid.width)))
+    expect(loose.filter((kind) => kind === 'duct')).toEqual([])
+  })
+
   it('drops a cut-off chunk and lets it land as tiles again', () => {
     const world = createWorld(1)
     world.guards = []

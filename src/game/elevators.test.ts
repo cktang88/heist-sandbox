@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { doorColumn, groundStop, type ElevatorCar } from './elevators'
+import { callElevator, doorColumn, groundStop, shaftHead, type ElevatorCar } from './elevators'
+import { explode } from './explosions'
+import { GUNS } from './guns'
+import { fireShot } from './projectiles'
+import { elevatorsRecalled, isLockedDown } from './security/dispatch'
+import { raiseLevel, reportEvent } from './security/report'
 import { createGuard } from './guards'
 import { idleInput, type Input } from './input'
 import type { ElevatorShaft } from './site'
@@ -23,10 +28,11 @@ function press(world: World, input: Partial<Input> = {}): void {
 
 const feet = (world: World) => world.player.y + world.player.h
 
-/** The complex's tower elevator, with every guard sent home. */
+/** The complex's tower elevator, with every guard sent home and no camera by a door to steal the "E" prompt. */
 function setUp(index = 0): { world: World; shaft: ElevatorShaft; car: ElevatorCar } {
   const world = createWorld(1, 'complex')
   world.guards = []
+  for (const device of world.devices) if (device.kind === 'camera') device.disabled = true
   world.player.hp = 1e6
   return { world, shaft: world.elevators[index], car: world.elevatorCars[index] }
 }
@@ -104,7 +110,9 @@ describe('elevators', () => {
     run(world, 6)
     expect(car.stop).toBe(ground)
 
+    // Only a server room's (or security room's) terminal can release the elevators.
     const room = roomAt(world.rooms, world.player.x + 2, shaft.stops[caller] - 1)!
+    room.kind = 'server'
     world.devices.push({ kind: 'computer', x: Math.floor(world.player.x + 0.35), y: shaft.stops[caller], roomId: room.id, id: world.devices.length, disabled: false, hacked: false })
     run(world, 1.6, { interact: true })
     const options = world.terminal!.options
@@ -118,6 +126,33 @@ describe('elevators', () => {
     run(world, 4)
     expect(car.stop).toBe(caller)
     expect(car.doorsOpen).toBe(true)
+  })
+
+  it('obeys the security force: recalled once an intruder is reported, frozen in lockdown', () => {
+    const { world, shaft, car } = setUp()
+    const ground = groundStop(world, shaft)
+    const start = rideableStop(world, shaft) + 2
+    callElevator(world, car, start)
+    run(world, 8)
+    expect(car.stop).toBe(start)
+    expect(elevatorsRecalled(world)).toBe(false)
+
+    reportEvent(world, { kind: 'sighting', at: { x: 150, y: shaft.stops[start] - 1 }, by: 0 })
+    expect(world.security.level).toBe(3)
+    expect(elevatorsRecalled(world)).toBe(true)
+    expect(isLockedDown(world)).toBe(false)
+    expect(callElevator(world, car, start)).toBe(false)
+    run(world, 1)
+    expect(car.moving).toBe(true)
+
+    raiseLevel(world, 4)
+    expect(isLockedDown(world)).toBe(true)
+    run(world, FRAME)
+    const frozenAt = car.y
+    run(world, 3)
+    expect(car.moving).toBe(false)
+    expect(car.y).toBe(frozenAt)
+    expect(car.stop).not.toBe(ground)
   })
 
   it('stalls between floors at alert level 4 without leaving its passengers hanging', () => {
@@ -157,5 +192,68 @@ describe('elevators', () => {
     car.targetStop = 0
     run(world, 5)
     expect(victim.state).toBe('dead')
+  })
+})
+
+describe('elevator sabotage', () => {
+  /** The tower car parked two stops above the street with the player inside, and a guard down in the pit. */
+  function rideHigh() {
+    const { world, shaft, car } = setUp()
+    const high = groundStop(world, shaft) + 2
+    car.targetStop = high
+    run(world, 12)
+    expect(car.stop).toBe(high)
+    Object.assign(world.player, { x: shaft.x + 1, y: car.y - world.player.h, vx: 0, vy: 0 })
+    run(world, 0.2)
+    const victim = createGuard({ x: shaft.x + 1, y: shaft.stops[0], facing: 1 })
+    world.guards = [victim]
+    return { world, shaft, car, high, victim }
+  }
+
+  it('an explosion at the head of the shaft cuts the cable: the car drops, crashes, and never runs again', () => {
+    const { world, shaft, car, high, victim } = rideHigh()
+    const hp = world.player.hp
+    explode(world, shaftHead(shaft), { radius: 2, tileDamage: 1, bodyDamage: 10 })
+    run(world, FRAME)
+    expect(car.cut).toBe(true)
+    expect(car.moving).toBe(true)
+    expect(carRow(world, shaft, shaft.stops[high]).includes('reinforced')).toBe(false)
+    run(world, 3)
+    expect(car.moving).toBe(false)
+    expect(car.y).toBe(shaft.stops[0])
+    expect(world.player.hp).toBeLessThan(hp)
+    expect(Math.abs(feet(world) - shaft.stops[0])).toBeLessThan(0.05)
+    expect(victim.state).toBe('dead')
+    expect(world.sounds.some((sound) => sound.kind === 'collapse')).toBe(true)
+    expect(callElevator(world, car, high, true)).toBe(false)
+    run(world, 1)
+    expect(car.y).toBe(shaft.stops[0])
+  })
+
+  it('takes six bullets into the winding gear to cut the cable', () => {
+    const { world, shaft, car } = rideHigh()
+    Object.assign(world.player, { x: 20, y: world.groundY - world.player.h })
+    const head = shaftHead(shaft)
+    const shoot = () => {
+      fireShot(world, { x: head.x, y: head.y + 3 }, { x: 0, y: -1 }, GUNS.pistol!.shot)
+      run(world, 0.1)
+    }
+    for (let shot = 0; shot < 5; shot += 1) shoot()
+    expect(car.cut).toBeFalsy()
+    shoot()
+    expect(car.cut).toBe(true)
+    run(world, 3)
+    expect(car.y).toBe(shaft.stops[0])
+  })
+
+  it('ignores bullets that a wall stops before the gear', () => {
+    const { world, shaft, car } = rideHigh()
+    const head = shaftHead(shaft)
+    const wall = doorColumn(shaft) + shaft.doorSide * 3
+    for (let shot = 0; shot < 8; shot += 1) {
+      fireShot(world, { x: wall + 0.5, y: head.y + 8 }, { x: head.x - wall, y: -8 }, GUNS.pistol!.shot)
+      run(world, 0.1)
+    }
+    expect(car.cut).toBeFalsy()
   })
 })

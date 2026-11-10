@@ -1,11 +1,17 @@
+import { burst } from './effects'
 import { hurtGuard, type Guard } from './guards'
+import { igniteAt } from './hazards/hazards'
 import type { Input } from './input'
-import { boxHitsSolid } from './physics'
+import { emitNoise } from './noise'
+import { boxHitsSolid, GRAVITY } from './physics'
 import type { Player } from './player'
+import type { Projectile } from './projectiles'
+import { elevatorsRecalled, isLockedDown } from './security/levels'
 import type { ElevatorShaft } from './site'
 import { playSound } from './sounds'
-import { setTile, tileAt, type TileKind } from './tiles'
-import type { Body, Vec } from './types'
+import { setTile, TILE_DEFS, tileAt, type TileKind } from './tiles'
+import type { Body, Rect, Vec } from './types'
+import { castRay } from './vision'
 import type { World } from './world'
 
 type Person = Player | Guard
@@ -38,6 +44,12 @@ export type ElevatorCar = {
   floorTiles: (Vec & { kind: TileKind })[]
   /** Shaft door tiles opened at the current stop, closed again on departure. */
   doorTiles: Vec[]
+  /** The cable is cut: the car falls, then lies wrecked at the bottom and never runs again. */
+  cut?: boolean
+  /** Speed of the fall, tiles per second, once the cable is cut. */
+  fallSpeed?: number
+  /** Bullets that have hit the winding gear at the head of the shaft. */
+  cableHits?: number
 }
 
 /** Tiles per second. */
@@ -52,9 +64,6 @@ const CALL_REACH = 2
 const PUSH_DAMAGE_PER_SECOND = 15
 const CRUSH_DAMAGE = 1000
 const EPSILON = 0.001
-/** Site alert levels at which the dispatcher recalls cars to the ground, and freezes them. */
-const RECALL_LEVEL = 2
-const FREEZE_LEVEL = 4
 
 export function createElevators(shafts: readonly ElevatorShaft[]): ElevatorCar[] {
   return shafts.map((shaft) => ({
@@ -83,18 +92,18 @@ export function groundStop(world: World, shaft: ElevatorShaft): number {
 
 /**
  * What the security dispatcher wants from a car: nothing, a recall to the ground stop, or a freeze.
- * Reads the alert level directly so this module does not depend on the security AI.
+ * The meaning of each alert level comes from security/levels.ts, the one place it is decided.
  */
 function dispatcherOrder(world: World, car: ElevatorCar, shaft: ElevatorShaft): 'freeze' | number | null {
   if (car.released) return null
-  if (world.security.level >= FREEZE_LEVEL) return 'freeze'
-  if (world.security.level >= RECALL_LEVEL) return groundStop(world, shaft)
+  if (isLockedDown(world)) return 'freeze'
+  if (elevatorsRecalled(world)) return groundStop(world, shaft)
   return null
 }
 
 /** True when a call from a button would be ignored: held by a hacked terminal, or by the security lockdown. */
 export function elevatorRefuses(world: World, car: ElevatorCar): boolean {
-  return car.locked || dispatcherOrder(world, car, shaftOf(world, car)) !== null
+  return car.cut === true || car.locked || dispatcherOrder(world, car, shaftOf(world, car)) !== null
 }
 
 /**
@@ -103,7 +112,7 @@ export function elevatorRefuses(world: World, car: ElevatorCar): boolean {
  */
 export function callElevator(world: World, car: ElevatorCar, stop: number, forced = false): boolean {
   const shaft = shaftOf(world, car)
-  if (stop < 0 || stop >= shaft.stops.length) return false
+  if (stop < 0 || stop >= shaft.stops.length || car.cut) return false
   if (!forced && elevatorRefuses(world, car)) return false
   if (forced) car.forced = true
   if (!car.moving && car.stop === stop) {
@@ -164,6 +173,10 @@ export function shaftDoorAt(world: World, body: Body): { car: ElevatorCar; stop:
 export function stepElevators(world: World, input: Input, dt: number): void {
   for (const car of world.elevatorCars) {
     const shaft = shaftOf(world, car)
+    if (car.cut) {
+      if (car.moving) freeFall(world, car, shaft, dt)
+      continue
+    }
     if (!car.moving && car.floorTiles.length === 0) placeFloor(world, car, shaft)
     car.dwell = Math.max(0, car.dwell - dt)
     if (car.moving) travel(world, car, shaft, input, dt)
@@ -302,7 +315,7 @@ function sweep(world: World, car: ElevatorCar, shaft: ElevatorShaft, before: num
 }
 
 function hurt(world: World, body: Person, damage: number, from: Vec): void {
-  if ('state' in body) hurtGuard(world, body, damage, from)
+  if ('state' in body) hurtGuard(world, body, damage, from, 'hazard')
   else body.hp -= damage
 }
 
@@ -362,4 +375,128 @@ function closeDoors(world: World, car: ElevatorCar, shaft: ElevatorShaft): void 
   car.doorTiles = []
   car.doorsOpen = false
   playSound(world, 'elevator', { x: x + 0.5, y: car.y - 1.5 })
+}
+
+/** Bullets into the winding gear it takes to cut the cable. */
+const CABLE_HITS = 6
+/** The winding gear fills the top rows of the shaft, above the top stop's doors. */
+const HEAD_ROWS = 2
+const MAX_FALL_SPEED = 40
+/** Riders survive a short drop; past this impact speed every tile per second hurts. */
+const RIDER_SAFE_SPEED = 10
+const RIDER_DAMAGE_PER_SPEED = 5
+const CRASH_SHAKE = 0.6
+const CRASH_NOISE = 40
+/** Bullets already checked against the winding gear, so each counts once. */
+const judged = new WeakSet<object>()
+
+/** The middle of the winding gear at the head of the shaft. */
+export function shaftHead(shaft: ElevatorShaft): Vec {
+  const top = Math.min(...shaft.stops) - CAB_HEIGHT
+  return { x: shaft.x + shaft.w / 2, y: top + HEAD_ROWS / 2 }
+}
+
+/**
+ * Cuts a car loose: wherever it is, it drops to the bottom of the shaft with whoever is inside and crashes there.
+ * Doors that stood open stay open, onto a bare shaft with its service ladder, and the car never runs again.
+ */
+export function cutCable(world: World, car: ElevatorCar): void {
+  if (car.cut) return
+  const shaft = shaftOf(world, car)
+  car.cut = true
+  car.fallSpeed = 0
+  car.targetStop = null
+  car.doorTiles = []
+  car.doorsOpen = false
+  const head = shaftHead(shaft)
+  burst(world.effects, world.rng, head, 16, '#ffd36b', 9)
+  playSound(world, 'spark', head)
+  if (car.moving || car.y >= shaft.stops[0]) return
+  car.riders = people(world).filter((body) => insideShaft(shaft, body) && body.y + body.h > car.y - CAB_HEIGHT && body.y + body.h < car.y + 0.3)
+  removeFloor(world, car)
+  car.moving = true
+  car.stop = null
+}
+
+/** An explosion at the head of a shaft, or inside it above the car, cuts that car's cable. */
+export function blastCables(world: World, at: Vec, radius: number): void {
+  for (const car of world.elevatorCars) {
+    if (car.cut) continue
+    const shaft = shaftOf(world, car)
+    const head = shaftHead(shaft)
+    const inShaftAbove = at.x >= shaft.x && at.x <= shaft.x + shaft.w && at.y >= head.y && at.y <= car.y - CAB_HEIGHT
+    if (inShaftAbove || Math.hypot(at.x - head.x, at.y - head.y) <= radius + 0.5) cutCable(world, car)
+  }
+}
+
+/**
+ * Counts new bullets whose path runs into a shaft's winding gear before anything stops them. Called before the
+ * bullets move, so even one fired point-blank into the gear is counted before it hits the ceiling.
+ */
+export function aimAtCables(world: World): void {
+  for (const shot of world.projectiles) {
+    if (shot.kind !== 'bullet' || judged.has(shot)) continue
+    judged.add(shot)
+    for (const car of world.elevatorCars) {
+      if (car.cut || !bulletReachesHead(world, shaftOf(world, car), shot)) continue
+      car.cableHits = (car.cableHits ?? 0) + 1
+      if (car.cableHits >= CABLE_HITS) cutCable(world, car)
+    }
+  }
+}
+
+function bulletReachesHead(world: World, shaft: ElevatorShaft, shot: Projectile): boolean {
+  const speed = Math.hypot(shot.vx, shot.vy)
+  if (speed === 0) return false
+  const direction = { x: shot.vx / speed, y: shot.vy / speed }
+  const top = shaftHead(shaft).y - HEAD_ROWS / 2
+  const entry = rayEntersBox(shot, direction, { x: shaft.x, y: top, w: shaft.w, h: HEAD_ROWS })
+  if (entry === null || entry > speed * shot.life) return false
+  return castRay(world.grid, shot, direction, entry, (kind) => TILE_DEFS[kind].stopsShots) === null
+}
+
+/** How far along a ray it first enters a box, or null if it never does. */
+function rayEntersBox(from: Vec, direction: Vec, box: Rect): number | null {
+  let enter = 0
+  let leave = Number.POSITIVE_INFINITY
+  for (const [start, step, low, high] of [[from.x, direction.x, box.x, box.x + box.w], [from.y, direction.y, box.y, box.y + box.h]]) {
+    if (step === 0) {
+      if (start < low || start > high) return null
+      continue
+    }
+    const t0 = (low - start) / step
+    const t1 = (high - start) / step
+    enter = Math.max(enter, Math.min(t0, t1))
+    leave = Math.min(leave, Math.max(t0, t1))
+  }
+  return enter <= leave ? enter : null
+}
+
+/** A cut car drops, shoving anyone under it down the shaft, until it hits the bottom. */
+function freeFall(world: World, car: ElevatorCar, shaft: ElevatorShaft, dt: number): void {
+  const bottom = shaft.stops[0]
+  const before = car.y
+  car.fallSpeed = Math.min(MAX_FALL_SPEED, (car.fallSpeed ?? 0) + GRAVITY * dt)
+  car.y = Math.min(bottom, car.y + car.fallSpeed * dt)
+  sweep(world, car, shaft, before, dt)
+  carryRiders(car, shaft)
+  if (car.y === bottom) crash(world, car, shaft)
+}
+
+/** The car smashes into the bottom of the shaft: riders are hurt by the speed, the whole block hears and feels it. */
+function crash(world: World, car: ElevatorCar, shaft: ElevatorShaft): void {
+  const speed = car.fallSpeed ?? 0
+  const at = carCenter(shaft, car.y)
+  for (const body of car.riders) hurt(world, body, Math.max(0, speed - RIDER_SAFE_SPEED) * RIDER_DAMAGE_PER_SPEED, at)
+  car.moving = false
+  car.stop = 0
+  placeFloor(world, car, shaft)
+  releaseRiders(car)
+  world.shake = Math.min(1, world.shake + CRASH_SHAKE)
+  burst(world.effects, world.rng, { x: at.x, y: car.y - 0.5 }, 24, '#ffd36b', 10)
+  burst(world.effects, world.rng, { x: at.x, y: car.y - 0.5 }, 18, '#55504a', 8)
+  emitNoise(world, at, CRASH_NOISE)
+  playSound(world, 'collapse', at)
+  playSound(world, 'impact', at)
+  igniteAt(world, { x: at.x, y: car.y - 0.5 }, 0.4)
 }

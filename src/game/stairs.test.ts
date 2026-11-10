@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
+import { explode } from './explosions'
+import { stepAftermath } from './frag/aftermath'
+import { addGuard, bareWorld } from './hazards/testWorld'
+import { idleInput } from './input'
 import { nextHop } from './nav'
+import { movePlayer } from './player'
 import type { Stairwell } from './site'
-import { climbStairs, findLanding, landingX, stairPoint, type OnStairs } from './stairs'
+import { breakFlight, climbStairs, findLanding, landingX, splitWell, stairPoint, type OnStairs } from './stairs'
 import type { Body } from './types'
+import type { World } from './world'
 
 const well: Stairwell = { id: 0, building: 'test', leftX: 10, rightX: 20, stops: [100, 94, 88, 82] }
 
@@ -43,5 +49,56 @@ describe('stairs', () => {
     expect(nextHop([well], { x: 10.2, y: 100 }, { x: 5, y: 88 })).toMatchObject({ kind: 'stairs', stop: 0, direction: 1 })
     expect(nextHop([well], { x: 20, y: 88 }, { x: 5, y: 88 })).toEqual({ kind: 'walk', x: 5 })
     expect(nextHop([well], { x: 20, y: 60 }, { x: 5, y: 88 })).toEqual({ kind: 'none' })
+  })
+})
+
+describe('destroyed flights', () => {
+  function world(): World {
+    const made = bareWorld(40, 104)
+    made.stairwells = [{ ...well, stops: [...well.stops] }]
+    return made
+  }
+
+  it('splits a staircase where a flight is gone, keeping every landing where it was', () => {
+    const pieces = splitWell(well, 1, 7)
+    expect(pieces.map((piece) => piece.stops)).toEqual([[100, 94], [88, 82]])
+    expect(pieces[1].id).toBe(7)
+    expect(landingX(pieces[1], 0)).toBe(landingX(well, 2))
+    expect(landingX(pieces[1], 1)).toBe(landingX(well, 3))
+    // An upper piece starting on a right-hand landing swaps its sides.
+    const upper = splitWell(well, 0, 7)
+    expect(upper.map((piece) => piece.stops)).toEqual([[94, 88, 82]])
+    expect(stairPoint(upper[0], 0.5)).toEqual(stairPoint(well, 1.5))
+  })
+
+  it('drops whoever is on the flight, carries on whoever is above it, and nobody can path across it', () => {
+    const made = world()
+    const guard = addGuard(made, 15, 88, 1)
+    guard.stairs = { well: 0, u: 2.5 }
+    made.player.stairs = { well: 0, u: 1.4 }
+    breakFlight(made, 0, 1)
+    expect(made.player.stairs).toBeNull()
+    expect(made.player.onGround).toBe(false)
+    const upper = made.stairwells.find((piece) => piece.id === guard.stairs!.well)!
+    expect(stairPoint(upper, guard.stairs!.u)).toEqual(stairPoint(well, 2.5))
+    expect(nextHop(made.stairwells, { x: 10, y: 100 }, { x: 10, y: 88 })).toMatchObject({ kind: 'stairs', stop: 0 })
+    expect(nextHop(made.stairwells, { x: 20, y: 94 }, { x: 10, y: 88 })).toEqual({ kind: 'none' })
+    expect(findLanding(made.stairwells, 20, 94)?.well.stops).toEqual([100, 94])
+  })
+
+  it('a player left at the broken end cannot climb on', () => {
+    const made = world()
+    breakFlight(made, 0, 1)
+    const player = made.player
+    Object.assign(player, { x: 20 - player.w / 2, y: 94 - player.h, onGround: true })
+    movePlayer(made.grid, player, { ...idleInput({ x: 25, y: 90 }), up: true }, 1 / 60, made.stairwells)
+    expect(player.stairs).toBeNull()
+  })
+
+  it('an explosion close to a flight blows it away and leaves the others', () => {
+    const made = world()
+    explode(made, stairPoint(well, 2.5), { radius: 3, tileDamage: 50, bodyDamage: 50 })
+    stepAftermath(made)
+    expect(made.stairwells.map((piece) => piece.stops)).toEqual([[100, 94, 88]])
   })
 })

@@ -20,6 +20,35 @@ describe('createComplex', () => {
     }
   })
 
+  it.each(seeds)('seed %i mans every security room with an operator and gives every guard a role, a room and, for patrols, a route on his floor', (seed) => {
+    const level = createComplex(seed)
+    const roomOf = (id: number | undefined) => level.rooms.find((room) => room.id === id)
+    for (const room of level.rooms.filter((candidate) => candidate.kind === 'security')) {
+      expect(level.guards.some((guard) => guard.role === 'operator' && guard.roomId === room.id), `operator in room ${room.id}`).toBe(true)
+    }
+    const vault = level.rooms.find((room) => room.kind === 'vault')!
+    const inVault = (x: number, y: number) => y === vault.floorY && x >= vault.x - 1 && x <= vault.x + vault.w
+    expect(level.guards.filter((guard) => guard.roomId === vault.id).map((guard) => guard.role)).toEqual(['heavy'])
+    expect(level.guards.filter((guard) => guard.role === 'patrol' && guard.route!.some((point) => inVault(point.x, point.y)))).toEqual([])
+    const landings = level.stairwells.flatMap((well) => well.stops.flatMap((y) => [{ x: well.leftX, y }, { x: well.rightX, y }]))
+    for (const guard of level.guards) {
+      const where = `${guard.role} at ${guard.x},${guard.y}`
+      expect(guard.role, where).toBeDefined()
+      // Sentries stand on watchtower decks, which are not rooms.
+      const room = roomOf(guard.roomId)
+      if (guard.role !== 'sentry') expect(room, where).toBeDefined()
+      if (room) expect(guard.x >= room.x - 1 && guard.x <= room.x + room.w, where).toBe(true)
+      expect(landings.some((landing) => landing.y === guard.y && Math.abs(landing.x - (guard.x + 0.5)) < 1.5), `${where} on a stair landing`).toBe(false)
+      if (guard.role !== 'patrol') continue
+      expect(guard.route?.length, where).toBeGreaterThanOrEqual(2)
+      for (const point of guard.route!) {
+        expect(point.y, where).toBe(guard.y)
+        expect(isSolidAt(level.grid, point.x + 0.5, point.y), `${where} route point ${point.x}`).toBe(true)
+        expect(isSolidAt(level.grid, point.x + 0.5, point.y - 1), `${where} route point ${point.x}`).toBe(false)
+      }
+    }
+  })
+
   it.each(seeds)('seed %i has a tower of at least twenty storeys with stairs to every floor', (seed) => {
     const level = createComplex(seed)
     const tower = level.rooms.filter((room) => room.building === 'tower')

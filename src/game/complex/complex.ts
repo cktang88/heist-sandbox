@@ -1,5 +1,5 @@
 import { createRng, randomInt } from '../rng'
-import { LIGHT, type Level, type Room, type RoomKind } from '../site'
+import { LIGHT, roomAt, type Level, type Room, type RoomKind } from '../site'
 import { createGrid, setTile } from '../tiles'
 import { furnishSite } from '../furnish/furnish'
 import { buildBlock } from './block'
@@ -84,6 +84,7 @@ export function createComplex(seed: number): Level {
 
   const vault = placeVault(site)
   roamingPatrols(site)
+  assignGuardRooms(site)
   // Furnish first, so the ducts can re-hang whatever ceiling fittings end up under them.
   furnishSite(site)
   addDucts(site)
@@ -214,7 +215,7 @@ function outdoorAreas(site: SiteDraft, storeys: number): void {
   const openRooms = site.rooms.filter((room) => outdoor.has(room.kind))
   site.lamps = site.lamps.filter((lamp) => !openRooms.some((room) => lamp.fixture === 'ceilingPanel' && Math.abs(lamp.y - (room.y + 0.2)) < 0.01 && lamp.x >= room.x && lamp.x <= room.x + room.w))
   site.guards.push({ x: 150, y: ground - storeys * STOREY, facing: 1, role: 'patrol', route: [{ x: 100, y: ground - storeys * STOREY }, { x: 176, y: ground - storeys * STOREY }] })
-  site.guards.push({ x: 66, y: ground, facing: 1, role: 'patrol', route: [{ x: 46, y: ground }, { x: 84, y: ground }] })
+  site.guards.push({ x: 66, y: ground, facing: 1, role: 'patrol', route: [{ x: 53, y: ground }, { x: 84, y: ground }] })
   site.guards.push({ x: 190, y: ground, facing: -1, role: 'patrol', route: [{ x: 188, y: ground }, { x: 236, y: ground }] })
 }
 
@@ -233,26 +234,38 @@ function placeVault(site: SiteDraft): Room {
   }
   fill(site, left, room.y - 1, right, room.y - 1, 'steel')
   fill(site, left, room.floorY, right, room.floorY, 'steel')
+  // Whoever was posted in the room before it became the vault is replaced by the vault's own guard.
+  site.guards = site.guards.filter((guard) => guard.roomId !== room.id)
   site.guards.push({ x: room.x + 2, y: room.floorY, facing: 1, role: 'heavy', roomId: room.id })
   site.devices.push({ kind: 'camera', x: room.x + 1, y: room.floorY - 4, roomId: room.id, facing: 1 })
   return room
 }
 
-/** One walking patrol per storey of each building, covering two neighbouring rooms. */
+/**
+ * One walking patrol per storey of each building, covering two neighbouring rooms joined by a doorway
+ * (never across the open void over a double-height room, which a calm guard will not step into, and never
+ * through the vault, which only its own guard holds).
+ */
 function roamingPatrols(site: SiteDraft): void {
   const byFloor = new Map<string, Room[]>()
   for (const room of site.rooms) {
-    if (['grounds', 'sewer', 'silo', 'gatehouse'].includes(room.building) || room.kind === 'rooftop') continue
+    if (['grounds', 'sewer', 'silo', 'gatehouse'].includes(room.building) || ['rooftop', 'stairwell', 'vault'].includes(room.kind)) continue
     const key = `${room.building}:${room.storey}`
     byFloor.set(key, [...(byFloor.get(key) ?? []), room])
   }
   for (const rooms of byFloor.values()) {
-    if (rooms.length < 2 || !chance(site.rng, 0.8)) continue
-    const start = randomInt(site.rng, 0, rooms.length - 2)
-    const [a, b] = [rooms[start], rooms[start + 1]]
+    const sorted = [...rooms].sort((a, b) => a.x - b.x)
+    const pairs = sorted.slice(1).map((b, index) => [sorted[index], b] as const).filter(([a, b]) => b.x - (a.x + a.w) <= 1 && a.floorY === b.floorY)
+    if (pairs.length === 0 || !chance(site.rng, 0.8)) continue
+    const [a, b] = pairs[randomInt(site.rng, 0, pairs.length - 1)]
     site.guards.push({
       x: a.x + Math.floor(a.w / 2), y: a.floorY, facing: 1, role: 'patrol', roomId: a.id,
       route: [{ x: a.x + 2, y: a.floorY }, { x: b.x + b.w - 3, y: b.floorY }],
     })
   }
+}
+
+/** Guards posted outside any building's room plan (sentries, yard and sewer patrols) learn which area they are in. */
+function assignGuardRooms(site: SiteDraft): void {
+  for (const guard of site.guards) guard.roomId ??= roomAt(site.rooms, guard.x + 0.5, guard.y - 0.5)?.id
 }

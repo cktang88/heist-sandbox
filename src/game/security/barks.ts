@@ -32,6 +32,8 @@ export const LINES = {
   suppress: ['Covering fire!', 'Keep his head down!'],
   takingFire: ['Taking fire!', 'I\'m hit!'],
   lightsOut: ['Lights are out?', 'Who turned the lights off?'],
+  lightsOn: ['There, lights back on.', 'Breaker\'s back on.'],
+  seeFire: ['Is that smoke?', 'Something\'s burning!'],
   station: ['On station.', 'Holding the stairs.', 'In position.'],
   checkIn: ['All quiet.', 'Nothing to report.', 'Post secure.', 'Quiet here.'],
   standDown: ['Back to it.', 'Returning to post.'],

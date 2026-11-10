@@ -176,12 +176,20 @@ export function partition(site: SiteDraft, x: number, floorY: number, style: 'do
   fill(site, x, floorY - 3, x, floorY - 1, style === 'door' ? 'door' : 'air')
 }
 
-/** Posts guards, cameras and terminals in a room according to how secure it is. */
+/**
+ * Posts guards, cameras and terminals in a room according to how secure it is. A security room always has an
+ * operator at the monitors (cameras only report when someone is watching); other secure rooms get a post,
+ * and ordinary rooms sometimes a guard walking the room end to end.
+ */
 function staff(site: SiteDraft, room: Room): void {
   const { rng } = site
+  const facing = chance(rng, 0.5) ? 1 : -1
+  if (room.kind === 'security') site.guards.push({ x: room.x + 2, y: room.floorY, facing: 1, role: 'operator', roomId: room.id })
   const postOdds = [0.12, 0.35, 0.75, 1][room.security]
-  if (room.w >= 6 && chance(rng, postOdds)) {
-    site.guards.push({ x: randomInt(rng, room.x + 2, room.x + room.w - 3), y: room.floorY, facing: chance(rng, 0.5) ? 1 : -1, role: room.security >= 2 ? 'post' : 'patrol', roomId: room.id })
+  if (room.kind !== 'security' && room.w >= 6 && chance(rng, postOdds)) {
+    const x = randomInt(rng, room.x + 2, room.x + room.w - 3)
+    if (room.security >= 2) site.guards.push({ x, y: room.floorY, facing, role: 'post', roomId: room.id })
+    else site.guards.push({ x, y: room.floorY, facing, role: 'patrol', roomId: room.id, route: [{ x: room.x + 1, y: room.floorY }, { x: room.x + room.w - 2, y: room.floorY }] })
   }
   if (room.security >= 2 || room.kind === 'lobby') {
     site.devices.push({ kind: 'camera', x: room.x + 1, y: room.floorY - 4, roomId: room.id, facing: 1 })

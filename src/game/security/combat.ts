@@ -1,4 +1,4 @@
-import { fireCells, smokeBetween, throwGrenade } from '../hazards/hazards'
+import { throwGrenade } from '../hazards/hazards'
 import { emitNoise } from '../noise'
 import { fireShot } from '../projectiles'
 import { playSound } from '../sounds'
@@ -8,6 +8,7 @@ import { normalize } from '../vision'
 import type { World } from '../world'
 import { barkLine } from './barks'
 import { findCover } from './coverSpots'
+import { escapeHazard } from './danger'
 import { eyeOf, feetOf, setMode, type Guard, type SearchPlan } from './model'
 import { goTo, hold } from './movement'
 import { startSearch } from './orders'
@@ -28,7 +29,6 @@ const WILD_FIRE_PER_SECOND = 0.6
 const CHOKE_SCAN = 15
 const FLANK_BEYOND = 5
 const FLANK_SECONDS = 30
-const ESCAPE_DISTANCE = 4
 /** Line-of-fire checks start this far out from the muzzle. */
 const SHOULDER = 0.6
 /** Share of standing height a kneeling guard takes up. */
@@ -237,19 +237,6 @@ function staggerBlind(world: World, guard: Guard, dt: number): void {
   if (!colleagueInLine(world, guard, eye, at)) shoot(world, guard, at, 0.3)
 }
 
-/** Smoke or fire right on a guard: he coughs or shouts and gets out of it, away from the threat if he has one. */
-export function escapeHazard(world: World, guard: Guard, dt: number): boolean {
-  const feet = feetOf(guard)
-  const eye = eyeOf(guard)
-  const fire = fireCells(world).find((cell) => Math.abs(cell.x + 0.5 - feet.x) < 1.6 && Math.abs(cell.y + 0.5 - (feet.y - 0.8)) < 1.6)
-  const smoky = !fire && smokeBetween(world, eye, { x: eye.x, y: feet.y - 0.1 }) > 0.4
-  if (!fire && !smoky) return false
-  barkLine(world, guard, fire ? 'fire' : 'cough')
-  const away = fire ? Math.sign(feet.x - (fire.x + 0.5)) : guard.lastKnown ? Math.sign(feet.x - guard.lastKnown.x) : -guard.facing
-  goTo(world, guard, { x: feet.x + (away || 1) * ESCAPE_DISTANCE, y: feet.y }, PATROL.runSpeed, dt, false)
-  return true
-}
-
 function mayThrowFlash(world: World, guard: Guard): boolean {
   const spot = world.security.campSpot
   return guard.armored && guard.flashCooldown <= 0 && guard.drawSeconds <= 0 && !guard.radio && spot !== null
@@ -261,7 +248,7 @@ function throwFlash(world: World, guard: Guard): void {
   if (!target) return
   const eye = eyeOf(guard)
   const dx = target.x - eye.x
-  throwGrenade(world, 'flash', eye, normalize(dx, target.y - eye.y - Math.abs(dx) * 0.35))
+  throwGrenade(world, 'flash', eye, normalize(dx, target.y - eye.y - Math.abs(dx) * 0.35), 'guard')
   world.security.campSeconds = 0
   for (const other of world.guards) if (other.armored && other.mode === 'combat') other.flashCooldown = Math.max(other.flashCooldown, COMBAT.flashCooldown / 2)
   guard.flashCooldown = COMBAT.flashCooldown

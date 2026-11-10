@@ -109,7 +109,24 @@ export function reportEvent(world: World, event: SecurityEvent): void {
       log(world, `Control: Power fault on ${floorName(world, event.at)}. Noted.`)
       raiseLevel(world, 1)
       return
+    case 'fire':
+      reportFire(world, event.at, event.alarm)
+      return
   }
+}
+
+/**
+ * A fire is trouble but not a sighting: it says nothing about where an intruder is, so it never moves the
+ * last known position or confirms anyone. The fire alarm makes the site suspect sabotage (level 2, which
+ * also recalls the elevators as a real fire alarm would) and sends a pair; a guard's own report only puts
+ * the site on edge, since he is already looking at it.
+ */
+function reportFire(world: World, at: Vec, alarm: boolean): void {
+  const security = world.security
+  security.focus = floorBelow(world, at)
+  log(world, alarm ? `Control: Fire alarm on ${floorName(world, at)}. Send someone.` : `Control: Fire on ${floorName(world, at)}, copy.`)
+  raiseLevel(world, alarm ? 2 : 1)
+  if (alarm) sendPair(world, floorBelow(world, at))
 }
 
 function nearestBody(world: World, at: Vec): number | null {

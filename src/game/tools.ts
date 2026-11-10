@@ -3,13 +3,15 @@ import { hurtTile } from './destruction'
 import { launchDrone } from './drone'
 import { burst, ejectShell } from './effects'
 import { GUNS, MAX_BLOOM } from './guns'
+import { throwFrag } from './frag/frag'
 import { throwGrenade } from './hazards/hazards'
 import type { Input } from './input'
 import { emitNoise } from './noise'
 import { fireShot } from './projectiles'
+import { anchorRope } from './rope/rope'
 import { playSound, type SoundKind } from './sounds'
 import { isSolidAt } from './tiles'
-import { TOOLS } from './toolDefs'
+import { toolForKey, TOOLS } from './toolDefs'
 import type { Vec } from './types'
 import { castRay, normalize } from './vision'
 import type { World } from './world'
@@ -27,9 +29,12 @@ export function handOf(world: World): Vec {
 /** Uses the tool in the player's hands when the trigger is pulled. Guns fire from a magazine and must reload. */
 export function useTool(world: World, input: Input, dt: number): void {
   const player = world.player
-  if (input.selectTool !== null && input.selectTool >= 0 && input.selectTool < TOOLS.length && input.selectTool !== player.tool) {
-    player.tool = input.selectTool
-    player.reload = 0
+  if (input.selectTool !== null && input.selectTool >= 0 && input.selectTool < TOOLS.length) {
+    const chosen = toolForKey(input.selectTool, player.tool)
+    if (chosen !== player.tool) {
+      player.tool = chosen
+      player.reload = 0
+    }
   }
   player.cooldown = Math.max(0, player.cooldown - dt)
 
@@ -43,7 +48,11 @@ export function useTool(world: World, input: Input, dt: number): void {
     if (!pulled || player.cooldown > 0 || player.ammo[player.tool] <= 0) return
     player.ammo[player.tool] -= 1
     player.cooldown = tool.cooldown
-    if (tool.id === 'c4') throwCharge(world, hand, aim)
+    if (tool.action === 'frag') throwFrag(world, hand, aim)
+    else if (tool.action === 'rope') {
+      // Nowhere to tie it: the rope is not used up.
+      if (!anchorRope(world)) player.ammo[player.tool] += 1
+    } else if (tool.id === 'c4') throwCharge(world, hand, aim)
     else if (tool.id === 'drill') drill(world, hand, aim, dt)
     else if (tool.id === 'drone') launchDrone(world)
     else if (tool.id === 'smoke' || tool.id === 'flash') throwGrenade(world, tool.id, hand, aim)

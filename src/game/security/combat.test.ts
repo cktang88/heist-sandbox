@@ -1,20 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { createProps } from '../cover'
+import { smokeBetween, throwGrenade } from '../hazards/hazards'
 import { colleagueInLine } from './combat'
-import { feetOf } from './model'
-import { addGuard, addLamp, arena, GROUND, putPlayer, run } from './testArena'
-
-const hazards = vi.hoisted(() => ({ smoke: 0, throws: [] as { kind: string; at: number }[], clock: { now: 0 } }))
-vi.mock('../hazards/hazards', async (original) => ({
-  ...(await original<typeof import('../hazards/hazards')>()),
-  smokeBetween: () => hazards.smoke,
-  throwGrenade: (_world: unknown, kind: string) => hazards.throws.push({ kind, at: hazards.clock.now }),
-}))
-
-beforeEach(() => {
-  hazards.smoke = 0
-  hazards.throws = []
-})
+import { eyeOf, feetOf } from './model'
+import { addGuard, addLamp, addWall, arena, GROUND, putPlayer, run } from './testArena'
 
 function litStandoff(guardXs: number[]) {
   const world = arena()
@@ -25,11 +14,27 @@ function litStandoff(guardXs: number[]) {
 }
 
 describe('guard combat', () => {
-  it('cannot see through thick smoke', () => {
-    hazards.smoke = 0.9
-    const { world, guards } = litStandoff([26])
+  it('cannot see through thick smoke from a real smoke grenade', () => {
+    const { world, guards } = litStandoff([28])
+    world.player.hp = 1e6
+    // Dropped between them before the guard turns round to face the player.
+    guards[0].facing = 1
+    throwGrenade(world, 'smoke', { x: 24, y: GROUND - 1 }, { x: 0, y: 1 })
+    run(world, 3.5)
+    expect(smokeBetween(world, eyeOf(guards[0]), { x: 20, y: GROUND - 0.8 })).toBeGreaterThan(0.6)
+    guards[0].facing = -1
     run(world, 3)
     expect(guards[0].awareness).toBe(0)
+    expect(guards[0].mode).not.toBe('combat')
+  })
+
+  it('sees the player again once the smoke has thinned away', () => {
+    const { world, guards } = litStandoff([28])
+    guards[0].facing = 1
+    throwGrenade(world, 'smoke', { x: 24, y: GROUND - 1 }, { x: 0, y: 1 })
+    run(world, 40, {}, () => guards[0].mode === 'combat')
+    expect(guards[0].mode).toBe('combat')
+    expect(world.clock).toBeGreaterThan(8)
   })
 
   it('lets only two guards fire aimed shots at once; the others suppress or hold', () => {
@@ -74,22 +79,38 @@ describe('guard combat', () => {
     expect(feetOf(guards[0]).x).toBeGreaterThan(before + 2)
   })
 
-  it('a heavy flushes a player who stays put with a flashbang, announced first', () => {
+  it('a heavy flushes a player who stays put with a real flashbang, announced first', () => {
     const world = arena()
     putPlayer(world, 20)
     addLamp(world, 20)
     const heavy = addGuard(world, 30, -1, 'heavy')
+    // A colleague round the corner behind a wall, who cannot see the burst.
+    const behindWall = addGuard(world, 14, 1)
+    addWall(world, 16)
     let barkedAt = -1
-    run(world, 14, {}, () => {
-      hazards.clock.now = world.clock
+    let thrownAt = -1
+    run(world, 16, {}, () => {
       if (barkedAt < 0 && world.security.barks.some((line) => line.text.startsWith('Flash'))) barkedAt = world.clock
-      return hazards.throws.length > 0
+      if (thrownAt < 0 && world.hazards.grenades.length > 0) thrownAt = world.clock
+      return world.player.blindSeconds > 0
     })
     expect(heavy.armored).toBe(true)
-    expect(hazards.throws).toHaveLength(1)
-    expect(hazards.throws[0].kind).toBe('flash')
     expect(barkedAt).toBeGreaterThan(0)
-    expect(hazards.throws[0].at - barkedAt).toBeGreaterThan(0.9)
+    expect(thrownAt - barkedAt).toBeGreaterThan(0.9)
+    expect(world.player.blindSeconds).toBeGreaterThan(0.5)
+    expect(world.player.deafSeconds).toBeGreaterThan(1)
+    // The thrower heard his own warning and looked away; the guard behind the wall saw nothing.
+    expect(heavy.blindSeconds).toBeLessThan(1)
+    expect(behindWall.blindSeconds).toBe(0)
+  })
+
+  it('a flashbang the player throws at his own feet blinds the player too', () => {
+    const world = arena()
+    putPlayer(world, 20)
+    throwGrenade(world, 'flash', { x: 20.5, y: GROUND - 1.2 }, { x: 0.2, y: 1 })
+    run(world, 2)
+    expect(world.player.blindSeconds).toBeGreaterThan(1)
+    expect(world.player.deafSeconds).toBeGreaterThan(3)
   })
 
   it('a flashed guard staggers blind and sees nothing', () => {

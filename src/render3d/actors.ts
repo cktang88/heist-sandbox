@@ -1,9 +1,9 @@
 import { Group, Mesh } from 'three'
-import type { Guard } from '../game/guards'
+import { guardMood, type Guard } from '../game/guards'
 import type { TileKind } from '../game/tiles'
 import { TOOLS } from '../game/toolDefs'
 import { handOf } from '../game/tools'
-import { centerOf, type Vec } from '../game/types'
+import type { Vec } from '../game/types'
 import type { World } from '../game/world'
 import type { Motion } from '../render/human/pose'
 import { createEffects3d } from './fx3d'
@@ -13,6 +13,7 @@ import { BOX, buildDrone, buildLoot, buildParachute, buildPickup, buildVan, CHAR
 import { createDevicesLayer } from './devicesLayer'
 import { createFixturesLayer } from './fixturesLayer'
 import { createHazardsLayer } from './hazardsLayer'
+import { createSandboxLayer } from './sandboxLayer'
 import { DRAW_DISTANCE, type Layer } from './layer'
 import { createPropsLayer } from './propsLayer'
 import { createRoomsLayer } from './roomsLayer'
@@ -33,7 +34,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
   const effects = createEffects3d()
   group.add(effects.group)
   // Each layer owns one slice of the scene. They are independent, so they can be worked on separately.
-  const layers: Layer[] = [createRoomsLayer, createPropsLayer, createFixturesLayer, createDevicesLayer, createStructureLayer, createHazardsLayer].map((create) => create(world, materials))
+  const layers: Layer[] = [createRoomsLayer, createPropsLayer, createFixturesLayer, createDevicesLayer, createStructureLayer, createHazardsLayer, createSandboxLayer].map((create) => create(world, materials))
   for (const layer of layers) group.add(layer.group)
 
   const player = new Figure('operative')
@@ -91,18 +92,20 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
           group.add(figure.group)
         }
         figure.group.visible = true
-        if (guard.state === 'dead') {
+        const mood = guardMood(guard)
+        if (mood === 'dead') {
           if (guard.ragdoll) figure.poseRagdoll(guard.ragdoll)
           continue
         }
         const base = { x: guard.x + guard.w / 2, y: guard.y + guard.h }
-        const target = centerOf(hero)
+        // A fighting guard aims at where he believes the player is (his last known position), never the true spot.
+        const target = guard.target
         const relaxed = guard.facing > 0 ? 0.35 : Math.PI - 0.35
         const alert = guard.state !== 'patrol'
         figure.animate({
           x: base.x, feetY: base.y, facing: guard.facing, vx: guard.vx, vy: guard.vy, onGround: guard.onGround,
-          mode: guard.stairs ? 'stairs' : guard.climbing ? 'ladder' : 'normal',
-          aim: guard.state === 'alert' ? Math.atan2(target.y - (guard.y + 0.5), target.x - base.x) : relaxed, kick: guard.kick, clock: now.clock, alert,
+          mode: guard.stairs ? 'stairs' : guard.climbing ? 'ladder' : guard.crouching ? 'crouch' : 'normal',
+          aim: mood === 'alert' && target ? Math.atan2(target.y - (guard.y + 0.5), target.x - base.x) : relaxed, kick: guard.kick, clock: now.clock, alert,
         }, weaponFor(guard.role, guard.armored, alert), guard.hitFlash > 0)
         figure.group.position.z = guard.stairs ? STAIR_LANE : 0
       }

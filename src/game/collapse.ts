@@ -14,37 +14,43 @@ const CRUSH_SPEED = 6
 const CRUSH_DAMAGE = 60
 const PLAYER_CRUSH_DAMAGE = 25
 const MAX_FALL_SPEED = 30
+/** A duct floor sits this many rows under the slab it hangs from (one row of crawl space between). */
+const HANGER_ROWS = 2
+const SOLID = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid ? 1 : 0))
+/** Ladders are bolted to the walls beside them, so they hold the two sides of a shaft together. */
+const CARRIES = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid || kind === 'ladder' ? 1 : 0))
+const DUCT = TILE_KINDS.indexOf('duct')
 
 /**
  * Finds solid tiles that are no longer held up. A tile is supported when a chain of
  * touching solid tiles (or ladders) links it to the bottom of the map.
  */
 export function findUnsupported(grid: Grid): number[] {
-  const { width, height } = grid
-  const supported = new Uint8Array(width * height)
-  const queue: number[] = []
-  const solid = (index: number) => TILE_DEFS[TILE_KINDS[grid.kinds[index]]].solid
-  // Ladders are bolted to the walls beside them, so they hold the two sides of a shaft together.
-  const carries = (index: number) => solid(index) || TILE_KINDS[grid.kinds[index]] === 'ladder'
-  for (let x = 0; x < width; x += 1) {
-    const index = (height - 1) * width + x
-    if (solid(index)) {
-      supported[index] = 1
-      queue.push(index)
-    }
+  const { width, height, kinds } = grid
+  const size = width * height
+  const supported = new Uint8Array(size)
+  // Every tile can be on the stack at most once, so a fixed buffer is enough. Run on every door opened, so kept lean.
+  const stack = new Int32Array(size)
+  let top = 0
+  const reach = (next: number): void => {
+    if (supported[next] || !CARRIES[kinds[next]]) return
+    supported[next] = 1
+    stack[top++] = next
   }
-  while (queue.length > 0) {
-    const index = queue.pop()!
+  for (let index = (height - 1) * width; index < size; index += 1) if (SOLID[kinds[index]]) reach(index)
+  const hanger = HANGER_ROWS * width
+  while (top > 0) {
+    const index = stack[--top]
     const x = index % width
-    const neighbours = [index - width, index + width, x > 0 ? index - 1 : -1, x < width - 1 ? index + 1 : -1]
-    for (const next of neighbours) {
-      if (next < 0 || next >= supported.length || supported[next] || !carries(next)) continue
-      supported[next] = 1
-      queue.push(next)
-    }
+    if (index >= width) reach(index - width)
+    if (index + width < size) reach(index + width)
+    if (x > 0) reach(index - 1)
+    if (x < width - 1) reach(index + 1)
+    // Ducts hang on rods from the slab two rows up, over their crawl space, not from the doors they pass over.
+    if (index + hanger < size && kinds[index + hanger] === DUCT) reach(index + hanger)
   }
   const loose: number[] = []
-  for (let index = 0; index < supported.length; index += 1) if (!supported[index] && solid(index)) loose.push(index)
+  for (let index = 0; index < size; index += 1) if (!supported[index] && SOLID[kinds[index]]) loose.push(index)
   return loose
 }
 

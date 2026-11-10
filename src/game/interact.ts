@@ -154,7 +154,7 @@ function actionFor(world: World, device: Device): Action | null {
   switch (device.kind) {
     case 'fusebox':
     case 'lightSwitch': {
-      if (device.circuit === undefined) return null
+      if (device.circuit === undefined || device.disabled) return null
       const dark = world.deadCircuits.has(device.circuit)
       const prompt = device.kind === 'fusebox' ? (dark ? 'E: restore power' : 'E: cut power') : dark ? 'E: lights on' : 'E: lights off'
       return { prompt, key, run: () => flipPower(world, device) }
