@@ -15,6 +15,8 @@ import { centerOf, distance, overlaps, type Vec } from './types'
 import type { Device, World } from './world'
 import { bodyAction, hideAction, noisemakerAction, stashAction, takedownAction, tieUpAction } from './stealth/actions'
 import { hidingPrompt, stealthControls } from './stealth/controls'
+import { leaveSpot } from './stealth/hide'
+import { spotProp } from './stealth/spots'
 import { rigBreaker, rigSecondsLeft } from './stealth/sabotage'
 import { SABOTAGE } from './stealth/tuning'
 import { doorTooHot, systemsAction, touchHotDoor } from './systems/systems'
@@ -50,6 +52,7 @@ export type Action = { prompt: string; key: string; run: () => void; hold?: numb
 export function interact(world: World, input: Input, dt: number): void {
   collect(world)
   world.stealth.hint = null
+  leaveLostHidingPlace(world)
   // A choke, hiding, a radio to answer: the stealth code has the hands (and E) for now.
   const busy = stealthControls(world, input, dt)
   if (busy !== undefined) {
@@ -64,6 +67,14 @@ export function interact(world: World, input: Input, dt: number): void {
   const next = acted ? bestAction(world) : action
   world.prompt = world.terminal ? terminalPrompt(world) : world.player.hidden ? hidingPrompt(world) : next?.prompt ?? null
   world.stealth.hint = world.terminal ? null : next?.hint ?? null
+}
+
+/** The hiding place was smashed, or the floor dropped away under it: he is out in the open. */
+function leaveLostHidingPlace(world: World): void {
+  const hiding = world.stealth.hiding
+  if (!hiding) return
+  const prop = spotProp(world, hiding.prop)
+  if (!prop || prop.broken || !world.player.onGround) leaveSpot(world)
 }
 
 function bestAction(world: World): Action | null {

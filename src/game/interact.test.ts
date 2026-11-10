@@ -3,7 +3,11 @@ import { doorColumn } from './elevators'
 import { idleInput, type Input } from './input'
 import { GROUND } from './level'
 import { stepWorld } from './step'
-import { tileAt } from './tiles'
+import { fillTiles, tileAt } from './tiles'
+import { damageProp } from './cover'
+import { propBox } from './hazards/props'
+import { enterSpot } from './stealth/hide'
+import { spotKind } from './stealth/spots'
 import { tileKey } from './hazards/state'
 import { createWorld, type Device, type World } from './world'
 
@@ -138,5 +142,40 @@ describe('the E key with several things in reach', () => {
     expect(world.prompt).toBe('Hold E: pick lock')
     play(world, 2, { interact: true })
     expect(tileAt(world.grid, 70, GROUND - 1)).toBe('air')
+  })
+})
+
+describe('hiding when the hiding place is lost', () => {
+  /** The player shut inside the first locker-like hiding place of the complex. */
+  function hidden() {
+    const world = createWorld(1, 'complex')
+    world.guards = []
+    const prop = world.props.find((candidate) => spotKind(candidate.kind)?.player && spotKind(candidate.kind)?.how === 'inside')!
+    const box = propBox(prop)
+    placePlayer(world, box.x + box.w / 2, Math.round(box.y + box.h))
+    play(world, 0.2)
+    enterSpot(world, prop)
+    play(world, 0.2)
+    expect(world.player.hidden).toBe(true)
+    return { world, prop, box }
+  }
+
+  it('a smashed hiding place leaves the player out in the open, and the prompt no longer offers to get out', () => {
+    const { world, prop } = hidden()
+    damageProp(world, prop, 1e5)
+    play(world, FRAME)
+    expect(world.player.hidden).toBe(false)
+    expect(world.stealth.hiding).toBeNull()
+    expect(world.prompt).not.toBe('E: get out')
+  })
+
+  it('the floor blown away under a hiding place drops the player out of it instead of leaving him hanging', () => {
+    const { world, box } = hidden()
+    const floor = Math.round(box.y + box.h)
+    const y = world.player.y
+    fillTiles(world.grid, Math.floor(box.x) - 2, floor, Math.floor(box.x + box.w) + 2, floor + 2, 'air')
+    play(world, 0.5)
+    expect(world.player.hidden).toBe(false)
+    expect(world.player.y).toBeGreaterThan(y + 1)
   })
 })

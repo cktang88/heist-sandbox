@@ -91,8 +91,10 @@ export function createPlayer(start: Vec): Player {
  */
 export function movePlayer(grid: Grid, player: Player, input: Input, dt: number, stairwells: readonly Stairwell[] = []): void {
   if (player.hidden) {
+    // Still, but not weightless: if the floor goes from under the hiding place he drops (and is out of it).
     player.vx = 0
-    player.vy = 0
+    player.vy += GRAVITY * dt
+    moveBody(grid, player, dt)
     return
   }
   if (takeStairs(grid, player, input, dt, stairwells)) return
