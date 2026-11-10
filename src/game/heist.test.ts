@@ -100,6 +100,20 @@ describe('heist', () => {
     expect(new Set(world.projectiles.map((shot) => shot.vy.toFixed(3))).size).toBeGreaterThan(5)
   })
 
+  it('reloads an empty magazine from spare rounds', () => {
+    const world = createWorld(1)
+    world.guards = []
+    onStreet(world, 30)
+    const spare = world.player.ammo[0]
+    run(world, 4, (frame) => ({ firePressed: frame % 2 === 0 }))
+    expect(world.player.mags[0]).toBeLessThan(12)
+    run(world, 0.1, () => ({ reloadPressed: true }))
+    expect(world.player.reload).toBeGreaterThan(0)
+    run(world, 1.2)
+    expect(world.player.mags[0]).toBe(12)
+    expect(world.player.ammo[0]).toBeLessThan(spare)
+  })
+
   it('allows one extra jump in mid-air', () => {
     const world = createWorld(1)
     world.guards = []

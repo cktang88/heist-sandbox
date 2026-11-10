@@ -1,7 +1,7 @@
 import type { Input } from './input'
 import { GRAVITY, moveBody } from './physics'
 import { tileAt, type Grid } from './tiles'
-import { BLOOM_RECOVERY_PER_SECOND } from './guns'
+import { BLOOM_RECOVERY_PER_SECOND, GUNS } from './guns'
 import { TOOLS } from './toolDefs'
 import { centerOf, type Body, type Vec } from './types'
 
@@ -25,6 +25,10 @@ export type Player = Body & {
   onLadder: boolean
   tool: number
   ammo: number[]
+  /** Rounds in the magazine of each gun. Unused for non-gun tools. */
+  mags: number[]
+  /** Seconds left on the current reload, or 0. */
+  reload: number
   cooldown: number
   focus: number
   hasLoot: boolean
@@ -41,7 +45,7 @@ export function createPlayer(start: Vec): Player {
   return {
     x: start.x, y: start.y, w: 0.7, h: 1.6, vx: 0, vy: 0, onGround: false,
     facing: 1, hp: 100, chute: false, onLadder: false, tool: 0,
-    ammo: TOOLS.map((tool) => tool.ammo), cooldown: 0, focus: MAX_FOCUS_SECONDS, hasLoot: false, pick: 0, kick: 0, bloom: 0, airJumps: 1,
+    ammo: TOOLS.map((tool) => tool.ammo), mags: TOOLS.map((tool) => GUNS[tool.id]?.magSize ?? 0), reload: 0, cooldown: 0, focus: MAX_FOCUS_SECONDS, hasLoot: false, pick: 0, kick: 0, bloom: 0, airJumps: 1,
   }
 }
 

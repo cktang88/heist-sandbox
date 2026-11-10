@@ -9,7 +9,7 @@ import { worldToScreen, type Camera } from './camera'
 const HELP = [
   'A/D move    W/S climb    SPACE jump, tap again to double jump',
   'HOLD SPACE while falling: parachute',
-  'MOUSE aim and fire    1-8 or wheel: pick a tool    Q: set off C4',
+  'MOUSE aim and fire    R reload    1-8 or wheel: pick a tool    Q: set off C4',
   'E: pick locks, take down unaware guards, recall the drone',
   'SHIFT: focus (slow motion, slowest when you hold still)',
   'Steal the gold case from the vault and get back to the van.',
@@ -60,6 +60,13 @@ function drawCrosshair(context: CanvasRenderingContext2D, world: World, camera: 
   context.stroke()
   context.fillStyle = '#ff2d3d'
   context.fillRect(at.x - 1.5, at.y - 1.5, 3, 3)
+  if (gun && world.player.reload > 0) {
+    // Reload progress sweeps round the crosshair.
+    context.strokeStyle = '#39ff6a'
+    context.beginPath()
+    context.arc(at.x, at.y, radius + tick * 1.6, -Math.PI / 2, -Math.PI / 2 + (1 - world.player.reload / gun.reloadSeconds) * Math.PI * 2)
+    context.stroke()
+  }
 }
 
 function drawTools(context: CanvasRenderingContext2D, world: World, unit: number, width: number, height: number): void {
@@ -71,7 +78,7 @@ function drawTools(context: CanvasRenderingContext2D, world: World, unit: number
     context.fillStyle = selected ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.45)'
     context.fillRect(x, y, slot - unit * 0.3, unit * 2)
     const ammo = world.player.ammo[index]
-    const count = Number.isFinite(ammo) ? ` ${ammo}` : ''
+    const count = GUNS[tool.id] ? ` ${world.player.mags[index]}/${ammo}` : Number.isFinite(ammo) ? ` ${ammo}` : ''
     text(context, `${index + 1} ${tool.name}${count}`, x + unit * 0.4, y + unit * 1.3, selected ? '#ffffff' : '#9aa2b0', unit * 0.8, 'left')
     context.fillStyle = tool.quiet ? '#7ee08a' : '#ff7a5a'
     context.fillRect(x, y + unit * 1.85, slot - unit * 0.3, unit * 0.15)
