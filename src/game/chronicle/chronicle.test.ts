@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Guard } from '../security/model'
+import { hurtGuard } from '../guards'
+import { addGuard, arena, GROUND, putPlayer, run } from '../security/testArena'
+import { toolIndex } from '../toolDefs'
 import { createWorld, type World } from '../world'
 import { debriefOf, debriefText } from './chronicle'
 import { guardName } from './names'
@@ -60,5 +63,23 @@ describe('the chronicle', () => {
     Object.assign(world, { people: { nameOf: (guard: Guard) => (guard === world.guards[0] ? 'Dmitri Vale' : undefined) } })
     expect(guardName(world, 0)).toBe('Dmitri Vale')
     expect(guardName(world, 1)).not.toBe('Dmitri Vale')
+  })
+
+  it('does not call a man cut down by his own side beside the player a takedown, and a point-blank shot is a shot', () => {
+    const world = arena()
+    const shield = addGuard(world, 20.6, 1)
+    putPlayer(world, 20)
+    run(world, 0.1)
+    hurtGuard(world, shield, 1000, { x: 30, y: GROUND - 1 }, 'hazard')
+    run(world, 0.5)
+    expect(world.chronicle.beats.find((beat) => beat.kind === 'down')?.detail).toBe('accident')
+
+    const target = addGuard(world, 21.2, 1)
+    world.player.tool = toolIndex('pistol')
+    run(world, 0.5)
+    run(world, 1 / 60, { fire: true, firePressed: true, aim: { x: 21.2, y: target.y + 0.3 } })
+    run(world, 0.5)
+    expect(target.mode).toBe('dead')
+    expect(world.chronicle.beats.filter((beat) => beat.kind === 'down').at(-1)?.detail).toMatch(/^shot:/)
   })
 })
