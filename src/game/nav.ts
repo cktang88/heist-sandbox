@@ -109,8 +109,10 @@ function graphOf(plan: Plan, building: string | null): Graph {
 
 /** Can someone walk along floor `y` from `a` to `b`, or does a void cut the way? */
 function walkable(splits: readonly Split[], y: number, a: number, b: number): boolean {
-  const [low, high] = a < b ? [a, b] : [b, a]
-  return !splits.some((split) => Math.abs(split.y - y) < 0.5 && split.from < high && split.to + 1 > low)
+  const low = Math.min(a, b)
+  const high = Math.max(a, b)
+  for (const split of splits) if (Math.abs(split.y - y) < 0.5 && split.from < high && split.to + 1 > low) return false
+  return true
 }
 
 /**
@@ -120,36 +122,61 @@ function walkable(splits: readonly Split[], y: number, a: number, b: number): bo
 function route(graph: Graph, from: Vec, goal: Vec): Planned {
   const { landings, links, splits } = graph
   if (Math.abs(goal.y - from.y) < SAME_FLOOR && walkable(splits, from.y, from.x, goal.x)) return { hop: { kind: 'walk', x: goal.x }, cost: Math.abs(goal.x - from.x) }
-  const onFloor = (landing: Landing, spot: Vec) => Math.abs(landing.y - spot.y) < 0.5 && walkable(splits, spot.y, landing.x, spot.x)
-  const cost = landings.map((landing) => (onFloor(landing, from) ? Math.abs(landing.x - from.x) : Infinity))
-  const previous = new Array<number>(landings.length).fill(-1)
-  const done = new Array<boolean>(landings.length).fill(false)
-  let best = { total: Infinity, landing: -1 }
+  const count = landings.length
+  const { cost, previous, done } = scratchFor(count)
+  for (let index = 0; index < count; index += 1) {
+    cost[index] = onFloor(splits, landings[index], from) ? Math.abs(landings[index].x - from.x) : Infinity
+    previous[index] = -1
+    done[index] = 0
+  }
+  let bestTotal = Infinity
+  let bestLanding = -1
   for (;;) {
     let index = -1
-    for (let other = 0; other < landings.length; other += 1) if (!done[other] && cost[other] < (index < 0 ? Infinity : cost[index])) index = other
-    if (index < 0 || cost[index] >= best.total) break
-    done[index] = true
-    if (onFloor(landings[index], goal)) {
+    for (let other = 0; other < count; other += 1) if (!done[other] && cost[other] < (index < 0 ? Infinity : cost[index])) index = other
+    if (index < 0 || cost[index] >= bestTotal) break
+    done[index] = 1
+    if (onFloor(splits, landings[index], goal)) {
       const total = cost[index] + Math.abs(goal.x - landings[index].x)
-      if (total < best.total) best = { total, landing: index }
+      if (total < bestTotal) {
+        bestTotal = total
+        bestLanding = index
+      }
     }
-    for (const { to, cost: step } of links[index]) {
-      if (cost[index] + step >= cost[to]) continue
-      cost[to] = cost[index] + step
-      previous[to] = index
+    for (const link of links[index]) {
+      if (cost[index] + link.cost >= cost[link.to]) continue
+      cost[link.to] = cost[index] + link.cost
+      previous[link.to] = index
     }
   }
   // No way all the way there (a flight is down): climb as far toward it as the stairs go, then the caller tries a ladder.
-  if (best.landing < 0) return { hop: climb(graph.wells, from, goal.y), cost: Infinity }
+  if (bestLanding < 0) return { hop: climb(graph.wells, from, goal.y), cost: Infinity }
   // Back from the last landing to the first, remembering the one after it.
-  let at = best.landing
+  let at = bestLanding
   let after = -1
   while (previous[at] >= 0) {
     after = at
     at = previous[at]
   }
-  return { hop: firstStep(landings[at], after < 0 ? null : landings[after], from, goal), cost: best.total }
+  return { hop: firstStep(landings[at], after < 0 ? null : landings[after], from, goal), cost: bestTotal }
+}
+
+/** Is a landing on the floor of this spot, with no void between them? */
+function onFloor(splits: readonly Split[], landing: Landing, spot: Vec): boolean {
+  return Math.abs(landing.y - spot.y) < 0.5 && walkable(splits, spot.y, landing.x, spot.x)
+}
+
+/** Scratch for `route`, kept between calls: guards ask for routes many times a frame. */
+const scratch = { cost: new Float64Array(64), previous: new Int32Array(64), done: new Uint8Array(64) }
+
+function scratchFor(count: number): typeof scratch {
+  if (scratch.cost.length < count) {
+    const size = Math.max(count, scratch.cost.length * 2)
+    scratch.cost = new Float64Array(size)
+    scratch.previous = new Int32Array(size)
+    scratch.done = new Uint8Array(size)
+  }
+  return scratch
 }
 
 function firstStep(start: Landing, next: Landing | null, from: Vec, goal: Vec): Hop {
