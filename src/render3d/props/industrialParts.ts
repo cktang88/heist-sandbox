@@ -3,7 +3,7 @@ import {
   TextureLoader, type Material, type Texture,
 } from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { BOX, CYLINDER, matte } from './kit'
+import { BOX, CYLINDER, box, matte } from './kit'
 
 /**
  * Shared pieces for the industrial, security and exterior prop models: photo-textured paints, canvas-drawn
@@ -174,6 +174,20 @@ export function mergedBoxes(key: string, boxes: readonly (readonly [number, numb
     const piece = BOX.clone()
     piece.scale(w, h, depth)
     piece.translate(left + w / 2, bottom + h / 2, z)
+    return piece
+  })))
+}
+
+/** A piece of a merged shape: centre x, y, z, size along x, y, z, and an optional tilt about z. */
+export type Piece = readonly [number, number, number, number, number, number, number?]
+
+/** Many copies of one shape (balls, frustums) merged once into a single geometry: sandbags, gold bars. */
+export function mergedPieces(key: string, base: BufferGeometry, pieces: readonly Piece[]): BufferGeometry {
+  return once(`pieces:${key}`, () => mergeGeometries(pieces.map(([x, y, z, w, h, depth, tilt]) => {
+    const piece = base.clone()
+    piece.scale(w, h, depth)
+    if (tilt) piece.rotateZ(tilt)
+    piece.translate(x, y, z)
     return piece
   })))
 }
@@ -607,4 +621,51 @@ export function dangerSign() {
 /** Hazard stripes as a material, for edges and floor marks. */
 export function hazardStripes() {
   return drawn('hazard', 256, 32, (c) => stripes(c, 0, 0, 256, 32, '#d9a91a', '#15130f', 16), { roughness: 0.6, repeatX: 2 })
+}
+
+// ---------- Stock: pallets, crates and stacked boxes ----------
+
+/** A timber pallet 1.6 wide and 0.25 tall in one merged mesh: deck boards, blocks and bottom boards. */
+export const PALLET = mergedBoxes('pallet', [
+  ...[-0.48, -0.24, 0, 0.24, 0.48].map((z) => [-0.8, 0.21, 1.6, 0.04, 0.15, z] as const),
+  ...[-0.75, -0.05, 0.65].map((x) => [x, 0.17, 0.1, 0.04, 1.1, 0] as const),
+  ...[-0.76, -0.06, 0.64].flatMap((x) => [-0.48, 0, 0.48].map((z) => [x, 0.04, 0.12, 0.13, 0.14, z] as const)),
+  ...[-0.48, 0, 0.48].map((z) => [-0.8, 0, 1.6, 0.04, 0.15, z] as const),
+])
+export const palletWood = () => photo('wood', 0x8e8a84, 0)
+
+export function pallet(group: Group, x: number, z: number, width = 1.6): Mesh {
+  const mesh = place(group, PALLET, palletWood())
+  mesh.position.set(x, 0, z)
+  mesh.scale.x = width / 1.6
+  return mesh
+}
+
+/** The dark frame boards nailed round a crate face, for a unit crate (scaled per crate). */
+const CRATE_FRAME = mergedBoxes('crateFrame', [
+  [-0.5, 0, 1, 0.1, 1.02, 0], [-0.5, 0.9, 1, 0.1, 1.02, 0], [-0.5, 0.45, 1, 0.09, 1.02, 0],
+  [-0.52, 0, 0.1, 1, 1.04, 0], [0.42, 0, 0.1, 1, 1.04, 0],
+])
+
+/** A timber crate standing on `bottom`, centred on x and z. */
+export function crate(group: Group, x: number, bottom: number, w: number, h: number, depth: number, z: number, kind: 'pine' | 'olive'): void {
+  box(group, crateFace(kind), x - w / 2, bottom, w, h, depth, z)
+  const frame = place(group, CRATE_FRAME, photo('wood', kind === 'pine' ? 0x5c5246 : 0x3a4030, 0))
+  frame.scale.set(w, h, depth)
+  frame.position.set(x, bottom, z)
+}
+
+/** Boxes or bundles stacked into one merged block, `across` by `high`, as a single mesh; each shows the whole picture. */
+export function stackedBlocks(group: Group, material: Material, x: number, bottom: number, w: number, h: number, depth: number, z: number, across: number, high: number): Mesh {
+  const cells: [number, number, number, number, number, number][] = []
+  for (let row = 0; row < high; row += 1) {
+    for (let col = 0; col < across; col += 1) {
+      const nudge = ((row * 3 + col * 5) % 4) * 0.012
+      cells.push([-0.5 + col / across + nudge, row / high, 1 / across - 0.012, 1 / high - 0.006, 1 - nudge, 0])
+    }
+  }
+  const mesh = place(group, mergedBoxes(`blocks:${across}:${high}`, cells), material)
+  mesh.scale.set(w, h, depth)
+  mesh.position.set(x, bottom, z)
+  return mesh
 }

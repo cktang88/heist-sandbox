@@ -3,9 +3,9 @@ import type { SurfaceMaterials } from '../levelMesh'
 import type { PropBuilder, PropSet } from './index'
 import { ball, box, cylinder, glow, matte, scanned } from './kit'
 import {
-  FINISH, SLEEVE, archiveBoxes, cartonFace, coolingFront, crateFace, cylinderLabel, dangerSign, disc, flammableBand, gaugeFace,
-  hazardStripes, labCabinets, livery, louvres, mergedBoxes, once, pegboard, photo, pick, place, quiet, rod, serverFront,
-  switchgearFront, terminalScreen, wheel,
+  FINISH, SLEEVE, archiveBoxes, cartonFace, coolingFront, cylinderLabel, dangerSign, disc, flammableBand, gaugeFace,
+  hazardStripes, labCabinets, livery, louvres, mergedBoxes, once, pallet, pegboard, photo, pick, place, quiet, rod, serverFront,
+  stackedBlocks, switchgearFront, terminalScreen, wheel, crate,
 } from './industrialParts'
 
 /**
@@ -21,51 +21,6 @@ const prop = (build: Build): PropBuilder => (materials) => {
 }
 
 // ---------- Shared pieces ----------
-
-/** A timber pallet 1.6 wide and 0.25 tall in one merged mesh: deck boards, blocks and bottom boards. */
-const PALLET = mergedBoxes('pallet', [
-  ...[-0.48, -0.24, 0, 0.24, 0.48].map((z) => [-0.8, 0.21, 1.6, 0.04, 0.15, z] as const),
-  ...[-0.75, -0.05, 0.65].map((x) => [x, 0.17, 0.1, 0.04, 1.1, 0] as const),
-  ...[-0.76, -0.06, 0.64].flatMap((x) => [-0.48, 0, 0.48].map((z) => [x, 0.04, 0.12, 0.13, 0.14, z] as const)),
-  ...[-0.48, 0, 0.48].map((z) => [-0.8, 0, 1.6, 0.04, 0.15, z] as const),
-])
-const palletWood = () => photo('wood', 0x8e8a84, 0)
-
-function pallet(group: Group, x: number, z: number, width = 1.6): Mesh {
-  const mesh = place(group, PALLET, palletWood())
-  mesh.position.set(x, 0, z)
-  mesh.scale.x = width / 1.6
-  return mesh
-}
-
-/** The dark frame boards nailed round a crate face, for a unit crate (scaled per crate). */
-const CRATE_FRAME = mergedBoxes('crateFrame', [
-  [-0.5, 0, 1, 0.1, 1.02, 0], [-0.5, 0.9, 1, 0.1, 1.02, 0], [-0.5, 0.45, 1, 0.09, 1.02, 0],
-  [-0.52, 0, 0.1, 1, 1.04, 0], [0.42, 0, 0.1, 1, 1.04, 0],
-])
-
-/** A timber crate standing on `bottom`, centred on x and z. */
-function crate(group: Group, x: number, bottom: number, w: number, h: number, depth: number, z: number, kind: 'pine' | 'olive'): void {
-  box(group, crateFace(kind), x - w / 2, bottom, w, h, depth, z)
-  const frame = place(group, CRATE_FRAME, photo('wood', kind === 'pine' ? 0x5c5246 : 0x3a4030, 0))
-  frame.scale.set(w, h, depth)
-  frame.position.set(x, bottom, z)
-}
-
-/** Cardboard cartons stacked into one merged block, `across` by `high`, as a single mesh. */
-function cartons(group: Group, x: number, bottom: number, w: number, h: number, depth: number, z: number, across: number, high: number, kind: 'kraft' | 'white'): Mesh {
-  const cells: [number, number, number, number, number, number][] = []
-  for (let row = 0; row < high; row += 1) {
-    for (let col = 0; col < across; col += 1) {
-      const nudge = ((row * 3 + col * 5) % 4) * 0.012
-      cells.push([-0.5 + col / across + nudge, row / high, 1 / across - 0.012, 1 / high - 0.006, 1 - nudge, 0])
-    }
-  }
-  const mesh = place(group, mergedBoxes(`cartons:${across}:${high}`, cells), cartonFace(kind))
-  mesh.scale.set(w, h, depth)
-  mesh.position.set(x, bottom, z)
-  return mesh
-}
 
 /** A shared side-profile shape extruded to `depth` and centred on z = 0, for vehicle bodies and glass. */
 function profile(key: string, outline: (shape: Shape) => void, depth: number, bevel = 0.04): ExtrudeGeometry {
@@ -114,7 +69,7 @@ const crateBuilder = prop((group) => {
   const look = pick(['pine', 'olive', 'scan'] as const)
   if (look === 'scan') {
     scanned(group, 'wooden_crate_01', { scale: 1.6, z: -1.45 })
-    scanned(group, 'wooden_crate_01', { scale: 1.6, z: -1.4, lift: 0.56 * 1.1, turn: 0.06 })
+    scanned(group, 'wooden_crate_01', { scale: 1.6, z: -1.4, lift: 0.5, turn: 0.06 })
     return
   }
   crate(group, 0, 0, 1.2, 1.1, 1.0, -1.5, look)
@@ -124,7 +79,7 @@ const crateStack = prop((group) => {
   crate(group, -0.55, 0, 1.08, 1.1, 1.0, -1.6, 'pine')
   crate(group, 0.56, 0, 1.06, 1.05, 1.0, -1.55, pick(['pine', 'olive'] as const))
   crate(group, -0.3, 1.1, 1.2, 1.1, 0.95, -1.62, 'olive')
-  scanned(group, 'wooden_crate_01', { scale: 1.25, x: 0.62, z: -1.4, lift: 1.05 * 1.1, turn: -0.15 })
+  scanned(group, 'wooden_crate_01', { scale: 1.25, x: 0.62, z: -1.4, lift: 1.05, turn: -0.15 })
 })
 
 const steelCrate = prop((group) => {
@@ -189,7 +144,7 @@ const palletBuilder = prop((group) => {
 const palletStack = prop((group) => {
   pallet(group, 0, -1.4, 1.8)
   const kind = pick(['kraft', 'white', 'kraft'] as const)
-  cartons(group, 0, 0.25, 1.7, 1.33, 1.05, -1.4, 3, 3, kind)
+  stackedBlocks(group, cartonFace(kind), 0, 0.25, 1.7, 1.33, 1.05, -1.4, 3, 3)
   // Shrink-wrap: a faint glossy skin, and two straps.
   const wrap = box(group, once('wrap', () => matte(0xdde6ea, 0.08, 0)).clone(), -0.87, 0.24, 1.74, 1.26, 1.1, -1.4)
   const film = wrap.material as ReturnType<typeof matte>
@@ -211,13 +166,12 @@ const shelvingRack = prop((group) => {
   const levels = [0.12, 1.05, 2.0] as const
   place(group, mergedBoxes('rackBeams', levels.flatMap((y) => [[-1.18, y, 2.36, 0.12, 0.06, -0.86], [-1.18, y, 2.36, 0.12, 0.06, -1.99]] as const)), orange)
   place(group, mergedBoxes('rackDecks', levels.slice(1).map((y) => [-1.15, y + 0.1, 2.3, 0.02, 1.12, -1.42] as const)), FINISH.steel, false)
-  scanned(group, 'Barrel_01', { x: -0.62, z: -1.4, lift: 0.04 * 1.1, turn: 0.6 })
-  scanned(group, 'barrel_03', { x: 0.1, z: -1.45, lift: 0.04 * 1.1, turn: 2.0 })
-  pallet(group, 0.05, -1.42, 1.5)
-  group.children[group.children.length - 1].position.y = 1.17
-  cartons(group, 0.05, 1.42, 1.4, 0.5, 0.95, -1.42, 3, 1, pick(['kraft', 'white'] as const))
+  scanned(group, 'Barrel_01', { x: -0.62, z: -1.4, lift: 0, turn: 0.6 })
+  scanned(group, 'barrel_03', { x: 0.1, z: -1.45, lift: 0, turn: 2.0 })
+  pallet(group, 0.05, -1.42, 1.5).position.y = 1.17
+  stackedBlocks(group, cartonFace(pick(['kraft', 'white'] as const)), 0.05, 1.42, 1.4, 0.5, 0.95, -1.42, 3, 1)
   crate(group, -0.6, 2.12, 0.9, 0.7, 0.9, -1.45, 'olive')
-  scanned(group, 'cardboard_box_01', { x: 0.45, z: -1.35, lift: 2.12 * 1.1, scale: 1.6, turn: 1.57 })
+  scanned(group, 'cardboard_box_01', { x: 0.45, z: -1.35, lift: 2.12, scale: 1.6, turn: 1.57 })
 })
 
 // ---------- Workshop ----------
@@ -229,11 +183,11 @@ const toolBench = prop((group, materials) => {
     [-1.25, 0.18, 2.5, 0.05, 0.8, -1.72],
   ]), photo('paint', 0x2c4a6a, 0.15))
   box(group, pegboard(), -1.25, 0.88, 2.5, 0.42, 0.03, -2.16)
-  scanned(group, 'metal_tool_chest', { x: 0.55, z: -1.75, lift: 0.23 * 1.1, scale: 0.95 })
+  scanned(group, 'metal_tool_chest', { x: 0.55, z: -1.75, lift: 0.23, scale: 0.95 })
   // A bench vice and a box of parts on top.
   box(group, photo('paint', 0x2c4a6a, 0.15), -1.0, 0.88, 0.22, 0.14, 0.2, -1.4)
   quiet(box(group, FINISH.darkSteel, -1.04, 0.98, 0.3, 0.06, 0.08, -1.32))
-  scanned(group, 'cardboard_box_01', { x: 0.5, z: -1.85, lift: 0.88 * 1.1, turn: 1.4 })
+  scanned(group, 'cardboard_box_01', { x: 0.5, z: -1.85, lift: 0.88, turn: 1.4 })
 })
 
 const toolChest = prop((group) => {
@@ -242,7 +196,7 @@ const toolChest = prop((group) => {
   place(group, mergedBoxes('chestDrawers', [0.2, 0.38, 0.56].map((y) => [-0.5, y, 1.0, 0.012, 0.64, -1.7] as const)), FINISH.black, false)
   quiet(box(group, FINISH.chrome, -0.4, 0.74, 0.8, 0.03, 0.66, -1.7))
   for (const x of [-0.45, 0.45]) quiet(disc(group, FINISH.rubber, x, 0.05, -1.42, 0.05, 0.04))
-  scanned(group, 'metal_tool_chest', { z: -1.72, lift: 0.82 * 1.1, scale: 1.25 })
+  scanned(group, 'metal_tool_chest', { z: -1.72, lift: 0.82, scale: 1.25 })
 })
 
 const generator = prop((group) => {
@@ -541,7 +495,7 @@ const LIQUID = once('specimenLiquid', () => {
   const liquid = glow(0x2cff9a, 0.7).clone()
   liquid.color.setHex(0x0a3020)
   liquid.transparent = true
-  liquid.opacity = 0.55
+  liquid.opacity = 0.42
   liquid.depthWrite = false
   return liquid
 })
@@ -549,13 +503,14 @@ const LIQUID = once('specimenLiquid', () => {
 const specimenTank = prop((group) => {
   cylinder(group, FINISH.darkSteel, 0, 0, 0.56, 0.36, -1.4)
   cylinder(group, FINISH.darkSteel, 0, 2.3, 0.56, 0.3, -1.4)
-  const body = quiet(cylinder(group, matte(0x1a2620, 0.6), 0, 0.5, 0.1, 0.9, -1.4))
-  body.scale.x = 0.16
-  quiet(ball(group, matte(0x1a2620, 0.6), 0, 1.6, 0.13, -1.4))
-  quiet(rod(group, matte(0x1a2620, 0.6), -0.05, 1.45, -0.22, 1.0, 0.04, -1.4))
+  // A pale, curled-up figure floating in the fluid.
+  const flesh = matte(0x6a7a6a, 0.5)
+  quiet(cylinder(group, flesh, 0, 0.75, 0.16, 0.75, -1.4)).scale.x = 0.2
+  quiet(ball(group, flesh, 0.02, 1.68, 0.15, -1.4))
+  quiet(rod(group, flesh, -0.1, 1.42, -0.26, 1.0, 0.05, -1.4))
   quiet(cylinder(group, LIQUID, 0, 0.36, 0.48, 1.85, -1.4))
   quiet(cylinder(group, FINISH.clearGlass, 0, 0.36, 0.5, 1.94, -1.4))
-  quiet(cylinder(group, glow(0x2cff9a, 3), 0, 0.36, 0.5, 0.03, -1.4))
+  quiet(cylinder(group, glow(0x2cff9a, 2), 0, 0.36, 0.5, 0.03, -1.4))
   quiet(rod(group, FINISH.black, 0.35, 2.55, 0.5, 2.6, 0.04, -1.9))
 })
 
