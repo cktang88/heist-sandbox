@@ -41,8 +41,6 @@ export const CAUSE_WORDS: Record<string, string> = {
   unknown: 'for reasons nobody wrote down',
 }
 
-export const LEVEL_WORDS = ['all clear', 'uneasy', 'on alert for an intruder', 'at full alarm', 'in lockdown']
-
 /** A director event told as a clause; its outcome follows after a semicolon. */
 export const EVENT_WORDS: Record<EventId | 'lightning' | 'shiftChange' | 'delivery' | 'fireDrill' | 'rivalCrew', string> = {
   smokeBreak: 'a guard slipped up to the roof for a cigarette',
