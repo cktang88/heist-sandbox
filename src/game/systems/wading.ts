@@ -12,9 +12,10 @@ import { liquidAt } from './liquid'
  */
 const PLAYER_RUNNING = 6.5
 const GUARD_RUNNING = 4.5
-const SLIP_COOLDOWN = 2.5
+/** Someone who has just gone down picks their way across for a while instead of running. */
+const SLIP_COOLDOWN = 8
 const SLIP_DAMAGE = 4
-const GUARD_SLIP_STUN = 1.6
+const GUARD_SLIP_STUN = 1
 const SLIP_NOISE = 7
 /** Per second, the share of speed water takes off. */
 const WADE_DRAG = 5
@@ -23,10 +24,21 @@ const SPLASH_EVERY = 0.35
 const SPLASH_NOISE = 6
 const CROUCHED_SPLASH_NOISE = 3
 
-export function stepWading(world: World, dt: number): void {
-  if (!anythingUnderfoot(world)) return
+/**
+ * The player is looked at every frame; guards a few times a second (`tick` set), and those found wading are slowed
+ * every frame in between.
+ */
+export function stepWading(world: World, dt: number, tick: number): void {
+  const wading = world.systems.wading
+  if (!anythingUnderfoot(world)) {
+    wading.length = 0
+    return
+  }
   stepPlayer(world, dt)
-  for (const guard of world.guards) if (guard.mode !== 'dead') stepGuard(world, guard, dt)
+  for (const guard of wading) drag(guard, WADING_DEPTH, dt)
+  if (tick === 0) return
+  wading.length = 0
+  for (const guard of world.guards) if (guard.mode !== 'dead') stepGuard(world, guard, tick)
 }
 
 function depthUnder(world: World, body: Body): number {
@@ -68,7 +80,7 @@ function stepPlayer(world: World, dt: number): void {
 
 function stepGuard(world: World, guard: Guard, dt: number): void {
   const depth = depthUnder(world, guard)
-  drag(guard, depth, dt)
+  if (depth >= WADING_DEPTH) world.systems.wading.push(guard)
   if (guard.stunSeconds > 0) return
   if (rollSlip(world, guard, Math.abs(guard.vx) > GUARD_RUNNING, dt)) {
     stunGuard(guard, GUARD_SLIP_STUN)

@@ -46,9 +46,9 @@ function hiss(world: World, x: number, y: number): void {
   playSound(world, 'spray', { x: x + 0.5, y: y + 0.5 })
 }
 
-/** Is this device under water, or soaked by a spray? */
-export function deviceSoaked(world: World, device: Device): boolean {
-  if (world.hazards.wet.has(tileKey(world, device.x, device.y)) && world.hazards.sprays.some((spray) => spray.kind === 'water')) return true
+/** Is this device under water, or soaked by a spray (`spraying` says whether any water spray is running)? */
+export function deviceSoaked(world: World, device: Device, spraying: boolean): boolean {
+  if (spraying && world.hazards.wet.has(tileKey(world, device.x, device.y))) return true
   const field = world.systems.water
   if (!field || field.active.length === 0) return false
   // The tile people stand on below the device, then how high the water there reaches.
@@ -62,10 +62,10 @@ export function deviceSoaked(world: World, device: Device): boolean {
 
 /** Shorts out every working device standing in water or caught in a spray. */
 export function shortSoakedDevices(world: World): void {
-  const sprays = world.hazards.sprays.length > 0
-  if (!sprays && !world.systems.water?.active.length) return
+  const spraying = world.hazards.sprays.some((spray) => spray.kind === 'water')
+  if (!spraying && !world.systems.water?.active.length) return
   for (const device of world.devices) {
-    if (device.disabled || !SHORTS.has(device.kind) || !deviceSoaked(world, device)) continue
+    if (device.disabled || !SHORTS.has(device.kind) || !deviceSoaked(world, device, spraying)) continue
     shortDevice(world, device)
   }
 }

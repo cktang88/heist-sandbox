@@ -1,7 +1,7 @@
 import type { Flash } from '../effects'
 import { createRng, type Rng } from '../rng'
 import type { Lamp } from '../site'
-import type { Vec } from '../types'
+import type { Body, Vec } from '../types'
 
 /**
  * State of the couplings between the world's systems: water and fuel lying on floors, live wires, energised
@@ -50,6 +50,9 @@ export type FanMode = 'off' | 'extract' | 'left' | 'right'
 export type FaultKind = 'leak' | 'sparkingLamp' | 'gasRing' | 'looseFitting'
 export type Fault = Vec & { kind: FaultKind; lamp: Lamp | null; prop: number; clock: number }
 
+/** Something the player can do with E, in the shape the interact code uses: a single press, or a hold of `hold` seconds. */
+export type SystemAction = { prompt: string; key: string; run: () => void; hold?: number }
+
 export type ShotTrail = { shot: object; x: number; y: number; vx: number; vy: number }
 
 export type SystemsState = {
@@ -71,6 +74,8 @@ export type SystemsState = {
   shockedUntil: WeakMap<object, number>
   slipUntil: WeakMap<object, number>
   stepClock: WeakMap<object, number>
+  /** Guards standing in water deep enough to slow them, found at the people tick and dragged every frame. */
+  wading: Body[]
   falling: FallingFitting[]
   rolling: RollingVehicle[]
   rigged: RiggedDoor[]
@@ -100,14 +105,15 @@ export type SystemsState = {
   heatClock: number
   scanClock: number
   fallClock: number
+  peopleClock: number
 }
 
 export function createSystems(seed: number): SystemsState {
   return {
     seed, rng: createRng(seed ^ 0x5bd1e995), water: null, fuel: null, sources: [], energized: new Map(), earthing: new Map(), wires: [],
-    shockedUntil: new WeakMap(), slipUntil: new WeakMap(), stepClock: new WeakMap(), falling: [], rolling: [], rigged: [],
+    shockedUntil: new WeakMap(), slipUntil: new WeakMap(), stepClock: new WeakMap(), wading: [], falling: [], rolling: [], rigged: [],
     timers: [], fans: new Map(), faults: [], faultsSeeded: false, burst: new Set(), spentProps: new Set(), soaking: new Map(),
     heat: new Map(), hotDoors: new Map(), hissed: new Set(), trails: [], seenFlashes: new WeakSet(), deadBefore: new Set(),
-    changeMark: 0, changeGrid: null, liquidClock: 0, heatClock: 0, scanClock: 0, fallClock: 0,
+    changeMark: 0, changeGrid: null, liquidClock: 0, heatClock: 0, scanClock: 0, fallClock: 0, peopleClock: 0,
   }
 }

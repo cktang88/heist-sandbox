@@ -21,7 +21,7 @@ const WIRE_REACH = 0.45
 
 export function stepShocks(world: World): void {
   const systems = world.systems
-  if (systems.energized.size === 0 && systems.wires.length === 0) return
+  if (systems.energized.size === 0 && !systems.wires.some((wire) => circuitLive(world, wire.circuit))) return
   const player = world.player
   if (isLive(world, player)) shockPlayer(world)
   for (const guard of world.guards) {

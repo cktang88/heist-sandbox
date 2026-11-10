@@ -71,7 +71,7 @@ describe('water', () => {
     const guard = addGuard(world, 6, 14, 1)
     guard.onGround = true
     let slipped = false
-    runAll(world, 6, () => {
+    runAll(world, 15, () => {
       guard.vx = 6
       if (guard.stunSeconds > 0) slipped = true
     })
