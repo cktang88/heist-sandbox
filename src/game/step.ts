@@ -1,7 +1,11 @@
 import { stepCharges } from './charges'
 import { stepCollapse } from './collapse'
 import { stepDevices, terminalConsumesInput } from './devices/devices'
-import { stepElevators } from './elevators'
+import { aimAtCables, stepElevators } from './elevators'
+import { stepAftermath } from './frag/aftermath'
+import { stepFrags } from './frag/frag'
+import { stepRopes } from './rope/rope'
+import { stepFallingProps } from './vehicles/fallingProps'
 import { stepHazards } from './hazards/hazards'
 import { stepSecurity } from './security/dispatch'
 import { stepDrone } from './drone'
@@ -41,6 +45,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
     // While a hacking menu is open, the number keys choose its options and not a weapon.
     useTool(world, terminalConsumesInput(world) ? { ...input, selectTool: null } : input, dt)
   }
+  aimAtCables(world)
   stepProjectiles(world, dt)
   stepCharges(world, input.detonatePressed, dt)
   stepCollapse(world, dt)
@@ -50,6 +55,10 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   stepSecurity(world, dt)
   for (const guard of world.guards) updateGuard(world, guard, dt)
   if (!alarmBefore && world.alarm) raiseAlarm(world)
+  stepFrags(world, dt)
+  stepAftermath(world)
+  stepRopes(world)
+  stepFallingProps(world, dt)
 
   for (const pickup of world.pickups) {
     if (pickup.taken) continue
