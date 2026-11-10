@@ -36,6 +36,21 @@ describe('collapse', () => {
     expect(loose).toEqual([[1, 2], [4, 2], [6, 2]])
   })
 
+  it('rubble that lands on a cut-off piece of frame breaks up instead of hanging there unsupported', () => {
+    const world = createWorld(1)
+    world.guards = []
+    world.grid = createGrid(8, 12)
+    fillTiles(world.grid, 0, 11, 7, 11, 'bedrock')
+    setTile(world.grid, 3, 6, 'reinforced')
+    setTile(world.grid, 3, 2, 'brick')
+    Object.assign(world.player, { x: 6, y: 9, hp: 1e6 })
+    world.structureChanged = true
+    for (let frame = 0; frame < 120; frame += 1) stepWorld(world, idleInput(), 1 / 60)
+    expect(world.falling).toEqual([])
+    expect(tileAt(world.grid, 3, 5)).toBe('air')
+    expect(findUnsupported(world.grid)).toEqual([])
+  })
+
   it('keeps a duct hanging from the slab above when the door it rests on is opened, and drops it when the slab goes', () => {
     const grid = createGrid(12, 9)
     fillTiles(grid, 0, 8, 11, 8, 'bedrock')

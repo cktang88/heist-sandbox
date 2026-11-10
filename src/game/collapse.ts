@@ -100,7 +100,7 @@ function holdSlab(grid: Grid, supported: Uint8Array, slab: SlabRow, reach: (inde
 }
 
 /** The slab rows of every building of two or more storeys; one-storey sheds, bridges and silos keep the plain rule. */
-function slabRows(world: World): SlabRow[] {
+export function slabRows(world: World): SlabRow[] {
   const cached = slabCache.get(world.interiors)
   if (cached) return cached
   const rows: SlabRow[] = []
@@ -150,8 +150,10 @@ function dropTile(world: World, tile: FallingTile, dt: number): boolean {
   }
 
   const below = Math.floor(tile.y + 1)
-  if (!TILE_DEFS[tileAt(world.grid, tile.x, below)].solid) return false
-  if (tileAt(world.grid, tile.x, below - 1) !== 'air') return shatter(world, tile)
+  const under = tileAt(world.grid, tile.x, below)
+  if (!TILE_DEFS[under].solid) return false
+  // Rubble breaks up on the frame: a cut-off beam holds nothing up, so a tile left lying on it would hang unsupported.
+  if (under === 'reinforced' || tileAt(world.grid, tile.x, below - 1) !== 'air') return shatter(world, tile)
   setTile(world.grid, tile.x, below - 1, tile.kind)
   burst(world.effects, world.rng, { x: tile.x + 0.5, y: below }, 3, '#8a8f98', 4)
   world.shake = Math.min(1, world.shake + 0.04)
