@@ -2,6 +2,7 @@ import { Group, Matrix4, Vector3 } from 'three'
 import type { PropState } from '../game/cover'
 import { propSpec, type PropSpec } from '../game/propCatalog'
 import type { World } from '../game/world'
+import { loadShared } from './assets'
 import { BACK } from './levelMesh'
 import { DRAW_DISTANCE, inView, type Frame, type LayerFactory } from './layer'
 import { placeLooseProp } from './meleeLayer'
@@ -65,6 +66,8 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
     const recipe = recipeOf(buildProp(prop.kind, materials))
     return { recipe, placement: placement(prop, specs[index]), castShadow: throwsShadow(specs[index]), shape: `${prop.kind}|${signatureOf(recipe)}` }
   })
+  // Scanned models start loading now, as before batching, so they are ready by the time their region is built.
+  for (const url of new Set(placed.flatMap((entry) => entry.recipe.scans.map((scan) => scan.url)))) void loadShared(url).catch(() => undefined)
   const home = props.map((prop) => ({ x: prop.x, y: prop.y }))
   const indexOf = new Map(props.map((prop, index) => [prop.id, index]))
   const areas = regionsOf(props)
