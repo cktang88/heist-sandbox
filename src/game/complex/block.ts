@@ -36,7 +36,7 @@ type Span = { from: number; to: number }
 type Zone = Span & { kind: 'stairs' | 'void' }
 
 /**
- * Raises one building: a reinforced frame that cannot be destroyed (outer columns, beams, shaft walls)
+ * Raises one building: a reinforced frame that cannot be destroyed (slab ends, beams, shaft walls, basement walls)
  * filled in with destructible floors, partitions, doors and windows, and split into rooms.
  */
 export function buildBlock(site: SiteDraft, spec: BlockSpec): void {
@@ -52,7 +52,10 @@ export function buildBlock(site: SiteDraft, spec: BlockSpec): void {
     for (let x = x0; x <= x1; x += BEAM_EVERY) setTile(site.grid, x, y, 'reinforced')
   }
   for (const wall of [x0, x1]) {
-    fill(site, wall, roofY - 1, wall, bottomY, 'reinforced')
+    // Outer walls can be blown open anywhere above ground; only the slab ends and the basement walls are indestructible.
+    fill(site, wall, roofY - 1, wall, site.groundY - 1, spec.facade)
+    fill(site, wall, site.groundY, wall, bottomY, 'reinforced')
+    for (let storey = 1; storey <= storeys; storey += 1) setTile(site.grid, wall, floorY(storey), 'reinforced')
     for (let storey = 1; storey < storeys; storey += 1) {
       fill(site, wall, floorY(storey) - 4, wall, floorY(storey) - 2, chance(site.rng, 0.6) ? 'glass' : spec.facade)
     }
