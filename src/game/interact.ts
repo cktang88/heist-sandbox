@@ -4,6 +4,7 @@ import { deviceCenter, flipPower } from './devices/power'
 import { deviceState } from './devices/state'
 import { callElevator, carUnderPlayer, elevatorRefuses, shaftDoorAt, shaftOf } from './elevators'
 import { hurtGuard, restrainGuard } from './guards'
+import { windowAction } from './grapple/windows'
 import type { Input } from './input'
 import { interrogateAction, readAction } from './intel/intel'
 import { emitNoise } from './noise'
@@ -55,7 +56,7 @@ export function interact(world: World, input: Input, dt: number): void {
 function bestAction(world: World): Action | null {
   // Nothing is in reach through the walls of a moving car.
   if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
-  return interrogateAction(world) ?? takedownAction(world) ?? deviceAction(world, 'near') ?? elevatorAction(world) ?? doorAction(world)
+  return interrogateAction(world) ?? takedownAction(world) ?? deviceAction(world, 'near') ?? elevatorAction(world) ?? windowAction(world) ?? doorAction(world)
     ?? deviceAction(world, 'camera') ?? readAction(world) ?? deviceAction(world, 'lightSwitch')
 }
 

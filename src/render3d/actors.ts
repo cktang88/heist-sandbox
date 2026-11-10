@@ -13,7 +13,9 @@ import { BOX, buildDrone, buildLoot, buildParachute, buildPickup, buildVan, CHAR
 import { createDevicesLayer } from './devicesLayer'
 import { createFixturesLayer } from './fixturesLayer'
 import { depthOffsetFor } from '../game/gaps/gaps'
+import { onLine } from '../game/grapple/state'
 import { createGapsLayer } from './gapsLayer'
+import { createGrappleLayer } from './grappleLayer'
 import { createHazardsLayer } from './hazardsLayer'
 import { createSandboxLayer } from './sandboxLayer'
 import { DRAW_DISTANCE, type Layer } from './layer'
@@ -36,7 +38,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
   const effects = createEffects3d()
   group.add(effects.group)
   // Each layer owns one slice of the scene. They are independent, so they can be worked on separately.
-  const layers: Layer[] = [createRoomsLayer, createPropsLayer, createFixturesLayer, createDevicesLayer, createStructureLayer, createHazardsLayer, createSandboxLayer, createGapsLayer].map((create) => create(world, materials))
+  const layers: Layer[] = [createRoomsLayer, createPropsLayer, createFixturesLayer, createDevicesLayer, createStructureLayer, createHazardsLayer, createSandboxLayer, createGapsLayer, createGrappleLayer].map((create) => create(world, materials))
   for (const layer of layers) group.add(layer.group)
 
   const player = new Figure('operative')
@@ -73,7 +75,7 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       const hand = handOf(now)
       const motion: Motion = {
         x: feet.x, feetY: feet.y, facing: hero.facing, vx: hero.vx, vy: hero.vy, onGround: hero.onGround,
-        mode: hero.chute ? 'chute' : hero.stairs ? 'stairs' : hero.onLadder ? 'ladder' : hero.crouching ? 'crouch' : 'normal',
+        mode: hero.chute ? 'chute' : hero.stairs ? 'stairs' : hero.onLadder || onLine(now.grapple) ? 'ladder' : hero.crouching ? 'crouch' : 'normal',
         aim: Math.atan2(aim.y - hand.y, aim.x - hand.x), kick: hero.kick,
       }
       const body = player.animate({ ...motion, clock: now.clock }, now.drone ? 'drone' : TOOLS[hero.tool].id)
