@@ -29,11 +29,13 @@ const REGION_H = 36
 const MIRROR = new Vector3(-1, 1, 1)
 
 /**
- * Only furniture at least a tile tall throws a shadow worth its cost; wall decor, ceiling fittings and small
- * clutter stay out of the shadow passes.
+ * Only tall furniture (cabinets, shelves, machines: about a person's height or more) throws a shadow worth its cost;
+ * desks, chairs, wall decor, ceiling fittings and clutter stay out of the shadow passes.
  */
+const SHADOW_MIN_HEIGHT = 1.4
+
 function throwsShadow(spec: PropSpec): boolean {
-  return spec.mount === 'floor' && spec.h >= 1
+  return spec.mount === 'floor' && spec.h >= SHADOW_MIN_HEIGHT
 }
 
 function depthOf(spec: PropSpec): number {
