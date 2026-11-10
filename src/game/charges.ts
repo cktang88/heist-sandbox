@@ -13,7 +13,8 @@ import type { World } from './world'
  */
 export type Charge = Body & { fuse: number | null; stuck: Vec | 'backWall' | null; face?: Vec }
 
-const THROW_SPEED = 13
+/** Hard enough that a charge thrown straight up reaches a ceiling five rows above the floor and sticks. */
+const THROW_SPEED = 19
 const STAGGER_SECONDS = 0.12
 const SIZE = 0.4
 /** Aimed this close, the charge is put where the cursor is instead of thrown. */
