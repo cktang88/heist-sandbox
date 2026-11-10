@@ -1,6 +1,7 @@
 import { BufferGeometry, Float32BufferAttribute } from 'three'
 
 export type P3 = [number, number, number]
+export type Rgb = [number, number, number]
 
 /** Collects quads for one material and turns them into a single mesh geometry. */
 export class MeshBuilder {
@@ -26,6 +27,27 @@ export class MeshBuilder {
     this.indices.push(first, first + 1, first + 2, first, first + 2, first + 3)
   }
 
+  /**
+   * Adds a four-cornered face whose facing is worked out from its corners (anticlockwise seen from the front),
+   * with its own colour at each corner. Used for bevels, whose corners need not lie in one plane.
+   */
+  face(corners: [P3, P3, P3, P3], uvs: [number, number][], colors: [Rgb, Rgb, Rgb, Rgb]): void {
+    const [a, b, c, d] = corners
+    // Diagonals cross at the face's middle, so their cross product is a fair average facing for a slightly bent quad.
+    const u = [c[0] - a[0], c[1] - a[1], c[2] - a[2]]
+    const v = [d[0] - b[0], d[1] - b[1], d[2] - b[2]]
+    const n: P3 = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]]
+    const length = Math.hypot(...n) || 1
+    const first = this.positions.length / 3
+    corners.forEach((corner, index) => {
+      this.positions.push(...corner)
+      this.normals.push(n[0] / length, n[1] / length, n[2] / length)
+      this.uvs.push(...uvs[index])
+      this.colors.push(...colors[index])
+    })
+    this.indices.push(first, first + 1, first + 2, first, first + 2, first + 3)
+  }
+
   /** Adds all six faces of a box, textured in world space so neighbouring boxes line up. */
   box(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, uvScale: number, shade: number): void {
     const s = uvScale
@@ -44,6 +66,8 @@ export class MeshBuilder {
     geometry.setAttribute('uv', new Float32BufferAttribute(this.uvs, 2))
     geometry.setAttribute('color', new Float32BufferAttribute(this.colors, 3))
     geometry.setIndex(this.indices)
+    // Chunks are culled against the view by their bounds, so those must be right from the start.
+    geometry.computeBoundingSphere()
     return geometry
   }
 }
