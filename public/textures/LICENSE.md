@@ -12,5 +12,7 @@ Everything in `public/textures`, `public/env` and `public/audio` is public domai
 | `textures/dirt` | ambientCG Ground103 | CC0 1.0 | same |
 | `textures/asphalt` | ambientCG Asphalt031 | CC0 1.0 | same |
 | `env/night.hdr` | HDRI Haven (now Poly Haven) "Dikhololo Night", 1k | CC0 1.0 | github.com/pmndrs/drei-assets (`hdri/`) |
+| `audio/rifle.mp3`, `guard.mp3`, `shotgun.mp3`, `sniper.mp3` | The Free Firearm Sound Library (AK-47, 1911, Mossberg, Savage 10) | CC0 1.0 | github.com/petroulacl/fps-asset-kit (`sfx/firearm_sfx/`) |
+| `audio/explosion.mp3` | Kenney Sci-Fi Sounds (two explosion clips mixed) | CC0 1.0 | github.com/series-ai/jam-ready-assets (`kenney-sci-fi-sounds/`) |
 
-Textures were resized from 2K to 1K. ambientCG: https://ambientcg.com (all assets CC0). Poly Haven: https://polyhaven.com (all assets CC0).
+Recordings were trimmed to the shot, levelled and converted to mono MP3. Textures were resized from 2K to 1K. ambientCG: https://ambientcg.com (all assets CC0). Poly Haven: https://polyhaven.com (all assets CC0).

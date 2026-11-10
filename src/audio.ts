@@ -4,7 +4,8 @@ import type { World } from './game/world'
 
 /**
  * Thin adapter that turns the game's sound events into audio.
- * Every sound is synthesised from noise and simple tones, so there are no audio files.
+ * Gunfire and explosions are real recordings (CC0, see public/textures/LICENSE.md).
+ * Everything else, and any recording that has not loaded yet, is synthesised from noise and tones.
  */
 export type GameAudio = { update(world: World): void }
 
@@ -25,6 +26,15 @@ const VOICES: Record<SoundKind, Voice> = {
   pickup: { seconds: 0.05, gain: 0.1, lowpass: 8000, highpass: 3000, thump: 0, thumpGain: 0 },
 }
 
+/** Recordings in `public/audio`, by the sound they replace. */
+const RECORDINGS: Partial<Record<SoundKind, { file: string; gain: number }>> = {
+  rifle: { file: 'rifle', gain: 0.55 },
+  shotgun: { file: 'shotgun', gain: 0.8 },
+  sniper: { file: 'sniper', gain: 0.85 },
+  guardShot: { file: 'guard', gain: 0.5 },
+  explosion: { file: 'explosion', gain: 1 },
+}
+
 const HEARING_TILES = 14
 const PAN_TILES = 22
 
@@ -33,6 +43,7 @@ export function createAudio(): GameAudio {
   let master: BiquadFilterNode | null = null
   let noise: AudioBuffer | null = null
   let siren: { tone: OscillatorNode; gain: GainNode } | null = null
+  const samples = new Map<SoundKind, AudioBuffer>()
 
   // Browsers only allow sound after the player has clicked or pressed a key.
   const unlock = () => {
@@ -43,14 +54,34 @@ export function createAudio(): GameAudio {
     master.frequency.value = 20000
     master.connect(context.destination)
     noise = context.createBuffer(1, context.sampleRate, context.sampleRate)
-    const samples = noise.getChannelData(0)
-    for (let index = 0; index < samples.length; index += 1) samples[index] = Math.random() * 2 - 1
+    const hiss = noise.getChannelData(0)
+    for (let index = 0; index < hiss.length; index += 1) hiss[index] = Math.random() * 2 - 1
+    for (const [kind, recording] of Object.entries(RECORDINGS) as [SoundKind, { file: string }][]) {
+      fetch(`${import.meta.env.BASE_URL}audio/${recording.file}.mp3`)
+        .then((response) => response.arrayBuffer())
+        .then((data) => context!.decodeAudioData(data))
+        .then((buffer) => samples.set(kind, buffer))
+        .catch(() => undefined)
+    }
   }
   window.addEventListener('pointerdown', unlock)
   window.addEventListener('keydown', unlock)
 
   function play(kind: SoundKind, loudness: number, pan: number, pitch: number): void {
     if (!context || !master || !noise) return
+    const recorded = samples.get(kind)
+    if (recorded) {
+      const source = context.createBufferSource()
+      source.buffer = recorded
+      source.playbackRate.value = pitch * (0.96 + Math.random() * 0.08)
+      const level = context.createGain()
+      level.gain.value = (RECORDINGS[kind]?.gain ?? 1) * loudness
+      const side = context.createStereoPanner()
+      side.pan.value = pan
+      source.connect(level).connect(side).connect(master)
+      source.start()
+      return
+    }
     const voice = VOICES[kind]
     const now = context.currentTime
     const length = voice.seconds / pitch
