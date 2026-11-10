@@ -3,7 +3,7 @@ import { GUNS } from '../game/guns'
 import { lightLevelAt } from '../game/light'
 import { MAX_FOCUS_SECONDS } from '../game/player'
 import type { Room, RoomKind } from '../game/site'
-import { TOOLS } from '../game/toolDefs'
+import { HOTKEYS, TOOLS, toolsOnKey } from '../game/toolDefs'
 import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
@@ -224,15 +224,20 @@ function drawCrosshair(context: CanvasRenderingContext2D, world: World, camera: 
 /** Ten slots along the bottom. On a narrow screen the slots shrink and names are cut short, but ammo always shows. */
 function drawTools(context: CanvasRenderingContext2D, world: World, unit: number, width: number, height: number): void {
   const gap = Math.max(2, unit * 0.2)
-  const slot = Math.min(unit * 8.5, (width - unit * 2) / TOOLS.length)
-  const left = width / 2 - (slot * TOOLS.length) / 2
+  const slot = Math.min(unit * 8.5, (width - unit * 2) / HOTKEYS)
+  const left = width / 2 - (slot * HOTKEYS) / 2
   const h = unit * 2.7
   const y = height - h - unit * 0.6
   const size = Math.min(unit * 0.78, slot / 6.5)
-  TOOLS.forEach((tool, index) => {
-    const x = left + index * slot
+  // One box per key. A key with several tools shows the one in hand (or its first) and how many it cycles through.
+  for (let key = 0; key < HOTKEYS; key += 1) {
+    const onKey = toolsOnKey(key)
+    const held = onKey.indexOf(world.player.tool)
+    const index = held < 0 ? onKey[0] : world.player.tool
+    const tool = TOOLS[index]
+    const x = left + key * slot
     const w = slot - gap
-    const selected = index === world.player.tool
+    const selected = held >= 0
     context.fillStyle = selected ? 'rgba(255,255,255,0.2)' : 'rgba(6,8,12,0.6)'
     context.fillRect(x, y, w, h)
     if (selected) {
@@ -242,16 +247,16 @@ function drawTools(context: CanvasRenderingContext2D, world: World, unit: number
     }
     context.fillStyle = tool.quiet ? '#7ee08a' : '#ff7a5a'
     context.fillRect(x, y + h - unit * 0.18, w, unit * 0.18)
-    // A second-page tool shares its key with a first-page one.
-    const key = String(((tool.slot ?? index) + 1) % 10)
-    caption(context, key, x + unit * 0.35, y + size * 1.25, selected ? '#ffd27a' : DIM, size * 0.85, 'left')
-    const nameLeft = x + unit * 0.35 + measure(context, key, size * 0.85) + unit * 0.35
+    const label = String((key + 1) % 10)
+    caption(context, label, x + unit * 0.35, y + size * 1.25, selected ? '#ffd27a' : DIM, size * 0.85, 'left')
+    const nameLeft = x + unit * 0.35 + measure(context, label, size * 0.85) + unit * 0.35
     caption(context, fit(context, tool.name.toUpperCase(), size, x + w - unit * 0.3 - nameLeft), nameLeft, y + size * 1.25, selected ? '#ffffff' : '#b4bcc8', size, 'left')
+    if (onKey.length > 1) caption(context, `${Math.max(0, held) + 1}/${onKey.length}`, x + unit * 0.35, y + h - unit * 0.55, selected ? '#ffd27a' : DIM, size * 0.8, 'left')
     const ammo = world.player.ammo[index]
     const count = GUNS[tool.id] ? `${world.player.mags[index]} / ${ammo}` : Number.isFinite(ammo) ? `${ammo}` : '∞'
     const empty = GUNS[tool.id] ? world.player.mags[index] === 0 : ammo === 0
     caption(context, count, x + w - unit * 0.35, y + h - unit * 0.55, empty ? '#ff6a5a' : selected ? '#ffffff' : DIM, size, 'right')
-  })
+  }
 }
 
 function drawHelp(context: CanvasRenderingContext2D, unit: number, width: number, height: number): void {

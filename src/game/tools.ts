@@ -76,6 +76,8 @@ export function useTool(world: World, input: Input, dt: number): void {
     playSound(world, 'reload', hand)
     return
   }
+  // Out of rounds everywhere: the hammer clicks on an empty chamber.
+  if (empty && input.firePressed) playSound(world, 'switch', hand)
   if (!pulled || player.cooldown > 0 || empty) return
   player.mags[player.tool] -= 1
   player.cooldown = tool.cooldown
