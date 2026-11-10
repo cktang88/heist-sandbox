@@ -131,8 +131,12 @@ function buildSewer(site: SiteDraft): void {
 function buildSkyBridge(site: SiteDraft): void {
   const floorY = site.groundY - BRIDGE_STOREY * STOREY
   const [from, to] = [TOWER.x1, QUARTERS.x0]
-  fill(site, from, floorY, to, floorY, 'reinforced')
+  // The deck can be blown out like any floor; only its ends, the buildings' slab ends, are part of the frame.
+  fill(site, from + 1, floorY, to - 1, floorY, 'concrete')
   fill(site, from, floorY - STOREY, to, floorY - STOREY, 'steel')
+  // The doorways replace any window there, so no sliver of a pane is left above a door.
+  fill(site, from, floorY - 4, from, floorY - 1, 'concrete')
+  fill(site, to, floorY - 4, to, floorY - 1, 'brick')
   fill(site, from, floorY - 3, from, floorY - 1, 'door')
   fill(site, to, floorY - 3, to, floorY - 1, 'door')
   site.interiors.push({ kind: 'room', x: from + 1, y: floorY - STOREY, w: to - from - 1, h: STOREY })

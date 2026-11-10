@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Level } from '../site'
+import { windowAt } from '../grapple/windows'
+import { tileAt } from '../tiles'
+import { createWorld } from '../world'
 import { createComplex } from './complex'
+import { STOREY } from './kit'
 import {
   deviceProblems, dropZone, fixtureProblems, guardProblems, propProblems, reachable, reachedRoom, reachedSpot, roomProblems, siteFor,
 } from './audit'
@@ -66,6 +70,23 @@ describe('the generated complex', () => {
     const { extraction: van } = level
     const out = Array.from({ length: van.w }, (_, index) => van.x + index).some((x) => reachedSpot(level, back, x, van.y + van.h))
     expect(out).toBe(true)
+  })
+})
+
+describe('outer-wall windows', () => {
+  it.each([1, 2, 3, 4, 13, 18])('seed %i lets the player climb in through every window from outside', (seed) => {
+    const world = createWorld(seed, 'complex')
+    const problems: string[] = []
+    for (const building of world.interiors.filter((area) => area.kind === 'room' && area.h > STOREY)) {
+      for (const [wall, outside] of [[building.x, -1], [building.x + building.w - 1, 1]] as const) {
+        for (let row = building.y; row < building.y + building.h; row += 1) {
+          if (tileAt(world.grid, wall, row) !== 'glass' || tileAt(world.grid, wall, row - 1) === 'glass') continue
+          const spot = windowAt(world, wall, row, -outside as 1 | -1)
+          if (!spot?.footing || spot.bottom - spot.top !== 2) problems.push(`window at ${wall},${row}`)
+        }
+      }
+    }
+    expect(problems).toEqual([])
   })
 })
 

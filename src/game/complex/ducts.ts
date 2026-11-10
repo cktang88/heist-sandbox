@@ -87,7 +87,8 @@ function sharesWall(grid: Grid, a: Room, b: Room): boolean {
  */
 function canCarry(grid: Grid, run: DuctRun): boolean {
   const floorY = run.crawlY + 1
-  const capped = [run.left - 1, run.right + 1].every((x) => isSolidAt(grid, x, run.crawlY) && isSolidAt(grid, x, floorY))
+  // A window is no end wall: the duct would block the top of it, and nobody inside could climb out through it.
+  const capped = [run.left - 1, run.right + 1].every((x) => isSolidAt(grid, x, run.crawlY) && isSolidAt(grid, x, floorY) && tileAt(grid, x, floorY) !== 'glass')
   const propped = run.rooms.slice(1).some((room) => isSolidAt(grid, room.x - 1, floorY + 1))
   return capped && propped
 }

@@ -1,6 +1,6 @@
 import { randomInt } from '../rng'
 import type { Room, RoomKind } from '../site'
-import { setTile, type TileKind } from '../tiles'
+import { isSolidAt, setTile, tileAt, type TileKind } from '../tiles'
 import { addRoom, chance, circuitOf, fill, pick, ROOM_HEIGHT, STOREY, type SiteDraft } from './kit'
 
 /** A stair lobby (the staircase itself runs up the back of it). `to` may be one above the top storey, meaning the roof. */
@@ -61,9 +61,6 @@ export function buildBlock(site: SiteDraft, spec: BlockSpec): void {
     fill(site, wall, roofY - 1, wall, site.groundY - 1, spec.facade)
     fill(site, wall, site.groundY, wall, bottomY, 'reinforced')
     for (let storey = 1; storey <= storeys; storey += 1) setTile(site.grid, wall, floorY(storey), 'reinforced')
-    for (let storey = 1; storey < storeys; storey += 1) {
-      fill(site, wall, floorY(storey) - 4, wall, floorY(storey) - 2, chance(site.rng, 0.6) ? 'glass' : spec.facade)
-    }
   }
   for (const side of spec.doors) fill(site, side === -1 ? x0 : x1, site.groundY - 3, side === -1 ? x0 : x1, site.groundY - 1, 'door')
 
@@ -85,6 +82,24 @@ export function buildBlock(site: SiteDraft, spec: BlockSpec): void {
   for (let storey = -basements; storey < storeys; storey += 1) {
     for (const span of voids) splits.push({ y: floorY(storey), from: span.from, to: span.to })
     voids = layOutStorey(site, spec, storey, floorY(storey), voids)
+  }
+  glaze(site, spec, floorY)
+}
+
+/**
+ * Puts windows in the outer walls, three rows tall, only where someone can climb through: open room just inside
+ * with a floor under it (not a strip walled off solid, a shaft or the void over a double-height room), and no door
+ * cutting into the pane.
+ */
+function glaze(site: SiteDraft, spec: BlockSpec, floorY: (storey: number) => number): void {
+  for (const [wall, inside] of [[spec.x0, spec.x0 + 1], [spec.x1, spec.x1 - 1]]) {
+    for (let storey = 1; storey < spec.storeys; storey += 1) {
+      const y = floorY(storey)
+      const pane = chance(site.rng, 0.6)
+      const enterable = !isSolidAt(site.grid, inside, y - 2) && isSolidAt(site.grid, inside, y)
+      const doorway = [y - 4, y - 3, y - 2].some((row) => tileAt(site.grid, wall, row) === 'door')
+      if (pane && enterable && !doorway) fill(site, wall, y - 4, wall, y - 2, 'glass')
+    }
   }
 }
 
