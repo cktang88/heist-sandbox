@@ -59,6 +59,8 @@ const PULL_BACK_OPEN = 6
 /** A line of fire blocked by a colleague this long, and he moves up beside him; this close beside him (side by side in depth) his line starts past him. */
 const BLOCKED_SECONDS = 0.6
 const SHOULDER_TO_SHOULDER = 0.05
+/** Within this of the shoulder-to-shoulder spot, he has got there. */
+const SHOULDERED = 0.4
 /** Blind fire is not wasted on a last known position this far away. */
 const BLIND_REACH = 25
 
@@ -149,7 +151,10 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
     // somewhere (he is not on his way to the door, so there is nothing to wait for).
     const restless = guard.combatRole === 'hold' && !guard.seesPlayer && (guard.lostSeconds > COMBAT.holdPatience || dugIn(world))
     if (restless) moveUp(world, guard, known, dt)
-    else if (!shoulderUp(world, guard, known, dt)) moveForRole(world, guard, known, guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : guard.combatRole, dt)
+    else {
+      shoulderUp(world, guard, known)
+      moveForRole(world, guard, known, guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : guard.combatRole, dt)
+    }
   }
   faceThreat(guard, known)
   if (isShielded(world, guard)) {
@@ -303,7 +308,8 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
         return
       }
       if (guard.cover) {
-        takeCover(world, guard, guard.cover, dt)
+        // No way to it from here (a hole between): he thinks again next moment.
+        if (takeCover(world, guard, guard.cover, dt) === 'blocked') guard.cover = null
         return
       }
       if (!guard.seesPlayer) {
@@ -317,7 +323,9 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
       return
     }
     case 'suppress':
-      hold(world, guard, dt)
+      // He fires from where he stands, unless a colleague in his line sent him to a spot beside him (shoulderUp).
+      if (!guard.cover) return hold(world, guard, dt)
+      if (takeCover(world, guard, guard.cover, dt) === 'blocked') guard.cover = null
       return
     case 'flank': {
       // The squad hands a flanker his route when it gives him the job (squad.ts, flank.ts).
@@ -343,17 +351,21 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
 }
 
 /**
- * A colleague has stood in his line of fire for a while: he moves up beside him, shoulder to shoulder, where he has a
- * shot past him. Returns true while he is doing that.
+ * A colleague has stood in his line of fire for a while: the spot beside him, shoulder to shoulder, where he has a shot
+ * past him, becomes the place he moves to (his role takes him there).
  */
-function shoulderUp(world: World, guard: Guard, known: Vec, dt: number): boolean {
-  if (!guard.seesPlayer || world.clock - guard.lineBlockedSince < BLOCKED_SECONDS) return false
+function shoulderUp(world: World, guard: Guard, known: Vec): void {
+  if (!guard.seesPlayer || world.clock - guard.lineBlockedSince < BLOCKED_SECONDS) return
   const blocker = blockerInLine(world, guard, eyeOf(guard), known)
-  if (!blocker) return false
+  if (!blocker) return
   const at = feetOf(blocker)
-  const side = Math.sign(feetOf(guard).x - at.x) || 1
-  goTo(world, guard, { x: at.x + side * SHOULDER_TO_SHOULDER, y: at.y }, PATROL.hurrySpeed, dt, false)
-  return true
+  const feet = feetOf(guard)
+  const side = Math.sign(feet.x - at.x) || 1
+  const spot = { x: at.x + side * SHOULDER_TO_SHOULDER, y: at.y }
+  // Beside him already and still no shot past him (he stands higher or lower): his role finds him another spot.
+  if (sameFloor(feet, spot) && Math.abs(feet.x - spot.x) < SHOULDERED) return
+  // Kept as the spot he is making for, so a colleague bobbing in and out of his line does not turn him back and forth.
+  guard.cover = { ...spot, high: false }
 }
 
 /** The man has stayed put long enough that he is fighting from there, not moving through the building. */
