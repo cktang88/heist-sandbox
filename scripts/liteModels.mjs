@@ -2,8 +2,10 @@
 /**
  * Writes light copies of the library models the props use, for a side view where a prop is 10 to 80 pixels tall:
  * - triangles cut to a budget that follows the model's size (meshoptimizer's simplifier, which keeps UV seams closed),
- * - colour textures kept (256 px for small models, 512 px otherwise); normal maps kept at 256 px on large models only;
- *   roughness/metalness/occlusion maps replaced by their average value,
+ * - colour textures kept (256 px for small models, 512 px otherwise); normal maps dropped (a prop's surface detail is
+ *   finer than a pixel here) and roughness/metalness/occlusion maps replaced by their average value,
+ * - surfaces drawn one-sided unless they are cut-outs (leaves, grilles): the camera only ever sees a prop's outside,
+ *   and one-sided, map-only materials share a handful of shader programs instead of one per combination,
  * - glass, clear coat and specular extensions replaced by plain see-through or plain surfaces, so every prop is an
  *   ordinary standard material (no extra transmission pass, far fewer shader variants).
  * Output: one self-contained .glb per model in public/models/lite/ or public/models2/lite/, and
@@ -31,9 +33,8 @@ const MAX_TRIANGLES = 1500
 const MAX_ERROR = 0.02
 /** Pieces this small (a slat, a knob) are left alone: cutting them further would break them, not save anything. */
 const KEEP_BELOW = 100
-/** Models smaller than this (largest side, metres) get small colour maps and no normal map. */
+/** Models smaller than this (largest side, metres) get small colour maps. */
 const SMALL = 0.9
-const LARGE = 1.4
 
 const COMPONENTS = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 }
 const ARRAYS = { 5120: Int8Array, 5121: Uint8Array, 5122: Int16Array, 5123: Uint16Array, 5125: Uint32Array, 5126: Float32Array }
@@ -44,7 +45,7 @@ function usedIds() {
   for (const file of fs.readdirSync(dir, { recursive: true })) {
     if (!String(file).endsWith('.ts')) continue
     const text = fs.readFileSync(path.join(dir, String(file)), 'utf8')
-    for (const match of text.matchAll(/(?:scanned|library)\(\w+, '([^']+)'/g)) ids.add(match[1])
+    for (const match of text.matchAll(/(?:scan|scanned|library)\(\w+, '([^']+)'/g)) ids.add(match[1])
     if (String(file).endsWith('library.ts')) for (const list of text.matchAll(/models: \[([^\]]*)\]/g)) for (const id of list[1].matchAll(/'([^']+)'/g)) ids.add(id[1])
   }
   ids.delete('built')
@@ -216,7 +217,7 @@ class GlbWriter {
 }
 
 /** Glass, clear coat and specular tints become plain standard surfaces; glass turns into simple see-through. */
-function plainMaterial(material, model, textureUse) {
+function plainMaterial(material, model) {
   const ext = material.extensions ?? {}
   const pbr = (material.pbrMetallicRoughness ??= {})
   if (ext.KHR_materials_transmission) {
@@ -237,12 +238,13 @@ function plainMaterial(material, model, textureUse) {
     }
     delete holder[slot]
   }
-  if (material.normalTexture && textureUse.dropNormals) delete material.normalTexture
+  delete material.normalTexture
+  if (material.alphaMode !== 'MASK') delete material.doubleSided
 }
 
 function textureSlots(material) {
   const pbr = material.pbrMetallicRoughness ?? {}
-  return [[pbr, 'baseColorTexture', 'color'], [material, 'emissiveTexture', 'color'], [material, 'normalTexture', 'normal']].filter(([holder, slot]) => holder[slot])
+  return [[pbr, 'baseColorTexture'], [material, 'emissiveTexture']].filter(([holder, slot]) => holder[slot])
 }
 
 function liteModel(url, size, out) {
@@ -257,14 +259,13 @@ function liteModel(url, size, out) {
   const triangles = (primitive) => json.accessors[primitive.indices ?? primitive.attributes.POSITION].count / 3
   const total = meshes.reduce((sum, mesh, i) => sum + (uses.get(i) ?? 0) * mesh.primitives.reduce((s, p) => s + triangles(p), 0), 0)
   const share = Math.min(1, budget / Math.max(1, total))
-  const dropNormals = largest < LARGE
-  for (const material of json.materials ?? []) plainMaterial(material, model, { dropNormals })
+  for (const material of json.materials ?? []) plainMaterial(material, model)
 
-  // Images: re-encode only those still used, at the size their role and the model's size call for.
+  // Images: re-encode only those still used, at the size the model's size calls for.
   const textureSize = new Map()
   for (const material of json.materials ?? []) {
-    for (const [holder, slot, role] of textureSlots(material)) {
-      const want = role === 'normal' ? 256 : largest < SMALL ? 256 : 512
+    for (const [holder, slot] of textureSlots(material)) {
+      const want = largest < SMALL ? 256 : 512
       const index = holder[slot].index
       textureSize.set(index, Math.max(textureSize.get(index) ?? 0, want))
     }
