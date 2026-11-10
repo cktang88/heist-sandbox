@@ -18,7 +18,9 @@ const BAND: Partial<Record<PropKind, Band>> = {
 }
 
 const MIN_WALL_ITEMS = 4
-const SERVICE_RUNS: readonly PropKind[] = ['conduitRun', 'ventGrille', 'roomNumber', 'pipeRun', 'exitSign']
+/** Floor and wall pieces together that keep even a small room from looking bare. */
+const MIN_DRESSING = 6
+const SERVICE_RUNS: readonly PropKind[] = ['conduitRun', 'ventGrille', 'roomNumber', 'pipeRun', 'exitSign', 'fireExtinguisher', 'wallClock']
 
 const overlaps =(a: WallRect, b: WallRect, pad: number) =>
   a.left < b.right + pad && b.left < a.right + pad && a.top < b.bottom + pad && b.top < a.bottom + pad
@@ -98,9 +100,9 @@ export function hangWall(rng: Rng, grid: Grid, room: Room, style: RoomStyle, flo
     const prop = hang(rng, hanger, kind, () => bandTop(rng, room, kind, eyeLine))
     if (prop) out.push(prop)
   }
-  // A cramped room whose wall is hidden behind furniture still gets its services run along the top.
+  // A cramped room whose wall is hidden behind furniture (or with little floor to furnish) still gets its services.
   for (const kind of SERVICE_RUNS) {
-    if (out.length >= MIN_WALL_ITEMS) break
+    if (out.length >= MIN_WALL_ITEMS && out.length + floor.length >= MIN_DRESSING) break
     const prop = hang(rng, hanger, kind, () => bandTop(rng, room, kind, eyeLine))
     if (prop) out.push(prop)
   }

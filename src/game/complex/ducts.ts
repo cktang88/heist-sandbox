@@ -7,7 +7,7 @@ import { chance, pick, ROOM_HEIGHT, type SiteDraft } from './kit'
  * Odds that a storey which can take a duct gets one. Only some storeys can (a duct needs a long enough
  * stretch of rooms with a doorway to rest on), so this keeps the share of all storeys near half.
  */
-const DUCT_ODDS = 0.65
+const DUCT_ODDS = 0.6
 const MIN_LENGTH = 20
 const MAX_LENGTH = 45
 /** Grates sit this many tiles in from each end wall. */

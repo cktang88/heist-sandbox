@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { createComplex } from '../complex/complex'
-import { propSpec } from '../propCatalog'
+import { PROP_KINDS, propSpec } from '../propCatalog'
 import type { Level, Prop, Room } from '../site'
-import { isSolidAt } from '../tiles'
+import { isSolidAt, TILE_KINDS } from '../tiles'
+import { floorSpans } from './space'
 import { DESKS, OUTDOOR } from './styles'
 
 const SEEDS = [1, 2, 3, 7, 42]
@@ -19,6 +20,23 @@ const roomOf = (site: Level, prop: Prop) => site.rooms[prop.roomId!]
 const lampsIn = (site: Level, room: Room) =>
   site.lamps.filter((lamp) => lamp.x >= room.x && lamp.x <= room.x + room.w && lamp.y >= room.y && lamp.y <= room.floorY)
 const furnished = (site: Level) => site.props.filter((prop) => prop.roomId !== undefined)
+
+const SMALLEST_COVER = Math.min(...PROP_KINDS.filter((kind) => propSpec(kind).mount === 'floor' && propSpec(kind).cover !== 'none').map((kind) => propSpec(kind).w))
+
+/** The widest stretch of a room's furnishable floor with nothing standing on it. */
+function widestOpenFloor(site: Level, room: Room): number {
+  const standing = site.props.filter((prop) => prop.roomId === room.id && mount(prop) === 'floor' && propSpec(prop.kind).h > 0.1).map(extent)
+  let widest = 0
+  for (const span of floorSpans(site, room)) {
+    let from = span.from
+    for (const { left, right } of standing.filter((other) => other.right > span.from && other.left < span.to).sort((a, b) => a.left - b.left)) {
+      widest = Math.max(widest, left - from)
+      from = Math.max(from, right)
+    }
+    widest = Math.max(widest, span.to - from)
+  }
+  return widest
+}
 
 describe('furnishSite', () => {
   it('dresses the same seed the same way', () => {
@@ -68,7 +86,9 @@ describe('furnishSite', () => {
       const room = roomOf(site, prop)
       const { left, right } = extent(prop)
       const where = `${prop.kind} at ${prop.x},${prop.y} in ${room.kind} ${room.id}`
-      if (mount(prop) === 'ceiling') expect(prop.y, where).toBe(room.y)
+      // Under a duct, ceiling items hang from the duct floor two rows down.
+      const underDuct = site.grid.kinds[(room.y + 1) * site.grid.width + Math.floor(prop.x + 0.5)] === TILE_KINDS.indexOf('duct')
+      if (mount(prop) === 'ceiling') expect(prop.y, where).toBe(underDuct ? room.y + 2 : room.y)
       if (mount(prop) !== 'wall') continue
       expect(prop.y, where).toBeGreaterThanOrEqual(room.y)
       expect(prop.y + propSpec(prop.kind).h, where).toBeLessThanOrEqual(room.floorY)
@@ -108,11 +128,13 @@ describe('furnishSite', () => {
     }
   })
 
-  it.each(SEEDS)('seed %i gives every room wider than ten tiles at least two pieces of cover', (seed) => {
+  it.each(SEEDS)('seed %i gives every room wider than ten tiles at least two pieces of cover, unless its floor is already full', (seed) => {
     const site = level(seed)
     for (const room of site.rooms.filter((r) => r.w > 10)) {
       const cover = site.props.filter((prop) => prop.roomId === room.id && mount(prop) === 'floor' && propSpec(prop.kind).cover !== 'none')
-      expect(cover.length, `${room.kind} ${room.id}`).toBeGreaterThanOrEqual(room.security >= 2 ? 3 : 2)
+      if (cover.length >= (room.security >= 2 ? 3 : 2)) continue
+      // Too full to add any: no stretch of open floor wide enough for the smallest piece of cover.
+      expect(widestOpenFloor(site, room), `${room.kind} ${room.id}`).toBeLessThan(SMALLEST_COVER + 0.2)
     }
   })
 
