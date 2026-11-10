@@ -32,6 +32,24 @@ describe('collapse', () => {
     expect(findUnsupported(grid).length).toBe(2)
   })
 
+  it('a watchtower whose legs are cut comes down: its ladder holds nothing up', () => {
+    const world = createWorld(1, 'complex')
+    const ground = world.groundY
+    for (const leg of [46, 50]) setTile(world.grid, leg, ground - 2, 'air')
+    const loose = findUnsupported(world.grid, slabRows(world)).map((index) => [index % world.grid.width, Math.floor(index / world.grid.width)])
+    expect(loose).toContainEqual([47, ground - 10])
+    expect(loose).toContainEqual([46, ground - 3])
+  })
+
+  it('a ladder between the walls of a shaft still ties them together', () => {
+    const grid = createGrid(8, 8)
+    fillTiles(grid, 0, 7, 7, 7, 'bedrock')
+    fillTiles(grid, 2, 1, 2, 6, 'brick')
+    fillTiles(grid, 3, 1, 3, 6, 'ladder')
+    fillTiles(grid, 4, 1, 4, 3, 'brick')
+    expect(findUnsupported(grid)).toEqual([])
+  })
+
   it('drops a piece of the reinforced frame cut off on every side, with the slab beside it', () => {
     const grid = createGrid(8, 8)
     fillTiles(grid, 0, 7, 7, 7, 'bedrock')

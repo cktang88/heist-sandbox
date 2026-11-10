@@ -9,7 +9,7 @@ import { playSound } from './sounds'
 import { builtAs, BUILT_NONE } from './gaps/holes'
 import { currentHoles } from './gaps/state'
 import { findUnsupportedNear } from './collapseNear'
-import { bandOf, CARRIES, DUCT, HANGER_ROWS, SOLID, STOREY, type SlabRow } from './support'
+import { bandOf, CARRIES, carriesVertically, DUCT, HANGER_ROWS, SOLID, STOREY, storeyedMask, type SlabRow } from './support'
 import { changeMark, changesFrom, CLEAR_OF_LANE, RUBBLE, setLaneFlags, setTile, TILE_DEFS, tileAt, type Grid, type TileKind } from './tiles'
 import type { Interior } from './site'
 import type { Rect } from './types'
@@ -34,6 +34,7 @@ export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): num
   const { width, height, kinds } = grid
   const size = width * height
   clearScratch(size)
+  storeyed = storeyedMask(grid, slabs)
   for (let index = (height - 1) * width; index < size; index += 1) if (SOLID[kinds[index]]) reach(kinds, index)
   spread(grid)
   const loose: number[] = []
@@ -64,6 +65,8 @@ export function findUnsupported(grid: Grid, slabs: readonly SlabRow[] = []): num
 let supported = new Uint8Array(0)
 let stack = new Int32Array(0)
 let top = 0
+/** Where ladders carry up and down (see `storeyedMask`), for the grid being checked. */
+let storeyed: Uint8Array = new Uint8Array(0)
 
 function clearScratch(size: number): void {
   if (supported.length !== size) {
@@ -88,8 +91,8 @@ function spread(grid: Grid): void {
   while (top > 0) {
     const index = stack[--top]
     const x = index % width
-    if (index >= width) reach(kinds, index - width)
-    if (index + width < size) reach(kinds, index + width)
+    if (index >= width && carriesVertically(kinds, storeyed, index, index - width)) reach(kinds, index - width)
+    if (index + width < size && carriesVertically(kinds, storeyed, index, index + width)) reach(kinds, index + width)
     if (x > 0) reach(kinds, index - 1)
     if (x < width - 1) reach(kinds, index + 1)
     // Ducts hang on rods from the slab two rows up, over their crawl space, not from the doors they pass over.
