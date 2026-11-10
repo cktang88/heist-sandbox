@@ -108,10 +108,10 @@ describe('a wrecked fuse box', () => {
     const { world, x } = setUp()
     addRoom(world, 'office', 0)
     const box = addDevice(world, { kind: 'fusebox', x: x + 20, y: GROUND - 2, circuit: CIRCUIT })
-    const lightSwitch = addDevice(world, { kind: 'lightSwitch', x, y: GROUND - 2, circuit: CIRCUIT })
+    addDevice(world, { kind: 'lightSwitch', x, y: GROUND - 2, circuit: CIRCUIT })
     world.deadCircuits.add(CIRCUIT)
     box.disabled = true
-    return { world, lightSwitch }
+    return { world, x }
   }
 
   it('cannot be bypassed with a light switch on its circuit', () => {
