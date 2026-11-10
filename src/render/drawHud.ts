@@ -311,11 +311,14 @@ function drawTools(context: CanvasRenderingContext2D, world: World, unit: number
     caption(context, label, x + unit * 0.35, y + size * 1.25, selected ? '#ffd27a' : DIM, size * 0.85, 'left')
     const nameLeft = x + unit * 0.35 + measure(context, label, size * 0.85) + unit * 0.35
     caption(context, fit(context, tool.name.toUpperCase(), size, x + w - unit * 0.3 - nameLeft), nameLeft, y + size * 1.25, selected ? '#ffffff' : '#b4bcc8', size, 'left')
-    if (onKey.length > 1) caption(context, `${Math.max(0, held) + 1}/${onKey.length}`, x + unit * 0.35, y + h - unit * 0.55, selected ? '#ffd27a' : DIM, size * 0.8, 'left')
     const ammo = world.player.ammo[index]
     const gun = GUNS[tool.id] && !tool.action
     const count = gun ? `${world.player.mags[index]} / ${ammo}` : Number.isFinite(ammo) ? `${ammo}` : '∞'
     const empty = gun ? world.player.mags[index] === 0 : ammo === 0
+    // Which of the key's tools this is ("1/2"), when it fits beside the ammo: on a narrow window the ammo wins.
+    const page = `${Math.max(0, held) + 1}/${onKey.length}`
+    const pageFits = measure(context, page, size * 0.8) + measure(context, count, size) + unit * 1.1 <= w
+    if (onKey.length > 1 && pageFits) caption(context, page, x + unit * 0.35, y + h - unit * 0.55, selected ? '#ffd27a' : DIM, size * 0.8, 'left')
     caption(context, count, x + w - unit * 0.35, y + h - unit * 0.55, empty ? '#ff6a5a' : selected ? '#ffffff' : DIM, size, 'right')
   }
 }
