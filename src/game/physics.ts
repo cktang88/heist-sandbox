@@ -31,6 +31,27 @@ export function moveBody(grid: Grid, body: Body, dt: number): boolean {
   return blocked
 }
 
+const CORNER_LOOKAHEAD = 0.15
+const CORNER_SHIFT_STEP = 0.05
+const MAX_CORNER_SHIFT = 0.35
+
+/**
+ * A body jumping up into a ceiling that only clips its edge is slid sideways into the opening,
+ * so a narrow hatch or grate does not need pixel-perfect lining up. Tries the smallest shift first.
+ */
+export function slipPastCorner(grid: Grid, body: Body, preferred: number): void {
+  if (body.vy >= 0 || !boxHitsSolid(grid, { ...body, y: body.y - CORNER_LOOKAHEAD })) return
+  const sides = preferred < 0 ? [-1, 1] : [1, -1]
+  for (let shift = CORNER_SHIFT_STEP; shift <= MAX_CORNER_SHIFT + EPSILON; shift += CORNER_SHIFT_STEP) {
+    for (const side of sides) {
+      const x = body.x + side * shift
+      if (boxHitsSolid(grid, { ...body, x }) || boxHitsSolid(grid, { ...body, x, y: body.y - CORNER_LOOKAHEAD })) continue
+      body.x = x
+      return
+    }
+  }
+}
+
 function moveX(grid: Grid, body: Body, dx: number, canStepUp: boolean): boolean {
   if (dx === 0) return false
   body.x += dx
