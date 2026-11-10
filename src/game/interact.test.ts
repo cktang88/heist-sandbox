@@ -58,6 +58,19 @@ describe('the E key with several things in reach', () => {
     expect(tileAt(world.grid, 70, GROUND - 1)).toBe('air')
   })
 
+  it('reaches the cable of a camera on the top row of a room by standing under it', () => {
+    const world = createWorld(1, 'complex')
+    world.guards = []
+    const gatehouse = world.rooms.find((room) => room.kind === 'gatehouse')!
+    const camera = world.devices.find((device) => device.kind === 'camera' && device.roomId === gatehouse.id)!
+    expect(gatehouse.floorY - camera.y).toBe(5)
+    placePlayer(world, camera.x + 0.5, gatehouse.floorY)
+    play(world, 0.1)
+    expect(world.prompt).toBe('Hold E: cut camera cable')
+    play(world, 1.2, { interact: true })
+    expect(camera.disabled).toBe(true)
+  })
+
   it('still cuts a camera cable when nothing at arm\'s length competes', () => {
     const world = createWorld(1)
     world.guards = []

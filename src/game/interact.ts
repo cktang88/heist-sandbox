@@ -17,9 +17,12 @@ const TAKEDOWN_REACH = 1.6
 const MAX_DOOR_TILES = 8
 const MEDKIT_HEAL = 50
 const AMMO_REFILL_SHARE = 0.5
-/** Most devices are worked at arm's length; cameras hang near the ceiling, so their cable is reached by stretching up. */
+/**
+ * Most devices are worked at arm's length; cameras hang near the ceiling, so their cable is reached by stretching up,
+ * even from under one on the top row of a room.
+ */
 const DEVICE_REACH = 1.8
-const CAMERA_REACH = 3.6
+const CAMERA_REACH = 3.8
 /** Walk further than this from an open terminal and it closes. */
 const TERMINAL_REACH = 2.5
 const HACK_COMPUTER_SECONDS = 1.5
