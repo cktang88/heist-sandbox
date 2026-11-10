@@ -117,7 +117,9 @@ function landingPast(world: World, x: number, sill: number, side: 1 | -1, rows: 
   return null
 }
 
+/** Floor a short step below, or a ladder to take hold of (a rope, or the service ladder of a lift shaft). */
 function hasFooting(grid: Grid, landing: Vec & { h: number }, w: number): boolean {
+  if (tileAt(grid, Math.floor(landing.x + w / 2), Math.floor(landing.y + landing.h / 2)) === 'ladder') return true
   const feet = Math.round(landing.y + landing.h)
   for (let row = feet; row < feet + FOOTING_ROWS; row += 1) {
     if (isSolidAt(grid, landing.x + 0.05, row) || isSolidAt(grid, landing.x + w - 0.05, row)) return true
@@ -166,8 +168,8 @@ function doorNear(world: World): boolean {
 /** What lies past the window, for the prompt: a room to climb into, something to climb out onto, or a drop. */
 function destination(world: World, spot: WindowSpot): 'climb in' | 'climb out' | 'jump' {
   const at = { x: spot.landing.x + world.player.w / 2, y: spot.landing.y + spot.landing.h }
-  if (spot.footing) return world.rooms.some((room) => at.x >= room.x && at.x < room.x + room.w && at.y > room.y && at.y <= room.floorY + 0.5) ? 'climb in' : 'climb out'
-  return lineReaches(world, spot) || ropeAt(world, spot) ? 'climb out' : 'jump'
+  if (spot.footing) return insideBuilding(world, at) ? 'climb in' : 'climb out'
+  return lineReaches(world, spot) ? 'climb out' : 'jump'
 }
 
 /** The parked line is long enough to take hold of from the landing. */
@@ -178,9 +180,9 @@ function lineReaches(world: World, spot: WindowSpot): boolean {
   return distance(grip, grapple.hook) <= grapple.length + 1
 }
 
-function ropeAt(world: World, spot: WindowSpot): boolean {
-  const column = Math.floor(spot.landing.x + world.player.w / 2)
-  return tileAt(world.grid, column, Math.floor(spot.landing.y + spot.landing.h / 2)) === 'ladder'
+function insideBuilding(world: World, at: Vec): boolean {
+  const within = (box: { x: number; y: number; w: number; h: number }) => at.x >= box.x && at.x < box.x + box.w && at.y > box.y && at.y <= box.y + box.h + 0.5
+  return world.rooms.some(within) || world.interiors.some((shell) => shell.kind === 'room' && within(shell))
 }
 
 /** Smashes the pane (the loud, shared glass-breaking path) and climbs through. */
