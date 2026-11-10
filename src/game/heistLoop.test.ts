@@ -30,21 +30,36 @@ function placePlayer(world: World, x: number, feetY: number): void {
 const storeyOf = (world: World, feetY: number) => Math.round((world.groundY - feetY) / 6)
 
 describe('the whole site', () => {
-  it('a quiet run: take down the vault guard, cut the camera, take the gold and get out without the alert level moving', () => {
+  it.each([0, 2, 5])('a quiet run (%i extra random draws): choke out and tie the vault guard, carry him aside, cut the camera, take the gold and get out without the alert level moving', (draws) => {
     const world = createWorld(1, 'complex')
+    for (let draw = 0; draw < draws; draw += 1) world.rng()
     hideCaseIn(world, 'vault')
     world.player.hp = 1e6
     const vault = world.rooms.find((room) => room.kind === 'vault')!
     const heavy = world.guards.find((guard) => guard.role === 'heavy' && guard.roomId === vault.id)!
     const camera = world.devices.find((device) => device.kind === 'camera' && device.roomId === vault.id)!
-    // Behind the heavy, who faces into the vault.
+    // Crouched behind the heavy, who faces into the vault: hold E to choke him out, then tie him so he stays out.
     placePlayer(world, feetOf(heavy).x - heavy.facing * 0.9, vault.floorY)
-    play(world, FRAME)
-    expect(world.prompt).toBe('E: take down')
-    play(world, FRAME, { interact: true, interactPressed: true })
-    expect(heavy.mode).toBe('dead')
+    play(world, 0.1, { crouch: true })
+    expect(world.prompt).toBe('Hold E: choke out')
+    play(world, FRAME, { crouch: true, interact: true, interactPressed: true })
+    play(world, 4, { crouch: true, interact: true }, () => heavy.out)
+    expect(heavy.out).toBe(true)
+    play(world, 0.2, { crouch: true })
+    expect(world.prompt).toBe('E: tie him up (keeps him out for good)')
+    play(world, FRAME, { crouch: true, interact: true, interactPressed: true })
+    expect(heavy.restrained).toBe(true)
 
+    // Carry him out from under the camera, so E is free for its cable, and cut it from below.
+    play(world, FRAME, { grab: true })
+    expect(world.stealth.carried).toBe(world.guards.indexOf(heavy))
+    const away = camera.x + 0.5 > feetOf(heavy).x ? { left: true } : { right: true }
+    play(world, 1, away)
+    play(world, FRAME, { grab: true })
+    expect(world.stealth.carried).toBeNull()
     placePlayer(world, camera.x + 0.5, vault.floorY)
+    play(world, FRAME)
+    expect(world.prompt).toBe('Hold E: cut camera cable')
     play(world, 1.3, { interact: true })
     expect(camera.disabled).toBe(true)
 
@@ -62,7 +77,7 @@ describe('the whole site', () => {
     expect(world.security.log).toEqual([])
     expect(world.security.level).toBe(0)
     expect(world.stats.timesSpotted).toBe(0)
-    expect(world.guards.filter((guard) => guard.mode !== 'calm' && guard.mode !== 'dead')).toEqual([])
+    expect(world.guards.filter((guard) => guard !== heavy && guard.mode !== 'calm' && guard.mode !== 'dead')).toEqual([])
   })
 
   it('a loud run: a blast near guards raises the site, guards converge on the last known position by the stairs, the response team comes and the elevators are held', () => {

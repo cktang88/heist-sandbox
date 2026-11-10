@@ -84,7 +84,7 @@ const CAMERA_REACH = 3.8
  * Floor spots under a camera, in reach of its cable, that its sweeping cone never covers: where a player stands to cut it
  * unseen. Sampled over a whole sweep. Empty means the camera cannot be approached without being on its feed.
  */
-export function cameraBlindSpots(level: Level, camera: Level['devices'][number], sweep: { halfAngle: number; sweep: number; tilt: number; range: number }): number[] {
+export function cameraBlindSpots(level: Pick<Level, 'rooms'>, camera: Level['devices'][number], sweep: { halfAngle: number; sweep: number; tilt: number; range: number }): number[] {
   const room = level.rooms.find((candidate) => candidate.id === camera.roomId)
   if (!room) return []
   const origin = { x: camera.x + 0.5, y: camera.y + 0.5 }
