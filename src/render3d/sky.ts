@@ -11,7 +11,7 @@ type Build = { levelWidth: number; groundY: number; time: TimeOfDay; variantSeed
  * Everything seen beyond the level, built once: a sky and a distant, out-of-focus city in three layers
  * (see skyline/). `variantSeed` is the value the lighting picks its photographed sky with (`lookFor`), so
  * the backdrop matches it (wet night, moonlit night, golden hour, overcast day); it also seeds the layout.
- * `style` is the art style: the pixel looks get a pixel-art version of the same city (see setSkyStyle).
+ * `style` is the art style (until the renderer passes it, the one in the address, as the renderer reads it).
  */
 export function createSky(levelWidth: number, groundY: number, time: TimeOfDay = 'night', variantSeed?: number, style: Style = styleFromQuery(location.search)): Group {
   const group = new Group()
@@ -21,7 +21,11 @@ export function createSky(levelWidth: number, groundY: number, time: TimeOfDay =
   return group
 }
 
-/** Rebuilds a backdrop made by `createSky` for another art style, only when that style needs the other version. */
+/**
+ * Rebuilds a backdrop made by `createSky` for another art style, only when that style needs the other
+ * version. The pixel looks get the city as pixel art (the soft blur turns to dither noise in their palette);
+ * so does the pencil look, whose hatching follows flat silhouettes cleanly but smears over blurred ones.
+ */
 export function setSkyStyle(group: Group, style: Style): void {
   const pixel = style.finish.kind === 'pixel' || style.finish.kind === 'sketch'
   if (group.userData.pixel === pixel) return
