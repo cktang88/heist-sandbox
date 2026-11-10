@@ -63,7 +63,7 @@ function actOnBond(world: World, people: PeopleState, person: Person, other: Per
   }
   if (bond.kind === 'partners' || bond.kind === 'couple' || bond.kind === 'brothers') {
     const down = them.stunSeconds > 0 || them.hp < them.maxHp * 0.5
-    if (down && near(guard, them, 8)) {
+    if (down && near(guard, them, 8) && inSight(world, guard, them)) {
       if (guard.shock > PARTNER_SHOCK_CAP) {
         guard.nerve = Math.min(1, guard.nerve + guard.shock - PARTNER_SHOCK_CAP)
         guard.shock = PARTNER_SHOCK_CAP
@@ -81,6 +81,12 @@ function actOnBond(world: World, people: PeopleState, person: Person, other: Per
     guard.follow = null
     say(world, people, person, 'rivalNoHelp', { about: other }, true)
   }
+}
+
+/** Can he see the man where he lies: not stuffed out of sight, not on the intruder's shoulder, nothing in between? */
+function inSight(world: World, guard: Guard, them: Guard): boolean {
+  if (them.hiddenIn !== null || world.guards[world.stealth.carried ?? -1] === them) return false
+  return clearView(world, eyeOf(guard), centerOf(them))
 }
 
 /** Standing over a knocked-out partner until he comes round. */

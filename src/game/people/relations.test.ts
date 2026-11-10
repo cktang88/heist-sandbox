@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { COMMS } from '../security/tuning'
 import { hurtGuard, stunGuard, type Guard } from '../guards'
 import { enterCombat } from '../security/combat'
-import { addGuard, arena, GROUND, putPlayer, run, runListening } from '../security/testArena'
+import { addGuard, addWall, arena, GROUND, putPlayer, run, runListening } from '../security/testArena'
+import { knockOutCold } from '../stealth/bodies'
 import type { World } from '../world'
 import { TALK, type TalkKind } from './lines'
 import { callName, enlist } from './people'
@@ -101,6 +102,22 @@ describe('bonds between guards change what they do', () => {
     run(world, 6)
     expect(b.guard.stunSeconds).toBe(0)
     expect(a.guard.station).toBeNull()
+  })
+
+  it('a partner does not sense his knocked-out partner through a wall, nor one stuffed in a cupboard', () => {
+    for (const where of ['behind a wall', 'in a cupboard'] as const) {
+      const world = arena()
+      const a = person(world, 40)
+      const b = person(world, 45)
+      bond(world, a, b, 'partners')
+      if (where === 'behind a wall') addWall(world, 43)
+      run(world, 0.3)
+      knockOutCold(world, b.guard, 30)
+      if (where === 'in a cupboard') b.guard.hiddenIn = 0
+      const heard = runListening(world, 2)
+      expect(a.guard.station).toBeNull()
+      expect(said(heard, 'partnerStays', b, world)).toBe(false)
+    }
   })
 
   it('a guard whose friend is held as a human shield pleads, and hesitates to shoot once he is let go', () => {
