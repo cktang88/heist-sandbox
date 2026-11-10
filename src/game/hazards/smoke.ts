@@ -31,6 +31,11 @@ const OPACITY_PER_TILE = 0.5
 
 const SOLID = Uint8Array.from(TILE_KINDS, (kind) => (TILE_DEFS[kind].solid ? 1 : 0))
 
+/** Makes the smoke field (ten arrays as big as the grid) now, during loading, rather than at the first puff of smoke. */
+export function prepareSmoke(world: World): void {
+  field(world)
+}
+
 function field(world: World): SmokeField {
   if (world.hazards.smoke) return world.hazards.smoke
   const size = world.grid.width * world.grid.height

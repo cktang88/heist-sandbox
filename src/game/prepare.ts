@@ -3,6 +3,7 @@ import { indexLamps } from './ballistics/lamps'
 import { prepareCollapse } from './collapse'
 import { indexCover } from './cover'
 import { propsAt } from './hazards/props'
+import { prepareSmoke } from './hazards/smoke'
 import { indexLampLight } from './light'
 import { planStairs } from './nav'
 import { indexCoverSpots } from './security/coverSpots'
@@ -14,8 +15,8 @@ import type { World } from './world'
 
 /**
  * Builds, while the site loads, the lookup tables systems otherwise build the first time they need them (props by
- * tile, cover, lamps, staircase plans, the falling-props copy of the grid, the doors and panes as built), and checks
- * once that the whole site stands. Without this the first frames of play pay for all of it at once.
+ * tile, cover, lamps, staircase plans, the smoke field, the falling-props copy of the grid, the doors and panes as
+ * built), and checks once that the whole site stands. Without this the first frames of play pay for all of it at once.
  */
 export function prepareWorld(world: World): void {
   // Building the site set every tile; play reacts only to what changes from here on.
@@ -29,6 +30,7 @@ export function prepareWorld(world: World): void {
   indexDoors(world)
   indexPanes(world)
   planStairs(world.stairwells)
+  prepareSmoke(world)
   prepareFallingProps(world)
   prepareCollapse(world)
 }
