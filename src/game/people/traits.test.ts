@@ -6,6 +6,7 @@ import { TIMING, TIERS } from '../security/tuning'
 import type { World } from '../world'
 import { enlist } from './people'
 import { TALK } from './lines'
+import { effectOf, TRAITS } from './traits'
 import type { TraitId } from './types'
 
 /** One guard facing the player across a stretch of floor, lit or dark, with the given traits. */
@@ -54,6 +55,19 @@ describe('traits change the numbers the guards already use', () => {
     expect(draw(['triggerHappy'])).toBeLessThan(plain - 0.3)
     expect(draw(['careful'])).toBeGreaterThan(plain)
     expect(plain).toBeLessThanOrEqual(TIMING.drawSeconds * TIERS.regular.draw)
+  })
+
+  it('stacked traits never push a number past what the strongest single trait does, give or take a little', () => {
+    // Jumpy and trigger-happy used to multiply to a quarter of the normal draw: an instant shot.
+    expect(effectOf(['jumpy', 'triggerHappy'], 0).draw).toBeGreaterThanOrEqual(TRAITS.triggerHappy.effect.draw!)
+    expect(effectOf(['careful', 'green'], 0).draw).toBeLessThanOrEqual(1.5)
+    expect(effectOf(['jumpy', 'sharpEyed', 'hungover'], 0).awareness).toBeLessThanOrEqual(1.5)
+    expect(effectOf(['coward', 'green'], 0).shock).toBeLessThanOrEqual(1.6)
+    expect(effectOf(['careful', 'byTheBook'], 0).search).toBeLessThanOrEqual(1.5)
+    expect(effectOf(['smoker', 'chatty', 'hungover'], 0).idle).toBeLessThanOrEqual(2)
+    // A single trait keeps its full effect.
+    expect(effectOf(['triggerHappy'], 0).draw).toBe(TRAITS.triggerHappy.effect.draw)
+    expect(effectOf(['byTheBook'], 0).idle).toBe(TRAITS.byTheBook.effect.idle)
   })
 
   it('the same fright shakes a coward far more than a brave man, whose fear has a ceiling', () => {

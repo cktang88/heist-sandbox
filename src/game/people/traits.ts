@@ -44,6 +44,14 @@ export const TRAITS: Record<TraitId, { label: string; effect: Partial<TraitEffec
   hungover: { label: 'hungover tonight', effect: { awareness: 0.75, idle: 1.3 } },
 }
 
+/**
+ * How far traits together may bend each number. Multiplied freely, two of them compound (jumpy and trigger-happy drew
+ * in a quarter of the normal time, a shot before "Contact!" was out): a man is never far past his strongest trait.
+ */
+const LIMITS = {
+  awareness: [0.5, 1.5], draw: [0.4, 1.5], shock: [0.5, 1.6], search: [0.5, 1.5], idle: [0.3, 2],
+} as const satisfies Partial<Record<keyof TraitEffect, readonly [number, number]>>
+
 /** Pairs that cannot both describe one man. */
 const CLASHES: ReadonlyArray<readonly [TraitId, TraitId]> = [
   ['brave', 'coward'], ['jumpy', 'careful'], ['lazy', 'byTheBook'], ['greedy', 'loyal'], ['triggerHappy', 'careful'],
@@ -89,6 +97,10 @@ export function effectOf(traits: readonly TraitId[], clock: number): TraitEffect
     total.search *= effect.search ?? 1
     total.slowToLook += effect.slowToLook ?? 0
     total.idle *= effect.idle ?? 1
+  }
+  for (const key of Object.keys(LIMITS) as Array<keyof typeof LIMITS>) {
+    const [low, high] = LIMITS[key]
+    total[key] = Math.min(high, Math.max(low, total[key]))
   }
   return total
 }
