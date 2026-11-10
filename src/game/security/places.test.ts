@@ -11,4 +11,9 @@ describe('where things are', () => {
     expect(floorBelow(world, { x: 22.5, y: GROUND - 4 })).toEqual({ x: 22.5, y: GROUND })
     expect(floorBelow(world, { x: 30.5, y: GROUND - 4 })).toEqual({ x: 30.5, y: GROUND })
   })
+
+  it('a spot high over open air (a blast in a shaft, a shot in the sky) is on the ground far below, never in mid-air', () => {
+    const world = arena()
+    expect(floorBelow(world, { x: 40.5, y: 2.4 })).toEqual({ x: 40.5, y: GROUND })
+  })
 })
