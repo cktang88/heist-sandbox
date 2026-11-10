@@ -2,11 +2,14 @@ import { openDoor } from '../interact'
 import { nextHop } from '../nav'
 import { emitNoise } from '../noise'
 import { GRAVITY, moveBody } from '../physics'
+import { canWalkAcross } from '../gaps/gaps'
+import { doorBlockedAt } from '../physprops/physprops'
 import { playSound } from '../sounds'
 import { climbStairs } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
 import type { Vec } from '../types'
 import type { World } from '../world'
+import { doorKeyAt } from './discoveries'
 import { feetOf, type Guard } from './model'
 
 /**
@@ -67,7 +70,8 @@ export function goTo(world: World, guard: Guard, to: Vec, speed: number, dt: num
     return level ? 'arrived' : 'moving'
   }
   guard.facing = dx > 0 ? 1 : -1
-  if (careful && ledgeAhead(world, guard)) {
+  // A hole he cannot step past, between him and a goal on this floor, stops him: dropping in would only send him back up the stairs to try again.
+  if ((careful || level) && ledgeAhead(world, guard) && !canWalkAcross(world, feet.x + guard.facing * 0.7, Math.round(feet.y))) {
     walk(world, guard, 0, dt)
     return 'blocked'
   }
@@ -102,6 +106,9 @@ function openDoorAhead(world: World, guard: Guard, kick: boolean): boolean {
     return false
   }
   const at = { x: column, y: row }
+  if (doorBlockedAt(world, at)) return true
+  // Remembered, so colleagues who find it open later know it was one of their own.
+  world.security.guardDoors.add(doorKeyAt(world, column, row))
   openDoor(world.grid, at)
   world.structureChanged = true
   emitNoise(world, at, kick ? KICKED_DOOR_NOISE : QUIET_DOOR_NOISE, 'guard')

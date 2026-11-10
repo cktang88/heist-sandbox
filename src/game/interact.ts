@@ -3,8 +3,10 @@ import { lockSeconds, keypadFor } from './devices/locks'
 import { deviceCenter, flipPower } from './devices/power'
 import { deviceState } from './devices/state'
 import { callElevator, carUnderPlayer, elevatorRefuses, shaftDoorAt, shaftOf } from './elevators'
-import { hurtGuard } from './guards'
+import { hurtGuard, restrainGuard } from './guards'
+import { windowAction } from './grapple/windows'
 import type { Input } from './input'
+import { interrogateAction, readAction } from './intel/intel'
 import { emitNoise } from './noise'
 import { playSound } from './sounds'
 import { setTile, tileAt, type Grid } from './tiles'
@@ -17,9 +19,12 @@ const TAKEDOWN_REACH = 1.6
 const MAX_DOOR_TILES = 8
 const MEDKIT_HEAL = 50
 const AMMO_REFILL_SHARE = 0.5
-/** Most devices are worked at arm's length; cameras hang near the ceiling, so their cable is reached by stretching up. */
+/**
+ * Most devices are worked at arm's length; cameras hang near the ceiling, so their cable is reached by stretching up,
+ * even from under one on the top row of a room.
+ */
 const DEVICE_REACH = 1.8
-const CAMERA_REACH = 3.6
+const CAMERA_REACH = 3.8
 /** Walk further than this from an open terminal and it closes. */
 const TERMINAL_REACH = 2.5
 const HACK_COMPUTER_SECONDS = 1.5
@@ -51,7 +56,8 @@ export function interact(world: World, input: Input, dt: number): void {
 function bestAction(world: World): Action | null {
   // Nothing is in reach through the walls of a moving car.
   if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
-  return takedownAction(world) ?? deviceAction(world) ?? elevatorAction(world) ?? deviceAction(world, true) ?? doorAction(world)
+  return interrogateAction(world) ?? takedownAction(world) ?? deviceAction(world, 'near') ?? elevatorAction(world) ?? windowAction(world) ?? doorAction(world)
+    ?? deviceAction(world, 'camera') ?? readAction(world) ?? deviceAction(world, 'lightSwitch')
 }
 
 function collect(world: World): void {
@@ -122,21 +128,31 @@ function terminalPrompt(world: World): string {
 
 function takedownAction(world: World): Action | null {
   const center = centerOf(world.player)
-  const guard = world.guards.find((other) => other.state !== 'dead' && other.state !== 'alert' && distance(centerOf(other), center) < TAKEDOWN_REACH)
+  const guard = world.guards.find((other) => other.state !== 'dead' && other.state !== 'alert' && !other.restrained && distance(centerOf(other), center) < TAKEDOWN_REACH)
   if (!guard) return null
+  // A guard with his hands up is tied, not killed.
+  if (guard.mode === 'surrendered') return { prompt: 'E: tie up', key: 'tieUp', run: () => restrainGuard(world, guard) }
   return { prompt: 'E: take down', key: 'takedown', run: () => hurtGuard(world, guard, 1000, center) }
 }
 
 /**
- * The nearest device in reach that has something to do. Light switches are everywhere, so they only win
- * when nothing more important (a terminal, a keypad, an elevator) is in reach: pass `switches` to pick them.
+ * Which devices compete for the E key, from most to least important. Cameras are reached from further away (they
+ * hang near the ceiling), so they only win when nothing at arm's length (a door, an elevator call) is in reach.
+ * Light switches are everywhere, so they come last of all.
  */
-function deviceAction(world: World, switches = false): Action | null {
+type DeviceRank = 'near' | 'camera' | 'lightSwitch'
+
+function rankOf(device: Device): DeviceRank {
+  return device.kind === 'camera' || device.kind === 'lightSwitch' ? device.kind : 'near'
+}
+
+/** The nearest device of this rank in reach that has something to do. */
+function deviceAction(world: World, rank: DeviceRank): Action | null {
   const center = centerOf(world.player)
   let best: Action | null = null
   let bestGap = Number.POSITIVE_INFINITY
   for (const device of world.devices) {
-    if ((device.kind === 'lightSwitch') !== switches) continue
+    if (rankOf(device) !== rank) continue
     const gap = distance(center, deviceCenter(device))
     if (gap > (device.kind === 'camera' ? CAMERA_REACH : DEVICE_REACH) || gap >= bestGap) continue
     const action = actionFor(world, device)
@@ -154,7 +170,7 @@ function actionFor(world: World, device: Device): Action | null {
   switch (device.kind) {
     case 'fusebox':
     case 'lightSwitch': {
-      if (device.circuit === undefined) return null
+      if (device.circuit === undefined || device.disabled) return null
       const dark = world.deadCircuits.has(device.circuit)
       const prompt = device.kind === 'fusebox' ? (dark ? 'E: restore power' : 'E: cut power') : dark ? 'E: lights on' : 'E: lights off'
       return { prompt, key, run: () => flipPower(world, device) }
@@ -208,7 +224,7 @@ function panelAction(world: World, device: Device, key: string): Action | null {
 
 function elevatorAction(world: World): Action | null {
   const inCar = carUnderPlayer(world)
-  if (inCar) return { prompt: elevatorRefuses(world, inCar) ? 'Elevator locked down' : 'W/S: ride elevator', key: 'ride', run: () => {} }
+  if (inCar) return { prompt: elevatorRefuses(world, inCar) ? 'Elevator held. Climb out by the shaft ladder' : 'W/S: ride elevator', key: 'ride', run: () => {} }
   const door = shaftDoorAt(world, world.player)
   if (!door) return null
   const { car, stop } = door

@@ -1,5 +1,6 @@
 import type { PropState } from '../cover'
 import type { Blast } from '../explosions'
+import type { NoiseSource } from '../security/hearing'
 import type { Body, Vec } from '../types'
 import type { World } from '../world'
 
@@ -18,9 +19,10 @@ export type Fire = {
 
 /**
  * A thrown grenade. A flashbang is gone once it pops; a smoke grenade lies there pouring smoke for `smokeLeft`
- * seconds into `cloud`, the tiles around it it fills.
+ * seconds into `cloud`, the tiles around it it fills. `thrower` says whose it is: guards hear their own side's bang
+ * differently, and a guard who heard "Flash out!" looks away.
  */
-export type Grenade = Body & { kind: GrenadeKind; fuse: number; popped: boolean; smokeLeft: number; cloud: number[] }
+export type Grenade = Body & { kind: GrenadeKind; fuse: number; popped: boolean; smokeLeft: number; cloud: number[]; thrower: NoiseSource }
 
 export type SprayKind = 'water' | 'foam' | 'steam' | 'gas'
 /** A jet or shower from a burst prop. `spread` is the half-angle of its cone in radians. */

@@ -1,4 +1,5 @@
 import { landingX } from '../stairs'
+import { isSolidAt, tileAt } from '../tiles'
 import type { Vec } from '../types'
 import type { World } from '../world'
 import { createGuard, setMode } from './model'
@@ -8,8 +9,9 @@ import { planSearch } from './search'
 import { LEVELS } from './tuning'
 
 /**
- * The armoured response team. It drives in from the end of the street opposite the getaway van when the
- * site reaches alert level 3, enters the building where the intruder was last reported, and sweeps it
+ * The armoured response team. It drives up when the site reaches alert level 3, comes in at a street door of
+ * the building where the intruder was last reported (from the end of the street opposite the getaway van on a
+ * site without buildings), and sweeps it
  * floor by floor up (or down) the stairs to that floor before searching around the last known position.
  * One team per alert; a later alert (after the level has stepped back down) brings another, up to a limit.
  */
@@ -23,10 +25,9 @@ export function deployResponders(world: World): void {
   security.responseSent = true
   security.responders += 1
   const goal = security.lastKnown ? floorBelow(world, security.lastKnown) : security.focus
-  const fromRight = world.extraction.x < world.grid.width / 2
+  const entry = entryFor(world, goal)
   for (let index = 0; index < LEVELS.respondersAtLevel3; index += 1) {
-    const x = fromRight ? world.grid.width - 4 - index * 2 : 3 + index * 2
-    const responder = createGuard({ x, y: world.groundY, facing: fromRight ? -1 : 1 }, true)
+    const responder = createGuard({ ...entry(index), y: world.groundY }, true)
     responder.checkInAt = Infinity
     if (goal) {
       responder.search = { ...planSearch(world, goal, SWEEP_SECONDS), index: 0 }
@@ -39,6 +40,34 @@ export function deployResponders(world: World): void {
     world.guards.push(responder)
   }
   log(world, 'Control: Response team is on site.')
+}
+
+/** Where the n-th man of a team sent toward `goal` is set down, and which way he faces. */
+export function entryFor(world: World, goal: Vec | null): (index: number) => { x: number; facing: 1 | -1 } {
+  const fromRight = world.extraction.x < world.grid.width / 2
+  const door = goal ? streetDoor(world, goal, fromRight) : null
+  return (index) => door
+    ? { x: door.x + door.inward * (2 + index * 1.5), facing: door.inward }
+    : { x: fromRight ? world.grid.width - 4 - index * 2 : 3 + index * 2, facing: fromRight ? -1 : 1 }
+}
+
+/**
+ * Where the team comes in: just inside a street door of the building the intruder was reported in, on the side
+ * away from the getaway van when that side has a door. The yards between the buildings are fenced and have open
+ * manholes, so the team is set down at the door rather than made to find its way across them. Null on a site
+ * without recorded buildings (the small outpost), where the team walks in from the street end.
+ */
+function streetDoor(world: World, goal: Vec, fromRight: boolean): { x: number; inward: 1 | -1 } | null {
+  const building = buildingAt(world, goal)
+  const ground = world.rooms.filter((room) => room.building === building && room.floorY === world.groundY)
+  if (building === 'site' || ground.length === 0) return null
+  const walls = [
+    { x: Math.min(...ground.map((room) => room.x)) - 1, inward: 1 as const },
+    { x: Math.max(...ground.map((room) => room.x + room.w)), inward: -1 as const },
+  ]
+  const doors = walls.filter((wall) => tileAt(world.grid, wall.x, world.groundY - 1) === 'door' || !isSolidAt(world.grid, wall.x, world.groundY - 1))
+  if (doors.length === 0) return null
+  return doors.find((wall) => (wall.inward === -1) === fromRight) ?? doors[0]
 }
 
 /** Each landing from the ground up to the goal's floor, in the staircase nearest the goal. */

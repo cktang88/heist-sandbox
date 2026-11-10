@@ -1,4 +1,5 @@
 import type { Input } from './game/input'
+import { wheelSelection } from './game/toolDefs'
 import { screenToWorld, type Camera } from './render/camera'
 
 /** Thin adapter: turns keyboard and mouse events into the Input the game core understands. */
@@ -9,7 +10,6 @@ export function attachInput(canvas: HTMLCanvasElement, toolCount: number): Input
   const pressed = new Set<string>()
   const mouse = { x: 0, y: 0, down: false, pressed: false }
   let wheel = 0
-  let tool = 0
   let restart = false
 
   window.addEventListener('keydown', (event) => {
@@ -24,6 +24,8 @@ export function attachInput(canvas: HTMLCanvasElement, toolCount: number): Input
     mouse.y = event.offsetY
   })
   canvas.addEventListener('mousedown', (event) => {
+    // Right-click sets off planted C4, the same as Q.
+    if (event.button === 2) pressed.add('KeyQ')
     if (event.button !== 0) return
     mouse.down = true
     mouse.pressed = true
@@ -40,8 +42,7 @@ export function attachInput(canvas: HTMLCanvasElement, toolCount: number): Input
       let selectTool: number | null = null
       // Keys 1-9 pick the first nine tools and 0 picks the tenth.
       for (let index = 0; index < toolCount; index += 1) if (pressed.has(`Digit${(index + 1) % 10}`)) selectTool = index
-      if (wheel !== 0) selectTool = (tool + wheel + toolCount) % toolCount
-      if (selectTool !== null) tool = selectTool
+      if (wheel !== 0) selectTool = wheelSelection(wheel)
       const scaleX = canvas.width / canvas.clientWidth
       const scaleY = canvas.height / canvas.clientHeight
       const input: Input = {
@@ -59,6 +60,10 @@ export function attachInput(canvas: HTMLCanvasElement, toolCount: number): Input
         reloadPressed: pressed.has('KeyR'),
         focus: held.has('ShiftLeft') || held.has('ShiftRight'),
         crouch: held.has('KeyC') || held.has('ControlLeft'),
+        punchPressed: pressed.has('KeyF'),
+        kickPressed: pressed.has('KeyV'),
+        grab: held.has('KeyG'),
+        throwPressed: pressed.has('KeyT'),
         aim: screenToWorld(camera, mouse.x * scaleX, mouse.y * scaleY),
         selectTool,
       }

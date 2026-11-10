@@ -1,7 +1,12 @@
 import { stepCharges } from './charges'
 import { stepCollapse } from './collapse'
 import { stepDevices, terminalConsumesInput } from './devices/devices'
-import { stepElevators } from './elevators'
+import { aimAtCables, stepElevators } from './elevators'
+import { stepAftermath } from './frag/aftermath'
+import { stepFrags } from './frag/frag'
+import { stepRopes } from './rope/rope'
+import { stepGrapple } from './grapple/grapple'
+import { stepFallingProps } from './vehicles/fallingProps'
 import { stepHazards } from './hazards/hazards'
 import { stepSecurity } from './security/dispatch'
 import { stepDrone } from './drone'
@@ -14,6 +19,10 @@ import { emitMovementNoise } from './movement/footsteps'
 import { movePlayer, updateFocus } from './player'
 import { stepProjectiles } from './projectiles'
 import { stepTime } from './time'
+import { stepMelee } from './melee/melee'
+import { stepIntel } from './intel/intel'
+import { stepPhysProps } from './physprops/physprops'
+import { stepGaps } from './gaps/gaps'
 import { useTool } from './tools'
 import { overlaps } from './types'
 import type { World } from './world'
@@ -41,6 +50,12 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
     // While a hacking menu is open, the number keys choose its options and not a weapon.
     useTool(world, terminalConsumesInput(world) ? { ...input, selectTool: null } : input, dt)
   }
+  stepGrapple(world, input, dt)
+  aimAtCables(world)
+  // While the drone is flown, the keys steer it: the body does not punch, kick, grab or throw.
+  const hands = world.drone ? idleInput(input.aim) : input
+  stepMelee(world, hands, dt)
+  stepPhysProps(world, hands, dt)
   stepProjectiles(world, dt)
   stepCharges(world, input.detonatePressed, dt)
   stepCollapse(world, dt)
@@ -49,7 +64,13 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   stepElevators(world, input, dt)
   stepSecurity(world, dt)
   for (const guard of world.guards) updateGuard(world, guard, dt)
+  stepGaps(world, input)
   if (!alarmBefore && world.alarm) raiseAlarm(world)
+  stepFrags(world, dt)
+  stepAftermath(world)
+  stepRopes(world)
+  stepFallingProps(world, dt)
+  stepIntel(world, dt)
 
   for (const pickup of world.pickups) {
     if (pickup.taken) continue

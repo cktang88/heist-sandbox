@@ -7,7 +7,7 @@ import { igniteGasNear, listenForShots, stepLeaks } from './gas'
 import { stepFlashes, stepGrenades } from './grenades'
 import { harmPeople } from './harm'
 import { propsAt, propsNear } from './props'
-import { blastReachesProps, stepBlasts } from './reactions'
+import { stepBlasts } from './reactions'
 import { stepSmoke } from './smoke'
 import { runSprinklers, soak, stepSprays } from './sprays'
 import type { HazardState } from './state'
@@ -42,6 +42,7 @@ function isQuiet(hazards: HazardState): boolean {
 
 export function stepHazards(world: World, dt: number): void {
   const hazards = world.hazards
+  wearOff(world.player, dt)
   if (isQuiet(hazards)) {
     hazards.fireClock = 0
     hazards.smokeClock = 0
@@ -56,6 +57,12 @@ export function stepHazards(world: World, dt: number): void {
   hazards.fireClock = runTicks(hazards.fireClock + dt, FIRE_TICK, () => fireTick(world))
   hazards.smokeClock = runTicks(hazards.smokeClock + dt, SMOKE_TICK, () => stepSmoke(world, SMOKE_TICK))
   hazards.harmClock = runTicks(hazards.harmClock + dt, HARM_TICK, () => harmPeople(world, HARM_TICK))
+}
+
+/** The player's flash and foam blindness and deafness fade with time (guards.ts does the same for guards). */
+function wearOff(player: World['player'], dt: number): void {
+  player.blindSeconds = Math.max(0, player.blindSeconds - dt)
+  player.deafSeconds = Math.max(0, player.deafSeconds - dt)
 }
 
 function runTicks(clock: number, tick: number, run: () => void): number {
@@ -75,7 +82,10 @@ function fireTick(world: World): void {
   runSprinklers(world, burningRooms, FIRE_TICK)
 }
 
-/** Starts or feeds a fire at a spot. `heat` is 0..1; 1 means an explosion, which also lights gas and breaks props nearby. */
+/**
+ * Starts or feeds a fire at a spot. `heat` is 0..1; 1 means an explosion, which also lights gas and sets burnable
+ * props alight. Breaking props in a blast is the explosion's job (explosions.ts through cover.ts), not this.
+ */
 export function igniteAt(world: World, at: Vec, heat: number): void {
   if (heat >= 1) {
     explosionFire(world, at)
@@ -92,7 +102,6 @@ export function igniteAt(world: World, at: Vec, heat: number): void {
 /** An explosion leaves a burst of flame, lights gas and catches burnable things close by. */
 function explosionFire(world: World, at: Vec): void {
   igniteGasNear(world, at, BLAST_GAS_RADIUS)
-  blastReachesProps(world, at)
   const reach = Math.ceil(BLAST_CATCH_RADIUS)
   for (let y = Math.floor(at.y) - reach; y <= Math.floor(at.y) + reach; y += 1) {
     for (let x = Math.floor(at.x) - reach; x <= Math.floor(at.x) + reach; x += 1) {

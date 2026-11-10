@@ -1,20 +1,24 @@
+import { revealedRooms } from '../game/devices/devices'
 import { GUNS } from '../game/guns'
 import { lightLevelAt } from '../game/light'
 import { MAX_FOCUS_SECONDS } from '../game/player'
 import type { Room, RoomKind } from '../game/site'
-import { TOOLS } from '../game/toolDefs'
+import { HOTKEYS, TOOLS, toolsOnKey } from '../game/toolDefs'
 import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
+import { objectiveText } from '../game/intel/intel'
 import { worldToScreen, type Camera } from './camera'
+import { drawIntel } from './intelHud'
 
 const HELP = [
   'A/D move    W/S climb and take stairs    SPACE jump, tap again to double jump',
   'HOLD SPACE while falling: parachute    C or CTRL: crouch',
-  'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool    Q: set off C4',
-  'E: pick locks, use devices, take down unaware guards, recall the drone',
+  'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool (9 again: frag; 7 again: rope, grapple)',
+  'Q or RIGHT-CLICK: set off C4    E: pick locks, use devices, take down, recall the drone',
+  'F punch    V kick    HOLD G drag furniture or grab a guard    T throw',
   'SHIFT: focus (slow motion, slowest when you hold still)',
-  'Steal the gold case from the vault and get back to the van.',
+  'Find the gold case: make guards talk, read notes, hack files. Then get to the van.',
 ]
 
 /** The site's alert levels as the player reads them, from calm to locked down. */
@@ -50,10 +54,12 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   const unit = hudUnit(height)
   drawSlowmoTint(context, world, width, height)
   drawVitals(context, world, unit)
+  drawIntel(context, world, unit, width, height)
   drawSituation(context, world, unit, width)
   drawTools(context, world, unit, width, height)
   drawCrosshair(context, world, camera, aim)
   if (world.drone) caption(context, `DRONE  ${Math.ceil(world.drone.battery)}s   click: detonate   E: recall`, width / 2, unit * 2, '#6fd0ff', unit, 'center')
+  if (world.charges.length > 0) caption(context, `C4 SET x${world.charges.length}   Q or right-click: detonate all`, width / 2, unit * (world.drone ? 3.3 : 2), '#ffb347', unit, 'center')
   if (world.prompt && world.status === 'playing') drawPrompt(context, world.prompt, unit, width, height)
   if (world.terminal && world.status === 'playing') drawTerminal(context, world.terminal, unit, width, height)
   if (world.status === 'playing' && world.clock < 9 && world.security.level === 0) drawHelp(context, unit, width, height)
@@ -93,7 +99,7 @@ function drawSituation(context: CanvasRenderingContext2D, world: World, unit: nu
   const level = Math.max(0, Math.min(4, world.security.level))
   const alert = ALERT_LEVELS[level]
   const right = width - unit
-  const goal = world.player.hasLoot ? 'Get back to the van' : 'Steal the gold case from the vault'
+  const goal = objectiveLine(world)
   const place = locationLine(world)
   const textWidth = Math.max(measure(context, goal, unit * 0.85), measure(context, place, unit * 0.75), unit * 15)
   panel(context, right - textWidth - unit * 0.5, unit * 0.5, textWidth + unit, unit * 5.4)
@@ -121,11 +127,24 @@ function roomAt(world: World, at: Vec): Room | null {
   return lastRoom
 }
 
+function storeyName(storey: number): string {
+  return storey < 0 ? `BASEMENT ${-storey}` : storey === 0 ? 'GROUND FLOOR' : `FLOOR ${storey}`
+}
+
 function locationLine(world: World): string {
   const room = roomAt(world, centerOf(world.player))
   if (!room) return world.player.y > world.groundY ? 'UNDERGROUND' : 'OUTSIDE'
-  const floor = room.storey < 0 ? `BASEMENT ${-room.storey}` : room.storey === 0 ? 'GROUND FLOOR' : `FLOOR ${room.storey}`
-  return `${room.building.toUpperCase()}  ·  ${floor}  ·  ${ROOM_LABELS[room.kind].toUpperCase()}`
+  return `${room.building.toUpperCase()}  ·  ${storeyName(room.storey)}  ·  ${ROOM_LABELS[room.kind].toUpperCase()}`
+}
+
+/** The objective, naming where the vault is once a terminal has shown it. */
+export function objectiveLine(world: World): string {
+  const goal = objectiveText(world)
+  if (world.player.hasLoot) return goal
+  const revealed = revealedRooms(world)
+  const vault = revealed.size > 0 ? world.rooms.find((room) => room.kind === 'vault' && revealed.has(room.id)) : undefined
+  // The case may not be in the vault, so a terminal's map only adds where the vault is.
+  return vault ? `${goal} (vault: ${vault.building}, ${storeyName(vault.storey).toLowerCase()})` : goal
 }
 
 /** The action available right now, near the bottom centre, with its key picked out. */
@@ -171,7 +190,7 @@ function drawTerminal(context: CanvasRenderingContext2D, terminal: NonNullable<W
     caption(context, String(index + 1), x + unit + size * 0.75, rowY, '#ffd28a', size, 'center')
     caption(context, option, x + unit + size * 2.2, rowY, '#f0e6d0', size, 'left')
   })
-  caption(context, 'NUMBER KEYS: CHOOSE    WALK AWAY: CLOSE', x + w / 2, y + h - unit * 0.6, DIM, unit * 0.62, 'center')
+  caption(context, 'NUMBER KEYS: CHOOSE    E OR WALK AWAY: CLOSE', x + w / 2, y + h - unit * 0.6, DIM, unit * 0.62, 'center')
 }
 
 /** The ring widens as sustained fire makes the gun less accurate, so spread is never a surprise. */
@@ -205,15 +224,20 @@ function drawCrosshair(context: CanvasRenderingContext2D, world: World, camera: 
 /** Ten slots along the bottom. On a narrow screen the slots shrink and names are cut short, but ammo always shows. */
 function drawTools(context: CanvasRenderingContext2D, world: World, unit: number, width: number, height: number): void {
   const gap = Math.max(2, unit * 0.2)
-  const slot = Math.min(unit * 8.5, (width - unit * 2) / TOOLS.length)
-  const left = width / 2 - (slot * TOOLS.length) / 2
+  const slot = Math.min(unit * 8.5, (width - unit * 2) / HOTKEYS)
+  const left = width / 2 - (slot * HOTKEYS) / 2
   const h = unit * 2.7
   const y = height - h - unit * 0.6
   const size = Math.min(unit * 0.78, slot / 6.5)
-  TOOLS.forEach((tool, index) => {
-    const x = left + index * slot
+  // One box per key. A key with several tools shows the one in hand (or its first) and how many it cycles through.
+  for (let key = 0; key < HOTKEYS; key += 1) {
+    const onKey = toolsOnKey(key)
+    const held = onKey.indexOf(world.player.tool)
+    const index = held < 0 ? onKey[0] : world.player.tool
+    const tool = TOOLS[index]
+    const x = left + key * slot
     const w = slot - gap
-    const selected = index === world.player.tool
+    const selected = held >= 0
     context.fillStyle = selected ? 'rgba(255,255,255,0.2)' : 'rgba(6,8,12,0.6)'
     context.fillRect(x, y, w, h)
     if (selected) {
@@ -223,21 +247,22 @@ function drawTools(context: CanvasRenderingContext2D, world: World, unit: number
     }
     context.fillStyle = tool.quiet ? '#7ee08a' : '#ff7a5a'
     context.fillRect(x, y + h - unit * 0.18, w, unit * 0.18)
-    const key = String((index + 1) % 10)
-    caption(context, key, x + unit * 0.35, y + size * 1.25, selected ? '#ffd27a' : DIM, size * 0.85, 'left')
-    const nameLeft = x + unit * 0.35 + measure(context, key, size * 0.85) + unit * 0.35
+    const label = String((key + 1) % 10)
+    caption(context, label, x + unit * 0.35, y + size * 1.25, selected ? '#ffd27a' : DIM, size * 0.85, 'left')
+    const nameLeft = x + unit * 0.35 + measure(context, label, size * 0.85) + unit * 0.35
     caption(context, fit(context, tool.name.toUpperCase(), size, x + w - unit * 0.3 - nameLeft), nameLeft, y + size * 1.25, selected ? '#ffffff' : '#b4bcc8', size, 'left')
+    if (onKey.length > 1) caption(context, `${Math.max(0, held) + 1}/${onKey.length}`, x + unit * 0.35, y + h - unit * 0.55, selected ? '#ffd27a' : DIM, size * 0.8, 'left')
     const ammo = world.player.ammo[index]
     const count = GUNS[tool.id] ? `${world.player.mags[index]} / ${ammo}` : Number.isFinite(ammo) ? `${ammo}` : '∞'
     const empty = GUNS[tool.id] ? world.player.mags[index] === 0 : ammo === 0
     caption(context, count, x + w - unit * 0.35, y + h - unit * 0.55, empty ? '#ff6a5a' : selected ? '#ffffff' : DIM, size, 'right')
-  })
+  }
 }
 
 function drawHelp(context: CanvasRenderingContext2D, unit: number, width: number, height: number): void {
   const size = Math.min(unit, (width - unit * 4) / 62)
   const w = Math.min(width - unit * 2, size * 50)
-  panel(context, width / 2 - w / 2, height * 0.28 - size * 1.8, w, size * 10.2)
+  panel(context, width / 2 - w / 2, height * 0.28 - size * 1.8, w, size * (HELP.length * 1.5 + 1.2))
   HELP.forEach((line, index) => caption(context, line, width / 2, height * 0.28 + index * size * 1.5, 'rgba(255,255,255,0.88)', size * 0.82, 'center'))
 }
 

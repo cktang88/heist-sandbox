@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { idleInput } from '../input'
+import { stepWorld } from '../step'
 import { fillTiles } from '../tiles'
 import { flashViews, grenadeViews, smokeBetween, smokeCells, throwGrenade } from './hazards'
 import { addGuard, bareWorld, box, run } from './testWorld'
@@ -35,15 +37,33 @@ describe('grenades', () => {
     run(world, 0.2)
     expect(flashViews(world).length).toBe(1)
     expect(world.sounds.some((sound) => sound.kind === 'flashbang')).toBe(true)
-    expect(facing.blindSeconds).toBeGreaterThan(3)
+    expect(facing.blindSeconds).toBeGreaterThan(2)
     expect(away.blindSeconds).toBeGreaterThan(0.5)
     expect(facing.blindSeconds).toBeGreaterThan(away.blindSeconds * 2)
-    expect(facing.deafSeconds).toBeGreaterThan(3)
+    expect(facing.deafSeconds).toBeGreaterThan(2)
     expect(hidden.blindSeconds).toBe(0)
     expect(hidden.deafSeconds).toBe(0)
     expect(facing.hp).toBeGreaterThan(80)
     run(world, 1)
     expect(flashViews(world).length).toBe(0)
+  })
+
+  it('the player\'s flash blindness and deafness wear off, and repeated flashes never add up past one point-blank flash', () => {
+    const world = room()
+    Object.assign(world.player, { x: 20, y: FLOOR - world.player.h - 0.01, vx: 0, vy: 0 })
+    let longest = 0
+    for (let bang = 0; bang < 5; bang += 1) {
+      throwGrenade(world, 'flash', { x: 20.35, y: FLOOR - 1 }, { x: 0, y: 1 })
+      for (let frame = 0; frame < 100; frame += 1) {
+        stepWorld(world, idleInput({ x: 30, y: FLOOR - 1 }), 1 / 60)
+        longest = Math.max(longest, world.player.blindSeconds, world.player.deafSeconds)
+      }
+    }
+    expect(longest).toBeGreaterThan(0.5)
+    expect(longest).toBeLessThanOrEqual(2)
+    for (let frame = 0; frame < 180; frame += 1) stepWorld(world, idleInput({ x: 30, y: FLOOR - 1 }), 1 / 60)
+    expect(world.player.blindSeconds).toBe(0)
+    expect(world.player.deafSeconds).toBe(0)
   })
 
   it('smoke grenade blooms into a room-wide cloud that later clears', () => {

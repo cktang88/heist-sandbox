@@ -1,7 +1,9 @@
+// Must stay first: writes the stored settings into the address before anything reads it.
+import './ui/boot'
 import { createAudio } from './audio'
 import type { Input } from './game/input'
 import { stepWorld } from './game/step'
-import { TOOLS } from './game/toolDefs'
+import { HOTKEYS } from './game/toolDefs'
 import { centerOf } from './game/types'
 import { createWorld, type SiteKind, type World } from './game/world'
 import { attachInput } from './inputDevice'
@@ -11,13 +13,15 @@ import { drawFlashOverlay } from './render/flashOverlay'
 import { drawOverlay } from './render/overlay'
 import { createSceneRenderer, type SceneRenderer } from './render/drawScene'
 import { createRenderer3d, type Renderer3d } from './render3d/renderer3d'
+import { randomSeed, writeSeed } from './ui/address'
+import { createMenus } from './ui/menus'
 
 const MAX_FRAME_SECONDS = 1 / 30
 
 const stage = document.querySelector<HTMLCanvasElement>('#stage')!
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!
 const context = canvas.getContext('2d')!
-const input = attachInput(canvas, TOOLS.length)
+const input = attachInput(canvas, HOTKEYS)
 /**
  * The flat 2D view remains as a fallback: add `?render=2d` to the address, or it is used if 3D cannot start.
  * `?quality=low` keeps 3D but drops shadows and sharpness.
@@ -49,6 +53,14 @@ let lastTime = performance.now()
 let view = centerOf(world.player)
 let aim = view
 
+// Menus (src/ui): pause, controls, help and settings. While one is open the heist does not step.
+function startHeist(seed: number): void {
+  writeSeed(seed)
+  world = createWorld(seed, siteKind)
+  view = centerOf(world.player)
+}
+const menus = createMenus({ audio, site: siteKind, newHeist: startHeist })
+
 function resize(): void {
   // Draw at the screen's real pixel density so edges stay sharp.
   const density = Math.min(2, window.devicePixelRatio || 1)
@@ -72,11 +84,13 @@ function frame(now: number): void {
   const frameInput = input.read(camera)
   aim = frameInput.aim
   if (world.status !== 'playing' && input.consumeRestart()) {
-    world = createWorld(Math.floor(Math.random() * 1e9), siteKind)
-    view = centerOf(world.player)
+    startHeist(randomSeed())
   } else input.consumeRestart()
 
-  stepWorld(world, frameInput, realDt)
+  if (!menus.paused()) {
+    stepWorld(world, frameInput, realDt)
+    menus.afterStep(world)
+  }
   audio.update(world)
   if (scene.draw3d) {
     scene.draw3d.draw(world, camera, frameInput.aim)

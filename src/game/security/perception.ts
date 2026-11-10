@@ -25,11 +25,19 @@ export function isAlerted(guard: Guard): boolean {
   return guard.mode === 'searching' || guard.mode === 'combat' || guard.mode === 'toAlarm'
 }
 
-/** The vision cone a renderer should draw: centre angle (radians, y down), half-angle and range. */
+/** Investigating or on guard: his torch is out, so he sees further into the dark. */
+export function hasTorchOut(guard: Guard): boolean {
+  return isAlerted(guard) || guard.mode === 'investigating'
+}
+
+/**
+ * The vision cone a renderer should draw: centre angle (radians, y down), half-angle and range.
+ * A fighting guard looks where his gun points, which may be straight up through a hole; everyone else looks ahead.
+ */
 export function visionOf(guard: Guard): { angle: number; halfAngle: number; range: number } {
   const alerted = isAlerted(guard)
   return {
-    angle: guard.facing > 0 ? 0 : Math.PI,
+    angle: guard.mode === 'combat' ? Math.atan2(guard.aim.y, guard.aim.x) : guard.facing > 0 ? 0 : Math.PI,
     halfAngle: alerted ? VISION.alertHalfAngle : VISION.centralHalfAngle,
     range: alerted ? VISION.alertRange : VISION.centralRange,
   }
@@ -39,8 +47,8 @@ export function zoneOf(guard: Guard, eye: Vec, target: Vec): Zone | null {
   const dx = target.x - eye.x
   const dy = target.y - eye.y
   const gap = Math.hypot(dx, dy)
-  const angle = Math.atan2(Math.abs(dy), dx * guard.facing)
-  const { halfAngle, range } = visionOf(guard)
+  const { angle: centre, halfAngle, range } = visionOf(guard)
+  const angle = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - centre), Math.cos(Math.atan2(dy, dx) - centre)))
   if (gap <= range && angle <= halfAngle) return 'central'
   if (gap <= VISION.peripheralRange && angle <= VISION.peripheralHalfAngle) return 'peripheral'
   if (gap <= VISION.rearRange) return 'rear'
@@ -98,7 +106,7 @@ export function detectPlayer(world: World, guard: Guard): Detection | null {
 
   const gap = distance(eye, body)
   const crouching = player.crouching
-  const darkRange = (isAlerted(guard) ? VISION.torchDarkRange : VISION.darkRange) * (crouching ? 0.6 : 1)
+  const darkRange = (hasTorchOut(guard) ? VISION.torchDarkRange : VISION.darkRange) * (crouching ? 0.6 : 1)
   const light = lightFactor(playerLight(world), gap, darkRange)
   if (light <= 0) return null
   const level = Math.abs(eye.y - body.y) < 2.5
@@ -113,7 +121,7 @@ export function detectPlayer(world: World, guard: Guard): Detection | null {
 /** A colleague's body this guard can see and has not seen before (guard index), if any. */
 export function spotBody(world: World, guard: Guard): number | null {
   const eye = eyeOf(guard)
-  const darkRange = isAlerted(guard) ? VISION.torchDarkRange : VISION.darkRange
+  const darkRange = hasTorchOut(guard) ? VISION.torchDarkRange : VISION.darkRange
   for (let index = 0; index < world.guards.length; index += 1) {
     const other = world.guards[index]
     if (other.mode !== 'dead' || !other.ragdoll || guard.bodiesSeen.includes(index)) continue

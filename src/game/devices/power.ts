@@ -26,6 +26,8 @@ export function flipPower(world: World, device: Device): void {
 
 /** For the security AI: a guard (or technician) puts a circuit back on. */
 export function restoreCircuit(world: World, circuit: number): void {
+  // A fuse box that was shot or cut cannot be switched back on.
+  if (world.devices.some((device) => device.kind === 'fusebox' && device.circuit === circuit && device.disabled)) return
   if (!world.deadCircuits.delete(circuit)) return
   const box = world.devices.find((device) => device.circuit === circuit && (device.kind === 'fusebox' || device.kind === 'lightSwitch'))
   if (box) playSound(world, 'switch', deviceCenter(box))

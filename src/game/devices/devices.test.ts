@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from '../input'
 import { interact } from '../interact'
 import { GROUND } from '../level'
@@ -8,9 +8,6 @@ import { tileAt } from '../tiles'
 import { useTool } from '../tools'
 import { createWorld, type Device, type World } from '../world'
 import { lampPowered, pressAlarmButton, restoreCircuit, revealedRooms, stepDevices, terminalConsumesInput } from './devices'
-import { reportEvent } from '../security/dispatch'
-
-vi.mock('../security/dispatch', async (original) => ({ ...(await original<typeof import('../security/dispatch')>()), reportEvent: vi.fn() }))
 
 const FRAME = 1 / 60
 const CIRCUIT = 7
@@ -60,7 +57,6 @@ function setUp(): { world: World; x: number } {
   return { world, x }
 }
 
-beforeEach(() => vi.mocked(reportEvent).mockClear())
 
 describe('fuse boxes and light switches', () => {
   it('cuts the power to a storey and restores it', () => {
@@ -170,9 +166,10 @@ describe('computers', () => {
   it('can set off a false alarm on another floor', () => {
     const { world } = hackedTerminal()
     run(world, FRAME, { selectTool: world.terminal!.options.indexOf('Trigger false alarm on another floor') })
-    const call = vi.mocked(reportEvent).mock.calls[0]
-    expect(call[1]).toMatchObject({ kind: 'noise', loud: true })
-    if (call[1].kind === 'noise') expect(call[1].at.y).toBeLessThan(GROUND - 5)
+    // The control room believes shots were fired on another floor and puts the site on edge around it.
+    expect(world.security.log.some((line) => /Shots fired on floor \d+/.test(line))).toBe(true)
+    expect(world.security.level).toBe(2)
+    expect(world.security.focus!.y).toBeLessThan(GROUND - 5)
   })
 })
 
@@ -226,13 +223,27 @@ describe('alarm buttons and cameras', () => {
     const { world, x } = setUp()
     const button = addDevice(world, { kind: 'alarmButton', x, y: GROUND - 2 })
     expect(pressAlarmButton(world, button)).toBe(true)
-    expect(reportEvent).toHaveBeenCalledTimes(1)
+    expect(world.security.level).toBe(3)
+    expect(world.alarm).toBe(true)
+    expect(world.security.lastKnown).toMatchObject({ x: x + 0.5 })
     run(world, FRAME)
     expect(world.prompt).toBe('Hold E: disable alarm button')
     run(world, 1.1, { interact: true })
     expect(button.disabled).toBe(true)
+    const contactAt = world.security.lastContactAt
     expect(pressAlarmButton(world, button)).toBe(false)
-    expect(reportEvent).toHaveBeenCalledTimes(1)
+    expect(world.security.lastContactAt).toBe(contactAt)
+    expect(world.security.log.filter((line) => line.includes('Alarm button')).length).toBe(1)
+  })
+
+  it('a disabled alarm button leaves a quiet site quiet', () => {
+    const { world, x } = setUp()
+    const button = addDevice(world, { kind: 'alarmButton', x, y: GROUND - 2 })
+    button.disabled = true
+    expect(pressAlarmButton(world, button)).toBe(false)
+    expect(world.security.level).toBe(0)
+    expect(world.security.lastKnown).toBeNull()
+    expect(world.security.log).toEqual([])
   })
 
   it('cuts a camera cable by holding E under it', () => {

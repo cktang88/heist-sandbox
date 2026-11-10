@@ -9,7 +9,7 @@ import type { Vec } from '../types'
 import type { World } from '../world'
 import { startFire } from './fire'
 import { igniteGasNear, startLeak } from './gas'
-import { propBox, propById, propCenter, propsNear } from './props'
+import { propBox, propById, propCenter } from './props'
 import { burstSpray, startSpray } from './sprays'
 
 /**
@@ -34,9 +34,6 @@ const MIN_FUSE = 0.1
 const FUSE_SPREAD = 0.15
 const LEAK_SECONDS = 12
 const JET_LENGTH = 4
-/** An explosion from elsewhere (C4, a rocket) reaches props within this. */
-const OUTSIDE_BLAST_RADIUS = 3
-const OUTSIDE_BLAST_DAMAGE = 150
 
 /** Breaks a prop and lets it react. Safe to call more than once. */
 export function breakProp(world: World, prop: PropState): void {
@@ -65,7 +62,7 @@ function primeBlast(world: World, prop: PropState, center: Vec): void {
   world.hazards.blasts.push({ ...center, fuse: MIN_FUSE + world.rng() * FUSE_SPREAD, blast: BLASTS[prop.kind] ?? DEFAULT_BLAST, prop: prop.id })
 }
 
-/** Sets off primed props whose fuse has run out. */
+/** Sets off primed props whose fuse has run out. The explosion itself damages the props around it (cover.ts), which is how chains ripple. */
 export function stepBlasts(world: World, dt: number): void {
   const hazards = world.hazards
   if (hazards.blasts.length === 0) return
@@ -76,21 +73,6 @@ export function stepBlasts(world: World, dt: number): void {
     const at = { x: pending.x, y: pending.y }
     if (propById(world, pending.prop)?.kind === 'gasCylinder') flameJet(world, at)
     explode(world, at, pending.blast)
-    damageProps(world, at, pending.blast.radius, pending.blast.bodyDamage)
-  }
-}
-
-/** What an explosion from outside the hazards does here: props near it break and react. */
-export function blastReachesProps(world: World, at: Vec): void {
-  damageProps(world, at, OUTSIDE_BLAST_RADIUS, OUTSIDE_BLAST_DAMAGE)
-}
-
-function damageProps(world: World, at: Vec, radius: number, damage: number): void {
-  for (const prop of propsNear(world, at, radius)) {
-    if (prop.broken || !Number.isFinite(prop.hp)) continue
-    const center = propCenter(prop)
-    prop.hp -= damage * (1 - Math.hypot(center.x - at.x, center.y - at.y) / (radius + 0.5))
-    if (prop.hp <= 0) breakProp(world, prop)
   }
 }
 

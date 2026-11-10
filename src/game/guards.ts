@@ -4,8 +4,11 @@ import { createRagdoll, stepRagdoll } from './ragdoll'
 import { thinkGuard } from './security/brain'
 import { enterCombat } from './security/combat'
 import { setMode, type Guard } from './security/model'
+import { onHurt, onKilled } from './security/nerve'
+import { beingDragged } from './security/selfPreservation'
 import { deployResponders } from './security/response'
 import { raiseLevel } from './security/report'
+import { markUnderFire, witnessHit } from './security/takingFire'
 import { centerOf, type Vec } from './types'
 import type { World } from './world'
 
@@ -15,6 +18,10 @@ import type { World } from './world'
  */
 export { createGuard, type Guard, type GuardMode, type GuardState } from './security/model'
 export { investigate } from './security/brain'
+export { isShielded } from './security/combat'
+export { shieldBlocks } from './security/shieldTeam'
+export { restrainGuard } from './security/fear'
+export { scrapeNoise } from './security/hearing'
 export { canSee, visionOf } from './security/perception'
 
 const UNAWARE_DAMAGE_BONUS = 3
@@ -32,19 +39,26 @@ export function updateGuard(world: World, guard: Guard, dt: number): void {
   }
   if (guard.stunSeconds > 0) {
     guard.stunSeconds = Math.max(0, guard.stunSeconds - dt)
-    guard.vx = 0
+    // Out cold, he can still be hauled out of the line of fire by a colleague.
+    if (guard.draggedBy === null || !beingDragged(world, guard, dt)) guard.vx = 0
     return
   }
   thinkGuard(world, guard, dt)
 }
 
-/** Hurts a guard. Guards who have not spotted the player take far more, so stealth kills are quick. Returns true if killed. */
-export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec): boolean {
+/**
+ * Hurts a guard. An attack (a shot, a blast, a blow) on a guard who has not spotted the player does far more,
+ * so stealth kills are quick, and tells him roughly where it came from. Hazards (fire, smoke, a flash) hurt
+ * at face value and say nothing about the player. Returns true if killed.
+ */
+export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec, cause: 'attack' | 'hazard' = 'attack'): boolean {
   if (guard.mode === 'dead') return false
-  guard.hp -= damage * (guard.state === 'alert' ? 1 : UNAWARE_DAMAGE_BONUS)
+  const bonus = cause === 'attack' && guard.state !== 'alert' ? UNAWARE_DAMAGE_BONUS : 1
+  guard.hp -= damage * bonus
   guard.hitFlash = 0.1
   world.security.lastCasualtyAt = world.clock
   burst(world.effects, world.rng, centerOf(guard), 6, '#b3202a', 6)
+  if (cause === 'attack') witnessHit(world, guard)
   if (guard.hp <= 0) {
     setMode(guard, 'dead')
     guard.announced = 'dead'
@@ -52,10 +66,13 @@ export function hurtGuard(world: World, guard: Guard, damage: number, from: Vec)
     guard.ragdoll = createRagdoll({ x: guard.x + guard.w / 2, y: guard.y + guard.h }, { x: guard.vx, y: guard.vy }, world.rng)
     world.stats.kills += 1
     playSound(world, 'kill', guard)
+    onKilled(world, guard)
     return true
   }
-  // Being hit tells him roughly where it came from.
+  onHurt(guard)
+  if (cause !== 'attack') return false
   enterCombat(world, guard, from)
+  markUnderFire(world, guard, from)
   return false
 }
 

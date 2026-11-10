@@ -1,4 +1,4 @@
-import type { Guard } from '../game/guards'
+import { guardMood, type Guard } from '../game/guards'
 import { TOOLS } from '../game/toolDefs'
 import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
@@ -9,28 +9,29 @@ import { poseHuman, type Motion, type Skeleton } from './human/pose'
 import { lampIsLit } from './lighting'
 import { paintTile } from './tileArt'
 
-const CONE_COLORS = { patrol: 'rgba(255,255,255,0.05)', suspicious: 'rgba(255,210,63,0.12)', alert: 'rgba(255,45,61,0.14)' } as const
+const CONE_COLORS = { calm: 'rgba(255,255,255,0.05)', suspicious: 'rgba(255,210,63,0.12)', alert: 'rgba(255,45,61,0.14)' } as const
 const HIT_LOOK: Look = { ...GUARD, suit: '#ffffff', limbs: '#ffffff', vest: '#ffffff', skin: '#ffffff' }
 const DEAD_LOOK: Look = { ...GUARD, suit: '#5d7391', skin: '#b89a80' }
 
 export function drawGuard(context: CanvasRenderingContext2D, world: World, guard: Guard): void {
   const feet = { x: guard.x + guard.w / 2, y: guard.y + guard.h }
-  if (guard.state === 'dead') {
+  const mood = guardMood(guard)
+  if (mood === 'dead') {
     if (guard.ragdoll) drawRagdoll(context, guard.ragdoll, guard.armored ? RESPONDER : DEAD_LOOK)
     return
   }
 
   tracePolygon(context, visionCone(world, guard))
-  context.fillStyle = CONE_COLORS[guard.state]
+  context.fillStyle = CONE_COLORS[mood]
   context.fill()
 
-  const player = centerOf(world.player)
+  // A fighting guard aims where he believes the player is, not where the player really is.
   const relaxed = guard.facing > 0 ? 0.35 : Math.PI - 0.35
-  const aim = guard.state === 'alert' ? Math.atan2(player.y - (guard.y + 0.5), player.x - feet.x) : relaxed
-  const motion: Motion = { x: feet.x, feetY: feet.y, facing: guard.facing, vx: guard.vx, vy: guard.vy, onGround: guard.onGround, mode: guard.climbing ? 'ladder' : 'normal', aim, kick: guard.kick }
+  const aim = mood === 'alert' && guard.target ? Math.atan2(guard.target.y - (guard.y + 0.5), guard.target.x - feet.x) : relaxed
+  const motion: Motion = { x: feet.x, feetY: feet.y, facing: guard.facing, vx: guard.vx, vy: guard.vy, onGround: guard.onGround, mode: guard.climbing ? 'ladder' : guard.crouching ? 'crouch' : 'normal', aim, kick: guard.kick }
   drawHuman(context, poseHuman(motion), guard.facing, guard.hitFlash > 0 ? HIT_LOOK : guard.armored ? RESPONDER : GUARD, guard.armored ? 'rifle' : 'pistol')
 
-  if (guard.awareness > 0.05 && guard.state !== 'alert') {
+  if (guard.awareness > 0.05 && mood !== 'alert') {
     context.fillStyle = 'rgba(0,0,0,0.6)'
     context.fillRect(feet.x - 0.5, guard.y - 0.55, 1, 0.14)
     context.fillStyle = '#ffd23f'
@@ -41,8 +42,9 @@ export function drawGuard(context: CanvasRenderingContext2D, world: World, guard
 /** Alert marks float above the dark, so the player can always read a guard's mood. */
 export function drawGuardMarks(context: CanvasRenderingContext2D, world: World): void {
   for (const guard of world.guards) {
-    if (guard.state === 'alert') label(context, '!', guard.x + guard.w / 2, guard.y - 0.3, '#ff2d3d')
-    else if (guard.state === 'suspicious') label(context, '?', guard.x + guard.w / 2, guard.y - 0.7, '#ffd23f')
+    const mood = guardMood(guard)
+    if (mood === 'alert') label(context, '!', guard.x + guard.w / 2, guard.y - 0.3, '#ff2d3d')
+    else if (mood === 'suspicious') label(context, '?', guard.x + guard.w / 2, guard.y - 0.7, '#ffd23f')
   }
 }
 

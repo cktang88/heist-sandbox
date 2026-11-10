@@ -4,6 +4,7 @@ import { barkLine } from './barks'
 import { feetOf, isActive, setMode, type Guard } from './model'
 import { buildingAt, travelCost } from './places'
 import { planSearch } from './search'
+import { TIERS } from './tuning'
 
 /**
  * Orders from the control room: who goes where. Patrols are sent before posts, and operators and
@@ -57,7 +58,7 @@ export function followGuard(world: World, follower: Guard, leader: Guard): void 
 
 /** Starts a guard searching around a feet position (the last known position, a body). */
 export function startSearch(world: World, guard: Guard, center: Vec, seconds?: number): void {
-  guard.search = planSearch(world, center, seconds)
+  guard.search = planSearch(world, center, seconds, TIERS[guard.tier].search)
   guard.follow = null
   guard.interest = null
   setMode(guard, 'searching')

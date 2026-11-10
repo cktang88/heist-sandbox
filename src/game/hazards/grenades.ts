@@ -1,4 +1,5 @@
 import { hurtGuard, type Guard } from '../guards'
+import type { NoiseSource } from '../security/hearing'
 import { emitNoise } from '../noise'
 import { GRAVITY, moveBody } from '../physics'
 import { playSound } from '../sounds'
@@ -26,21 +27,22 @@ const CLOUD_DENSITY = 1.2
 const FLASH_REACH = 12
 const FLASH_NOISE = 40
 /** Blindness facing the flash at point-blank range, and facing away; deafness at point-blank range. */
-const BLIND_FACING = 4.8
+const BLIND_FACING = 3.6
 const BLIND_AWAY = 1.5
-const DEAF = 6
+const DEAF = 4
 /** The player gets a softer flash than the guards, so it never takes control away for long. */
-const PLAYER_BLIND = 3.2
+const PLAYER_BLIND = 1.4
+const PLAYER_DEAF = 2
 const FLASH_DAMAGE = 3
 const FLASH_DAMAGE_REACH = 1.5
 const FLASH_FADE_SECONDS = 0.5
 
-export function throwGrenade(world: World, kind: GrenadeKind, from: Vec, direction: Vec): void {
+export function throwGrenade(world: World, kind: GrenadeKind, from: Vec, direction: Vec, thrower: NoiseSource = 'player'): void {
   const length = Math.hypot(direction.x, direction.y) || 1
   world.hazards.grenades.push({
     x: from.x - SIZE / 2, y: from.y - SIZE / 2, w: SIZE, h: SIZE,
     vx: (direction.x / length) * THROW_SPEED, vy: (direction.y / length) * THROW_SPEED - LOFT, onGround: false,
-    kind, fuse: FUSE[kind], popped: false, smokeLeft: 0, cloud: [],
+    kind, fuse: FUSE[kind], popped: false, smokeLeft: 0, cloud: [], thrower,
   })
 }
 
@@ -56,7 +58,7 @@ export function stepGrenades(world: World, dt: number): void {
     grenade.fuse -= dt
     if (grenade.fuse > 0) continue
     grenade.popped = true
-    if (grenade.kind === 'flash') detonateFlash(world, centerOf(grenade))
+    if (grenade.kind === 'flash') detonateFlash(world, centerOf(grenade), grenade.thrower)
     else {
       const at = centerOf(grenade)
       playSound(world, 'smokePop', at)
@@ -92,26 +94,29 @@ function pourSmoke(world: World, grenade: Grenade, dt: number): void {
 /**
  * A flashbang: everyone who can see the burst within reach is blinded and deafened, worst up close and for
  * guards looking at it. Walls stop it completely. It barely hurts, but everyone in earshot hears it.
+ * A guard's flashbang is announced ("Flash out!") to colleagues in the fight, who turn their eyes away;
+ * the player, whoever threw it, gets the full effect of any flash he can see.
  */
-export function detonateFlash(world: World, at: Vec): void {
+export function detonateFlash(world: World, at: Vec, thrower: NoiseSource = 'player'): void {
   world.hazards.flashes.push({ ...at, life: 1 })
   playSound(world, 'flashbang', at)
-  emitNoise(world, at, FLASH_NOISE)
+  emitNoise(world, at, FLASH_NOISE, thrower)
   world.shake = Math.min(1, world.shake + 0.3)
   for (const guard of world.guards) {
     if (guard.state === 'dead') continue
     const closeness = flashCloseness(world, eyeOf(guard), at)
     if (closeness <= 0) continue
-    const blind = facesPoint(guard, at) ? BLIND_FACING : BLIND_AWAY
+    const warned = thrower === 'guard' && guard.mode === 'combat'
+    const blind = facesPoint(guard, at) && !warned ? BLIND_FACING : BLIND_AWAY
     guard.blindSeconds = Math.max(guard.blindSeconds, blind * closeness)
     guard.deafSeconds = Math.max(guard.deafSeconds, DEAF * closeness)
-    if (distance(centerOf(guard), at) <= FLASH_DAMAGE_REACH) hurtGuard(world, guard, FLASH_DAMAGE, at)
+    if (distance(centerOf(guard), at) <= FLASH_DAMAGE_REACH) hurtGuard(world, guard, FLASH_DAMAGE, at, 'hazard')
   }
   const player = world.player
   const closeness = flashCloseness(world, eyeOf(player), at)
   if (closeness <= 0) return
   player.blindSeconds = Math.max(player.blindSeconds, PLAYER_BLIND * closeness)
-  player.deafSeconds = Math.max(player.deafSeconds, DEAF * closeness)
+  player.deafSeconds = Math.max(player.deafSeconds, PLAYER_DEAF * closeness)
   if (distance(centerOf(player), at) <= FLASH_DAMAGE_REACH) player.hp -= FLASH_DAMAGE
 }
 

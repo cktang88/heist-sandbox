@@ -1,6 +1,8 @@
 import { TILE_DEFS, tileAt, type TileKind } from '../tiles'
 import { distance, type Vec } from '../types'
 import type { World } from '../world'
+import { hearNoise } from './brain'
+import { eyeOf } from './model'
 import { HEARING } from './tuning'
 
 /**
@@ -46,6 +48,22 @@ export function loudnessAt(world: World, from: Vec, to: Vec, radius: number): nu
 }
 
 export type NoiseSource = 'player' | 'guard'
+
+/** Furniture dragged across a floor carries this far. */
+const SCRAPE_RADIUS = 9
+
+/**
+ * The scrape of furniture being dragged. Heard like any other noise (one guard goes to look), but whoever
+ * goes says what it sounded like. The grab system calls this every half second or so while dragging.
+ */
+export function scrapeNoise(world: World, at: Vec): void {
+  for (const guard of world.guards) {
+    if (guard.mode === 'dead' || guard.deafSeconds > 0 || guard.stunSeconds > 0) continue
+    const ear = eyeOf(guard)
+    if (Math.abs(ear.x - at.x) > SCRAPE_RADIUS || Math.abs(ear.y - at.y) > SCRAPE_RADIUS) continue
+    if (loudnessAt(world, at, ear, SCRAPE_RADIUS) > 0) hearNoise(world, guard, at, SCRAPE_RADIUS, 'player', 'scrape')
+  }
+}
 /** What a sound means to a guard: a shot or blast is evidence; a faint one only turns heads. */
 export type NoiseKind = 'faint' | 'noise' | 'loud'
 

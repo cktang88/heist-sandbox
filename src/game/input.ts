@@ -17,6 +17,12 @@ export type Input = {
   focus: boolean
   /** Held to crouch: smaller, quieter, slower, and able to use low cover and crawl spaces. */
   crouch: boolean
+  /** Close combat: a punch, a kick, and grabbing or throwing whatever is in reach. */
+  punchPressed: boolean
+  kickPressed: boolean
+  /** Held to grab: drags furniture, or holds a guard as a shield. */
+  grab: boolean
+  throwPressed: boolean
   /** Where the player is pointing, in tile units. */
   aim: Vec
   selectTool: number | null
@@ -25,6 +31,7 @@ export type Input = {
 export function idleInput(aim: Vec = { x: 0, y: 0 }): Input {
   return {
     left: false, right: false, up: false, down: false, jumpPressed: false, jumpHeld: false, fire: false, firePressed: false,
-    interact: false, interactPressed: false, detonatePressed: false, reloadPressed: false, focus: false, crouch: false, aim, selectTool: null,
+    interact: false, interactPressed: false, detonatePressed: false, reloadPressed: false, focus: false, crouch: false,
+    punchPressed: false, kickPressed: false, grab: false, throwPressed: false, aim, selectTool: null,
   }
 }

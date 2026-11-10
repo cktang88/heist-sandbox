@@ -91,6 +91,8 @@ export const COMMS = {
   pollSeconds: 10,
   /** All relays in a building down for this long, and the control room notices. */
   commsFaultSeconds: 25,
+  /** A dark circuit nobody saw go out shows on the control room's panel after this long, and someone is sent. */
+  powerFaultSeconds: 30,
   logLines: 8,
 } as const
 
@@ -134,6 +136,10 @@ export const COMBAT = {
   flashCooldown: 18,
   flashRange: 14,
   replanSeconds: 1.4,
+  /** An assault guard behind cover who has not seen the man for this long moves up to find him. */
+  coverPatience: 1.5,
+  /** A guard holding a choke point the man has not shown at for this long moves up too. */
+  holdPatience: 2,
 } as const
 
 export const CAMERAS = {
@@ -165,4 +171,204 @@ export const BARKS = {
   maxShown: 24,
   /** Routine radio chatter is only shown near the player. */
   chatterRange: 30,
+} as const
+
+/**
+ * Experience tiers. `nerve` is where a guard's nerve sits when nothing is wrong; `spread` scales his aim,
+ * `draw` the time from "Contact!" to his first shot, `search` how long he looks at each spot and how many rooms he checks.
+ */
+export const TIERS = {
+  rookie: { nerve: 0.6, spread: 1.6, draw: 1.25, search: 0.7 },
+  regular: { nerve: 0.78, spread: 1, draw: 1, search: 1 },
+  veteran: { nerve: 0.92, spread: 0.65, draw: 0.8, search: 1.35 },
+} as const
+
+/**
+ * Nerve, 0..1: the tier's base, plus what the guard's situation gives or takes, minus the fright (`shock`)
+ * left by what happened to him. Below `shaken` he will not walk into danger alone and fires blind from cover;
+ * below `breaking` he falls back and calls for help; below `broken` he panics, hides or gives up.
+ */
+export const NERVE = {
+  /** Situation is re-read this often (seconds); events add shock the moment they happen. */
+  updateEvery: 0.25,
+  shaken: 0.45,
+  breaking: 0.28,
+  broken: 0.12,
+  /** Back above this, a panicking guard pulls himself together. */
+  recovered: 0.35,
+  /** Shock fades by this much per second, faster with colleagues around. */
+  shockFade: 0.012,
+  /** Situation: each colleague near (up to three), an officer or veteran near, sitting in cover. */
+  perColleague: 0.05,
+  officer: 0.1,
+  inCover: 0.08,
+  /** Situation: alone in a fight, standing in the dark, fire close by, and the share of his health lost. */
+  alone: 0.12,
+  dark: 0.08,
+  fire: 0.12,
+  wounds: 0.4,
+  suppressed: 0.3,
+  colleagueReach: 10,
+  /** Shock from events. */
+  nearMiss: 0.015,
+  hit: 0.12,
+  colleagueKilled: 0.22,
+  colleagueKilledClose: 0.12,
+  blast: 0.55,
+  blastReach: 14,
+  flashed: 0.15,
+  grenade: 0.1,
+  rocket: 0.2,
+  body: 0.06,
+} as const
+
+/** Near misses, ducking, blind fire, reloading and the other things a sensible person does under fire. */
+export const UNDER_FIRE = {
+  /** A bullet passing this close counts as a near miss. */
+  nearMissRange: 1.4,
+  /** Rockets are seen and feared further off. */
+  rocketRange: 7,
+  suppressionPerMiss: 0.22,
+  suppressionFade: 0.45,
+  /** Pinned: he keeps his head down and does not fire aimed shots. */
+  duckAbove: 0.55,
+  /** Spread grows by this share of suppression. */
+  suppressionSpread: 2,
+  blindSpread: 0.28,
+  blindCooldownMin: 0.35,
+  blindCooldownMax: 0.8,
+  /** Blind fire goes at a last known position no older than this. */
+  blindFreshSeconds: 8,
+  reloadSeconds: 2.2,
+  /** A live grenade or charge this close makes him dive. */
+  diveRange: 3.6,
+  diveSeconds: 0.55,
+  diveSpeed: 9,
+  /** Hauling a wounded colleague: only if he is this close and badly hurt. */
+  dragReach: 3,
+  dragHealth: 0.4,
+  dragSeconds: 2.5,
+  /** No backup call more often than this, per guard. */
+  backupEvery: 20,
+  /** Alone means no fighting colleague this close. */
+  aloneReach: 14,
+} as const
+
+/** Low nerve: hesitating at rooms, waiting for a partner, panic and surrender. */
+export const FEAR = {
+  /** A colleague died in a room this recently: a shaken guard stops at its edge first. */
+  deathMemory: 45,
+  hesitateMin: 2,
+  hesitateMax: 4,
+  /** How close to a room's edge he stops. */
+  hesitateReach: 3,
+  partnerWaitMax: 15,
+  /** The player this close (and seen) when nerve breaks: he gives up rather than run. */
+  surrenderRange: 7,
+  /** Unwatched this long, a surrendered guard picks his weapon back up. */
+  rearmSeconds: 9,
+  /** The player counts as watching a surrendered guard from this close with a clear view. */
+  watchRange: 12,
+  /** Fleeing guards head for a security room no further than this. */
+  refugeReach: 60,
+} as const
+
+/** How many guards answer each kind of trouble on their own, so one noise never pulls in the whole site. */
+export const RESPONSE = {
+  noise: 1,
+  gunfire: 4,
+  blast: 6,
+  /** Responses to the same spot (this close, this recently) count together. */
+  sameSpot: 10,
+  forgetSeconds: 15,
+  /** At or above this radius a sound is an explosion (blasts are 45), not a flashbang (40) or a shot. */
+  blastRadius: 42,
+  /** After an explosion is reported the site locks down this long later, once the elevators have been recalled. */
+  lockdownDelay: 20,
+} as const
+
+/** Things out of place that guards notice on their rounds. */
+export const DISCOVERY = {
+  /** How far ahead a guard notices an open door or a picked lock on his floor. */
+  doorSight: 7,
+  /** A dead camera feed shows as a fault in the security room after this long. */
+  cameraFaultSeconds: 25,
+  /** A parachute in the sky is seen this far off. */
+  chuteSight: 28,
+  /** Smoke this thick ahead of him is noticed. */
+  smokeSeen: 0.25,
+  smokeSight: 9,
+} as const
+
+/** Taking fire: sheltering from it, peeking out to fire back, and firing back at where shots come from. */
+export const SHELTER = {
+  /** Rounds came his way (or he saw a colleague hit) this recently: he gets out of the line of fire. */
+  memory: 4,
+  /** How far along his floor he looks for a spot the shooter cannot hit. */
+  reach: 12,
+  /** How often an exposed guard re-checks the spot he chose. */
+  checkEvery: 0.5,
+  /** Down behind cover, then up firing, then down again. */
+  duckMin: 0.9,
+  duckMax: 1.8,
+  peekMin: 0.8,
+  peekMax: 1.3,
+  /** He fires back at a shooter he only heard for this long after the last shot. */
+  returnFireSeconds: 3,
+  /** Never at a sound further off than this. */
+  returnFireReach: 30,
+  returnSpread: 0.12,
+  returnCooldownMin: 0.45,
+  returnCooldownMax: 0.9,
+  /** Gunfire heard this close, with a clear line to it, tells him exactly where the shooter is. */
+  locateReach: 24,
+  /** Located gunfire this close is being fired into his room: he treats it as fire at him. */
+  closeFire: 14,
+  /** Gunfire this close, even round a corner or through a slab, tells him roughly where: near enough to join the fight. */
+  nearbyShots: 12,
+} as const
+
+/** Places where colleagues have died: avoided, cleared with a grenade first, or waited out. */
+export const KILL_ZONES = {
+  /** Half-width along the floor. */
+  radius: 2.5,
+  /** Feared this long after the last death there. */
+  seconds: 45,
+  /** A grenade thrown through makes it passable for this long. */
+  clearedSeconds: 5,
+  /** A guard throws something through a kill zone this close in front of him, at most this often. */
+  throwReach: 10,
+  throwEvery: 12,
+} as const
+
+/** The shield team the control room sends once a choke point keeps killing men or the squad is losing. */
+export const SHIELD = {
+  /** Deaths at one kill zone that bring the team in. */
+  zoneDeaths: 2,
+  /** Or this many guards killed within `lossWindow` seconds. */
+  losses: 3,
+  lossWindow: 60,
+  maxTeams: 2,
+  /** Seconds between teams. */
+  every: 90,
+  size: 4,
+  /** Rounds with at least this much penetration go through the shield (a sniper rifle's). */
+  stops: 10,
+  /** Rounds coming down more steeply than this (vertical over horizontal speed) go over the top of it. */
+  steepest: 0.8,
+  /** The column moves at a slow walk, a pace apart. */
+  speed: 2.2,
+  gap: 0.9,
+  /** The shield man waits for anyone this far behind. */
+  straggle: 3,
+  /** He stops this far short of the intruder. */
+  standOff: 3,
+  /** A doorway this close ahead with the intruder within `flashReach` beyond it: flashbang first. */
+  doorAhead: 4,
+  flashReach: 14,
+  flashEvery: 8,
+  /** Held after the throw, until it has gone off. */
+  flashWait: 1.7,
+  /** The team keeps pushing on the last report this long without contact before it searches. */
+  patience: 60,
 } as const
