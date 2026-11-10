@@ -1,7 +1,7 @@
 import { propSpec, type PropKind } from '../propCatalog'
 import type { Rng } from '../rng'
 import type { Prop, Room } from '../site'
-import { isSolidAt, type Grid } from '../tiles'
+import { isSolidAt, tileAt, type Grid } from '../tiles'
 import { between, extent, pickFrom } from './pick'
 import { ABOVE, type RoomStyle } from './styles'
 
@@ -125,9 +125,9 @@ export function hangWall(rng: Rng, grid: Grid, room: Room, style: RoomStyle, flo
 export function hangCeiling(rng: Rng, grid: Grid, room: Room, style: RoomStyle, floor: Prop[]): Prop[] {
   const out: Prop[] = []
   const taken: { left: number; right: number }[] = []
-  // Nothing hangs under a hole in the ceiling, such as a manhole a ladder comes down through.
+  // Nothing hangs under a hole in the ceiling, or under a hatch or manhole cover (a door in the slab) a ladder comes down from.
   const hole = (span: { left: number; right: number }) => {
-    for (let x = Math.floor(span.left); x < span.right; x += 1) if (!isSolidAt(grid, x, room.y - 1)) return true
+    for (let x = Math.floor(span.left); x < span.right; x += 1) if (!isSolidAt(grid, x, room.y - 1) || tileAt(grid, x, room.y - 1) === 'door') return true
     return false
   }
   const clashes = (span: { left: number; right: number }) => taken.some((other) => span.left < other.right - 0.05 && other.left < span.right - 0.05)

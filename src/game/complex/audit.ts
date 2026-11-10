@@ -97,6 +97,7 @@ export function propProblems(level: Level): string[] {
       for (const x of columns(left, right)) {
         if (solid(grid, x, prop.y)) problems.push(`${where} inside ${tileAt(grid, x, prop.y)}`)
         if (!solid(grid, x, prop.y - 1)) problems.push(`${where} with no ceiling above at ${x}`)
+        else if (hatchAt(grid, x, prop.y - 1)) problems.push(`${where} hangs from the hatch at ${x}`)
         if (tileAt(grid, x, prop.y + 1) === 'duct') problems.push(`${where} up inside a duct's crawl space at ${x}`)
       }
     }
@@ -141,6 +142,7 @@ export function fixtureProblems(level: Level): string[] {
     const where = `${lamp.fixture} lamp at ${lamp.x},${lamp.y}`
     if (solid(grid, lamp.x, lamp.y)) problems.push(`${where} inside ${tileAt(grid, Math.floor(lamp.x), Math.floor(lamp.y))}`)
     if (lamp.hung && !solid(grid, lamp.x, Math.floor(lamp.y) - 1)) problems.push(`${where} hung from nothing`)
+    else if (lamp.hung && hatchAt(grid, Math.floor(lamp.x), Math.floor(lamp.y) - 1)) problems.push(`${where} hung from a hatch`)
     const key = `${lamp.x}:${lamp.y}`
     if (lamps.has(key)) problems.push(`${where} on top of another lamp`)
     lamps.add(key)
