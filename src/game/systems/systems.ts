@@ -1,3 +1,4 @@
+import { withBlastCause } from '../explosions'
 import type { World } from '../world'
 import { stepTraps } from './actions'
 import { checkBackdrafts } from './backdraft'
@@ -48,6 +49,12 @@ export function stepSystems(world: World, dt: number): void {
   const systems = world.systems
   if (!systems.faultsSeeded) seedFaults(world)
   followShots(world, dt, (target, at, heading) => hitTarget(world, target, at, heading))
+  // Everything below reacts to what already happened: what it sets off is a chain, not the player's own act.
+  withBlastCause('playerChain', () => stepReactions(world, dt))
+}
+
+function stepReactions(world: World, dt: number): void {
+  const systems = world.systems
   if (world.effects.flashes.length > 0) blastPipes(world)
   const opened = openedTiles(world)
   wiresFromOpenedCeilings(world, opened)
@@ -79,7 +86,8 @@ function liquidTick(world: World, tick: number): void {
   watchFixtures(world)
   watchTanks(world)
   dropBrokenFittings(world)
-  if (world.systems.faults.length > 0) stepFaults(world, tick)
+  // A seeded fault going wrong is nobody's doing.
+  if (world.systems.faults.length > 0) withBlastCause('accident', () => stepFaults(world, tick))
   stepSources(world, tick)
   stepLiquid(world, 'water', tick)
   stepLiquid(world, 'fuel', tick)

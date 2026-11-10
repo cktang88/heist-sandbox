@@ -1,4 +1,5 @@
 import { burst, flash } from '../effects'
+import { withBlastCause } from '../explosions'
 import { igniteAt } from '../hazards/hazards'
 import { emitNoise } from '../noise'
 import { playSound } from '../sounds'
@@ -15,6 +16,10 @@ const THUNDER = 30
 const MAX_PUDDLE = 400
 
 export function strikeAt(world: World, at: Vec): void {
+  withBlastCause('accident', () => strike(world, at))
+}
+
+function strike(world: World, at: Vec): void {
   flash(world.effects, at, 2.5, 0.2, 'muzzle')
   burst(world.effects, world.systems.rng, at, 24, '#e6f2ff', 12)
   playSound(world, 'explosion', at)

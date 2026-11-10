@@ -5,7 +5,9 @@ import { GUNS } from './guns'
 import { fireShot } from './projectiles'
 import { elevatorsRecalled, isLockedDown } from './security/dispatch'
 import { raiseLevel, reportEvent } from './security/report'
-import { createGuard } from './guards'
+import { createGuard, hurtGuard } from './guards'
+import { knockOutCold } from './stealth/bodies'
+import { throwFrag } from './frag/frag'
 import { idleInput, type Input } from './input'
 import type { ElevatorShaft } from './site'
 import { roomAt } from './site'
@@ -233,6 +235,44 @@ describe('elevators', () => {
     car.targetStop = 0
     run(world, 5)
     expect(victim.state).toBe('dead')
+  })
+})
+
+describe('elevators carry what lies on the car floor', () => {
+  it('bodies, the case, pickups, a charge and a grenade on the floor ride with the car', () => {
+    const { world, shaft, car } = setUp()
+    Object.assign(world.player, { x: 20, y: world.groundY - world.player.h })
+    run(world, 0.3)
+    const floor = car.y
+    const middle = shaft.x + shaft.w / 2
+    const dead = createGuard({ x: middle - 1, y: floor, facing: 1 })
+    hurtGuard(world, dead, 1e4, { x: middle, y: floor - 1 })
+    const tied = createGuard({ x: middle, y: floor, facing: 1 })
+    world.guards = [dead, tied]
+    knockOutCold(world, tied, 1e4)
+    tied.restrained = true
+    Object.assign(world.loot, { x: middle - 0.4, y: floor - world.loot.h, vx: 0, vy: 0, taken: false })
+    const pickup = world.pickups[0]
+    Object.assign(pickup, { x: middle + 0.2, y: floor - pickup.h, vx: 0, vy: 0, taken: false })
+    world.charges.push({ x: middle - 0.2, y: floor - 0.401, w: 0.4, h: 0.4, vx: 0, vy: 0, onGround: true, fuse: null, stuck: { x: Math.floor(middle), y: floor } })
+    throwFrag(world, { x: middle, y: floor - 0.5 }, { x: 0, y: 1 })
+    world.frags[0].fuse = 1e4
+    run(world, 2)
+    const target = car.stop! + 2
+    car.targetStop = target
+    run(world, 0.5)
+    expect(car.moving).toBe(true)
+    run(world, 6)
+    expect(car.stop).toBe(target)
+    const onCar = (bottom: number) => Math.abs(bottom - car.y) < 0.6
+    for (const guard of [dead, tied]) expect(guard.ragdoll!.points.every((point) => point.y <= car.y + 0.05 && point.y > car.y - 2)).toBe(true)
+    expect(onCar(world.loot.y + world.loot.h)).toBe(true)
+    expect(onCar(pickup.y + pickup.h)).toBe(true)
+    expect(onCar(world.charges[0].y + world.charges[0].h)).toBe(true)
+    expect(onCar(world.frags[0].y + world.frags[0].h)).toBe(true)
+    run(world, 2)
+    expect(onCar(world.loot.y + world.loot.h)).toBe(true)
+    expect(dead.ragdoll!.points.every((point) => point.y <= car.y + 0.05)).toBe(true)
   })
 })
 

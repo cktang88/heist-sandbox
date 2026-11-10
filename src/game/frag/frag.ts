@@ -49,7 +49,8 @@ export function stepFrags(world: World, dt: number): void {
   }
   const due = world.frags.filter((frag) => frag.fuse <= 0)
   world.frags = world.frags.filter((frag) => frag.fuse > 0)
-  for (const frag of due) explode(world, centerOf(frag), FRAG_BLAST)
+  // The security force keeps the list of frags its own men threw (security/guardFrags.ts).
+  for (const frag of due) explode(world, centerOf(frag), FRAG_BLAST, world.security.guardFrags.includes(frag) ? 'guard' : 'player')
 }
 
 /** Flies, bounces a little off whatever it hits, and rolls to rest. */
