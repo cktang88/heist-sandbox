@@ -21,6 +21,7 @@ import { stepTime } from './time'
 import { stepMelee } from './melee/melee'
 import { stepIntel } from './intel/intel'
 import { stepPhysProps } from './physprops/physprops'
+import { stepGaps } from './gaps/gaps'
 import { useTool } from './tools'
 import { overlaps } from './types'
 import type { World } from './world'
@@ -61,6 +62,7 @@ export function stepWorld(world: World, input: Input, realDt: number): void {
   stepElevators(world, input, dt)
   stepSecurity(world, dt)
   for (const guard of world.guards) updateGuard(world, guard, dt)
+  stepGaps(world, input)
   if (!alarmBefore && world.alarm) raiseAlarm(world)
   stepFrags(world, dt)
   stepAftermath(world)

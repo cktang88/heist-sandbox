@@ -49,8 +49,10 @@ npm run build
 | F / V | Punch / kick (kick also tips tables and bursts doors) |
 | Hold G | Drag furniture, or hold a guard from behind as a shield |
 | T | Throw the nearest small object where you aim |
-| Q | Set off all C4 |
+| Q or right-click | Set off all C4. C4 sticks to walls, doors and ceilings |
 | Shift | Focus: slow motion, slowest when you hold still |
+| Esc or P | Pause menu: controls, help, settings (art style, quality, site, seed, sound) |
+| H / K or F1 | Help / controls list |
 | Enter | New heist after winning or losing |
 
 ## Tools
@@ -70,6 +72,8 @@ npm run build
 
 ## Things the world lets you do
 
+- The gold case is hidden. Question guards who surrender, are tied up or are held as a shield (about 70% tell the truth); read notes and hack files for better clues. Go loud and the guards move it.
+- Walk past a hole blown in a floor, hold S over it to drop through, or jump up through it.
 - Shoot out lamps, cameras, alarm buttons, radio relays and fuse boxes.
 - Push a desk against a door to block it, or under a hole in the ceiling to climb up.
 - Blow up a stair flight or cut an elevator cable to stop guards following.

@@ -27,6 +27,7 @@ import { createFallingProps, type FallingPropsState } from './vehicles/fallingPr
 import { createPhysProps, type PhysPropsState } from './physprops/state'
 import { createMelee, type MeleeState } from './melee/state'
 import { createIntel, type IntelState } from './intel/types'
+import { createGaps, type GapState } from './gaps/state'
 
 export type Loot = Body & { taken: boolean }
 export type Pickup = Body & { kind: 'medkit' | 'ammo'; taken: boolean }
@@ -77,6 +78,8 @@ export type World = {
   ropes: Rope[]
   /** Floor props dropping through a destroyed floor. */
   fallingProps: FallingPropsState
+  /** Holes in floor slabs that people can walk past, drop through or climb up through. */
+  gaps: GapState
   /** Lighting circuits whose fuse box has been cut. */
   deadCircuits: Set<number>
   /** The hacking menu that is open, if any. */
@@ -130,6 +133,7 @@ export function createWorld(seed: number, kind: SiteKind = 'outpost'): World {
     frags: [],
     ropes: [],
     fallingProps: createFallingProps(),
+    gaps: createGaps(level),
     deadCircuits: new Set(),
     terminal: null,
     prompt: null,
