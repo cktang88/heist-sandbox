@@ -20,6 +20,7 @@ import { createRenderer3d, type Renderer3d } from './render3d/renderer3d'
 import { onLookChange, randomSeed, writeSeed } from './ui/address'
 import { loadingScreen, nextPaint } from './ui/loading'
 import { enableStepTimings, stepTimings } from './game/stepTimings'
+import { showHint } from './ui/hint'
 import { createMenus } from './ui/menus'
 import { rememberNemeses, withNemeses } from './ui/nemesisStore'
 // Director, briefing, weather and debrief (src/game/director, src/game/chronicle, src/ui/debrief.ts).
@@ -102,6 +103,7 @@ function finishLoading(now: number): void {
   // The time spent loading is not game time.
   lastTime = now
   showBriefing(world)
+  showHint()
 }
 
 /**

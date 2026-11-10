@@ -4,7 +4,6 @@ import { currentSeed, currentSettings, randomSeed } from './address'
 import { controlsModal } from './controlsModal'
 import { applyGameplay } from './gameplay'
 import { helpModal } from './helpModal'
-import { showHint } from './hint'
 import { createLayerStack } from './layers'
 import './menu.css'
 import { pauseMenu } from './pauseMenu'
@@ -118,7 +117,6 @@ export function createMenus(host: MenuHost): Menus {
     }
   })
 
-  showHint()
   return {
     paused: () => paused,
     afterStep: (world) => applyGameplay(world, settings),
