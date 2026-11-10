@@ -133,6 +133,12 @@ The crosshair ring widens as a gun gets less accurate, so spread is never a surp
 | ![Settings](docs/screenshots/menu-settings.png) | ![Controls](docs/screenshots/menu-controls.png) |
 | ![Help](docs/screenshots/menu-help.png) | |
 
+## Art styles
+
+Pick one in Settings (it switches at once) or add `?look=real`, `pixel`, `pixel-hd`, `sketch` or `paint` to the address.
+
+![The four looks](docs/screenshots/looks-lounge.png)
+
 ## Options
 
 Settings are in the pause menu and are remembered. The same things can be set in the address:
