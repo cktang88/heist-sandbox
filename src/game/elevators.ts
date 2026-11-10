@@ -179,8 +179,8 @@ function stayOrLeave(world: World, car: ElevatorCar, shaft: ElevatorShaft, input
     if (car.stop !== order && car.dwell === 0) depart(world, car, shaft, order)
     return
   }
-  if (car.stop === null) return depart(world, car, shaft, nearestStop(shaft, car.y))
   if (car.locked) return
+  if (car.stop === null) return depart(world, car, shaft, nearestStop(shaft, car.y))
   if (car.targetStop !== null) {
     const target = car.targetStop
     car.targetStop = null

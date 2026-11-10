@@ -40,11 +40,18 @@ type Action = { prompt: string; key: string; run: () => void; hold?: number; typ
  */
 export function interact(world: World, input: Input, dt: number): void {
   collect(world)
-  const takedown = takedownAction(world)
-  if (!takedown && world.terminal) return useTerminal(world, input)
-  const action = takedown ?? deviceAction(world) ?? elevatorAction(world) ?? doorAction(world)
-  world.prompt = action?.prompt ?? null
-  perform(world, input, dt, action)
+  if (!takedownAction(world) && world.terminal) return useTerminal(world, input)
+  const action = bestAction(world)
+  const acted = perform(world, input, dt, action)
+  // The hint shows what E does next, so it is chosen again after anything changed.
+  const next = acted ? bestAction(world) : action
+  world.prompt = world.terminal ? terminalPrompt(world) : next?.prompt ?? null
+}
+
+function bestAction(world: World): Action | null {
+  // Nothing is in reach through the walls of a moving car.
+  if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
+  return takedownAction(world) ?? deviceAction(world) ?? elevatorAction(world) ?? doorAction(world)
 }
 
 function collect(world: World): void {
@@ -66,22 +73,24 @@ function collect(world: World): void {
   }
 }
 
-function perform(world: World, input: Input, dt: number, action: Action | null): void {
+/** Returns true when the action was carried out this frame. */
+function perform(world: World, input: Input, dt: number, action: Action | null): boolean {
   const state = deviceState(world)
   const player = world.player
   if (!action || action.hold === undefined || !input.interact || state.holding !== action.key) player.pick = 0
   state.holding = action?.key ?? null
-  if (!action) return
+  if (!action) return false
   if (action.hold === undefined) {
     if (input.interactPressed) action.run()
-    return
+    return input.interactPressed
   }
-  if (!input.interact) return
+  if (!input.interact) return false
   player.pick += dt / action.hold
   if (action.typing) typeAway(world, dt)
-  if (player.pick < 1) return
+  if (player.pick < 1) return false
   player.pick = 0
   action.run()
+  return true
 }
 
 function typeAway(world: World, dt: number): void {
@@ -103,7 +112,12 @@ function useTerminal(world: World, input: Input): void {
     return
   }
   if (input.selectTool !== null && input.selectTool >= 0 && input.selectTool < terminal.options.length) chooseOption(world, input.selectTool)
-  world.prompt = terminal.options.length > 0 ? `1-${terminal.options.length}: choose, E: close` : 'Access denied. E: close'
+  world.prompt = terminalPrompt(world)
+}
+
+function terminalPrompt(world: World): string {
+  const count = world.terminal?.options.length ?? 0
+  return count > 0 ? `1-${count}: choose, E: close` : 'Access denied. E: close'
 }
 
 function takedownAction(world: World): Action | null {
