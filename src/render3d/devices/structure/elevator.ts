@@ -12,6 +12,8 @@ const DOOR_HEIGHT = 3
 const DOOR_Z = 0.28
 const SHAFT_HEADROOM = 5
 const DOOR_SPEED = 2.2
+/** How much of a cut cable still hangs from the winding gear, in tiles. */
+const CUT_CABLE_LENGTH = 2.5
 const BRUSHED = matte(0x9aa1a8, 0.32, 0.9)
 const DARK = matte(0x2a2d31, 0.5, 0.7)
 const CABLE = matte(0x15161a, 0.6, 0.6)
@@ -129,10 +131,14 @@ export function buildElevator(shaft: ElevatorShaft): ElevatorRig {
       const floor = -carY
       car.position.set(shaft.x + shaft.w / 2, floor, 0)
       const roof = floor + CAR_HEIGHT + 0.42
-      cables.position.set(shaft.x + shaft.w / 2, (roof + topY) / 2, -1)
-      cables.scale.y = Math.max(0.01, topY - roof)
+      // A cut cable no longer reaches the car: a frayed end hangs from the winding gear and the counterweight lies in
+      // the pit, while the car falls (or lies wrecked) on its own.
+      const cut = state?.cut === true
+      const cableEnd = cut ? Math.max(roof, topY - CUT_CABLE_LENGTH) : roof
+      cables.position.set(shaft.x + shaft.w / 2, (cableEnd + topY) / 2, -1)
+      cables.scale.y = Math.max(0.01, topY - cableEnd)
       // The counterweight runs the opposite way to the car.
-      const weightY = Math.max(pitY + 1.2, Math.min(topY - 1.2, topY + pitY - floor - CAR_HEIGHT / 2))
+      const weightY = cut ? pitY + 1.2 : Math.max(pitY + 1.2, Math.min(topY - 1.2, topY + pitY - floor - CAR_HEIGHT / 2))
       counterweight.position.set(weightX, weightY, 0)
       weightCable.position.set(weightX, (weightY + 1 + topY) / 2, BACK + 0.38)
       weightCable.scale.y = Math.max(0.01, topY - weightY - 1)
