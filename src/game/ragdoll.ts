@@ -50,9 +50,19 @@ export function pushRagdoll(ragdoll: Ragdoll, from: Vec, radius: number, speed: 
   }
 }
 
+/** A joint moves at most this far per sub-step, so a fast body cannot jump clean over a one-tile wall or slab. */
+const MAX_MOVE = 0.4
+
 /** Moves the joints, then pulls the bones back to length and keeps joints out of walls. */
 export function stepRagdoll(grid: Grid, ragdoll: Ragdoll, dt: number): void {
   if (dt <= 0) return
+  let fastest = 0
+  for (const point of ragdoll.points) fastest = Math.max(fastest, Math.hypot(point.vx, point.vy))
+  const steps = Math.max(1, Math.ceil((Math.min(fastest, MAX_SPEED) * dt) / MAX_MOVE))
+  for (let step = 0; step < steps; step += 1) subStep(grid, ragdoll, dt / steps)
+}
+
+function subStep(grid: Grid, ragdoll: Ragdoll, dt: number): void {
   const before = ragdoll.points.map((point) => ({ x: point.x, y: point.y }))
   for (const point of ragdoll.points) {
     point.vy += GRAVITY * dt
