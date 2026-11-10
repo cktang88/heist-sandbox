@@ -109,11 +109,12 @@ function mayhem(world: World, second: number): void {
 }
 
 /** What one run measured. Steps are numbered, so runs of the same scenario can be compared step by step. */
-type Measured = { frames: number[]; totals: Totals; allocations: number[]; pauses: number[]; cpu: number }
+type Measured = { frames: number[]; biggest: string[]; totals: Totals; allocations: number[]; pauses: number[]; cpu: number }
 
 async function measure(world: World, seconds: number, each?: (second: number) => void): Promise<Measured> {
   const totals: Totals = {}
   const frames: number[] = []
+  const biggest: string[] = []
   const allocations: number[] = []
   const pauses: number[] = []
   const observer = new PerformanceObserver((list) => { for (const entry of list.getEntries()) pauses.push(entry.duration) })
@@ -125,11 +126,13 @@ async function measure(world: World, seconds: number, each?: (second: number) =>
     for (let frame = 0; frame < 60; frame += 1) {
       world.player.hp = 1e9
       const input = idleInput({ x: world.player.x + 5, y: world.player.y })
+      const before = { ...totals }
       const heapBefore = process.memoryUsage().heapUsed
       const started = performance.now()
       step(world, input, totals)
       frames.push(performance.now() - started)
       const grown = process.memoryUsage().heapUsed - heapBefore
+      biggest.push(biggestSystem(before, totals))
       // A collection during the step makes the difference meaningless, so those steps are left out.
       if (grown >= 0) allocations.push(grown)
     }
@@ -138,7 +141,18 @@ async function measure(world: World, seconds: number, each?: (second: number) =>
   // The loop never yields, and collections are only reported once it does.
   await new Promise((resolve) => setTimeout(resolve, 100))
   observer.disconnect()
-  return { frames, totals, allocations, pauses, cpu: (usage.user + usage.system) / 1000 }
+  return { frames, biggest, totals, allocations, pauses, cpu: (usage.user + usage.system) / 1000 }
+}
+
+/** The system that took longest in one step, with its time, to say what a slow step was busy with. */
+function biggestSystem(before: Totals, after: Totals): string {
+  let name = ''
+  let most = 0
+  for (const [system, total] of Object.entries(after)) {
+    const spent = total - (before[system] ?? 0)
+    if (spent > most) [name, most] = [system, spent]
+  }
+  return `${name} ${most.toFixed(1)}`
 }
 
 /**
@@ -146,11 +160,13 @@ async function measure(world: World, seconds: number, each?: (second: number) =>
  * jobs only ever add time, so the fastest of the runs for each step (and each system) is the cleanest reading.
  */
 function fastestOf(runs: Measured[]): Measured {
-  const frames = runs[0].frames.map((_, index) => Math.min(...runs.map((run) => run.frames[index])))
+  const fastest = runs[0].frames.map((_, index) => runs.reduce((best, run) => (run.frames[index] < best.frames[index] ? run : best)))
+  const frames = fastest.map((run, index) => run.frames[index])
+  const biggest = fastest.map((run, index) => run.biggest[index])
   const totals: Totals = {}
   for (const name of Object.keys(runs[0].totals)) totals[name] = Math.min(...runs.map((run) => run.totals[name]))
   const quietest = runs.reduce((best, run) => (sum(run.pauses) < sum(best.pauses) ? run : best))
-  return { frames, totals, allocations: runs[0].allocations, pauses: quietest.pauses, cpu: Math.min(...runs.map((run) => run.cpu)) }
+  return { frames, biggest, totals, allocations: runs[0].allocations, pauses: quietest.pauses, cpu: Math.min(...runs.map((run) => run.cpu)) }
 }
 
 function sum(values: readonly number[]): number {
@@ -171,6 +187,8 @@ function summary(measured: Measured): string[] {
   for (const [name, total] of Object.entries(measured.totals).sort((a, b) => b[1] - a[1])) {
     lines.push(`  ${name.padEnd(24)} ${(total / count).toFixed(3)} ms`)
   }
+  const slowest = measured.frames.map((ms, index) => ({ ms, index })).sort((a, b) => b.ms - a.ms).slice(0, 8)
+  lines.push(`slowest steps: ${slowest.map(({ ms, index }) => `#${index} ${ms.toFixed(1)} ms (${measured.biggest[index]})`).join(', ')}`)
   return lines
 }
 
