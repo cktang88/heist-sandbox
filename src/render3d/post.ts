@@ -1,4 +1,4 @@
-import { Box3, DepthTexture, HalfFloatType, Vector2, Vector3, WebGLRenderTarget, type Material, type Scene, type ShaderMaterial, type WebGLRenderer } from 'three'
+import { Box3, DepthTexture, HalfFloatType, Vector2, Vector3, WebGLRenderTarget, type Scene, type WebGLRenderer } from 'three'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
@@ -93,24 +93,9 @@ export type PostChain = {
   setLook(mood: Mood): void
   /** Where the snapped camera ended up this frame (pixel look only). */
   setSnap(snap: Snap | null): void
-  /** Every full-screen shader of the chain, so the level's warm-up can compile them with the scene's. */
-  materials(): Material[]
   dispose(): void
 }
 
-/** The shader materials a pass holds, directly, in a list, or on its full-screen quad. */
-function passMaterials(pass: object): Material[] {
-  const found: Material[] = []
-  const take = (value: unknown) => {
-    if ((value as ShaderMaterial | null)?.isShaderMaterial) found.push(value as ShaderMaterial)
-  }
-  for (const value of Object.values(pass)) {
-    take(value)
-    if (Array.isArray(value)) value.forEach(take)
-    take((value as { material?: unknown } | null)?.material)
-  }
-  return found
-}
 
 /** The look-specific passes after the shared grade. */
 type Finisher = {
@@ -259,9 +244,6 @@ export function createPost(renderer: WebGLRenderer, scene: Scene, cameras: Camer
     },
     setSnap(next) {
       snap = next
-    },
-    materials() {
-      return [...new Set(composer.passes.flatMap(passMaterials))]
     },
     dispose() {
       finisher.dispose()

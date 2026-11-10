@@ -177,7 +177,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
     const limit = new Promise((resolve) => setTimeout(resolve, WARM_UP_LIMIT_MS))
     const work = skyReady.then(() => {
       placeCamera(world, world.player)
-      return measured('compile shaders', () => compileScene(renderer, scene, cameras.perspective, post.materials()))
+      return measured('compile shaders', () => compileScene(renderer, scene, cameras.perspective))
     })
     const done = Promise.race([work, limit])
     void done.then(() => {

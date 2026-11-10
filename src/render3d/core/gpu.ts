@@ -1,4 +1,4 @@
-import { BufferGeometry, HalfFloatType, Mesh, MeshBasicMaterial, PlaneGeometry, Scene, WebGLRenderTarget, type Camera, type Material, type Object3D, type Texture, type WebGLProgram, type WebGLRenderer, Vector3 } from 'three'
+import { BufferGeometry, HalfFloatType, Mesh, MeshBasicMaterial, Scene, WebGLRenderTarget, type Camera, type Material, type Object3D, type Texture, type WebGLProgram, type WebGLRenderer, Vector3 } from 'three'
 import { addBuildJob, type StepResult } from './buildQueue'
 
 /**
@@ -82,7 +82,6 @@ function upload(renderer: WebGLRenderer, camera: Camera, meshes: Mesh[]): void {
 
 type ProgramState = { currentProgram?: WebGLProgram & { isReady?: () => boolean } }
 
-const SCREEN_QUAD = new PlaneGeometry(2, 2)
 /** Milliseconds per frame spent linking the level's shaders while the loading screen is up. */
 const LINK_BUDGET_MS = 40
 let linking = { done: 0, total: 0 }
@@ -102,12 +101,8 @@ function programsOf(renderer: WebGLRenderer, materials: Iterable<Material>): (We
  * this only waits; where it cannot, linking is where the time goes, so programs are linked a few per frame and the
  * loading screen keeps painting and counting, instead of the first frame of the level stalling for all of them.
  */
-export function compileScene(renderer: WebGLRenderer, scene: Scene, camera: Camera, screenMaterials: Material[] = []): Promise<void> {
-  // Full-screen passes are not in the scene: a stand-in quad for each lets the same call compile them.
-  const passes = new Scene()
-  for (const material of screenMaterials) passes.add(new Mesh(SCREEN_QUAD, material))
-  const materials = asSceneDraw(renderer, () => [...renderer.compile(scene, camera), ...renderer.compile(passes, camera)])
-  const programs = programsOf(renderer, materials)
+export function compileScene(renderer: WebGLRenderer, scene: Scene, camera: Camera): Promise<void> {
+  const programs = programsOf(renderer, asSceneDraw(renderer, () => renderer.compile(scene, camera)))
   linking = { done: 0, total: programs.length }
   return new Promise((resolve) => {
     const next = () => {
