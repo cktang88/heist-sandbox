@@ -3,8 +3,7 @@ import { idleInput, type Input } from '../input'
 import { movePlayer, createPlayer, type Player } from '../player'
 import { createGrid, fillTiles, type Grid } from '../tiles'
 import { emitMovementNoise } from './footsteps'
-import { createWorld } from '../world'
-import { GROUND } from '../level'
+import { addGuard, addWall, arena, GROUND as ARENA_GROUND } from '../security/testArena'
 
 const FRAME = 1 / 60
 const FLOOR = 15
@@ -221,13 +220,30 @@ describe('jumping', () => {
 
 describe('footstep noise', () => {
   it('reaches nearby guards and the speakers', () => {
-    const world = createWorld(1)
-    const guard = world.guards.find((other) => other.homeX === 64)!
-    world.guards = [guard]
-    world.player.footfalls.push({ x: guard.x - 2, y: GROUND, radius: 4, hard: false })
+    const world = arena()
+    const guard = addGuard(world, 30, -1)
+    world.player.footfalls.push({ x: 28, y: ARENA_GROUND, radius: 4, hard: false })
     emitMovementNoise(world)
     expect(world.player.footfalls).toEqual([])
     expect(world.sounds.some((sound) => sound.kind === 'footstep')).toBe(true)
     expect(guard.state).toBe('suspicious')
+    expect(guard.interest?.at.x).toBe(28)
+  })
+
+  it('is stopped by a wall between the feet and the guard', () => {
+    const world = arena()
+    const guard = addGuard(world, 30, -1)
+    addWall(world, 29)
+    world.player.footfalls.push({ x: 28, y: ARENA_GROUND, radius: 4, hard: false })
+    emitMovementNoise(world)
+    expect(guard.state).toBe('patrol')
+  })
+
+  it('makes no sound at all while crouching, however far the player goes', () => {
+    const grid = room()
+    const player = standingAt(10)
+    run(grid, player, 2, () => ({ right: true, crouch: true }))
+    expect(player.x).toBeGreaterThan(15)
+    expect(player.footfalls).toEqual([])
   })
 })
