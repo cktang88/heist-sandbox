@@ -33,7 +33,6 @@ export const rivalCrew: ConditionDef = {
       id: 'rivalCrew',
       line: 'A rival crew is inside tonight: expect trouble you did not start, somewhere else on site.',
       step(world: World, dt: number) {
-        for (const victim of world.director.rivalVictims) if (!victim.out) world.director.rivalVictims.delete(victim)
         if (done >= INCIDENTS) return
         next -= dt
         if (next > 0) return

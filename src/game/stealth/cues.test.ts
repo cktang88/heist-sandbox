@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addProp } from '../hazards/testWorld'
-import { addLamp, arena, GROUND, putPlayer, run } from '../security/testArena'
+import { addGuard, addLamp, arena, GROUND, putPlayer, run } from '../security/testArena'
 import { stealthCues } from './cues'
 import { stealthRating } from './rating'
 
@@ -46,5 +46,14 @@ describe('the end-of-heist rating', () => {
     expect(stealthRating(world).name).toBe('SILENT')
     world.stats.alarms = 1
     expect(stealthRating(world).name).toBe('LOUD')
+  })
+
+  it('stays Ghost when the only body found is a guard the rival crew knocked cold', () => {
+    const world = arena()
+    const victim = addGuard(world, 30, 1)
+    world.director.rivalVictims.add(victim)
+    world.stealth.found.add(world.guards.indexOf(victim))
+    world.stats.bodiesFound = 1
+    expect(stealthRating(world).name).toBe('GHOST')
   })
 })

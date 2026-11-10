@@ -20,7 +20,7 @@ export function watchGuards(world: World): void {
   const tally = world.chronicle.tally
   world.guards.forEach((guard, index) => {
     const before = seen.modes[index] ?? guard.mode
-    // Out cold by the player's hand: the rival crew's victims are their own beat (a director event).
+    // Out cold by the player's hand: the rival crew's victims have their own beat (a director event).
     const out = guard.mode !== 'dead' && guard.stunSeconds > OUT_COLD && !world.director.rivalVictims.has(guard)
     if (guard.mode !== before) changedMode(world, guard, index, before)
     if (out && !seen.out[index]) {

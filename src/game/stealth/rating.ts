@@ -9,6 +9,12 @@ export type StealthRating = { name: 'GHOST' | 'SILENT' | 'LOUD'; line: string }
 export function stealthRating(world: World): StealthRating {
   const stats = world.stats
   if (stats.alarms > 0 || world.alarm) return { name: 'LOUD', line: 'the whole block heard you' }
-  if (stats.timesSpotted === 0 && stats.bodiesFound === 0 && stats.kills === 0) return { name: 'GHOST', line: 'never seen, nobody dead, nothing found' }
+  if (stats.timesSpotted === 0 && bodiesFound(world) === 0 && stats.kills === 0) return { name: 'GHOST', line: 'never seen, nobody dead, nothing found' }
   return { name: 'SILENT', line: 'the alarm never rang' }
+}
+
+/** Bodies of the player's making that guards found; a man the rival crew knocked cold is not his. */
+function bodiesFound(world: World): number {
+  const rivals = [...world.stealth.found].filter((index) => world.director.rivalVictims.has(world.guards[index])).length
+  return world.stats.bodiesFound - rivals
 }
