@@ -1,44 +1,177 @@
 import { GUNS } from '../game/guns'
+import { lightLevelAt } from '../game/light'
 import { MAX_FOCUS_SECONDS } from '../game/player'
+import type { Room, RoomKind } from '../game/site'
 import { TOOLS } from '../game/toolDefs'
 import { handOf } from '../game/tools'
-import type { Vec } from '../game/types'
+import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
 import { worldToScreen, type Camera } from './camera'
 
 const HELP = [
-  'A/D move    W/S climb    SPACE jump, tap again to double jump',
-  'HOLD SPACE while falling: parachute',
-  'MOUSE aim and fire    R reload    1-8 or wheel: pick a tool    Q: set off C4',
-  'E: pick locks, take down unaware guards, recall the drone',
+  'A/D move    W/S climb and take stairs    SPACE jump, tap again to double jump',
+  'HOLD SPACE while falling: parachute    C or CTRL: crouch',
+  'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool    Q: set off C4',
+  'E: pick locks, use devices, take down unaware guards, recall the drone',
   'SHIFT: focus (slow motion, slowest when you hold still)',
   'Steal the gold case from the vault and get back to the van.',
 ]
 
+/** The site's alert levels as the player reads them, from calm to locked down. */
+const ALERT_LEVELS = [
+  { word: 'CALM', color: '#7ee08a' },
+  { word: 'UNEASE', color: '#d8d45a' },
+  { word: 'SEARCHING', color: '#f0a83c' },
+  { word: 'CONFIRMED', color: '#ff6a3a' },
+  { word: 'LOCKDOWN', color: '#ff2d3d' },
+] as const
+
+const ROOM_LABELS: Record<RoomKind, string> = {
+  lobby: 'Lobby', office: 'Office', executive: 'Executive suite', conference: 'Conference room', breakRoom: 'Break room',
+  cafeteria: 'Cafeteria', kitchen: 'Kitchen', restroom: 'Restroom', lockers: 'Locker room', barracks: 'Barracks', lounge: 'Lounge',
+  gym: 'Gym', infirmary: 'Infirmary', lab: 'Laboratory', server: 'Server room', security: 'Security office', armory: 'Armory',
+  cells: 'Holding cells', archive: 'Archive', janitor: 'Janitor closet', mechanical: 'Plant room', electrical: 'Electrical room',
+  storage: 'Storage', loadingDock: 'Loading dock', garage: 'Garage', stairwell: 'Stairwell', elevatorLobby: 'Elevator lobby',
+  vault: 'Vault', penthouse: 'Penthouse', workshop: 'Workshop', silo: 'Silo', gatehouse: 'Gatehouse', sewer: 'Sewer',
+  street: 'Street', yard: 'Yard', rooftop: 'Rooftop',
+}
+
+export const HUD_FONT = 'ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace'
+const TEXT = '#d8dce4'
+const DIM = '#8a93a3'
+
+/** The HUD's base size in pixels: everything is laid out in multiples of it, so it scales with the window. */
+export function hudUnit(height: number): number {
+  return Math.max(11, Math.round(height / 48))
+}
+
 export function drawHud(context: CanvasRenderingContext2D, world: World, camera: Camera, aim: Vec): void {
   const { width, height } = camera
-  const unit = Math.max(12, Math.round(height / 45))
+  const unit = hudUnit(height)
   drawSlowmoTint(context, world, width, height)
-
-  bar(context, unit, unit, unit * 12, unit * 0.9, world.player.hp / 100, '#e0524a', 'HP')
-  bar(context, unit, unit * 2.3, unit * 12, unit * 0.9, world.player.focus / MAX_FOCUS_SECONDS, '#6fb8ff', 'FOCUS')
-
-  const anyAlert = world.guards.some((guard) => guard.state === 'alert')
-  const anySuspicious = world.guards.some((guard) => guard.state === 'suspicious')
-  const [status, color] = world.alarm ? ['ALARM', '#ff5a4a'] : anyAlert ? ['SPOTTED', '#ff9a4a'] : anySuspicious ? ['SUSPICIOUS', '#f0c83c'] : ['HIDDEN', '#7ee08a']
-  text(context, status, width - unit, unit * 1.8, color, unit * 1.4, 'right')
-  const goal = world.player.hasLoot ? 'Get back to the van' : 'Steal the gold case from the vault'
-  text(context, goal, width - unit, unit * 3.4, '#d8dce4', unit, 'right')
-
+  drawVitals(context, world, unit)
+  drawSituation(context, world, unit, width)
   drawTools(context, world, unit, width, height)
   drawCrosshair(context, world, camera, aim)
-  if (world.drone) text(context, `DRONE  ${Math.ceil(world.drone.battery)}s   click: detonate   E: recall`, width / 2, unit * 2, '#6fd0ff', unit, 'center')
-  if (world.status === 'playing' && world.clock < 9 && !world.alarm) {
-    context.fillStyle = 'rgba(5,6,10,0.55)'
-    context.fillRect(width / 2 - unit * 21, height * 0.28 - unit * 1.6, unit * 42, unit * 9.9)
-    HELP.forEach((line, index) => text(context, line, width / 2, height * 0.28 + index * unit * 1.5, 'rgba(255,255,255,0.85)', unit, 'center'))
-  }
+  if (world.drone) caption(context, `DRONE  ${Math.ceil(world.drone.battery)}s   click: detonate   E: recall`, width / 2, unit * 2, '#6fd0ff', unit, 'center')
+  if (world.prompt && world.status === 'playing') drawPrompt(context, world.prompt, unit, width, height)
+  if (world.terminal && world.status === 'playing') drawTerminal(context, world.terminal, unit, width, height)
+  if (world.status === 'playing' && world.clock < 9 && world.security.level === 0) drawHelp(context, unit, width, height)
   if (world.status !== 'playing') drawEndScreen(context, world, width, height, unit)
+}
+
+/** Health, focus and how visible the player is. */
+function drawVitals(context: CanvasRenderingContext2D, world: World, unit: number): void {
+  const player = world.player
+  const x = unit
+  const barWidth = unit * 11
+  panel(context, x - unit * 0.5, unit * 0.5, barWidth + unit * 5.2, unit * 4.6)
+  meter(context, x, unit, barWidth, unit * 0.8, player.hp / 100, player.hp < 30 ? '#ff4a3d' : '#e0524a', 'HP')
+  meter(context, x, unit * 2.2, barWidth, unit * 0.8, player.focus / MAX_FOCUS_SECONDS, '#6fb8ff', 'FOCUS')
+  const seen = visibility(world)
+  const segments = 10
+  const segmentWidth = barWidth / segments
+  for (let index = 0; index < segments; index += 1) {
+    const lit = index < Math.round(seen * segments)
+    context.fillStyle = lit ? `hsl(${48 - index * 2}, ${55 + index * 4}%, ${38 + index * 4}%)` : 'rgba(255,255,255,0.08)'
+    context.fillRect(x + index * segmentWidth, unit * 3.4, segmentWidth - 2, unit * 0.8)
+  }
+  const word = seen < 0.25 ? 'HIDDEN' : seen < 0.55 ? 'DIM' : 'EXPOSED'
+  caption(context, word, x + barWidth + unit * 0.5, unit * 4.1, seen < 0.25 ? '#7ee08a' : seen < 0.55 ? '#e8d27a' : '#ffb347', unit * 0.75, 'left')
+  if (player.crouching) caption(context, 'LOW', x + barWidth - unit * 0.2, unit * 3.15, DIM, unit * 0.6, 'right')
+}
+
+let lastLight = { clock: -1, level: 0 }
+/** How easy the player is to spot: the light on them, less when crouched. Re-read a few times a second. */
+function visibility(world: World): number {
+  if (Math.abs(world.clock - lastLight.clock) > 0.15) lastLight = { clock: world.clock, level: lightLevelAt(world, centerOf(world.player)) }
+  return Math.max(0, Math.min(1, lastLight.level * (world.player.crouching ? 0.65 : 1)))
+}
+
+/** Site alert level, the objective and where the player is. */
+function drawSituation(context: CanvasRenderingContext2D, world: World, unit: number, width: number): void {
+  const level = Math.max(0, Math.min(4, world.security.level))
+  const alert = ALERT_LEVELS[level]
+  const right = width - unit
+  const goal = world.player.hasLoot ? 'Get back to the van' : 'Steal the gold case from the vault'
+  const place = locationLine(world)
+  const textWidth = Math.max(measure(context, goal, unit * 0.85), measure(context, place, unit * 0.75), unit * 15)
+  panel(context, right - textWidth - unit * 0.5, unit * 0.5, textWidth + unit, unit * 5.4)
+  // Five pips, filled up to the current level; the top two pulse so a lockdown is impossible to miss.
+  const pip = unit * 0.9
+  const pulse = level >= 3 ? 0.6 + 0.4 * Math.sin(world.clock * 8) : 1
+  for (let index = 0; index < 5; index += 1) {
+    const px = right - (5 - index) * (pip + unit * 0.25)
+    context.fillStyle = index <= level && level > 0 ? ALERT_LEVELS[index].color : 'rgba(255,255,255,0.12)'
+    context.globalAlpha = index <= level && level > 0 ? (index === level ? pulse : 0.85) : 1
+    context.fillRect(px, unit * 0.95, pip, pip * 0.55)
+    context.globalAlpha = 1
+  }
+  caption(context, 'ALERT', right - 5 * (pip + unit * 0.25) - unit * 0.5, unit * 1.45, DIM, unit * 0.6, 'right')
+  caption(context, alert.word, right, unit * 2.95, alert.color, unit * 1.25, 'right')
+  caption(context, goal, right, unit * 4.1, TEXT, unit * 0.85, 'right')
+  caption(context, place, right, unit * 5.25, DIM, unit * 0.75, 'right')
+}
+
+let lastRoom: Room | null = null
+function roomAt(world: World, at: Vec): Room | null {
+  const inside = (room: Room) => at.x >= room.x && at.x < room.x + room.w && at.y >= room.y && at.y < room.y + room.h
+  if (lastRoom && world.rooms.includes(lastRoom) && inside(lastRoom)) return lastRoom
+  lastRoom = world.rooms.find(inside) ?? null
+  return lastRoom
+}
+
+function locationLine(world: World): string {
+  const room = roomAt(world, centerOf(world.player))
+  if (!room) return world.player.y > world.groundY ? 'UNDERGROUND' : 'OUTSIDE'
+  const floor = room.storey < 0 ? `BASEMENT ${-room.storey}` : room.storey === 0 ? 'GROUND FLOOR' : `FLOOR ${room.storey}`
+  return `${room.building.toUpperCase()}  ·  ${floor}  ·  ${ROOM_LABELS[room.kind].toUpperCase()}`
+}
+
+/** The action available right now, near the bottom centre, with its key picked out. */
+function drawPrompt(context: CanvasRenderingContext2D, prompt: string, unit: number, width: number, height: number): void {
+  const split = prompt.indexOf(':')
+  const key = split > 0 && split <= 6 ? prompt.slice(0, split).trim() : ''
+  const rest = key ? prompt.slice(split + 1).trim() : prompt
+  const size = unit * 1.05
+  const keyWidth = key ? measure(context, key, size) + unit * 0.9 : 0
+  const total = keyWidth + (key ? unit * 0.6 : 0) + measure(context, rest, size)
+  const x = width / 2 - total / 2
+  const y = height - unit * 5.2
+  panel(context, x - unit * 0.7, y - size * 1.05, total + unit * 1.4, size * 1.6)
+  if (key) {
+    context.strokeStyle = '#ffd27a'
+    context.lineWidth = 1.5
+    context.strokeRect(x, y - size * 0.85, keyWidth, size * 1.15)
+    caption(context, key, x + keyWidth / 2, y, '#ffd27a', size, 'center')
+  }
+  caption(context, rest, x + keyWidth + (key ? unit * 0.6 : 0), y, '#ffffff', size, 'left')
+}
+
+/** The hacking menu: a terminal-style panel with the device's title and numbered options. */
+function drawTerminal(context: CanvasRenderingContext2D, terminal: NonNullable<World['terminal']>, unit: number, width: number, height: number): void {
+  const size = unit * 0.9
+  const longest = Math.max(measure(context, terminal.title, size * 1.1), ...terminal.options.map((option, index) => measure(context, `${index + 1}  ${option}`, size)))
+  const w = Math.min(width - unit * 2, Math.max(unit * 18, longest + unit * 3))
+  const h = unit * (4.4 + terminal.options.length * 1.6)
+  const x = width / 2 - w / 2
+  const y = Math.max(unit * 6.5, height * 0.42 - h / 2)
+  context.fillStyle = 'rgba(8,12,10,0.86)'
+  context.fillRect(x, y, w, h)
+  context.strokeStyle = 'rgba(255,190,90,0.55)'
+  context.lineWidth = 1.5
+  context.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1)
+  context.fillStyle = 'rgba(255,170,60,0.16)'
+  context.fillRect(x, y, w, unit * 1.9)
+  caption(context, terminal.title.toUpperCase(), x + unit, y + unit * 1.3, '#ffd28a', size * 1.1, 'left')
+  terminal.options.forEach((option, index) => {
+    const rowY = y + unit * (3.3 + index * 1.6)
+    context.strokeStyle = 'rgba(255,190,90,0.45)'
+    context.strokeRect(x + unit, rowY - size * 0.95, size * 1.5, size * 1.3)
+    caption(context, String(index + 1), x + unit + size * 0.75, rowY, '#ffd28a', size, 'center')
+    caption(context, option, x + unit + size * 2.2, rowY, '#f0e6d0', size, 'left')
+  })
+  caption(context, 'NUMBER KEYS: CHOOSE    WALK AWAY: CLOSE', x + w / 2, y + h - unit * 0.6, DIM, unit * 0.62, 'center')
 }
 
 /** The ring widens as sustained fire makes the gun less accurate, so spread is never a surprise. */
@@ -69,34 +202,62 @@ function drawCrosshair(context: CanvasRenderingContext2D, world: World, camera: 
   }
 }
 
+/** Ten slots along the bottom. On a narrow screen the slots shrink and names are cut short, but ammo always shows. */
 function drawTools(context: CanvasRenderingContext2D, world: World, unit: number, width: number, height: number): void {
-  const slot = Math.min(unit * 8, (width - unit * 2) / TOOLS.length)
+  const gap = Math.max(2, unit * 0.2)
+  const slot = Math.min(unit * 8.5, (width - unit * 2) / TOOLS.length)
+  const left = width / 2 - (slot * TOOLS.length) / 2
+  const h = unit * 2.7
+  const y = height - h - unit * 0.6
+  const size = Math.min(unit * 0.78, slot / 6.5)
   TOOLS.forEach((tool, index) => {
-    const x = unit + index * slot
-    const y = height - unit * 2.6
+    const x = left + index * slot
+    const w = slot - gap
     const selected = index === world.player.tool
-    context.fillStyle = selected ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.45)'
-    context.fillRect(x, y, slot - unit * 0.3, unit * 2)
-    const ammo = world.player.ammo[index]
-    const count = GUNS[tool.id] ? ` ${world.player.mags[index]}/${ammo}` : Number.isFinite(ammo) ? ` ${ammo}` : ''
-    text(context, `${index + 1} ${tool.name}${count}`, x + unit * 0.4, y + unit * 1.3, selected ? '#ffffff' : '#9aa2b0', unit * 0.8, 'left')
+    context.fillStyle = selected ? 'rgba(255,255,255,0.2)' : 'rgba(6,8,12,0.6)'
+    context.fillRect(x, y, w, h)
+    if (selected) {
+      context.strokeStyle = 'rgba(255,255,255,0.75)'
+      context.lineWidth = 1.5
+      context.strokeRect(x + 0.75, y + 0.75, w - 1.5, h - 1.5)
+    }
     context.fillStyle = tool.quiet ? '#7ee08a' : '#ff7a5a'
-    context.fillRect(x, y + unit * 1.85, slot - unit * 0.3, unit * 0.15)
+    context.fillRect(x, y + h - unit * 0.18, w, unit * 0.18)
+    const key = String((index + 1) % 10)
+    caption(context, key, x + unit * 0.35, y + size * 1.25, selected ? '#ffd27a' : DIM, size * 0.85, 'left')
+    const nameLeft = x + unit * 0.35 + measure(context, key, size * 0.85) + unit * 0.35
+    caption(context, fit(context, tool.name.toUpperCase(), size, x + w - unit * 0.3 - nameLeft), nameLeft, y + size * 1.25, selected ? '#ffffff' : '#b4bcc8', size, 'left')
+    const ammo = world.player.ammo[index]
+    const count = GUNS[tool.id] ? `${world.player.mags[index]} / ${ammo}` : Number.isFinite(ammo) ? `${ammo}` : '∞'
+    const empty = GUNS[tool.id] ? world.player.mags[index] === 0 : ammo === 0
+    caption(context, count, x + w - unit * 0.35, y + h - unit * 0.55, empty ? '#ff6a5a' : selected ? '#ffffff' : DIM, size, 'right')
   })
 }
 
+function drawHelp(context: CanvasRenderingContext2D, unit: number, width: number, height: number): void {
+  const size = Math.min(unit, (width - unit * 4) / 62)
+  const w = Math.min(width - unit * 2, size * 50)
+  panel(context, width / 2 - w / 2, height * 0.28 - size * 1.8, w, size * 10.2)
+  HELP.forEach((line, index) => caption(context, line, width / 2, height * 0.28 + index * size * 1.5, 'rgba(255,255,255,0.88)', size * 0.82, 'center'))
+}
+
 function drawEndScreen(context: CanvasRenderingContext2D, world: World, width: number, height: number, unit: number): void {
-  context.fillStyle = 'rgba(5,6,10,0.72)'
+  context.fillStyle = 'rgba(5,6,10,0.78)'
   context.fillRect(0, 0, width, height)
   const won = world.status === 'won'
-  text(context, won ? 'CLEAN GETAWAY' : 'CAUGHT', width / 2, height * 0.36, won ? '#7ee08a' : '#ff5a4a', unit * 3.2, 'center')
-  const style = !world.alarm && world.stats.kills === 0 ? 'Ghost: never seen, nobody hurt' : !world.alarm ? 'Quiet: the alarm never rang' : 'Loud: the whole block heard you'
+  const colour = won ? '#7ee08a' : '#ff5a4a'
+  context.fillStyle = colour
+  context.fillRect(width / 2 - unit * 10, height * 0.36 - unit * 3.4, unit * 20, 2)
+  caption(context, won ? 'CLEAN GETAWAY' : 'CAUGHT', width / 2, height * 0.36, colour, unit * 3, 'center')
+  const peak = ALERT_LEVELS[Math.max(0, Math.min(4, world.security.level))].word
+  const style = !world.alarm && world.stats.kills === 0 ? 'GHOST: never seen, nobody hurt' : !world.alarm ? 'QUIET: the alarm never rang' : 'LOUD: the whole block heard you'
   const lines = [
     won ? style : 'The heist is over.',
-    `Time ${world.clock.toFixed(1)}s    Guards down ${world.stats.kills}    Tiles destroyed ${world.stats.tilesDestroyed}    Times spotted ${world.stats.timesSpotted}`,
-    'Press ENTER for a new heist',
+    `TIME ${world.clock.toFixed(1)}s    GUARDS DOWN ${world.stats.kills}    TILES DESTROYED ${world.stats.tilesDestroyed}`,
+    `TIMES SPOTTED ${world.stats.timesSpotted}    ALERT AT THE END ${peak}`,
   ]
-  lines.forEach((line, index) => text(context, line, width / 2, height * 0.46 + index * unit * 2, '#d8dce4', unit * 1.1, 'center'))
+  lines.forEach((line, index) => caption(context, line, width / 2, height * 0.47 + index * unit * 1.9, TEXT, Math.min(unit * 1.05, width / 52), 'center'))
+  caption(context, 'PRESS ENTER FOR A NEW HEIST', width / 2, height * 0.47 + unit * 7, '#ffd27a', unit, 'center')
 }
 
 function drawSlowmoTint(context: CanvasRenderingContext2D, world: World, width: number, height: number): void {
@@ -109,17 +270,50 @@ function drawSlowmoTint(context: CanvasRenderingContext2D, world: World, width: 
   context.fillRect(0, 0, width, height)
 }
 
-function bar(context: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, amount: number, color: string, name: string): void {
-  context.fillStyle = 'rgba(0,0,0,0.5)'
+function meter(context: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, amount: number, color: string, name: string): void {
+  context.fillStyle = 'rgba(255,255,255,0.08)'
   context.fillRect(x, y, w, h)
   context.fillStyle = color
   context.fillRect(x, y, w * Math.max(0, Math.min(1, amount)), h)
-  text(context, name, x + w + h * 0.5, y + h * 0.85, '#d8dce4', h, 'left')
+  caption(context, name, x + w + h * 0.6, y + h * 0.85, TEXT, h * 0.95, 'left')
 }
 
-function text(context: CanvasRenderingContext2D, value: string, x: number, y: number, color: string, size: number, align: CanvasTextAlign): void {
-  context.font = `bold ${Math.round(size)}px ui-monospace, monospace`
+/** A soft dark backing so text reads over both bright and dark scenes. */
+export function panel(context: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+  context.fillStyle = 'rgba(6,8,12,0.55)'
+  context.fillRect(x, y, w, h)
+  context.fillStyle = 'rgba(255,255,255,0.07)'
+  context.fillRect(x, y, w, 1)
+}
+
+function font(size: number): string {
+  return `bold ${Math.round(size)}px ${HUD_FONT}`
+}
+
+export function caption(context: CanvasRenderingContext2D, value: string, x: number, y: number, color: string, size: number, align: CanvasTextAlign): void {
+  context.font = font(size)
   context.textAlign = align
   context.fillStyle = color
   context.fillText(value, x, y)
+}
+
+const widths = new Map<string, number>()
+/** Text width, remembered: the HUD redraws the same strings every frame, so each is measured once. */
+export function measure(context: CanvasRenderingContext2D, value: string, size: number): number {
+  const key = `${Math.round(size)}|${value}`
+  let known = widths.get(key)
+  if (known === undefined) {
+    if (widths.size > 800) widths.clear()
+    context.font = font(size)
+    known = context.measureText(value).width
+    widths.set(key, known)
+  }
+  return known
+}
+
+/** Cuts text short so it fits in `room` pixels. */
+function fit(context: CanvasRenderingContext2D, value: string, size: number, room: number): string {
+  let cut = value
+  while (cut.length > 1 && measure(context, cut, size) > room) cut = cut.slice(0, -1)
+  return cut
 }
