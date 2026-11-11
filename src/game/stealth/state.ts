@@ -56,8 +56,10 @@ export type StealthState = {
   bluffs: number
   /** Wearing a guard's uniform; `officer` if it was an officer's. */
   disguise: { officer: boolean } | null
-  /** Clock time a guard found a body stripped of its uniform: disguises fail faster for a while. */
+  /** Clock time a guard found a body stripped of its uniform. */
   uniformKnownAt: number
+  /** Recent hostile actions keep the disguise exposed briefly after the input ends. */
+  suspiciousUntil: number
   /** Darts that have hit: the guard drops at `at`. */
   darts: { guard: number; at: number }[]
   noisemakers: Noisemaker[]
@@ -74,7 +76,7 @@ export type StealthState = {
 export function createStealth(): StealthState {
   return {
     carried: null, awakeTied: new Set(), grabWas: false, choke: null, hiding: null, watched: new Map(), opened: new Map(), found: new Set(), blood: [], bleeding: new Map(), lastDrop: null,
-    radios: new Set(), uniforms: new Set(), keycards: new Set(), checkIn: null, bluffs: 0, disguise: null, uniformKnownAt: -Infinity,
+    radios: new Set(), uniforms: new Set(), keycards: new Set(), checkIn: null, bluffs: 0, disguise: null, uniformKnownAt: -Infinity, suspiciousUntil: -Infinity,
     darts: [], noisemakers: [], noisemakerUses: new Map(), lures: [], rigged: [], looped: new Map(), hint: null,
   }
 }

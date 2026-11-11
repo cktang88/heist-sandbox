@@ -36,7 +36,7 @@ function seesPlayer(world: World, view: CameraView): boolean {
   if (!view.active || world.player.hidden) return false
   const target = centerOf(world.player)
   const gap = distance(view.origin, target)
-  if (gap > view.range || fooledCamera(world, gap)) return false
+  if (gap > view.range || fooledCamera(world)) return false
   const angle = Math.atan2(target.y - view.origin.y, target.x - view.origin.x)
   const off = Math.abs(Math.atan2(Math.sin(angle - view.angle), Math.cos(angle - view.angle)))
   return off <= view.halfAngle && clearView(world, view.origin, target) && playerLight(world) >= CAMERAS.minLight

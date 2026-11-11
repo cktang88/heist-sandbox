@@ -49,7 +49,8 @@ describe('lures', () => {
     const guard = addGuard(world, 23, 1)
     const partner = addGuard(world, 33, 1)
     putPlayer(world, 20)
-    run(world, 1 / 60, { whistlePressed: true })
+    // Aim above the guards: X whistles when the gun is not trained on someone.
+    run(world, 1 / 60, { whistlePressed: true, aim: { x: 20, y: GROUND - 10 } })
     expect(guard.interest?.kind).toBe('noise')
     expect(partner.mode).toBe('calm')
     // The player slips off before the guard arrives.
@@ -59,7 +60,8 @@ describe('lures', () => {
     guard.interest = null
     guard.mode = 'calm'
     putPlayer(world, 22)
-    run(world, 1 / 60, { whistlePressed: true })
+    // Aim above the guards: X whistles when the gun is not trained on someone.
+    run(world, 1 / 60, { whistlePressed: true, aim: { x: 20, y: GROUND - 10 } })
     putPlayer(world, 4)
     expect(partner.interest?.kind).toBe('noise')
     expect(world.stealth.lures.length).toBe(2)

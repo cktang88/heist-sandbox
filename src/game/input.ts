@@ -23,7 +23,7 @@ export type Input = {
   /** Held to grab: drags furniture, or holds a guard as a shield. */
   grab: boolean
   throwPressed: boolean
-  /** A short whistle (or a knock on the wall) that pulls the nearest guard over to look. */
+  /** X: demand surrender while aiming a gun at a nearby guard; otherwise whistle to lure. */
   whistlePressed: boolean
   /** Where the player is pointing, in tile units. */
   aim: Vec

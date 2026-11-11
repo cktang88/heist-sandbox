@@ -122,7 +122,7 @@ export function detectPlayer(world: World, guard: Guard): Detection | null {
   const motion = Math.abs(player.vx) > 5 ? AWARENESS.runFactor : moving ? 1 : AWARENESS.stillFactor
   const stance = crouching ? AWARENESS.crouchFactor : 1
   const zoneRate = zone === 'central' ? 1 : AWARENESS.peripheralRate
-  const uniform = disguiseFactor(world, guard, gap)
+  const uniform = disguiseFactor(world)
   if (uniform <= 0) return null
   return { rate: (distanceFactor(gap) * light * motion * stance * zoneRate * uniform) / AWARENESS.fillSeconds, zone }
 }

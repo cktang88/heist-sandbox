@@ -90,20 +90,20 @@ describe('the disguise', () => {
     expect(guard.awareness).toBe(0)
   })
 
-  it('up close, or running, or seen by an officer, it does not hold', () => {
+  it('passes up close and before officers, but jumping exposes it', () => {
     const close = disguised()
     addLamp(close, 30)
     const near = addGuard(close, 32, -1)
     putPlayer(close, 30.4)
     run(close, 3)
-    expect(near.awareness).toBeGreaterThan(0)
+    expect(near.awareness).toBe(0)
 
     const officer = disguised()
     addLamp(officer, 30)
     const boss = addGuard(officer, 36, -1, 'officer')
     putPlayer(officer, 30)
     run(officer, 3)
-    expect(boss.awareness).toBeGreaterThan(0)
+    expect(boss.awareness).toBe(0)
 
     const running = disguised()
     addLamp(running, 30)

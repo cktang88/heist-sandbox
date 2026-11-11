@@ -46,7 +46,7 @@ npm run build
 
 | Source | How | How reliable |
 |---|---|---|
-| A guard who surrendered, is tied up, or is your human shield | Hold **E** to question him. Each person talks once | About 70% tell the truth. Officers know the room; rookies only know the building |
+| A guard who surrendered, is tied up, or is your human shield | Get close; press **E** to tie a surrendered guard, then hold **E** to question him. He must be awake; each person talks once | About 70% tell the truth. Officers know the room; rookies only know the building |
 | Notice boards, whiteboards, papers | Hold **E** to read | About 90% |
 | A hacked computer | "Search files for the case" | About 90% |
 | Two calm guards chatting | Stay hidden nearby for a few seconds | About 90% |
@@ -72,7 +72,7 @@ Press **Esc** in the game for the full list, help and settings.
 | E | Do the thing in reach: break in through a window (tap to smash, hold to cut quietly), pick locks, take down, tie up, question, hack, cut wires, switches, call elevators |
 | F / V | Punch / kick (a kick also tips tables and bursts doors) |
 | G | Drag furniture (hold), hold a guard from behind as a shield (hold), pick up or drop a body |
-| X | Whistle to lure the nearest guard |
+| X | Aim a gun at a nearby guard: shout hands up. Otherwise whistle to lure a guard |
 | T | Throw the nearest small object where you aim |
 | Q or right-click | Set off all C4 |
 | Shift | Focus: slow motion, slowest when you hold still |
@@ -112,7 +112,7 @@ The crosshair ring widens as a gun gets less accurate, so spread is never a surp
 | Move bodies | **G** picks up and drops, **T** throws. While carrying, **E** hides the body in a locker, wardrobe, stall, dumpster, or under a desk or bed |
 | Hide yourself | **E** at a locker, wardrobe or bathroom stall; **E** to crawl under a desk. From inside, **E** grabs a guard walking past |
 | The surprise window | A lone guard who finds you up close is startled for about 3 seconds (less for veterans). Subdue him in that time and nobody hears about it |
-| Disguise | Hold **E** on a body to put on his uniform. It fools guards at a distance, not officers or anyone close for long |
+| Disguise | Hold **E** on a body to put on his uniform. It fools guards and cameras even up close, including officers, until you do something suspicious |
 | Keycards and radios | Take a keycard from a body to open keypad doors silently. Take his radio to answer his check-ins (two bluffs) |
 | Lures | **X** whistles; switching on a TV or vending machine draws the nearest guard. Overuse brings them in pairs |
 | Dart gun | Press **1** twice: a quiet dart that knocks a guard out after a few seconds |

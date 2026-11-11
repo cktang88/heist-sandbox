@@ -4,17 +4,21 @@ import type { World } from '../world'
 import { bodyInReach, pickUp, putDown, stepCarry, throwBody } from './carry'
 import { leaveSpot, passerBy } from './hide'
 import { whistle } from './lure'
+import { intimidate } from './intimidate'
 import { answerRadio } from './radio'
 import { startChoke, stepChoke } from './takedown'
 
 /**
  * The stealth keys that are not the ordinary "best thing in reach" E action: G to pick up and drop a body, T to throw
- * it, X to whistle, and E while something already has the hands busy (a choke, hiding, a radio call to answer).
+ * it, X to demand surrender or whistle, and E while something already has the hands busy (a choke, hiding, a radio call to answer).
  * Returns the prompt to show if it took the E key this frame, or undefined to let the usual E actions run.
  */
 export function stealthControls(world: World, input: Input, dt: number): string | null | undefined {
   carryKeys(world, input, dt)
-  if (input.whistlePressed) whistle(world)
+  if (input.fire || input.firePressed || input.punchPressed || input.kickPressed || input.detonatePressed) {
+    world.stealth.suspiciousUntil = world.clock + 3
+  }
+  if (input.whistlePressed && !intimidate(world, input.aim)) whistle(world)
   if (world.stealth.choke) {
     const going = stepChoke(world, input.interact, dt)
     if (going) {

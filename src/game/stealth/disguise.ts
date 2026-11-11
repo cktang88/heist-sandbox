@@ -1,18 +1,11 @@
 import type { Guard } from '../guards'
 import { onLine } from '../grapple/state'
-import { isAlerted } from '../security/perception'
 import { roomAt, type RoomKind } from '../site'
 import { TOOLS } from '../toolDefs'
 import { centerOf } from '../types'
 import type { World } from '../world'
-import { DISGUISE } from './tuning'
 
-/**
- * Wearing a guard's uniform. From a distance, in passing, the player reads as one of them; up close a guard looks at
- * his face and sees through it after a moment. Officers know every face. Sliding, jumping or climbing, carrying a body, choking a man or
- * holding one as a shield, holding a big gun or walking into a room his rank has no business in gives him away
- * whatever the distance. Once a stripped body has been found, everyone looks harder for a while.
- */
+/** A uniform passes as a guard until the player does something suspicious. */
 
 const BIG_GUNS = new Set(['rifle', 'shotgun', 'sniper', 'rocket'])
 const RESTRICTED: ReadonlySet<RoomKind> = new Set(['vault', 'security', 'armory', 'server'])
@@ -22,6 +15,7 @@ export function disguiseBlown(world: World): string | null {
   const disguise = world.stealth.disguise
   if (!disguise) return null
   const player = world.player
+  if (world.clock < world.stealth.suspiciousUntil) return 'hostile action'
   // His ordinary pace is a guard's walk; sliding, jumping about and climbing are not how a guard moves.
   if (player.onLadder || player.mantle || onLine(world.grapple)) return 'climbing'
   if (player.slide > 0) return 'sliding'
@@ -36,20 +30,14 @@ export function disguiseBlown(world: World): string | null {
   return null
 }
 
-/**
- * How much of the usual detection rate this guard gets against the disguised player at this distance: 1 without a
- * working disguise (or for an officer), less up close, little or nothing further off.
- */
-export function disguiseFactor(world: World, guard: Guard, gap: number): number {
-  if (!world.stealth.disguise || guard.role === 'officer' || disguiseBlown(world)) return 1
-  if (gap < DISGUISE.close) return DISGUISE.closeFactor
-  if (world.clock - world.stealth.uniformKnownAt < DISGUISE.knownSeconds) return DISGUISE.knownFactor
-  return isAlerted(guard) ? DISGUISE.edgeFactor : DISGUISE.calmFactor
+/** Proximity, rank and site alert alone do not expose a convincing uniform. */
+export function disguiseFactor(world: World): number {
+  return world.stealth.disguise && disguiseBlown(world) === null ? 0 : 1
 }
 
-/** Does a camera this far off take the disguised player for a guard? Close up the control room sees the face. */
-export function fooledCamera(world: World, gap: number): boolean {
-  return world.stealth.disguise !== null && disguiseBlown(world) === null && gap > DISGUISE.close * 2
+/** Cameras use the same suspicious-behavior rules as guards. */
+export function fooledCamera(world: World): boolean {
+  return disguiseFactor(world) === 0
 }
 
 export function takeUniform(world: World, guard: Guard): void {
