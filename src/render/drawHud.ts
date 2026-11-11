@@ -1,5 +1,6 @@
 import { revealedRooms } from '../game/devices/devices'
 import { GUNS } from '../game/guns'
+import { playerShotSpread, resolveAim, shotBlock } from '../game/aiming'
 import { lightLevelAt } from '../game/light'
 import { MAX_FOCUS_SECONDS } from '../game/player'
 import type { Room, RoomKind } from '../game/site'
@@ -258,11 +259,12 @@ function drawCrosshair(context: CanvasRenderingContext2D, world: World, camera: 
   const at = worldToScreen(camera, aim)
   const hand = handOf(world)
   const gun = GUNS[TOOLS[world.player.tool].id]
-  const spread = gun ? gun.shot.spread + world.player.bloom : 0
+  const target = gun ? resolveAim(world, hand, aim) : { point: aim, guard: null }
+  const spread = gun ? playerShotSpread(gun, world.player.bloom, Math.hypot(target.point.x - hand.x, target.point.y - hand.y)) : 0
   const reach = Math.hypot(aim.x - hand.x, aim.y - hand.y) * camera.scale
   const radius = Math.max(camera.height / 110, Math.tan(spread) * reach)
   const tick = camera.height / 90
-  context.strokeStyle = 'rgba(255,255,255,0.9)'
+  context.strokeStyle = target.guard ? '#7ee08a' : 'rgba(255,255,255,0.9)'
   context.lineWidth = Math.max(1.5, camera.height / 500)
   context.beginPath()
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -272,6 +274,17 @@ function drawCrosshair(context: CanvasRenderingContext2D, world: World, camera: 
   context.stroke()
   context.fillStyle = '#ff2d3d'
   context.fillRect(at.x - 1.5, at.y - 1.5, 3, 3)
+  if (gun) {
+    const block = shotBlock(world, hand, target.point)
+    if (block && Math.hypot(block.x - target.point.x, block.y - target.point.y) > 1) {
+      const stop = worldToScreen(camera, block)
+      context.strokeStyle = '#ffb347'
+      context.beginPath()
+      context.moveTo(stop.x - tick, stop.y - tick); context.lineTo(stop.x + tick, stop.y + tick)
+      context.moveTo(stop.x - tick, stop.y + tick); context.lineTo(stop.x + tick, stop.y - tick)
+      context.stroke()
+    }
+  }
   if (gun && world.player.reload > 0) {
     // Reload progress sweeps round the crosshair.
     context.strokeStyle = '#39ff6a'

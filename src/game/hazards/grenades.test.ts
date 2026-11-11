@@ -14,6 +14,14 @@ function room() {
 }
 
 describe('grenades', () => {
+  it('does not spawn a grenade inside a slab when the thrower crosses the stairs', () => {
+    const world = room()
+    throwGrenade(world, 'smoke', { x: 10, y: FLOOR + 0.1 }, { x: 1, y: -0.3 }, 'guard')
+    expect(world.hazards.grenades).toHaveLength(0)
+    throwGrenade(world, 'smoke', { x: 10, y: FLOOR - 1 }, { x: 1, y: -0.3 }, 'guard')
+    expect(world.hazards.grenades).toHaveLength(1)
+  })
+
   it('flies, bounces and rolls to rest before it pops', () => {
     const world = room()
     throwGrenade(world, 'smoke', { x: 10, y: 12 }, { x: 1, y: -0.3 })

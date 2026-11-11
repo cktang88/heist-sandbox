@@ -50,7 +50,7 @@ export const CONTROLS: readonly ControlGroup[] = [
   {
     title: 'Combat',
     rows: [
-      { keys: ['Mouse'], action: 'Aim' },
+      { keys: ['Mouse'], action: 'Aim at the intended impact point; green crosshair assists near guards, amber X marks structure in the shot path' },
       { keys: ['Left click'], action: 'Fire or use the tool in hand' },
       { keys: ['R'], action: 'Reload' },
       { keys: ['Q', 'Right click'], action: 'Set off all planted C4' },

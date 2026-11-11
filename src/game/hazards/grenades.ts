@@ -1,7 +1,7 @@
 import { hurtGuard, type Guard } from '../guards'
 import type { NoiseSource } from '../security/hearing'
 import { emitNoise } from '../noise'
-import { GRAVITY, moveBody } from '../physics'
+import { boxHitsSolid, GRAVITY, moveBody } from '../physics'
 import { playSound } from '../sounds'
 import { centerOf, distance, type Vec } from '../types'
 import { hasLineOfSight } from '../vision'
@@ -39,11 +39,13 @@ const FLASH_FADE_SECONDS = 0.5
 
 export function throwGrenade(world: World, kind: GrenadeKind, from: Vec, direction: Vec, thrower: NoiseSource = 'player'): void {
   const length = Math.hypot(direction.x, direction.y) || 1
-  world.hazards.grenades.push({
+  const grenade: Grenade = {
     x: from.x - SIZE / 2, y: from.y - SIZE / 2, w: SIZE, h: SIZE,
     vx: (direction.x / length) * THROW_SPEED, vy: (direction.y / length) * THROW_SPEED - LOFT, onGround: false,
     kind, fuse: FUSE[kind], popped: false, smokeLeft: 0, cloud: [], thrower,
-  })
+  }
+  // A hand can overlap a slab while its owner crosses the stairs. Do not create a canister inside it.
+  if (!boxHitsSolid(world.grid, grenade)) world.hazards.grenades.push(grenade)
 }
 
 export function stepGrenades(world: World, dt: number): void {

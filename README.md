@@ -103,6 +103,8 @@ Press **Esc** in the game for the full list, help and settings.
 
 The crosshair ring widens as a gun gets less accurate, so spread is never a surprise.
 
+Shots favor the point under your cursor: furniture and fixtures elsewhere along the room do not steal the shot. Aim on or just beside a guard for a small assist (green crosshair); head and body aim stay distinct. Rockets detonate at the aimed point, including in open air. Solid walls and floors still intercept shots; an amber X marks structure in the firing line. Shotguns keep their short-range spread.
+
 ## Staying quiet
 
 | Option | How |

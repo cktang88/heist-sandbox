@@ -1,4 +1,5 @@
 import { fireGrapple } from './grapple/hook'
+import { playerShotSpread, resolveAim } from './aiming'
 import { fireDart } from './stealth/dart'
 import { throwCharge } from './charges'
 import { hurtTile } from './destruction'
@@ -47,7 +48,8 @@ export function useTool(world: World, input: Input, dt: number): void {
   const gun = tool.action ? undefined : GUNS[tool.id]
   const pulled = tool.auto ? input.fire : input.firePressed
   const hand = handOf(world)
-  const aim = normalize(input.aim.x - hand.x, input.aim.y - hand.y)
+  const target = gun || tool.action === 'dart' ? resolveAim(world, hand, input.aim).point : input.aim
+  const aim = normalize(target.x - hand.x, target.y - hand.y)
 
   if (!gun) {
     if (!pulled || player.cooldown > 0 || player.ammo[player.tool] <= 0) return
@@ -88,10 +90,12 @@ export function useTool(world: World, input: Input, dt: number): void {
   player.cooldown = tool.cooldown
 
   // Shots leave from the barrel, unless the barrel is poking into a wall.
-  const barrel = { x: hand.x + aim.x * MUZZLE_REACH, y: hand.y + aim.y * MUZZLE_REACH }
+  const distance = Math.hypot(target.x - hand.x, target.y - hand.y)
+  const reach = Math.min(MUZZLE_REACH, distance * 0.5)
+  const barrel = { x: hand.x + aim.x * reach, y: hand.y + aim.y * reach }
   const muzzle = isSolidAt(world.grid, barrel.x, barrel.y) ? hand : barrel
   for (let pellet = 0; pellet < gun.pellets; pellet += 1) {
-    fireShot(world, muzzle, aim, { ...gun.shot, spread: gun.shot.spread + player.bloom })
+    fireShot(world, muzzle, aim, { ...gun.shot, spread: playerShotSpread(gun, player.bloom, distance), aimPoint: target })
   }
   if (gun.ejectsShell) ejectShell(world.effects, world.rng, hand, player.facing)
   emitNoise(world, hand, gun.noise)

@@ -7,12 +7,14 @@ import { shotHitsProp, type PropState } from './cover'
 import { burst, flash } from './effects'
 import { explode, ROCKET_BLAST } from './explosions'
 import { hurtGuard, shieldBlocks, type Guard } from './guards'
-import { inBounds, tileAt, TILE_DEFS } from './tiles'
+import { blocksLaneAt, inBounds, tileAt, TILE_DEFS } from './tiles'
 import { hitPause, triggerSlowmo } from './time'
 import { centerOf, distance, type Rect, type Vec } from './types'
 import type { World } from './world'
 
 export type Projectile = Vec & {
+  /** Player-selected impact area. Omitted for ordinary guard fire and simulation shots. */
+  aimPoint?: Vec
   vx: number
   vy: number
   kind: 'bullet' | 'rocket'
@@ -32,6 +34,7 @@ export type Projectile = Vec & {
 }
 
 export type ShotSpec = {
+  aimPoint?: Vec
   kind: Projectile['kind']
   fromPlayer: boolean
   speed: number
@@ -55,6 +58,7 @@ export function fireShot(world: World, from: Vec, direction: Vec, spec: ShotSpec
     x: from.x, y: from.y, vx: Math.cos(angle) * spec.speed, vy: Math.sin(angle) * spec.speed,
     kind: spec.kind, fromPlayer: spec.fromPlayer, damage: spec.damage, tileDamage: spec.tileDamage, push: spec.push, life: spec.life ?? 3,
     power: spec.penetration ?? 0, inTile: startingTile(world, from), inProp: null, struck: null,
+    aimPoint: spec.fromPlayer && spec.aimPoint ? { ...spec.aimPoint } : undefined,
   })
   flash(world.effects, from, 0.5, 0.07, 'muzzle', angle)
 }
@@ -80,6 +84,10 @@ function flyProjectile(world: World, projectile: Projectile, dt: number): boolea
   for (let index = 0; index < steps; index += 1) {
     projectile.x += (projectile.vx * dt) / steps
     projectile.y += (projectile.vy * dt) / steps
+    if (projectile.kind === 'rocket' && projectile.aimPoint && reachedAim(projectile)) {
+      explode(world, projectile.aimPoint, ROCKET_BLAST)
+      return true
+    }
     if (projectile.kind === 'rocket' ? rocketHits(world, projectile) : bulletStops(world, projectile)) {
       if (projectile.kind === 'rocket') explode(world, projectile, ROCKET_BLAST)
       return true
@@ -90,13 +98,31 @@ function flyProjectile(world: World, projectile: Projectile, dt: number): boolea
   return projectile.life <= 0
 }
 
+/** Along-flight distance avoids missing a cursor point between two simulation steps. */
+function reachedAim(shot: Projectile, before = 0): boolean {
+  if (!shot.aimPoint) return true
+  const speed = Math.hypot(shot.vx, shot.vy)
+  return (shot.aimPoint.x - shot.x) * shot.vx + (shot.aimPoint.y - shot.y) * shot.vy <= before * speed
+}
+
+/** Furniture and wall fixtures in another part of the room must not steal a cursor-directed shot. */
+function inAimArea(shot: Projectile): boolean {
+  return !shot.aimPoint || reachedAim(shot, 0.8)
+}
+
+function tileCanStop(world: World, shot: Projectile, x: number, y: number): boolean {
+  if (!TILE_DEFS[tileAt(world.grid, x, y)].stopsShots) return false
+  if (!shot.aimPoint || blocksLaneAt(world.grid, x, y)) return true
+  return Math.floor(shot.aimPoint.x) === x && Math.floor(shot.aimPoint.y) === y
+}
+
 /** A rocket goes off against the first thing it touches. */
 function rocketHits(world: World, rocket: Projectile): boolean {
   const tileX = Math.floor(rocket.x)
   const tileY = Math.floor(rocket.y)
   if (rocket.inTile >= 0 && rocket.inTile !== tileY * world.grid.width + tileX) rocket.inTile = -1
-  if (rocket.inTile < 0 && TILE_DEFS[tileAt(world.grid, tileX, tileY)].stopsShots) return true
-  if (shotHitsProp(world, rocket, rocket.damage)) return true
+  if (rocket.inTile < 0 && tileCanStop(world, rocket, tileX, tileY)) return true
+  if (inAimArea(rocket) && shotHitsProp(world, rocket, rocket.damage)) return true
   return rocket.fromPlayer ? guardHit(world, rocket) !== null : contains(world.player, rocket)
 }
 
@@ -106,12 +132,13 @@ function rocketHits(world: World, rocket: Projectile): boolean {
  * power, and it stops at the first one it cannot get through. Returns true when it stops.
  */
 function bulletStops(world: World, bullet: Projectile): boolean {
-  shootLampsAt(world, bullet)
-  if (shootDeviceAt(world, bullet) && !pierce(bullet, DEVICE_RESISTANCE)) return true
+  const aimed = inAimArea(bullet)
+  if (aimed) shootLampsAt(world, bullet)
+  if (aimed && shootDeviceAt(world, bullet) && !pierce(bullet, DEVICE_RESISTANCE)) return true
   if (tileStops(world, bullet)) return true
   if (bullet.inTile >= 0) return false
-  if (coverStops(world, bullet)) return true
-  shootLoosePropsAt(world, bullet, bullet.damage, bullet.fromPlayer, struckBy(bullet))
+  if (aimed && coverStops(world, bullet)) return true
+  if (aimed) shootLoosePropsAt(world, bullet, bullet.damage, bullet.fromPlayer, struckBy(bullet))
   return peopleStop(world, bullet)
 }
 
@@ -119,7 +146,7 @@ function tileStops(world: World, bullet: Projectile): boolean {
   const tileX = Math.floor(bullet.x)
   const tileY = Math.floor(bullet.y)
   const kind = tileAt(world.grid, tileX, tileY)
-  if (!TILE_DEFS[kind].stopsShots) {
+  if (!tileCanStop(world, bullet, tileX, tileY)) {
     bullet.inTile = -1
     return false
   }
