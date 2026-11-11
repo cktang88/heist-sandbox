@@ -263,6 +263,7 @@ function dropTarget(world: World): Vec | null {
   const player = world.player
   if (player.onGround) landed.add(world)
   if (landed.has(world)) return null
+  if (world.dropPoint) return world.dropPoint
   let main: World['interiors'][number] | null = null
   for (const interior of world.interiors) if (interior.kind === 'room' && (!main || interior.w * interior.h > main.w * main.h)) main = interior
   if (!main) return null

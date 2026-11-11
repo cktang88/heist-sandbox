@@ -38,7 +38,7 @@ npm run build
 
 ## The job
 
-1. Drop in. Hold **Space** while falling to open the parachute.
+1. Choose your entry on the compound blueprint. Click a roof or ground approach, or use the drop-position slider, then **Begin drop**. Hold **Space** while falling to open the parachute; **A/D** steer. The TARGET arrow follows your chosen landing point.
 2. Find the gold case. Nobody tells you where it is: it sits in one of several rooms (the vault, an executive safe, a lab, a store room, the armoury).
 3. Carry it back to the van.
 

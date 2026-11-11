@@ -32,6 +32,7 @@ import { rememberHeist } from './ui/debriefStore'
 import { createWeather } from './ui/weather'
 import { createFrameGuard } from './ui/frameGuard'
 import { showCrashPanel } from './ui/crashPanel'
+import { chooseDrop } from './game/insertion'
 
 const MAX_FRAME_SECONDS = 1 / 30
 
@@ -81,6 +82,7 @@ let view = centerOf(world.player)
 let aim = view
 /** Until the scene near the player is built the heist does not step; see `render3d/core/readiness.ts`. */
 let starting = true
+let dropChosen = false
 const dropJobs = { value: 0 }
 let finalFrameDrawn = false
 let countFramesNext = false
@@ -104,6 +106,17 @@ function finishLoading(now: number): void {
   if (new URLSearchParams(location.search).get('debug') === '1') console.info(`[perf] building during loading: ${buildMsSpent()} ms of script`)
   // The time spent loading is not game time.
   lastTime = now
+  if (!dropChosen) {
+    menus.planDrop(world, (x) => {
+      chooseDrop(world, x)
+      dropChosen = true
+      view = centerOf(world.player)
+      aim = view
+      loading.show(0.2, 'Preparing your drop')
+      beginLoading()
+    })
+    return
+  }
   showBriefing(world)
   showHint()
 }
@@ -131,6 +144,8 @@ function startHeist(seed: number): void {
   writeSeed(seed)
   loading.show(0.06, 'Generating the complex')
   world = withNemeses(createWorld(seed, siteKind))
+  dropChosen = false
+  hideBriefing()
   heistSeed = seed
   startDirector(world)
   closeDebrief()

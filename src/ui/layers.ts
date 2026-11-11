@@ -5,7 +5,7 @@ import { h } from './dom'
  * to whatever was focused in the one below. While anything is open the game is paused.
  */
 export type LayerStack = {
-  push(name: string, panel: HTMLElement): void
+  push(name: string, panel: HTMLElement, dismissible?: boolean): void
   pop(): void
   clear(): void
   top(): string | null
@@ -46,11 +46,11 @@ export function createLayerStack(onChange: (open: boolean) => void): LayerStack 
 
   return {
     root,
-    push(name, panel) {
+    push(name, panel, dismissible = true) {
       const element = h('div', { class: 'sg-layer' }, panel)
       // A click on the dark area around the panel closes it, like Esc.
       element.addEventListener('mousedown', (event) => {
-        if (event.target === element) this.pop()
+        if (dismissible && event.target === element) this.pop()
       })
       layers.push({ name, element, returnFocus: document.activeElement instanceof HTMLElement ? document.activeElement : null })
       root.append(element)

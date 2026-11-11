@@ -20,7 +20,7 @@ import { createRng, type Rng } from './rng'
 import type { Grid } from './tiles'
 import type { SoundEvent } from './sounds'
 import { createTime, type TimeState } from './time'
-import type { Body, Rect } from './types'
+import type { Body, Rect, Vec } from './types'
 import { createGuard } from './guards'
 import type { Frag } from './frag/frag'
 import type { Rope } from './rope/rope'
@@ -48,6 +48,8 @@ export type RunStats = { kills: number; tilesDestroyed: number; timesSpotted: nu
 
 /** Everything about one heist in progress. Systems read and change this; rendering only reads it. */
 export type World = {
+  /** Chosen surface for the opening parachute entry; absent until a drop is planned. */
+  dropPoint?: Vec
   grid: Grid
   player: Player
   guards: Guard[]

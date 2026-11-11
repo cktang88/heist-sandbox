@@ -13,6 +13,7 @@ import { h } from './dom'
 import { pastHeistsButton, pastHeistsModal } from './debrief'
 import { dossierModal } from './dossier'
 import { settingsModal } from './settingsModal'
+import { dropPlan } from './dropPlan'
 
 /** What the menus need from the game loop. */
 export type MenuHost = {
@@ -25,6 +26,7 @@ export type MenuHost = {
 }
 
 export type Menus = {
+  planDrop(world: World, launch: (x: number) => void): void
   /** True while any menu is open: the game loop must not step the heist. */
   paused(): boolean
   /** Applies the gameplay settings after each step. */
@@ -105,6 +107,10 @@ export function createMenus(host: MenuHost): Menus {
       return
     }
     event.stopPropagation()
+    if (top === 'drop') {
+      if (event.code === 'Escape') event.preventDefault()
+      return
+    }
     if (event.code === 'Escape') {
       event.preventDefault()
       stack.pop()
@@ -120,6 +126,13 @@ export function createMenus(host: MenuHost): Menus {
   })
 
   return {
+    planDrop(world, launch) {
+      stack.clear()
+      stack.push('drop', dropPlan(world, (x) => {
+        stack.clear()
+        launch(x)
+      }), false)
+    },
     paused: () => paused,
     afterStep: (world) => applyGameplay(world, settings),
   }
