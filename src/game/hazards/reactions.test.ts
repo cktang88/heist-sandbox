@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { circuitOf } from '../complex/kit'
+import { explode } from '../explosions'
+import { FRAG_BLAST } from '../frag/frag'
 import { fillTiles, tileAt } from '../tiles'
 import { fireCells, igniteAt, propBroke, sprayViews } from './hazards'
-import { hasGas } from './smoke'
+import { addGas, gasAt, hasGas } from './smoke'
 import { addProp, addRoom, bareWorld, box, run } from './testWorld'
 
 const FLOOR = 15
@@ -61,6 +63,23 @@ describe('reactive props', () => {
     run(world, 6)
     world.sounds.push({ kind: 'pistol', x: 9, y: 13 })
     run(world, 0.1)
+    expect(explosions(world)).toBe(1)
+  })
+
+  it('a gunshot or a frag on the far side of a wall does not light the gas behind it', () => {
+    const world = bareWorld(40, 20)
+    box(world, 5, 10, 16, 14)
+    // A concrete wall splits the box; the gas fills the right-hand room.
+    fillTiles(world.grid, 11, 10, 11, 14, 'concrete')
+    for (let x = 12; x <= 16; x += 1) for (let y = 10; y <= 14; y += 1) addGas(world, x, y, 0.4)
+    run(world, 0.05)
+    world.sounds.push({ kind: 'pistol', x: 10.8, y: 12.5 })
+    run(world, 0.1)
+    expect(explosions(world)).toBe(0)
+    // Shrapnel does not break concrete, so the wall still stands between the blast and the gas.
+    explode(world, { x: 10.5, y: 13.5 }, FRAG_BLAST)
+    expect(tileAt(world.grid, 11, 13)).toBe('concrete')
+    expect(gasAt(world, 12, 12)).toBeGreaterThan(0)
     expect(explosions(world)).toBe(1)
   })
 
