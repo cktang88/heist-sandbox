@@ -7,8 +7,10 @@ import { emitNoise } from '../noise'
 import { fillTiles, setTile, tileAt } from '../tiles'
 import { startFire } from '../hazards/fire'
 import type { World } from '../world'
-import { feetOf, setMode } from './model'
-import { addDevice, addGuard, addLamp, addRoom, arena, GROUND, putPlayer, run, runListening } from './testArena'
+import { eyeOf, feetOf, setMode } from './model'
+import { addSmoke, smokeDensityAt } from '../hazards/smoke'
+import { lookForTrouble } from './discoveries'
+import { addDevice, addGuard, addLamp, addRoom, addWall, arena, GROUND, putPlayer, run, runListening } from './testArena'
 import { DISCOVERY } from './tuning'
 import { CASE_CONFIRM_SECONDS } from './caseCheck'
 
@@ -153,6 +155,17 @@ describe('things out of place', () => {
     const lines = runListening(world, 35, {}, () => guard.mode === 'searching' || other.mode === 'searching')
     expect(saidAny(lines, ['smoke canister', 'Smoke grenade'])).toBe(true)
     expect([guard, other].filter((one) => one.mode === 'searching').length).toBe(1)
+  })
+
+  it('smoke in the next room, behind a solid wall, is not seen through the wall', () => {
+    const world = arena()
+    putPlayer(world, 140)
+    addWall(world, 40)
+    const guard = addGuard(world, 37, 1)
+    // A thick cloud right at his eye line, three to six tiles ahead, all of it on the far side of the wall.
+    for (let x = 41; x <= 46; x += 1) for (let y = GROUND - 3; y <= GROUND - 1; y += 1) addSmoke(world, x, y, 5, 'screen')
+    expect(smokeDensityAt(world, { x: 43.5, y: eyeOf(guard).y })).toBeGreaterThan(DISCOVERY.smokeSeen)
+    expect(lookForTrouble(world, guard)).toBeNull()
   })
 
   it('a lamp shot out is noticed by a guard nearby, like a dark circuit', () => {
