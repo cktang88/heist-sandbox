@@ -4,6 +4,7 @@ import { boxHitsSolid } from '../physics'
 import { fillTiles } from '../tiles'
 import { actionIndex, toolIndex } from '../toolDefs'
 import { findZipTarget } from './autoClimb'
+import { fireGrapple } from './hook'
 import { FRAME, run, standAt } from './testWorld'
 
 /** Two storeys of a building: a lower room with its floor on row 30 and an upper room with its floor on row 24. */
@@ -84,5 +85,26 @@ describe('E with the grapple in hand', () => {
     run(world, 2)
     expect(world.player.y + world.player.h).toBeCloseTo(24, 1)
     expect(world.player.mantle).toBeNull()
+  })
+
+  it('a hook shot mid-climb does not take his weight while the climb still moves him', () => {
+    const world = twoStoreys()
+    fillTiles(world.grid, 20, 24, 22, 24, 'air')
+    standAt(world, 21.5, 30)
+    run(world, 0.2)
+    run(world, FRAME, { interact: true, interactPressed: true })
+    run(world, 0.2)
+    // A click lets go of the haul's line; once the hook is back, a second shoots it down into the floor below.
+    const grip = () => ({ x: world.player.x + world.player.w / 2, y: world.player.y + 0.15 })
+    fireGrapple(world, grip(), { x: 0, y: 1 })
+    for (let frame = 0; frame < 30 && world.grapple.phase !== 'stowed'; frame += 1) run(world, FRAME)
+    expect(world.player.mantle).not.toBeNull()
+    fireGrapple(world, grip(), { x: 0, y: 1 })
+    expect(world.grapple.phase).toBe('flying')
+    for (let frame = 0; frame < 120 && world.player.mantle; frame += 1) {
+      run(world, FRAME)
+      if (world.player.mantle) expect(world.grapple.hanging).toBe(false)
+    }
+    expect(world.player.y + world.player.h).toBeCloseTo(24, 1)
   })
 })
