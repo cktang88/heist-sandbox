@@ -72,6 +72,11 @@ export function dragWounded(world: World, guard: Guard, threat: Vec, dt: number)
   const feet = feetOf(guard)
   const away = Math.sign(feet.x - threat.x) || -guard.facing
   let casualty = world.guards.find((other) => other.draggedBy === index)
+  // Gone limp in his hands (knocked cold): a body on the floor is not hauled along with him, so he lets go of it.
+  if (casualty?.out) {
+    casualty.draggedBy = null
+    casualty = undefined
+  }
   // Backed up against a wall (an elevator core, the end of the floor) or the edge of a drop: no further to haul him,
   // so he lets go and fights rather than heave at the wall for good. He only takes hold of a man with a whole drag
   // step of floor behind him, so he does not grab and drop him again at the wall.
@@ -103,6 +108,9 @@ function roomToBackOff(world: World, feet: Vec, away: number, room: number): boo
 
 function needsPulling(world: World, other: Guard, feet: Vec, threat: Vec): boolean {
   if (other.mode === 'dead' || other.restrained || other.draggedBy !== null || other.hp >= other.maxHp * UNDER_FIRE.dragHealth) return false
+  // A man out cold lies as a ragdoll and the player's hostage is in the player's arms: neither moves when hauled,
+  // and he would only back off alone, holding nothing, until a wall stopped him.
+  if (other.out || world.melee.shield === other) return false
   const at = feetOf(other)
   if (!sameFloor(at, feet) || Math.abs(at.x - feet.x) > UNDER_FIRE.dragReach) return false
   return !shelteredFrom(world, at, threat, other.crouching)
