@@ -59,7 +59,7 @@ export function bodyAction(world: World): Action | null {
   const hint = 'G: pick him up'
   const key = `body:${index}`
   if (guard.out && !guard.restrained) return { prompt: 'E: tie him up (keeps him out for good)', key: `${key}:tie`, run: () => (guard.restrained = true), hint }
-  if (carriesKeycard(world, guard)) return { prompt: 'E: take his keycard', key: `${key}:card`, hold: KEYCARD.takeSeconds, run: () => takeKeycard(world, guard), hint }
+  if (carriesKeycard(world, guard)) return { prompt: 'Hold E: take his keycard', key: `${key}:card`, hold: KEYCARD.takeSeconds, run: () => takeKeycard(world, guard), hint }
   if (!stealth.radios.has(index)) return { prompt: 'Hold E: take his radio', key: `${key}:radio`, hold: RADIO.takeSeconds, run: () => stealth.radios.add(index), hint }
   if (!stealth.uniforms.has(index)) return { prompt: 'Hold E: put on his uniform', key: `${key}:uniform`, hold: DISGUISE.takeSeconds, run: () => takeUniform(world, guard), hint }
   return { prompt: hint, key, run: () => {} }

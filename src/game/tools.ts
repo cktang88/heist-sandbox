@@ -34,7 +34,9 @@ export function useTool(world: World, input: Input, dt: number): void {
   const player = world.player
   if (input.selectTool !== null && input.selectTool >= 0) {
     const chosen = toolForSelection(input.selectTool, player.tool, player.carried)
-    if (chosen !== player.tool) {
+    // A body on the shoulder or a man held as a shield leaves one hand free: only a pistol-sized gun can be drawn.
+    const oneHanded = world.stealth.carried !== null || world.melee.shield !== null
+    if (chosen !== player.tool && !(oneHanded && TOOLS[chosen].id !== 'pistol')) {
       player.tool = chosen
       player.reload = 0
     }

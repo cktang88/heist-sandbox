@@ -167,4 +167,13 @@ describe('keycards', () => {
     run(world, 1 / 60, { interact: true, interactPressed: true })
     expect(keypad.hacked).toBe(true)
   })
+  it('taken from an officer out cold, the prompt says to hold E, and a tap does not take it', () => {
+    const world = overBody('officer')
+    expect(world.prompt).toBe('Hold E: take his keycard')
+    run(world, 1 / 60, { interact: true, interactPressed: true })
+    run(world, 1 / 60)
+    expect(world.stealth.keycards.size).toBe(0)
+    holdE(world, KEYCARD.takeSeconds + 0.1)
+    expect(world.stealth.keycards.has(0)).toBe(true)
+  })
 })

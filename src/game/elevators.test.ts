@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { callElevator, doorColumn, groundStop, shaftHead, type ElevatorCar } from './elevators'
+import { callElevator, carsOf, cutCable, doorColumn, groundStop, shaftHead, type ElevatorCar } from './elevators'
+import { openTerminal } from './devices/terminal'
+import { roomOf } from './devices/floor'
 import { explode } from './explosions'
 import { GUNS } from './guns'
 import { fireShot } from './projectiles'
@@ -336,5 +338,16 @@ describe('elevator sabotage', () => {
       run(world, 0.1)
     }
     expect(car.cut).toBeFalsy()
+  })
+
+  it('a server terminal does not offer to call or release cars whose cables are cut', () => {
+    const { world } = setUp()
+    const computer = world.devices.find((device) => device.kind === 'computer' && roomOf(world, device)?.kind === 'server')!
+    const cars = carsOf(world, roomOf(world, computer)!.building)
+    expect(cars.length).toBeGreaterThan(0)
+    for (const car of cars) cutCable(world, car)
+    openTerminal(world, computer)
+    expect(world.terminal!.options).not.toContain('Release elevators')
+    expect(world.terminal!.options).not.toContain('Call elevator to this floor')
   })
 })

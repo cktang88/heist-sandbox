@@ -12,9 +12,10 @@ import type { Input } from './input'
 import { interrogateAction, readAction } from './intel/intel'
 import { emitNoise } from './noise'
 import { playSound } from './sounds'
-import { tileAt, type Grid } from './tiles'
+import { TILE_DEFS, tileAt, type Grid } from './tiles'
 import { TOOLS } from './toolDefs'
 import { centerOf, distance, overlaps, type Vec } from './types'
+import { castRay } from './vision'
 import type { Device, World } from './world'
 import { bodyAction, hideAction, noisemakerAction, stashAction, takedownAction, tieUpAction } from './stealth/actions'
 import { hidingPrompt, stealthControls } from './stealth/controls'
@@ -274,7 +275,7 @@ function deviceAction(world: World, rank: DeviceRank): Action | null {
     const dy = device.y + 0.5 - center.y
     if (dx > reach || dx < -reach || dy > reach || dy < -reach) continue
     const gap = Math.hypot(dx, dy)
-    if (gap > reach || gap >= bestGap) continue
+    if (gap > reach || gap >= bestGap || !withinTouch(world, center, device)) continue
     const action = actionFor(world, device)
     if (!action) continue
     best = { ...action, at: deviceCenter(device) }
@@ -282,6 +283,22 @@ function deviceAction(world: World, rank: DeviceRank): Action | null {
   }
   return best
 }
+
+/**
+ * No wall, floor or shut door between the hand and a device: a camera on the ceiling of the room below is not cut
+ * through the floor. The hand goes to the near side of the device's own tile, which is often set into a wall, a desk
+ * or the floor, so that tile itself never stands in the way.
+ */
+function withinTouch(world: World, from: Vec, device: Device): boolean {
+  const near = { x: Math.max(device.x, Math.min(device.x + 1, from.x)), y: Math.max(device.y, Math.min(device.y + 1, from.y)) }
+  const gap = distance(from, near) - TOUCH_SLACK
+  if (gap <= 0) return true
+  const direction = { x: (near.x - from.x) / (gap + TOUCH_SLACK), y: (near.y - from.y) / (gap + TOUCH_SLACK) }
+  return castRay(world.grid, from, direction, gap, (kind) => TILE_DEFS[kind].solid) === null
+}
+
+/** The ray stops this short of the device's tile, so a tile it only grazes at the edge does not count. */
+const TOUCH_SLACK = 0.05
 
 function actionFor(world: World, device: Device): Action | null {
   const key = `device:${device.id}`
@@ -390,7 +407,8 @@ function doorAction(world: World): Action | null {
   // Measured to the face of the door on his side: that is what his hand reaches for.
   const at = { x: Math.max(door.x, Math.min(door.x + 1, center.x)), y: door.y + 0.5 }
   const keypad = keypadFor(world, door)
-  if (seconds > 0 && keypad && world.stealth.keycards.size > 0) {
+  // A keypad shot out or shorted reads no card: the door is left to the pick.
+  if (seconds > 0 && keypad && !keypad.disabled && world.stealth.keycards.size > 0) {
     const swipe = open('keycard')
     return { prompt: 'E: swipe the keycard', key, at, run: () => {
       keypad.hacked = true
@@ -400,7 +418,7 @@ function doorAction(world: World): Action | null {
   }
   if (seconds === 0) return easy ? { prompt: 'E: ease the door open (silent)', key, at, run: open('opened') } : { prompt: 'E: open door', key, at, run: open('opened'), hint: 'Crouch to ease it open silently' }
   // With its keypad in reach, hacking that (quicker) is what E does; the secure lock is picked only from the far side.
-  if (keypad && !keypad.disabled && distance(center, deviceCenter(keypad)) <= DEVICE_REACH) return null
+  if (keypad && !keypad.disabled && distance(center, deviceCenter(keypad)) <= DEVICE_REACH && withinTouch(world, center, keypad)) return null
   if (pried) return { prompt: 'Hold E: pry the doors open', key, at, hold: seconds, run: open('forced'), lastResort: true }
   return { prompt: keypad ? 'Hold E: pick secure lock' : 'Hold E: pick lock', key, at, hold: seconds, run: open('picked') }
 }

@@ -4,6 +4,8 @@ import { GROUND } from './level'
 import { stepWorld } from './step'
 import { actionIndex, toolIndex, TOOLS, wheelSelection } from './toolDefs'
 import { addGuard, arena, putPlayer, run } from './security/testArena'
+import { knockOutCold } from './stealth/bodies'
+import { pickUp } from './stealth/carry'
 import { createWorld, type World } from './world'
 
 /** Scripted play with the tools in hand: picking them, using them, running dry. */
@@ -71,5 +73,19 @@ describe('hands busy', () => {
     run(world, FRAME, { crouch: true, interact: true, fire: true, firePressed: true })
     expect(world.drone).toBeNull()
     expect(world.stealth.choke).not.toBeNull()
+  })
+
+  it('with a body on the shoulder, a number key cannot draw the rifle, so not one round of it is fired', () => {
+    const world = arena()
+    knockOutCold(world, addGuard(world, 20, 1), 1e4)
+    run(world, 0.5)
+    putPlayer(world, 20)
+    pickUp(world, 0)
+    run(world, FRAME)
+    const rifle = toolIndex('rifle')
+    const rounds = world.player.mags[rifle]
+    run(world, FRAME, { selectTool: 1, fire: true, firePressed: true })
+    expect(world.player.tool).toBe(toolIndex('pistol'))
+    expect(world.player.mags[rifle]).toBe(rounds)
   })
 })
