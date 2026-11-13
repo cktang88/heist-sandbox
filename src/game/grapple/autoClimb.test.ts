@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { bareWorld } from '../hazards/testWorld'
+import { boxHitsSolid } from '../physics'
 import { fillTiles } from '../tiles'
 import { actionIndex, toolIndex } from '../toolDefs'
 import { findZipTarget } from './autoClimb'
@@ -53,5 +54,21 @@ describe('E with the grapple in hand', () => {
     world.player.tool = toolIndex('pistol')
     run(world, 0.2)
     expect(world.prompt).not.toBe('E: grapple up')
+  })
+
+  it('goes straight up through the hole before stepping across, never through the floor beside it', () => {
+    const world = twoStoreys()
+    fillTiles(world.grid, 20, 24, 22, 24, 'air')
+    standAt(world, 21.5, 30)
+    // The cursor on the floor a few columns past the hole picks a landing well to the side.
+    const aim = { x: 27.5, y: 23 }
+    run(world, 0.2, { aim })
+    run(world, FRAME, { interact: true, interactPressed: true, aim })
+    expect(world.player.mantle?.to.x).toBeGreaterThan(25)
+    for (let frame = 0; frame < 120 && world.player.mantle; frame += 1) {
+      run(world, FRAME, { aim })
+      expect(boxHitsSolid(world.grid, world.player)).toBe(false)
+    }
+    expect(world.player.y + world.player.h).toBeCloseTo(24, 1)
   })
 })

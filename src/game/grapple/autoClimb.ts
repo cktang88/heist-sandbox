@@ -112,7 +112,7 @@ export function startZip(world: World, target: ZipTarget): void {
   const across = Math.abs(target.x - player.x)
   const mantle: Mantle = {
     from: { x: player.x, y: player.y }, to: { x: target.x, y: target.y }, t: 0,
-    duration: Math.max(MANTLE_SECONDS, (rise + across) / ZIP_SPEED + MANTLE_SECONDS * 0.6), side: target.side,
+    duration: Math.max(MANTLE_SECONDS, (rise + across) / ZIP_SPEED + MANTLE_SECONDS * 0.6), side: target.side, stepAfterRise: true,
   }
   player.mantle = mantle
   Object.assign(grapple, {
