@@ -7,6 +7,7 @@ import { canClose, closeDoor, doorCentre, openDoor as openDoorTiles, openDoorBy,
 import { onLine } from './grapple/state'
 import { windowAction } from './grapple/windows'
 import { zipAction } from './grapple/autoClimb'
+import { noteAction } from './hover'
 import type { Input } from './input'
 import { interrogateAction, readAction } from './intel/intel'
 import { emitNoise } from './noise'
@@ -52,6 +53,8 @@ export type Action = { prompt: string; key: string; run: () => void; hold?: numb
  * and pressing or holding E does it.
  */
 export function interact(world: World, input: Input, dt: number): void {
+  // Forgotten unless the hands are free this step: then `handsOn` notes what E acts on, for the renderers to outline.
+  noteAction(world, null)
   handsOn(world, input, dt)
   // Knocked down or jolted, E does nothing for the moment, so nothing is offered.
   if (world.player.stunSeconds > 0) {
@@ -61,6 +64,8 @@ export function interact(world: World, input: Input, dt: number): void {
 }
 
 function handsOn(world: World, input: Input, dt: number): void {
+  // Forget last frame's E target, so a terminal, hiding or a chokehold taking the hands leaves nothing outlined.
+  noteAction(world, null)
   collect(world)
   world.stealth.hint = null
   leaveLostHidingPlace(world)
@@ -78,6 +83,7 @@ function handsOn(world: World, input: Input, dt: number): void {
   const acted = perform(world, input, dt, action)
   // The hint shows what E does next, so it is chosen again after anything changed.
   const next = acted ? bestAction(world, input.aim) : action
+  noteAction(world, world.terminal || world.player.hidden ? null : next)
   world.prompt = world.terminal ? terminalPrompt(world) : world.player.hidden ? hidingPrompt(world) : next?.prompt ?? null
   world.stealth.hint = world.terminal ? null : next?.hint ?? null
 }

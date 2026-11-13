@@ -1,3 +1,4 @@
+import { outlineTarget } from '../game/hover'
 import type { Grid } from '../game/tiles'
 import type { Vec } from '../game/types'
 import type { World } from '../game/world'
@@ -62,8 +63,33 @@ export function createSceneRenderer(): SceneRenderer {
       drawProjectiles(context, world)
       drawEffects(context, world)
       drawSystemsFront(context, world, camera)
+      drawOutline(context, world, aim, camera.scale, world.clock)
       // Markers, names, barks and arrows are the same over both views: main.ts draws `overlay.ts` on top.
       context.setTransform(1, 0, 0, 1, 0, 0)
     },
   }
+}
+
+/** Line width of the hover outline, in screen pixels, and how far it stands off the thing. */
+const OUTLINE_PIXELS = 2.5
+const OUTLINE_GAP_PIXELS = 2
+
+/** A yellow box round the interactive thing under the cursor, or, quieter, round what E would act on. */
+function drawOutline(context: CanvasRenderingContext2D, world: World, aim: Vec, scale: number, clock: number): void {
+  const choice = outlineTarget(world, aim)
+  if (!choice) return
+  const box = choice.target.box
+  // The flat view draws a device centred on its tile corner, not its tile centre as the game measures it.
+  const shift = choice.target.kind === 'device' ? 0.5 : 0
+  const { w, h } = box
+  const [x, y] = [box.x - shift, box.y - shift]
+  const gap = OUTLINE_GAP_PIXELS / scale
+  const pulse = 0.85 + 0.15 * Math.sin(clock * 5)
+  context.save()
+  context.globalAlpha = (choice.hovered ? 1 : 0.7) * pulse
+  context.strokeStyle = '#ffd71f'
+  context.lineWidth = OUTLINE_PIXELS / scale
+  context.lineJoin = 'round'
+  context.strokeRect(x - gap, y - gap, w + gap * 2, h + gap * 2)
+  context.restore()
 }
