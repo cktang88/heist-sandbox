@@ -219,9 +219,13 @@ function unsupportedNow(world: World, watch: Watch | null): readonly number[] {
   return (watch && findUnsupportedNear(world.grid, slabs, watch.pending)) ?? findUnsupported(world.grid, slabs)
 }
 
-/** A piece of the reinforced frame that comes loose is wrecked by the fall: it lands as ordinary rubble. */
+/**
+ * A piece of the reinforced frame that comes loose is wrecked by the fall: it lands as ordinary rubble. So is a door
+ * torn out of its frame: landing as a door would leave a door in the heap that opens (and vanishes) at a touch.
+ */
 function fallsAs(kind: TileKind): TileKind {
-  return kind === 'reinforced' ? 'concrete' : kind
+  if (kind === 'reinforced') return 'concrete'
+  return kind === 'door' ? 'wood' : kind
 }
 
 /** Moves one falling tile. Returns true when it has landed or broken up. */

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { idleInput } from '../input'
 import { stepWorld } from '../step'
 import { fillTiles } from '../tiles'
+import { stepGrenades } from './grenades'
 import { flashViews, grenadeViews, smokeBetween, smokeCells, throwGrenade } from './hazards'
 import { addGuard, bareWorld, box, run } from './testWorld'
 
@@ -31,6 +32,21 @@ describe('grenades', () => {
     expect(view.x).toBeGreaterThan(14)
     expect(view.y).toBeLessThan(FLOOR)
     expect(view.y).toBeGreaterThan(FLOOR - 1)
+  })
+
+  it('rolls to a stop at the same spot whatever the frame rate', () => {
+    const stopsAt = (fps: number) => {
+      const world = room()
+      throwGrenade(world, 'smoke', { x: 10, y: FLOOR - 0.2 }, { x: 1, y: 0 })
+      const [grenade] = world.hazards.grenades
+      // Lying on the floor, rolling.
+      Object.assign(grenade, { y: FLOOR - grenade.h - 0.001, vx: 6, vy: 0, onGround: true, fuse: 9 })
+      for (let frame = 0; frame < fps; frame += 1) stepGrenades(world, 1 / fps)
+      return grenade.x
+    }
+    const at60 = stopsAt(60)
+    expect(at60).toBeGreaterThan(10)
+    for (const fps of [30, 144, 240]) expect(Math.abs(stopsAt(fps) - at60)).toBeLessThan(0.15)
   })
 
   it('flashbang blinds a guard facing it more than one facing away, and nobody behind a wall', () => {

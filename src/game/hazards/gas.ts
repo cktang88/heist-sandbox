@@ -48,11 +48,31 @@ export function igniteGasNear(world: World, at: Vec, radius: number): void {
   const reach = Math.ceil(radius)
   for (let y = Math.floor(at.y) - reach; y <= Math.floor(at.y) + reach; y += 1) {
     for (let x = Math.floor(at.x) - reach; x <= Math.floor(at.x) + reach; x += 1) {
-      if (Math.hypot(x + 0.5 - at.x, y + 0.5 - at.y) > radius + 0.5 || gasAt(world, x, y) < LIGHTS_AT) continue
+      if (Math.hypot(x + 0.5 - at.x, y + 0.5 - at.y) > radius + 0.5 || gasAt(world, x, y) < LIGHTS_AT || !openWayTo(world, at, x, y)) continue
       igniteGas(world, x, y)
       return
     }
   }
+}
+
+/**
+ * Is there open air from a spot to the middle of a tile? A shot, spark or blast on the far side of a wall does not
+ * reach the gas behind it. The spot's own tile is not counted: a gun can be held across a slab on the stairs, and a
+ * blast can go off against (or inside) the wall it hit.
+ */
+function openWayTo(world: World, from: Vec, x: number, y: number): boolean {
+  const dx = x + 0.5 - from.x
+  const dy = y + 0.5 - from.y
+  const length = Math.hypot(dx, dy)
+  const startX = Math.floor(from.x)
+  const startY = Math.floor(from.y)
+  for (let travelled = 0; travelled < length; travelled += 0.1) {
+    const tileX = Math.floor(from.x + (dx * travelled) / length)
+    const tileY = Math.floor(from.y + (dy * travelled) / length)
+    if (tileX === x && tileY === y) return true
+    if ((tileX !== startX || tileY !== startY) && TILE_DEFS[tileAt(world.grid, tileX, tileY)].solid) return false
+  }
+  return true
 }
 
 /**

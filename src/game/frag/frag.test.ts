@@ -100,6 +100,20 @@ describe('frag grenades', () => {
     expect(isSolidAt(world.grid, rolling.x + rolling.w / 2, rolling.y + rolling.h + 0.05)).toBe(true)
   })
 
+  it('rolls to a stop at the same spot whatever the frame rate', () => {
+    const stopsAt = (fps: number) => {
+      const world = stairWorld()
+      const rolling = frag(30, 42, 6)
+      rolling.fuse = 9
+      world.frags.push(rolling)
+      for (let frame = 0; frame < 2 * fps; frame += 1) stepFrags(world, 1 / fps)
+      return rolling.x
+    }
+    const at60 = stopsAt(60)
+    expect(at60).toBeGreaterThan(30.1)
+    for (const fps of [30, 144, 240]) expect(Math.abs(stopsAt(fps) - at60)).toBeLessThan(0.15)
+  })
+
   it('shreds glass but leaves the concrete it lies on', () => {
     const world = stairWorld()
     fillTiles(world.grid, 26, 33, 26, 35, 'glass')

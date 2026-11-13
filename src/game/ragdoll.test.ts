@@ -56,6 +56,24 @@ describe('ragdoll', () => {
     for (const point of ragdoll.points) expect(point.x).toBeLessThan(15)
   })
 
+  it('a body blown through the air lands as far away whatever the frame rate', () => {
+    const landedAt = (fps: number) => {
+      const grid = createGrid(80, 30)
+      fillTiles(grid, 0, 28, 79, 29, 'concrete')
+      const ragdoll = createRagdoll({ x: 10, y: 28 }, { x: 0, y: 0 }, createRng(1))
+      // Thrown up and out by a blast, then left to fly, land and skid to a stop.
+      for (const point of ragdoll.points) {
+        point.vx = 14
+        point.vy = -12
+      }
+      for (let frame = 0; frame < 4 * fps; frame += 1) stepRagdoll(grid, ragdoll, 1 / fps)
+      return ragdoll.points[2].x
+    }
+    const at60 = landedAt(60)
+    expect(at60).toBeGreaterThan(15)
+    for (const fps of [30, 120, 144, 240]) expect(Math.abs(landedAt(fps) - at60)).toBeLessThan(0.5)
+  })
+
   describe('sleeping', () => {
     function restingBody(): { grid: Grid; ragdoll: Ragdoll } {
       const grid = createGrid(20, 24)
