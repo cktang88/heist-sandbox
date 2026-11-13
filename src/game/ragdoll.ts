@@ -33,6 +33,7 @@ const JOINT_COUNT = REST.length
 const BONE_LENGTHS = BONES.map(([a, b]) => Math.hypot(REST[a].x - REST[b].x, REST[a].y - REST[b].y))
 
 const SOLVER_PASSES = 4
+/** Share of a joint's speed kept through each sixtieth of a second. */
 const AIR_DRAG = 0.995
 const GROUND_GRIP = 0.6
 const MAX_SPEED = 40
@@ -142,6 +143,8 @@ const beforeY = new Float64Array(JOINT_COUNT)
 
 function subStep(grid: Grid, ragdoll: Ragdoll, dt: number): void {
   const points = ragdoll.points
+  // Scaled to the sub-step, so a body flies as far at any frame rate and however many sub-steps its speed calls for.
+  const drag = Math.pow(AIR_DRAG, dt * 60)
   for (let index = 0; index < points.length; index += 1) {
     const point = points[index]
     popOut(grid, point)
@@ -177,8 +180,8 @@ function subStep(grid: Grid, ragdoll: Ragdoll, dt: number): void {
 
   for (let index = 0; index < points.length; index += 1) {
     const point = points[index]
-    point.vx = ((point.x - beforeX[index]) / dt) * AIR_DRAG
-    point.vy = ((point.y - beforeY[index]) / dt) * AIR_DRAG
+    point.vx = ((point.x - beforeX[index]) / dt) * drag
+    point.vy = ((point.y - beforeY[index]) / dt) * drag
   }
 }
 
