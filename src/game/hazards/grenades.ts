@@ -16,6 +16,9 @@ const FUSE: Record<GrenadeKind, number> = { smoke: 1.2, flash: 1.5 }
 /** Bounces keep this share of the speed; rolling slows by this share per second. */
 const BOUNCE = 0.35
 const ROLL_FRICTION = 4
+/** A body this close above the floor, and coming down slower than this (tiles a second), is lying on it. */
+const RESTING = 0.01
+const SETTLED = 1
 /**
  * A smoke grenade's cloud fills the nearest open tiles (about a 10-tile-wide room) over its first moments,
  * stays thick while the canister burns, then thins away on its own: about 20 s in all.
@@ -73,14 +76,19 @@ export function stepGrenades(world: World, dt: number): void {
 
 /** Flies, bounces a little off whatever it hits, and rolls to rest. */
 function fly(world: World, grenade: Grenade, dt: number): void {
+  // Lying on the floor and not bouncing off it. Asked of the floor, not of `onGround`: on fast frames gravity does
+  // not always carry it the hair down to the floor in one frame, so that flag flickers while it rolls.
+  const rolling = Math.abs(grenade.vy) < SETTLED && boxHitsSolid(world.grid, { ...grenade, y: grenade.y + RESTING })
   grenade.vy += GRAVITY * dt
   const before = { x: grenade.vx, y: grenade.vy }
   if (moveBody(world.grid, grenade, dt, 0)) grenade.vx = -before.x * BOUNCE
   if (grenade.vy === 0 && before.y !== 0) {
     grenade.vy = Math.abs(before.y) > 4 ? -before.y * BOUNCE : 0
-    if (grenade.onGround) grenade.vx *= 0.75
+    if (grenade.onGround && !rolling) grenade.vx *= 0.75
   }
-  if (grenade.onGround && grenade.vy === 0) {
+  // Rolling, it scrapes the floor all the time, not once per frame: the same speed is lost each second at any frame rate.
+  if (rolling) grenade.vx *= Math.pow(0.75, dt * 60)
+  if (rolling || (grenade.onGround && grenade.vy === 0)) {
     grenade.vx *= Math.max(0, 1 - ROLL_FRICTION * dt)
     if (Math.abs(grenade.vx) < 0.05) grenade.vx = 0
   }

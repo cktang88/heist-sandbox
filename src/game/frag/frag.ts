@@ -1,5 +1,5 @@
 import { explode, type Blast } from '../explosions'
-import { GRAVITY, moveBody } from '../physics'
+import { boxHitsSolid, GRAVITY, moveBody } from '../physics'
 import { climbStairs, findLanding, landingX, type OnStairs } from '../stairs'
 import { centerOf, type Body, type Vec } from '../types'
 import type { World } from '../world'
@@ -16,6 +16,9 @@ const LOFT = 3
 const SIZE = 0.3
 const BOUNCE = 0.35
 const ROLL_FRICTION = 4
+/** A body this close above the floor, and coming down slower than this (tiles a second), is lying on it. */
+const RESTING = 0.01
+const SETTLED = 1
 const FUSE_SECONDS = 2.5
 /** Rolling slower than this, it stops at the landing instead of taking the stairs. */
 const ROLL_ONTO_STAIRS = 0.5
@@ -55,14 +58,19 @@ export function stepFrags(world: World, dt: number): void {
 
 /** Flies, bounces a little off whatever it hits, and rolls to rest. */
 function fly(world: World, frag: Frag, dt: number): void {
+  // Lying on the floor and not bouncing off it. Asked of the floor, not of `onGround`: on fast frames gravity does
+  // not always carry it the hair down to the floor in one frame, so that flag flickers while it rolls.
+  const rolling = Math.abs(frag.vy) < SETTLED && boxHitsSolid(world.grid, { ...frag, y: frag.y + RESTING })
   frag.vy += GRAVITY * dt
   const before = { x: frag.vx, y: frag.vy }
   if (moveBody(world.grid, frag, dt, 0)) frag.vx = -before.x * BOUNCE
   if (frag.vy === 0 && before.y !== 0) {
     frag.vy = Math.abs(before.y) > 4 ? -before.y * BOUNCE : 0
-    if (frag.onGround) frag.vx *= 0.75
+    if (frag.onGround && !rolling) frag.vx *= 0.75
   }
-  if (frag.onGround && frag.vy === 0) {
+  // Rolling, it scrapes the floor all the time, not once per frame: the same speed is lost each second at any frame rate.
+  if (rolling) frag.vx *= Math.pow(0.75, dt * 60)
+  if (rolling || (frag.onGround && frag.vy === 0)) {
     frag.vx *= Math.max(0, 1 - ROLL_FRICTION * dt)
     if (Math.abs(frag.vx) < 0.05) frag.vx = 0
   }
