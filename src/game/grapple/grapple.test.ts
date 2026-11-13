@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { explode, ROCKET_BLAST } from '../explosions'
 import { boxHitsSolid } from '../physics'
 import { fillTiles, setTile, tileAt } from '../tiles'
-import { HOOK_RANGE } from './hook'
+import { fireGrapple, HOOK_RANGE } from './hook'
 import { MAX_LINE } from './line'
 import { onLine } from './state'
 import { buildingWorld, FRAME, ROOF, run, shootAt, standAt, STREET, WALL } from './testWorld'
@@ -170,5 +170,36 @@ describe('grappling hook', () => {
       return [world.player.x, world.player.y, world.rng()]
     }
     expect(play()).toEqual(play())
+  })
+
+  it('standing up from a crouch on the line just above the floor does not sink his legs into it', () => {
+    const world = underBar()
+    run(world, 0.1, { crouch: true })
+    shootAt(world, { x: 40.2, y: BAR + 0.5 })
+    // Reeled in crouched, then let out again until his feet are just off the floor, on the way up out of a dip.
+    run(world, FRAME, { up: true, crouch: true })
+    for (let frame = 0; frame < 60 && world.player.y + world.player.h < 28 - 0.6; frame += 1) run(world, FRAME, { down: true, crouch: true })
+    expect(onLine(world.grapple)).toBe(true)
+    expect(world.player.crouching).toBe(true)
+    world.grapple.vel = { x: 0, y: -3 }
+    for (let frame = 0; frame < 30; frame += 1) {
+      run(world, FRAME)
+      expect(boxHitsSolid(world.grid, world.player)).toBe(false)
+    }
+  })
+
+  it('a hook shot from a ladder does not take his weight while he is still on the ladder', () => {
+    const world = underBar()
+    fillTiles(world.grid, 40, 10, 40, 27, 'ladder')
+    standAt(world, 40.5, 28)
+    run(world, 0.5, { up: true })
+    expect(world.player.onLadder).toBe(true)
+    const hand = { x: world.player.x + world.player.w / 2, y: world.player.y + 0.15 }
+    fireGrapple(world, hand, { x: 0, y: -1 })
+    for (let frame = 0; frame < 30; frame += 1) {
+      run(world, FRAME)
+      if (world.player.onLadder) expect(world.grapple.hanging).toBe(false)
+    }
+    expect(world.grapple.phase).toBe('attached')
   })
 })

@@ -18,7 +18,14 @@ const STEP_START = 0.4
  * Pulling up over a ledge. `from` and `to` are the top-left corner of the body at the start and end;
  * `t` counts seconds since the hands caught the edge. The renderer reads it to pose the climb.
  */
-export type Mantle = { from: Vec; to: Vec; t: number; duration: number; side: 1 | -1 }
+export type Mantle = {
+  from: Vec; to: Vec; t: number; duration: number; side: 1 | -1
+  /**
+   * Set for a long haul up (the grapple's E climb): the step across waits until the rise is done, since the way was
+   * only checked straight up and then across, and starting across early cuts through the floor slab beside the hole.
+   */
+  stepAfterRise?: boolean
+}
 
 /** Where the body ends up after climbing the ledge in front of it, or null if there is none to catch. */
 export function findLedge(grid: Grid, body: Body, side: 1 | -1): (Vec & { h: number }) | null {
@@ -52,7 +59,8 @@ export function stepMantle(body: Body, mantle: Mantle, dt: number): boolean {
   mantle.t = Math.min(mantle.duration, mantle.t + dt)
   const progress = mantle.t / mantle.duration
   const rise = Math.min(1, progress / RISE_SHARE)
-  const step = Math.max(0, (progress - STEP_START) / (1 - STEP_START))
+  const stepStart = mantle.stepAfterRise ? RISE_SHARE : STEP_START
+  const step = Math.max(0, (progress - stepStart) / (1 - stepStart))
   body.x = mantle.from.x + (mantle.to.x - mantle.from.x) * step
   body.y = mantle.from.y + (mantle.to.y - mantle.from.y) * rise
   body.vx = 0

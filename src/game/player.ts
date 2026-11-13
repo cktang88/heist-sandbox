@@ -206,7 +206,9 @@ function climbLedge(player: Player, input: Input, dt: number): boolean {
 function takeStairs(grid: Grid, player: Player, input: Input, dt: number, stairwells: readonly Stairwell[]): boolean {
   const climb = (input.up ? 1 : 0) - (input.down ? 1 : 0)
   if (!player.stairs) {
-    if (climb === 0 || !player.onGround) return false
+    // Not in the middle of a climb that began on the ground (a window vault, the grapple's haul up): it still says
+    // he is on his feet for that first frame, and the stairs would freeze the climb half done until he stepped off.
+    if (climb === 0 || !player.onGround || player.mantle) return false
     const landing = findLanding(stairwells, player.x + player.w / 2, player.y + player.h)
     if (!landing) return false
     const next = landing.stop + climb

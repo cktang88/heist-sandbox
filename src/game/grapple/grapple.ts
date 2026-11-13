@@ -1,5 +1,6 @@
 import type { Input } from '../input'
 import { bodyControl } from '../movement/control'
+import { boxHitsSolid } from '../physics'
 import { TOOLS, type ToolId } from '../toolDefs'
 import { distance } from '../types'
 import type { World } from '../world'
@@ -44,7 +45,11 @@ export function stepGrapple(world: World, input: Input, dt: number): void {
     Object.assign(grapple, { hanging: false, fling: 0, reeling: 0 })
     return
   }
-  if (carried && distance(player, grapple.body) < TELEPORT) Object.assign(player, { x: grapple.body.x, y: grapple.body.y })
+  // Not where he no longer fits: standing up from a crouch on the line keeps his feet and moves his head, so his old
+  // top corner would put the taller body's legs into the floor just under him.
+  if (carried && distance(player, grapple.body) < TELEPORT && !boxHitsSolid(world.grid, { ...player, x: grapple.body.x, y: grapple.body.y })) {
+    Object.assign(player, { x: grapple.body.x, y: grapple.body.y })
+  }
 
   if (crashThrough(world, grapple.lastVel)) {
     // Through the glass on the swing: let go of the line and keep flying.
@@ -52,7 +57,9 @@ export function stepGrapple(world: World, input: Input, dt: number): void {
     Object.assign(grapple, { hanging: false, fling: FLING_SECONDS, vel: { ...grapple.lastVel } })
   }
 
-  if (grapple.phase === 'attached') hangOn(world, controls, dt)
+  // A hook that bites while he is pulling himself over a ledge, on a ladder or on the stairs (shot mid-climb) waits
+  // slack until the climb is done: the line taking his weight now would have it and the climb both moving him.
+  if (grapple.phase === 'attached' && !player.mantle && !player.onLadder && !player.stairs) hangOn(world, controls, dt)
   else if (grapple.fling > 0 && !carryFling(world.grid, player, grapple, dt)) endFling(world)
 
   if (onLine(grapple) || grapple.fling > 0) {
