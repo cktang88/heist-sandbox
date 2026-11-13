@@ -8,7 +8,7 @@ import { damageProp } from './cover'
 import { propBox } from './hazards/props'
 import { enterSpot, leaveSpot } from './stealth/hide'
 import { openTerminal } from './devices/terminal'
-import { addDevice as addArenaDevice, addGuard as addArenaGuard, arena, GROUND as ARENA_GROUND, putPlayer, run as runArena } from './security/testArena'
+import { addDevice as addArenaDevice, addGuard as addArenaGuard, addUpperFloor, arena, GROUND as ARENA_GROUND, putPlayer, run as runArena } from './security/testArena'
 import { pickUp } from './stealth/carry'
 import { addGuard } from './hazards/testWorld'
 import { deviceState, doorKey } from './devices/state'
@@ -318,5 +318,32 @@ describe('menus and switches that cannot do what they say', () => {
     putPlayer(world, 18.5)
     runArena(world, FRAME)
     expect(world.prompt).not.toBe('E: lights on')
+  })
+})
+
+describe('devices out of order or out of reach', () => {
+  it('a shorted keypad reads no stolen keycard: its door is left to the pick', () => {
+    const world = arena()
+    fillTiles(world.grid, 50, ARENA_GROUND - 3, 50, ARENA_GROUND - 1, 'door')
+    const keypad = addArenaDevice(world, { kind: 'keypad', x: 48, y: ARENA_GROUND - 2, target: { x: 50, y: ARENA_GROUND - 1 } })
+    switchOff(world, [keypad], Number.POSITIVE_INFINITY)
+    world.stealth.keycards.add(0)
+    putPlayer(world, 49.2)
+    world.player.facing = 1
+    runArena(world, 0.1)
+    expect(world.prompt).toBe('Hold E: pick secure lock')
+    runArena(world, FRAME, { interact: true, interactPressed: true })
+    expect(tileAt(world.grid, 50, ARENA_GROUND - 1)).toBe('door')
+  })
+
+  it('a camera on the ceiling of the room below is not reached through the floor', () => {
+    const world = arena()
+    const floorY = addUpperFloor(world, 0, 100)
+    const camera = addArenaDevice(world, { kind: 'camera', x: 40, y: floorY + 1, facing: 1 })
+    putPlayer(world, 40.5, floorY)
+    runArena(world, 0.1)
+    expect(world.prompt).not.toBe('Hold E: cut camera cable')
+    runArena(world, 1.2, { interact: true })
+    expect(camera.disabled).toBe(false)
   })
 })
