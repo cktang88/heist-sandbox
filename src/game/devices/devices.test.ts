@@ -202,6 +202,16 @@ describe('computers', () => {
     expect(camera.disabled).toBe(true)
   })
 
+  it('loops the feeds again from the same menu a while later, though the countdown on its label has moved on', () => {
+    const { world, camera } = hackedTerminal()
+    run(world, FRAME, { selectTool: 0 })
+    expect(world.terminal!.options[0]).toMatch(/^Loop camera feeds again/)
+    run(world, 5)
+    const looped = world.stealth.looped.get(camera.id)!
+    run(world, FRAME, { selectTool: 0 })
+    expect(world.stealth.looped.get(camera.id)).toBeGreaterThan(looped + 4)
+  })
+
   it('can set off a false alarm on another floor', () => {
     const { world } = hackedTerminal()
     run(world, FRAME, { selectTool: world.terminal!.options.indexOf('Trigger false alarm on another floor') })

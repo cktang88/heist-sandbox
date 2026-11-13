@@ -17,8 +17,18 @@ import { CAMERA_LOOP } from '../stealth/tuning'
 /** A hacking menu the player has open on a computer: pick an option with the number keys. */
 export type Terminal = { device: number; title: string; options: string[] }
 
-/** `speaks` marks an option that reports its own result, so no "done" line is added. */
-type Option = { label: string; run: () => void; speaks?: boolean }
+/**
+ * `speaks` marks an option that reports its own result, so no "done" line is added. `key` names an option whose label
+ * changes while the menu is open (a countdown), so picking it still finds it; otherwise the label is its name.
+ */
+type Option = { label: string; run: () => void; speaks?: boolean; key?: string }
+
+/** The name of each option on an open menu, in the order shown. */
+const optionKeys = new WeakMap<Terminal, string[]>()
+
+function keyOf(option: Option): string {
+  return option.key ?? option.label
+}
 
 /** A floor's cameras stay dark this long after an ordinary terminal shuts them off; the security room's console does it for good. */
 const CAMERAS_OFF_SECONDS = 120
@@ -47,7 +57,9 @@ export function openTerminal(world: World, device: Device): void {
   const floor = floorOf(world, device)
   const name = (room && ROOM_NAMES[room.kind]) ?? 'Workstation'
   const where = floor ? `, ${floor.building} floor ${floor.storey}` : ''
-  world.terminal = { device: device.id, title: `${name}${where}`, options: terminalOptions(world, device).map((option) => option.label) }
+  const options = terminalOptions(world, device)
+  world.terminal = { device: device.id, title: `${name}${where}`, options: options.map((option) => option.label) }
+  optionKeys.set(world.terminal, options.map(keyOf))
 }
 
 export function closeTerminal(world: World): void {
@@ -60,14 +72,17 @@ export function chooseOption(world: World, index: number): void {
   const device = terminal && world.devices.find((candidate) => candidate.id === terminal.device)
   if (!terminal || !device) return
   const label = terminal.options[index]
-  const option = terminalOptions(world, device).find((candidate) => candidate.label === label)
+  const key = optionKeys.get(terminal)?.[index] ?? label
+  const option = terminalOptions(world, device).find((candidate) => keyOf(candidate) === key)
   if (!option) return
   option.run()
   const at = deviceCenter(device)
   if (!option.speaks) sayAt(world, at, `Done: ${label.toLowerCase()}`)
   playSound(world, 'keyboard', at)
   playSound(world, 'beep', at)
-  terminal.options = terminalOptions(world, device).map((candidate) => candidate.label)
+  const options = terminalOptions(world, device)
+  terminal.options = options.map((candidate) => candidate.label)
+  optionKeys.set(terminal, options.map(keyOf))
 }
 
 function terminalOptions(world: World, device: Device): Option[] {
@@ -99,7 +114,7 @@ function loopOption(world: World, floor: Floor): Option | null {
   if (cameras.length === 0) return null
   const left = loopSecondsLeft(world, cameras)
   const label = left > 0 ? `Loop camera feeds again (${Math.ceil(left)}s left)` : `Loop camera feeds on this floor (${CAMERA_LOOP.seconds}s, unnoticed)`
-  return { label, run: () => loopFeeds(world, cameras) }
+  return { label, key: 'loop', run: () => loopFeeds(world, cameras) }
 }
 
 function camerasOption(world: World, floor: Floor, forGood: boolean): Option | null {
@@ -123,7 +138,8 @@ function lightsOption(world: World, floor: Floor): Option | null {
 }
 
 function elevatorOptions(world: World, floor: Floor, canHold: boolean): Option[] {
-  const cars = carsOf(world, floor.building)
+  // A car whose cable is cut lies wrecked in its pit: no call or release reaches it.
+  const cars = carsOf(world, floor.building).filter((car) => !car.cut)
   if (cars.length === 0) return []
   const options: Option[] = []
   const servesFloor = cars.filter((car) => shaftOf(world, car).stops.includes(floor.floorY))
