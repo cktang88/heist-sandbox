@@ -5,6 +5,7 @@ import { FRAME, run as runGrapple, shootAt, standAt } from '../grapple/testWorld
 import { fillTiles } from '../tiles'
 import { actionIndex } from '../toolDefs'
 import { addGuard, addLamp, arena, GROUND, putPlayer, run } from '../security/testArena'
+import { searchSpotsNear } from './search'
 import type { World } from '../world'
 
 const pressE = (world: World, extra: object = {}) => run(world, 1 / 60, { interact: true, interactPressed: true, ...extra })
@@ -132,4 +133,21 @@ describe('hiding the player', () => {
     expect(world.player.y + world.player.h).toBeCloseTo(feet, 1)
     expect(world.grapple.hanging).toBe(false)
   })
+
+  it('a searcher at a stop does not open a locker in the next room through the wall', () => {
+    const world = arena()
+    addProp(world, 'wallLocker', 46, GROUND)
+    putPlayer(world, 46)
+    run(world, 1 / 60)
+    pressE(world)
+    expect(world.player.hidden).toBe(true)
+    // A solid wall between his stop and the locker, a few tiles off.
+    fillTiles(world.grid, 43, GROUND - 6, 43, GROUND - 1, 'brick')
+    world.security.level = 2
+    const guard = addGuard(world, 41, 1, 'patrol')
+    searchSpotsNear(world, guard, { x: 41.5, y: GROUND })
+    expect(world.player.hidden).toBe(true)
+    expect(world.stealth.opened.size).toBe(0)
+  })
 })
+
