@@ -6,6 +6,7 @@ import { callElevator, carUnderPlayer, doorColumn, elevatorRefuses, shaftDoorAt,
 import { canClose, closeDoor, doorCentre, openDoor as openDoorTiles, openDoorBy, openedDoors, type DoorHow } from './doors/doors'
 import { onLine } from './grapple/state'
 import { windowAction } from './grapple/windows'
+import { zipAction } from './grapple/autoClimb'
 import type { Input } from './input'
 import { interrogateAction, readAction } from './intel/intel'
 import { emitNoise } from './noise'
@@ -73,10 +74,10 @@ function handsOn(world: World, input: Input, dt: number): void {
   // A man walking up within reach takes the player's eyes off the screen: the menu shuts and E is for him.
   if (world.terminal && takedownAction(world)) closeTerminal(world)
   if (world.terminal) return useTerminal(world, input)
-  const action = bestAction(world)
+  const action = bestAction(world, input.aim)
   const acted = perform(world, input, dt, action)
   // The hint shows what E does next, so it is chosen again after anything changed.
-  const next = acted ? bestAction(world) : action
+  const next = acted ? bestAction(world, input.aim) : action
   world.prompt = world.terminal ? terminalPrompt(world) : world.player.hidden ? hidingPrompt(world) : next?.prompt ?? null
   world.stealth.hint = world.terminal ? null : next?.hint ?? null
 }
@@ -98,7 +99,8 @@ function leaveLostHidingPlace(world: World): void {
   if (player.y + player.h > hidingFloor.get(hiding)! + FELL_OUT) leaveSpot(world)
 }
 
-function bestAction(world: World): Action | null {
+/** `aim` is where the cursor points: E's automatic grapple goes for the ledge nearest it. */
+function bestAction(world: World, aim?: Vec): Action | null {
   // Nothing is in reach through the walls of a moving car.
   if (world.elevatorCars.some((car) => car.moving && car.riders.includes(world.player))) return null
   if (world.stealth.carried !== null) return carryingAction(world)
@@ -106,7 +108,7 @@ function bestAction(world: World): Action | null {
   return tieUpAction(world) ?? onPerson(takedownAction(world)) ?? bodyAction(world) ?? onPerson(interrogateAction(world))
     ?? nearestAtHand(world, [deviceAction(world, 'near'), elevatorAction(world), windowAction(world), doorAction(world), closeDoorAction(world)])
     ?? deviceAction(world, 'camera') ?? readAction(world) ?? hideAction(world) ?? noisemakerAction(world) ?? deviceAction(world, 'lightSwitch')
-    ?? systemsAction(world)
+    ?? systemsAction(world) ?? zipAction(world, aim)
 }
 
 /**

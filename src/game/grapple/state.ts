@@ -42,12 +42,14 @@ export type GrappleState = {
   tap: { key: string; at: number } | null
   /** The window action last offered, so a tap is only read as one when it was the action on offer. */
   offer: { key: string; prompt: string } | null
+  /** True while E's automatic grapple hauls the player up onto a ledge (see `autoClimb.ts`): his climb moves him, not the line. */
+  zip: boolean
 }
 
 export function createGrapple(): GrappleState {
   return {
     phase: 'stowed', hook: { x: 0, y: 0 }, heading: { x: 1, y: 0 }, travelled: 0, anchor: null, bend: null, length: 0,
-    hanging: false, reeling: 0, vel: { x: 0, y: 0 }, body: { x: 0, y: 0 }, lastVel: { x: 0, y: 0 }, fling: 0, vault: 0, vaultToLine: false, tap: null, offer: null,
+    hanging: false, reeling: 0, vel: { x: 0, y: 0 }, body: { x: 0, y: 0 }, lastVel: { x: 0, y: 0 }, fling: 0, vault: 0, vaultToLine: false, tap: null, offer: null, zip: false,
   }
 }
 

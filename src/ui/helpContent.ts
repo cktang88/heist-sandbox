@@ -23,7 +23,7 @@ export const TOOL_NOTES: Readonly<Record<string, string>> = {
   C4: 'Throw it, then press Q or right-click. Even breaks the steel vault.',
   Drill: 'Mostly quiet. Tunnels slowly through walls and floors.',
   Rope: 'Tie it at an edge and climb the outside of the building.',
-  Grapple: 'Fire a hook at a wall or roof edge, reel up with W, swing with A and D. E at a window breaks in.',
+  Grapple: 'Fire a hook at a wall or roof edge, reel up with W, swing with A and D. E at a window breaks in. With it in hand, E hauls you up onto the ledge or floor above.',
   Drone: 'Quiet scout. Fly it with the move keys; click to blow it up, E to bring it back.',
   Smoke: 'Quiet. A cloud nobody can see through, you included.',
   Frag: 'Loud. Roll it down the stairs or round a corner.',

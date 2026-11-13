@@ -29,6 +29,12 @@ export function stepGrapple(world: World, input: Input, dt: number): void {
   readWindowTap(world, controls)
   stepHook(world, dt)
   if (lineIsCut(world)) cutLine(world)
+  if (grapple.zip) {
+    // E's automatic haul up: the climb moves him. When it ends (or he lets go, or the line was cut) the hook comes back.
+    if (player.mantle && grapple.phase === 'attached') return
+    grapple.zip = false
+    if (grapple.phase === 'attached') releaseHook(world)
+  }
   stepVault(world, dt)
 
   const carried = onLine(grapple) || grapple.fling > 0
