@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { breakProp } from '../hazards/reactions'
-import { addProp } from '../hazards/testWorld'
+import { addProp, bareWorld } from '../hazards/testWorld'
+import { FRAME, run as runGrapple, shootAt, standAt } from '../grapple/testWorld'
+import { fillTiles } from '../tiles'
+import { actionIndex } from '../toolDefs'
 import { addGuard, addLamp, arena, GROUND, putPlayer, run } from '../security/testArena'
 import type { World } from '../world'
 
@@ -90,5 +93,43 @@ describe('hiding the player', () => {
     expect(world.player.hidden).toBe(false)
     expect(world.stealth.hiding).toBeNull()
     expect(world.prompt ?? '').not.toBe('E: get out')
+  })
+
+  it('is not offered halfway up a climb: E on the way past a locker does not hide him with the climb still going', () => {
+    // Two storeys with a hole in the floor between them and a locker on the upper floor beside it.
+    const world = bareWorld(60, 40, 1)
+    fillTiles(world.grid, 0, 0, 59, 39, 'concrete')
+    fillTiles(world.grid, 5, 25, 50, 29, 'air')
+    fillTiles(world.grid, 5, 19, 50, 23, 'air')
+    fillTiles(world.grid, 20, 24, 22, 24, 'air')
+    addProp(world, 'wallLocker', 24, 24)
+    world.player.tool = actionIndex('grapple')
+    standAt(world, 21.5, 30)
+    runGrapple(world, 0.2)
+    runGrapple(world, FRAME, { interact: true, interactPressed: true })
+    expect(world.player.mantle).not.toBeNull()
+    for (let frame = 0; frame < 40 && world.player.mantle; frame += 1) {
+      runGrapple(world, FRAME, { interact: true, interactPressed: true })
+      expect(world.player.hidden && world.player.mantle !== null).toBe(false)
+    }
+  })
+
+  it('lets go of a slack grapple line on climbing in, so reeling in does not haul him out', () => {
+    const world = bareWorld(60, 40, 1)
+    fillTiles(world.grid, 0, 0, 59, 39, 'concrete')
+    fillTiles(world.grid, 5, 19, 50, 29, 'air')
+    world.player.tool = actionIndex('grapple')
+    addProp(world, 'wallLocker', 24, 30)
+    standAt(world, 23.5, 30)
+    runGrapple(world, 0.2)
+    shootAt(world, { x: 26, y: 18.5 })
+    expect(world.grapple.phase).toBe('attached')
+    runGrapple(world, FRAME, { interact: true, interactPressed: true })
+    expect(world.player.hidden).toBe(true)
+    const feet = world.player.y + world.player.h
+    runGrapple(world, 0.5, { up: true })
+    expect(world.player.hidden).toBe(true)
+    expect(world.player.y + world.player.h).toBeCloseTo(feet, 1)
+    expect(world.grapple.hanging).toBe(false)
   })
 })

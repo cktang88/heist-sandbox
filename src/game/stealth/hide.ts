@@ -1,4 +1,6 @@
 import type { PropState } from '../cover'
+import { releaseHook } from '../grapple/hook'
+import { onLine } from '../grapple/state'
 import type { Guard } from '../guards'
 import { propBox } from '../hazards/props'
 import { JOINT, wake } from '../ragdoll'
@@ -20,6 +22,9 @@ import { HIDE } from './tuning'
 /** A hiding place the player could get into from here, with room left for him. */
 export function spotForPlayer(world: World): PropState | null {
   const player = world.player
+  // Only from his own two feet: halfway up a ledge, a ladder, the stairs or the line he would be hidden there and the
+  // climb would carry on (or resume on the way out) with him inside.
+  if (!player.onGround || player.mantle || player.onLadder || player.stairs || onLine(world.grapple)) return null
   const feet = { x: player.x + player.w / 2, y: player.y + player.h }
   return nearestSpot(world, feet, (prop, kind) => kind.player && kind.how !== 'behind' && bodiesIn(world, prop).length < kind.bodies)
 }
@@ -37,6 +42,9 @@ export function enterSpot(world: World, prop: PropState): void {
   const watchers = world.guards.filter((guard) => seesClimbingIn(world, guard))
   world.stealth.hiding = { prop: prop.id, how: kind.how === 'under' ? 'under' : 'inside' }
   Object.assign(player, { x: feet.x - player.w / 2, vx: 0, vy: 0, hidden: true })
+  // Climbing in takes both hands: a slack grapple line still bitten somewhere is let go, or reeling it in (W) would
+  // haul him up out of the locker.
+  if (world.grapple.phase === 'attached') releaseHook(world)
   for (const guard of watchers) comeToOpen(world, guard, prop)
 }
 
