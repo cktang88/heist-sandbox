@@ -294,21 +294,26 @@ function drawCrosshair(context: CanvasRenderingContext2D, world: World, camera: 
   }
 }
 
-/** Ten slots along the bottom. On a narrow screen the slots shrink and names are cut short, but ammo always shows. */
+/**
+ * A slot along the bottom for each key with a carried tool (ten with the full kit). On a narrow screen the slots
+ * shrink and names are cut short, but ammo always shows.
+ */
 function drawTools(context: CanvasRenderingContext2D, world: World, unit: number, width: number, height: number): void {
+  const carried = world.player.carried
+  const keys = Array.from({ length: HOTKEYS }, (_, key) => key).filter((key) => toolsOnKey(key, carried).length > 0)
   const gap = Math.max(2, unit * 0.2)
   const slot = Math.min(unit * 8.5, (width - unit * 2) / HOTKEYS)
-  const left = width / 2 - (slot * HOTKEYS) / 2
+  const left = width / 2 - (slot * keys.length) / 2
   const h = unit * 2.7
   const y = height - h - unit * 0.6
   const size = Math.min(unit * 0.78, slot / 6.5)
   // One box per key. A key with several tools shows the one in hand (or its first) and how many it cycles through.
-  for (let key = 0; key < HOTKEYS; key += 1) {
-    const onKey = toolsOnKey(key)
+  keys.forEach((key, place) => {
+    const onKey = toolsOnKey(key, carried)
     const held = onKey.indexOf(world.player.tool)
     const index = held < 0 ? onKey[0] : world.player.tool
     const tool = TOOLS[index]
-    const x = left + key * slot
+    const x = left + place * slot
     const w = slot - gap
     const selected = held >= 0
     context.fillStyle = selected ? 'rgba(255,255,255,0.2)' : 'rgba(6,8,12,0.6)'
@@ -333,7 +338,7 @@ function drawTools(context: CanvasRenderingContext2D, world: World, unit: number
     const pageFits = measure(context, page, size * 0.8) + measure(context, count, size) + unit * 1.1 <= w
     if (onKey.length > 1 && pageFits) caption(context, page, x + unit * 0.35, y + h - unit * 0.55, selected ? '#ffd27a' : DIM, size * 0.8, 'left')
     caption(context, count, x + w - unit * 0.35, y + h - unit * 0.55, empty ? '#ff6a5a' : selected ? '#ffffff' : DIM, size, 'right')
-  }
+  })
 }
 
 /**

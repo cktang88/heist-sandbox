@@ -21,4 +21,27 @@
 .sg-plan-status { color: var(--sg-amber-hi); font-size: 0.9em; letter-spacing: 0.08em; }
 .sg-plan-note { color: var(--sg-dim); font-size: 0.8em; line-height: 1.7; }
 .sg-plan-launch { width: 100%; margin-top: 0.5em; padding: 0.9em !important; }
+/* Loadout: a ruled section under the drop slider. Green edge quiet, red edge loud, as on the HUD tool bar. */
+.sg-kit { margin: 1.2em 0 0.4em; padding-top: 1em; border-top: 1px dashed rgba(255, 255, 255, 0.08); }
+.sg-kit-title { margin: 0 0 0.4em; font-size: 0.8em; letter-spacing: 0.25em; text-transform: uppercase; color: var(--sg-amber); }
+.sg-kit-intro { margin: 0 0 0.8em; color: var(--sg-dim); font-size: 0.8em; line-height: 1.5; }
+.sg-kit-group { margin: 0 0 0.8em; padding: 0; border: 0; min-width: 0; }
+.sg-kit-group legend { padding: 0; margin-bottom: 0.45em; color: var(--sg-dim); font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.12em; }
+.sg-kit-count { color: var(--sg-amber-hi); }
+.sg-kit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5em, 1fr)); gap: 0.4em; }
+.sg-drop-plan label.sg-kit-item {
+  display: flex; align-items: center; gap: 0.5em; padding: 0.5em 0.65em; cursor: pointer;
+  color: var(--sg-text); font-size: 0.8em; letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-left: 3px solid var(--sg-quiet);
+  transition: background 80ms, border-color 80ms;
+}
+.sg-drop-plan label.sg-kit-item.sg-kit-loud { border-left-color: var(--sg-loud); }
+.sg-kit-item:hover { background: rgba(255, 179, 71, 0.08); border-top-color: rgba(255, 179, 71, 0.35); border-right-color: rgba(255, 179, 71, 0.35); border-bottom-color: rgba(255, 179, 71, 0.35); }
+.sg-drop-plan .sg-kit-item:has(input:checked) { background: rgba(255, 179, 71, 0.14); border-top-color: rgba(255, 179, 71, 0.55); border-right-color: rgba(255, 179, 71, 0.55); border-bottom-color: rgba(255, 179, 71, 0.55); color: #fff; }
+.sg-kit-item:has(input:focus-visible) { outline: 2px solid var(--sg-cyan); outline-offset: 2px; }
+.sg-kit-item.sg-kit-off { opacity: 0.4; cursor: default; }
+.sg-kit-item.sg-kit-fixed { cursor: default; }
+.sg-kit-item input { margin: 0; accent-color: var(--sg-amber); flex: none; }
+.sg-kit-name { flex: 1; text-transform: uppercase; }
+.sg-kit-ammo { color: var(--sg-dim); font-size: 0.9em; }
 @media (max-width: 600px) { .sg-drop-plan .sg-body { padding: 1em; } .sg-drop-plan .sg-head h2 { font-size: 1.1em; } }

@@ -33,7 +33,7 @@ export function handOf(world: World): Vec {
 export function useTool(world: World, input: Input, dt: number): void {
   const player = world.player
   if (input.selectTool !== null && input.selectTool >= 0) {
-    const chosen = toolForSelection(input.selectTool, player.tool)
+    const chosen = toolForSelection(input.selectTool, player.tool, player.carried)
     if (chosen !== player.tool) {
       player.tool = chosen
       player.reload = 0

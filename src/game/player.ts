@@ -34,6 +34,8 @@ export type Player = Body & {
   chute: boolean
   onLadder: boolean
   tool: number
+  /** Which of `TOOLS` he brought (see loadout.ts). Everything, unless a loadout was applied before the drop. */
+  carried: boolean[]
   ammo: number[]
   /** Rounds in the magazine of each gun. Unused for non-gun tools. */
   mags: number[]
@@ -79,7 +81,7 @@ export type Player = Body & {
 export function createPlayer(start: Vec): Player {
   return {
     x: start.x, y: start.y, w: 0.7, h: STAND_HEIGHT, vx: 0, vy: 0, onGround: false,
-    facing: 1, hp: 100, chute: false, onLadder: false, tool: 0,
+    facing: 1, hp: 100, chute: false, onLadder: false, tool: 0, carried: TOOLS.map(() => true),
     ammo: TOOLS.map((tool) => tool.ammo), mags: TOOLS.map((tool) => GUNS[tool.id]?.magSize ?? 0), reload: 0, cooldown: 0, focus: MAX_FOCUS_SECONDS, hasLoot: false, pick: 0, kick: 0, bloom: 0, airJumps: 1, stairs: null, stairsHeading: 1, crouching: false, blindSeconds: 0, deafSeconds: 0, stunSeconds: 0, hidden: false,
     crouchWasHeld: false, slide: 0, mantle: null, coyote: 0, jumpBuffer: 0, stride: 0, footfalls: [],
   }

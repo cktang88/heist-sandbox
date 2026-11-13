@@ -166,7 +166,8 @@ function collect(world: World): void {
     playSound(world, 'pickup', center)
     if (pickup.kind === 'medkit') player.hp = Math.min(100, player.hp + MEDKIT_HEAL)
     else TOOLS.forEach((tool, index) => {
-      if (Number.isFinite(tool.ammo)) player.ammo[index] += Math.ceil(tool.ammo * AMMO_REFILL_SHARE)
+      // Only for what he brought: a box of rounds does not hand him a gun he left behind.
+      if (Number.isFinite(tool.ammo) && player.carried[index]) player.ammo[index] += Math.ceil(tool.ammo * AMMO_REFILL_SHARE)
     })
   }
 }

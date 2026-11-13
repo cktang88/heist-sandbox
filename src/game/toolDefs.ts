@@ -48,14 +48,18 @@ function slotOf(index: number): number {
   return TOOLS[index].slot ?? index
 }
 
-/** Every tool a hotkey cycles through, first page first. */
-export function toolsOnKey(key: number): number[] {
-  return TOOLS.map((_, index) => index).filter((index) => slotOf(index) === key)
+/** Every tool a hotkey cycles through, first page first. With `carried`, only the tools the player brought. */
+export function toolsOnKey(key: number, carried?: readonly boolean[]): number[] {
+  return TOOLS.map((_, index) => index).filter((index) => slotOf(index) === key && (!carried || carried[index]))
 }
 
-/** The tool a hotkey press picks. Pressing the key of the tool in hand swaps to the next tool on that key. */
-export function toolForKey(key: number, current: number): number {
-  const onKey = toolsOnKey(key)
+/**
+ * The tool a hotkey press picks. Pressing the key of the tool in hand swaps to the next tool on that key.
+ * A key with nothing carried on it leaves the tool in hand.
+ */
+export function toolForKey(key: number, current: number, carried?: readonly boolean[]): number {
+  const onKey = toolsOnKey(key, carried)
+  if (onKey.length === 0) return current
   const at = onKey.indexOf(current)
   return at < 0 ? onKey[0] : onKey[(at + 1) % onKey.length]
 }
@@ -68,8 +72,16 @@ export function wheelSelection(steps: number): number {
   return HOTKEYS + (((steps % TOOLS.length) + TOOLS.length) % TOOLS.length)
 }
 
-/** The tool an `Input.selectTool` picks: 0-9 is a hotkey, anything past that is a step of the wheel. */
-export function toolForSelection(selection: number, current: number): number {
-  if (selection >= HOTKEYS) return (current + selection - HOTKEYS) % TOOLS.length
-  return toolForKey(selection, current)
+/**
+ * The tool an `Input.selectTool` picks: 0-9 is a hotkey, anything past that is a step of the wheel.
+ * With `carried`, the wheel steps over tools left behind (a step past half the kit reads as a step back).
+ */
+export function toolForSelection(selection: number, current: number, carried?: readonly boolean[]): number {
+  if (selection < HOTKEYS) return toolForKey(selection, current, carried)
+  const steps = selection - HOTKEYS
+  if (!carried) return (current + steps) % TOOLS.length
+  const ring = TOOLS.map((_, index) => index).filter((index) => carried[index] || index === current)
+  const signed = steps > TOOLS.length / 2 ? steps - TOOLS.length : steps
+  const at = ring.indexOf(current)
+  return ring[(((at + signed) % ring.length) + ring.length) % ring.length]
 }
