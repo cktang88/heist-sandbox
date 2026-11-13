@@ -69,6 +69,8 @@ export function enterCombat(world: World, guard: Guard, at: Vec): void {
   guard.lastKnown = { ...at }
   guard.lastKnownAt = world.clock
   guard.awareness = 1
+  // Shot, shot at or hearing the gun go off: whatever froze him in surprise is over, and he does not stand there for the rest of the beat.
+  guard.startle = null
   // A guard who has run or given up does not come back to the fight just because he sees the man.
   if (guard.mode === 'combat' || guard.mode === 'panic' || guard.mode === 'surrendered') return
   setMode(guard, 'combat')

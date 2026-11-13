@@ -11,6 +11,7 @@ import type { Body, Vec } from '../types'
 import type { World } from '../world'
 import { holesFor, readyToDrop, routeDown } from './holeDrop'
 import { detourStep, doorHeld, reachedDetourStep } from './blockedDoors'
+import { stepsIntoCharge } from './intrusions'
 import { feetOf, type Guard } from './model'
 
 /**
@@ -103,8 +104,8 @@ function route(world: World, guard: Guard, to: Vec, speed: number, dt: number, c
     walk(world, guard, 0, dt)
     return 'blocked'
   }
-  // Never a step onto live or deep water, fire, under a falling fitting or into gas; wading in, he turns the taps off.
-  if (stepBlocked(world, guard)) {
+  // Never a step onto live or deep water, fire, under a falling fitting, into gas or into a known charge's blast; wading in, he turns the taps off.
+  if (stepBlocked(world, guard) || stepsIntoCharge(world, guard)) {
     walk(world, guard, 0, dt)
     return 'blocked'
   }

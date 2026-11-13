@@ -20,6 +20,9 @@ function getUp(world: World, guard: Guard): void {
   guard.ragdoll = null
   guard.hiddenIn = null
   Object.assign(guard, { x: feet.x - guard.w / 2, y: feet.y - guard.h, vx: 0, vy: 0, awareness: 0.6 })
+  // Had he given up before he went down, the weapon he dropped lies at his feet: he picks it up as he gets up, since
+  // from here he searches and fights like anyone else (and is drawn armed, with nothing left on the floor).
+  guard.droppedWeapon = null
   // Back on the radio: he answers check-ins again, so going silent a second time is noticed too.
   Object.assign(guard, { missing: false, checkInAt: nextCheckIn(world) })
   const index = world.guards.indexOf(guard)

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { hurtGuard } from '../guards'
 import { addProp } from '../hazards/testWorld'
 import { openSpot } from '../stealth/search'
 import { STARTLE, TAKEDOWN } from '../stealth/tuning'
+import { centerOf } from '../types'
 import type { World } from '../world'
 import type { Guard } from './model'
 import { startleSeconds } from './startle'
@@ -92,5 +94,15 @@ describe('the surprise window', () => {
     run(world, 10, {}, () => guard.mode === 'combat' || guard.startle !== null)
     expect(guard.startle).not.toBeNull()
     expect(world.security.level).toBe(0)
+  })
+
+  it('a startled guard who is shot and survives snaps out of it and fights at once', () => {
+    const { world, guard } = foundInLocker('rookie')
+    expect(guard.startle).not.toBeNull()
+    hurtGuard(world, guard, 5, centerOf(world.player))
+    expect(guard.mode).toBe('combat')
+    run(world, 0.2)
+    // Not frozen for the rest of a rookie's 3.6 second beat with a bullet in him.
+    expect(guard.startle).toBeNull()
   })
 })

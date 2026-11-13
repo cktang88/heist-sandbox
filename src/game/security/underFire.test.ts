@@ -4,6 +4,7 @@ import { throwFrag } from '../frag/frag'
 import { isShielded } from '../guards'
 import { fillTiles } from '../tiles'
 import { feetOf } from './model'
+import { knockOutCold } from '../stealth/bodies'
 import { isDoorway } from './places'
 import { clearOfDoorway } from './selfPreservation'
 import { addGuard, addLamp, addUpperFloor, addWall, arena, GROUND, playerHand, putPlayer, run, runListening } from './testArena'
@@ -98,6 +99,34 @@ describe('self-preservation', () => {
     expect(rescuer).toBe(2)
     expect(feetOf(casualty).x).toBeGreaterThan(before + 1.5)
     expect(saidAny(lines, ['got you', 'Hang on', 'Pulling you out'])).toBe(true)
+  })
+
+  it('does not try to haul a man lying out cold, who cannot be dragged, and walk off backwards alone', () => {
+    const { world, guards } = standoff([26, 27, 31])
+    const casualty = addGuard(world, 32.5, -1)
+    run(world, 2.5, {}, () => guards.every((guard) => guard.mode === 'combat'))
+    casualty.hp = 20
+    knockOutCold(world, casualty, 30)
+    let grabbed = false
+    run(world, 2, {}, () => {
+      grabbed ||= casualty.draggedBy !== null
+    })
+    expect(grabbed).toBe(false)
+  })
+
+  it('lets go of a man who is knocked cold while he hauls him', () => {
+    const { world, guards } = standoff([26, 27, 31])
+    const casualty = addGuard(world, 32.5, -1)
+    run(world, 2.5, {}, () => guards.every((guard) => guard.mode === 'combat'))
+    casualty.hp = 20
+    casualty.stunSeconds = 10
+    run(world, 2, {}, () => casualty.draggedBy !== null)
+    expect(casualty.draggedBy).toBe(2)
+    knockOutCold(world, casualty, 30)
+    const from = feetOf(guards[2]).x
+    run(world, 4)
+    expect(casualty.draggedBy).toBeNull()
+    expect(feetOf(guards[2]).x - from).toBeLessThan(3)
   })
 
   it('never takes up a position in a doorway', () => {

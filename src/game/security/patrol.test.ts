@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createWorld } from '../world'
 import { feetOf } from './model'
 import { stairCheck } from './patrol'
-import { buildingAt } from './places'
+import { buildingAt, sameStretch } from './places'
 import { run } from './testArena'
 import { startSearch } from './orders'
 import { landingX } from '../stairs'
@@ -21,6 +21,27 @@ describe('patrols looking into a stairwell', () => {
       }
     })
     expect(strays).toEqual([])
+  })
+
+  it.each([1, 2, 3])('seed %i: a patrol never checks stairs across an elevator core on his own floor', (seed) => {
+    const world = createWorld(seed, 'complex')
+    const across: string[] = []
+    let checks = 0
+    world.guards.forEach((guard, index) => {
+      if (guard.role !== 'patrol') return
+      for (const point of guard.route) {
+        Object.assign(guard, { x: point.x - guard.w / 2, y: point.y - guard.h })
+        const landing = stairCheck(world, guard)
+        if (!landing) continue
+        checks += 1
+        const feet = feetOf(guard)
+        const well = world.stairwells.find((one) => one.stops.some((y, stop) => Math.abs(landingX(one, stop) - landing.x) < 0.01 && Math.abs(y - landing.y) < 0.01))!
+        const here = well.stops.findIndex((y) => Math.abs(y - feet.y) < 0.5)
+        if (!sameStretch(world, feet, { x: landingX(well, here), y: feet.y })) across.push(`guard ${index} at ${feet.x},${feet.y}`)
+      }
+    })
+    expect(checks).toBeGreaterThan(0)
+    expect(across).toEqual([])
   })
 })
 

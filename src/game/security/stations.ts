@@ -19,19 +19,37 @@ export function assignStations(world: World): void {
   const security = world.security
   security.stationsAt = world.clock
   // Only its own: a station some other errand gave a guard (standing over a partner, a director's event) stays his.
-  for (const [guard, spot] of security.stations) if (guard.station === spot) guard.station = null
+  const held = new Map<string, Guard>()
+  for (const [guard, spot] of security.stations) {
+    if (guard.station !== spot) continue
+    guard.station = null
+    held.set(spotKey(spot), guard)
+  }
   security.stations.clear()
   const focus = security.focus
   if (security.level < 2 || !focus) return
   const spots = stationSpots(world, focus)
   const limit = security.level >= 4 ? Math.round(LEVELS.maxStations * 1.5) : LEVELS.maxStations
+  const wanted = spots.slice(0, limit)
   const taken = new Set<Guard>()
-  for (const spot of spots.slice(0, limit)) {
-    const guard = nearestFreeTo(world, spot, taken)
-    if (!guard) break
+  const station = (guard: Guard, spot: Vec) => {
     taken.add(guard)
     guard.station = spot
     security.stations.set(guard, spot)
+  }
+  // A spot still wanted keeps the man already on his way to it, before anyone else is picked. Picked afresh by who is
+  // nearest now, men walking the long way round to their spots swap them every time the stations are reassigned, and
+  // none of them ever gets there.
+  const open = wanted.filter((spot) => {
+    const holder = held.get(spotKey(spot))
+    if (!holder || !isFree(holder) || holder.station) return true
+    station(holder, spot)
+    return false
+  })
+  for (const spot of open) {
+    const guard = nearestFreeTo(world, spot, taken)
+    if (!guard) break
+    station(guard, spot)
   }
 }
 
@@ -73,4 +91,8 @@ function nearestFreeTo(world: World, spot: Vec, taken: Set<Guard>): Guard | null
     }
   }
   return best
+}
+
+function spotKey(spot: Vec): string {
+  return `${spot.x},${spot.y}`
 }

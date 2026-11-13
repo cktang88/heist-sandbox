@@ -4,6 +4,7 @@ import { tileAt, type Grid } from '../tiles'
 import { centerOf, distance, type Vec } from '../types'
 import type { World } from '../world'
 import { isLampShot } from '../ballistics/lampState'
+import { hasLineOfSight } from '../vision'
 import { barkLine, freshLine, sayAt, type LineKind } from './barks'
 import { watcherFor } from './cameras'
 import { markFireReported } from './danger'
@@ -115,6 +116,9 @@ function smokeAhead(world: World, guard: Guard): Finding | null {
   for (const step of SMOKE_SAMPLES) {
     const at = { x: eye.x + guard.facing * step, y: eye.y }
     if (smokeDensityAt(world, at) < DISCOVERY.smokeSeen) continue
+    // Smoke on the far side of a wall is not his to see (and nor is anything further along the same line).
+    // Walls only: the smoke itself must not count as blocking the view of it.
+    if (!hasLineOfSight(world.grid, eye, at)) return null
     const room = roomOf(world, floorBelow(world, at))?.id ?? -1
     const reportedAt = world.security.firesReported.get(room)
     if (reportedAt !== undefined && world.clock - reportedAt < 60) return null

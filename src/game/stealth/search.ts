@@ -5,6 +5,7 @@ import { noticeBody } from '../security/brain'
 import { enterCombat } from '../security/combat'
 import { confront } from '../security/startle'
 import { centerOf, type Vec } from '../types'
+import { hasLineOfSight } from '../vision'
 import type { World } from '../world'
 import { layBodyAt } from './bodies'
 import { leaveSpot } from './hide'
@@ -56,6 +57,9 @@ export function searchSpotsNear(world: World, guard: Guard, at: Vec, force = fal
     // A gap behind a shelf is only looked at with a torch; a calm look misses it.
     if (kind.how === 'behind' && !force) continue
     if (world.clock - (world.stealth.opened.get(prop.id) ?? -Infinity) < CHECKED_FOR) continue
+    // Only the places he can get at from his stop: never one in the next room through a wall, or across a shaft.
+    const spot = spotFeet(prop)
+    if (!hasLineOfSight(world.grid, { x: at.x, y: at.y - 1 }, { x: spot.x, y: spot.y - 1 })) continue
     checks -= 1
     openSpot(world, guard, prop)
     if (guard.mode === 'combat' || guard.startle || guard.interest?.kind === 'body') return

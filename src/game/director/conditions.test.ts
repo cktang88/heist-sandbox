@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { deviceState } from '../devices/state'
-import { feetOf } from '../security/model'
+import { feetOf, setMode } from '../security/model'
+import { raiseLevel } from '../security/report'
 import { roomOf } from '../security/places'
 import { tileAt } from '../tiles'
 import { createWorld } from '../world'
@@ -172,6 +173,20 @@ describe('tonight\'s conditions', () => {
     expect(inspector.role).toBe('officer')
     idle(world, 2)
     expect(inspector.station).not.toBeNull()
+  })
+
+  it('an inspector pulled off a visit by an alert that keeps him on edge is not left holding that post all night', () => {
+    const world = directedWorld(12, 'complex', ['inspection'])
+    const inspector = world.guards.at(-1)!
+    idle(world, 2)
+    expect(inspector.station).not.toBeNull()
+    // A confirmed intruder earlier: the site never drops below level 2 again, so he stays on caution for good.
+    raiseLevel(world, 3)
+    world.security.level = 2
+    setMode(inspector, 'caution')
+    idle(world, 3)
+    expect(inspector.mode).toBe('caution')
+    expect(inspector.station).toBeNull()
   })
 
   it('a rival crew makes trouble well away from the player', () => {

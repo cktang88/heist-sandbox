@@ -33,7 +33,14 @@ export const inspection: ConditionDef = {
       id: 'inspection',
       line: 'Inspection tonight: a strict officer walks from post to post, and nobody on duty is green.',
       step(stepWorld: World, dt: number) {
-        if (!inspector || !isActive(inspector) || inspector.mode !== 'calm') return
+        if (!inspector) return
+        if (!isActive(inspector) || inspector.mode !== 'calm') {
+          // Pulled away (a noise, a fight, an alert that keeps him on edge for the rest of the night): the visit is off.
+          // Left in place, the station would hold him at that man's post for good, since only this step gives it back.
+          if (visit) release(inspector, visit.spot)
+          visit = null
+          return
+        }
         if (visit) {
           const current = visit
           const done = !onErrand(inspector, current.spot) || stepWorld.clock - current.since > VISIT_LIMIT
