@@ -57,9 +57,9 @@ export function stepGrapple(world: World, input: Input, dt: number): void {
     Object.assign(grapple, { hanging: false, fling: FLING_SECONDS, vel: { ...grapple.lastVel } })
   }
 
-  // A hook that bites while he is pulling himself over a ledge (shot mid-climb) waits slack until the climb is done:
-  // the line taking his weight now would have it and the climb both moving him.
-  if (grapple.phase === 'attached' && !player.mantle) hangOn(world, controls, dt)
+  // A hook that bites while he is pulling himself over a ledge, on a ladder or on the stairs (shot mid-climb) waits
+  // slack until the climb is done: the line taking his weight now would have it and the climb both moving him.
+  if (grapple.phase === 'attached' && !player.mantle && !player.onLadder && !player.stairs) hangOn(world, controls, dt)
   else if (grapple.fling > 0 && !carryFling(world.grid, player, grapple, dt)) endFling(world)
 
   if (onLine(grapple) || grapple.fling > 0) {

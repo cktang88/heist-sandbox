@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { explode, ROCKET_BLAST } from '../explosions'
 import { boxHitsSolid } from '../physics'
 import { fillTiles, setTile, tileAt } from '../tiles'
-import { HOOK_RANGE } from './hook'
+import { fireGrapple, HOOK_RANGE } from './hook'
 import { MAX_LINE } from './line'
 import { onLine } from './state'
 import { buildingWorld, FRAME, ROOF, run, shootAt, standAt, STREET, WALL } from './testWorld'
@@ -186,5 +186,20 @@ describe('grappling hook', () => {
       run(world, FRAME)
       expect(boxHitsSolid(world.grid, world.player)).toBe(false)
     }
+  })
+
+  it('a hook shot from a ladder does not take his weight while he is still on the ladder', () => {
+    const world = underBar()
+    fillTiles(world.grid, 40, 10, 40, 27, 'ladder')
+    standAt(world, 40.5, 28)
+    run(world, 0.5, { up: true })
+    expect(world.player.onLadder).toBe(true)
+    const hand = { x: world.player.x + world.player.w / 2, y: world.player.y + 0.15 }
+    fireGrapple(world, hand, { x: 0, y: -1 })
+    for (let frame = 0; frame < 30; frame += 1) {
+      run(world, FRAME)
+      if (world.player.onLadder) expect(world.grapple.hanging).toBe(false)
+    }
+    expect(world.grapple.phase).toBe('attached')
   })
 })
