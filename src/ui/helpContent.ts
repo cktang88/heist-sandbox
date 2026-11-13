@@ -96,7 +96,7 @@ export const HELP_TABS: readonly HelpTab[] = [
         { term: 'Keycards', text: 'Officers and operators carry one. Crouch behind one and hold E to lift it, or take it from his body. Swipe it at keypad doors.' },
         { term: 'Lures', text: 'X whistles; a TV or vending machine switched on (E) pulls a guard over to switch it off. Lure the same area twice and they come in pairs.' },
         { term: 'Sabotage', text: 'Crouch at a fuse box and hold E to rig the breaker: the lights die on a timer while you are elsewhere. Loop the camera feeds from a terminal: unlike a cut cable, nobody notices until the loop runs out.' },
-        { term: 'Quiet moves', text: 'Crouch to move silently, ease doors open crouched (E), crawl through ducts. The dart gun (press 1 twice) puts a man to sleep after a few seconds.' },
+        { term: 'Quiet moves', text: 'Crouch to move silently, ease doors open crouched (E), crawl through ducts. The dart gun (press 1 twice, if you packed it) puts a man to sleep after a few seconds.' },
       ] },
       { kind: 'example', text: 'Whistle from inside a locker; when the guard walks past the door, burst out and choke him, then stuff him in the locker and take his uniform.' },
       { kind: 'text', text: 'The end screen rates the run: GHOST (never seen, nobody dead, nothing found), SILENT (the alarm never rang) or LOUD.' },

@@ -1,9 +1,10 @@
 import { objectiveText } from '../game/intel/intel'
 import { describe, expect, it } from 'vitest'
 import { idleInput, type Input } from '../game/input'
+import { carriedTools, DEFAULT_LOADOUT } from '../game/loadout'
 import { stepWorld } from '../game/step'
 import { createWorld, type World } from '../game/world'
-import { clockText, helpTop, wrapLine, hurtAlpha, nextHurt, hudUnit, intelTop, objectiveLine, optionKey, visibility } from './drawHud'
+import { clockText, helpLines, helpTop, wrapLine, hurtAlpha, nextHurt, hudUnit, intelTop, objectiveLine, optionKey, visibility } from './drawHud'
 
 const FRAME = 1 / 60
 
@@ -57,6 +58,33 @@ describe('the first-seconds help panel', () => {
       // The prompt's panel reaches up to 6.3 units above the bottom.
       expect(top + panelHeight, `${width}x${height}`).toBeLessThanOrEqual(height - unit * 6.3)
     }
+  })
+})
+
+describe('the first-seconds key list', () => {
+  it('names only the packed kit', () => {
+    const packed = helpLines(carriedTools(DEFAULT_LOADOUT)).join('\n')
+    expect(packed).toContain('1 again: dart gun; 7 again: grapple')
+    expect(packed).not.toContain('rope')
+    expect(packed).not.toContain('frag')
+    expect(packed).toContain('set off C4')
+    const bare = helpLines(carriedTools({ primary: 'rifle', gadgets: [] })).join('\n')
+    expect(bare).not.toContain('Press a key again')
+    expect(bare).not.toContain('C4')
+  })
+})
+
+describe('the HUD unit', () => {
+  it('keeps the alert panel clear of the vitals on narrow windows', () => {
+    for (const [width, height] of [[390, 844], [640, 1000], [1280, 720], [1920, 1080], [1170, 2532]]) {
+      const unit = hudUnit(height, width)
+      // The vitals panel ends 16.7 units from the left; the alert panel starts at least 16.5 units from the right.
+      expect(unit * 16.7, `${width}x${height}`).toBeLessThanOrEqual(width - unit * 16.5)
+    }
+  })
+
+  it('is set by the height on a wide window', () => {
+    expect(hudUnit(1080, 1920)).toBe(hudUnit(1080))
   })
 })
 

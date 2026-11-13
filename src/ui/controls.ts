@@ -26,11 +26,14 @@ function toolRows(): ControlRow[] {
   return rows
 }
 
-/** The tools behind a second (or third) press of a key, in one line: "1 again: dart gun; 7 again: rope, then grapple". */
-export function morePressesLine(): string {
+/**
+ * The tools behind a second (or third) press of a key, in one line: "1 again: dart gun; 7 again: rope, then grapple".
+ * With `carried`, only the packed tools count: a key whose other tools were left behind needs no second press.
+ */
+export function morePressesLine(carried?: readonly boolean[]): string {
   const parts: string[] = []
   for (let key = 0; key < HOTKEYS; key += 1) {
-    const more = toolsOnKey(key).slice(1).map((index) => TOOLS[index].name.toLowerCase())
+    const more = toolsOnKey(key, carried).slice(1).map((index) => TOOLS[index].name.toLowerCase())
     if (more.length > 0) parts.push(`${keyName(key)} again: ${more.join(', then ')}`)
   }
   return parts.join('; ')
@@ -62,6 +65,8 @@ export const CONTROLS: readonly ControlGroup[] = [
     rows: [
       ...toolRows(),
       { keys: ['Wheel'], action: 'Step through the tools' },
+      // The rows above are the whole kit; the loadout leaves some of it behind, so say what those keys do then.
+      { keys: ['1-9', '0'], action: 'Only packed tools answer: tools left behind on the drop planner are skipped, and a key with none of its tools packed does nothing' },
     ],
   },
   {

@@ -186,8 +186,8 @@ kbd {
 
 /* The first-seconds hint. */
 .sg-hint {
-  /* Just above the tool bar (3.3 HUD units tall, a unit a 48th of the height): at the top it covered the HP label and the alert panel on narrow windows. */
-  position: fixed; bottom: calc(max(11px, 100vh / 48) * 3.8); left: 50%; transform: translateX(-50%); z-index: 9; pointer-events: none; white-space: nowrap;
+  /* Just above the tool bar (3.3 HUD units tall, a unit a 48th of the height or a 36th of the width): at the top it covered the HP label and the alert panel on narrow windows. */
+  position: fixed; bottom: calc(max(11px, min(100vh / 48, 100vw / 36)) * 3.8); left: 50%; transform: translateX(-50%); z-index: 9; pointer-events: none; white-space: nowrap;
   display: flex; gap: 1.6em; padding: 0.35em 1em; font-size: clamp(12px, 0.4vw + 0.8vh, 18px);
   color: var(--sg-dim); background: rgba(6, 8, 12, 0.55); border: 1px solid rgba(255, 255, 255, 0.06);
   letter-spacing: 0.08em; animation: sg-hint-fade 8s ease-in forwards;

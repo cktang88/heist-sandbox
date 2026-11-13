@@ -183,7 +183,7 @@ The top-left HUD says why you are or are not seen (IN DARKNESS, IN COVER, DISGUI
 
 ## Art styles
 
-Pixel is the default. Pick another in Settings (it switches at once) or add `?look=real`, `pixel`, `pixel-hd`, `sketch` or `paint` to the address.
+Real is the default. Pick another in Settings (it switches at once) or add `?look=real`, `pixel`, `pixel-hd`, `sketch` or `paint` to the address.
 
 ![The four looks](docs/screenshots/looks-lounge.png)
 

@@ -26,19 +26,26 @@ export function clearSettings(): void {
   }
 }
 
+/**
+ * The last loadout saved during this visit. Where storage refuses it, the next heist's planner still opens on it:
+ * the help screen promises the last loadout is remembered, and repacking after every heist broke that promise.
+ */
+let visitLoadout: string | null = null
+
 /** The loadout picked on the drop planner, kept for the next heist the same way. */
 export function loadLoadout(): Loadout {
   try {
-    return parseLoadout(localStorage.getItem(LOADOUT_STORAGE_KEY))
+    return parseLoadout(visitLoadout ?? localStorage.getItem(LOADOUT_STORAGE_KEY))
   } catch {
-    return parseLoadout(null)
+    return parseLoadout(visitLoadout)
   }
 }
 
 export function saveLoadout(loadout: Loadout): void {
+  visitLoadout = serializeLoadout(loadout)
   try {
-    localStorage.setItem(LOADOUT_STORAGE_KEY, serializeLoadout(loadout))
+    localStorage.setItem(LOADOUT_STORAGE_KEY, visitLoadout)
   } catch {
-    // The loadout still applies to this heist.
+    // The loadout still applies to this heist, and to the next ones of this visit.
   }
 }

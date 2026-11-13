@@ -53,7 +53,7 @@ function drawBlindness(context: CanvasRenderingContext2D, blind: number, width: 
 
 /** A small ear-ringing notice at the top centre; the bars shrink as hearing returns. */
 function drawDeafened(context: CanvasRenderingContext2D, world: World, width: number, height: number): void {
-  const unit = hudUnit(height)
+  const unit = hudUnit(height, width)
   const seconds = world.player.deafSeconds
   const x = width / 2
   const y = unit * 1.6
