@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { carriedTools, DEFAULT_LOADOUT } from '../game/loadout'
 import { TOOLS } from '../game/toolDefs'
 import { CONTROLS, morePressesLine } from './controls'
 
@@ -25,6 +26,15 @@ describe('the controls table', () => {
 
   it('sums up the extra presses in one line naming every second-page tool', () => {
     expect(morePressesLine()).toBe('1 again: dart gun; 7 again: rope, then grapple; 9 again: frag')
+  })
+
+  it('names only the packed second-page tools once a loadout leaves some behind', () => {
+    expect(morePressesLine(carriedTools(DEFAULT_LOADOUT))).toBe('1 again: dart gun; 7 again: grapple')
+    expect(morePressesLine(carriedTools({ primary: 'rifle', gadgets: ['c4'] }))).toBe('')
+  })
+
+  it('says what a number key does when its tools were left behind', () => {
+    expect(rows.some((row) => row.action.includes('left behind'))).toBe(true)
   })
 
   it('names the close combat, detonation, crouch, focus and menu keys', () => {

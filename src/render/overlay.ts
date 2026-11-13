@@ -33,7 +33,7 @@ export function drawOverlay(context: CanvasRenderingContext2D, world: World, cam
   context.setTransform(1, 0, 0, 1, 0, 0)
 
   // Everything below is drawn in screen pixels, so text stays crisp and readable at any zoom.
-  const unit = hudUnit(camera.height)
+  const unit = hudUnit(camera.height, camera.width)
   if (world.security.lastKnown) drawLastKnown(context, world, camera, world.security.lastKnown, unit)
   for (const guard of world.guards) {
     if (guard.state === 'dead' || guard.hiddenIn !== null || guard.startle || !onScreen(camera, guard, 2)) continue

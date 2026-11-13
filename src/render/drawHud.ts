@@ -4,7 +4,7 @@ import { playerShotSpread, resolveAim, shotBlock } from '../game/aiming'
 import { lightLevelAt } from '../game/light'
 import { MAX_FOCUS_SECONDS } from '../game/player'
 import type { Room, RoomKind } from '../game/site'
-import { HOTKEYS, TOOLS, toolsOnKey } from '../game/toolDefs'
+import { HOTKEYS, toolIndex, TOOLS, toolsOnKey } from '../game/toolDefs'
 import { handOf } from '../game/tools'
 import { centerOf, type Vec } from '../game/types'
 import type { World } from '../game/world'
@@ -15,16 +15,23 @@ import { worldToScreen, type Camera } from './camera'
 import { morePressesLine } from '../ui/controls'
 import { drawIntel } from './intelHud'
 
-const HELP = [
-  'A/D move    W/S climb and take stairs    SPACE jump, tap again to double jump',
-  'HOLD SPACE while falling: parachute    C or CTRL: crouch',
-  'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool',
-  `Press a key again for more: ${morePressesLine()}`,
-  'Q or RIGHT-CLICK: set off C4    E: pick locks, use devices, take down (crouch + hold E: choke), hide',
-  'F punch    V kick    HOLD G drag furniture or grab a guard    G pick up a body    T throw    X whistle',
-  'SHIFT: focus (slow motion, slowest when you hold still)',
-  'Find the gold case: make guards talk, read notes, hack files. Then get to the van.',
-]
+/**
+ * The first seconds' key list. It names only the packed kit: with the full kit's line it sent the player to press
+ * 7 twice for a rope, or Q for C4, left behind on the drop planner.
+ */
+export function helpLines(carried: readonly boolean[]): string[] {
+  const more = morePressesLine(carried)
+  return [
+    'A/D move    W/S climb and take stairs    SPACE jump, tap again to double jump',
+    'HOLD SPACE while falling: parachute    C or CTRL: crouch',
+    'MOUSE aim and fire    R reload    1-0 or wheel: pick a tool',
+    ...(more ? [`Press a key again for more: ${more}`] : []),
+    `${carried[toolIndex('c4')] ? 'Q or RIGHT-CLICK: set off C4    ' : ''}E: pick locks, use devices, take down (crouch + hold E: choke), hide`,
+    'F punch    V kick    HOLD G drag furniture or grab a guard    G pick up a body    T throw    X whistle',
+    'SHIFT: focus (slow motion, slowest when you hold still)',
+    'Find the gold case: make guards talk, read notes, hack files. Then get to the van.',
+  ]
+}
 
 /** The site's alert levels as the player reads them, from calm to locked down. */
 const ALERT_LEVELS = [
@@ -49,14 +56,18 @@ export const HUD_FONT = 'ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, mono
 const TEXT = '#d8dce4'
 const DIM = '#8a93a3'
 
-/** The HUD's base size in pixels: everything is laid out in multiples of it, so it scales with the window. */
-export function hudUnit(height: number): number {
-  return Math.max(11, Math.round(height / 48))
+/**
+ * The HUD's base size in pixels: everything is laid out in multiples of it, so it scales with the window.
+ * A narrow window (a phone held upright, a browser at half a screen) also caps it by width: sized by height alone,
+ * the alert panel at the top right was drawn over the vitals at the top left.
+ */
+export function hudUnit(height: number, width = Number.POSITIVE_INFINITY): number {
+  return Math.max(11, Math.round(Math.min(height / 48, width / 36)))
 }
 
 export function drawHud(context: CanvasRenderingContext2D, world: World, camera: Camera, aim: Vec): void {
   const { width, height } = camera
-  const unit = hudUnit(height)
+  const unit = hudUnit(height, width)
   drawSlowmoTint(context, world, width, height)
   drawHurt(context, world, width, height)
   const cues = stealthCues(world)
@@ -72,7 +83,7 @@ export function drawHud(context: CanvasRenderingContext2D, world: World, camera:
   if (world.prompt && world.status === 'playing') drawPrompt(context, world.prompt, unit, width, height)
   if (world.stealth.hint && world.status === 'playing') caption(context, world.stealth.hint, width / 2, height - unit * 3.55, DIM, unit * 0.75, 'center')
   if (world.terminal && world.status === 'playing') drawTerminal(context, world.terminal, unit, width, height)
-  if (world.status === 'playing' && world.clock < 9 && world.security.level === 0) drawHelp(context, unit, width, height)
+  if (world.status === 'playing' && world.clock < 9 && world.security.level === 0) drawHelp(context, helpLines(world.player.carried), unit, width, height)
   if (world.status !== 'playing') drawEndScreen(context, world, width, height, unit)
 }
 
@@ -353,13 +364,14 @@ function statusCaption(context: CanvasRenderingContext2D, title: string, keys: s
 }
 
 /** The first seconds' key list, low in the middle: clear of the player, who starts at the centre falling from the plane. */
-function drawHelp(context: CanvasRenderingContext2D, unit: number, width: number, height: number): void {
+function drawHelp(context: CanvasRenderingContext2D, lines: readonly string[], unit: number, width: number, height: number): void {
   const size = Math.min(unit, (width - unit * 4) / 62)
-  const w = Math.min(width - unit * 2, size * 50)
-  const h = size * (HELP.length * 1.5 + 1.2)
+  // As wide as the longest line: a fixed width let the longer lines run past the panel's edges.
+  const w = Math.min(width - unit * 2, Math.max(...lines.map((line) => measure(context, line, size * 0.82))) + size * 2)
+  const h = size * (lines.length * 1.5 + 1.2)
   const top = helpTop(unit, height, h)
   panel(context, width / 2 - w / 2, top, w, h)
-  HELP.forEach((line, index) => caption(context, line, width / 2, top + size * 1.8 + index * size * 1.5, 'rgba(255,255,255,0.88)', size * 0.82, 'center'))
+  lines.forEach((line, index) => caption(context, line, width / 2, top + size * 1.8 + index * size * 1.5, 'rgba(255,255,255,0.88)', size * 0.82, 'center'))
 }
 
 /** Where the help panel starts: its bottom sits above the action prompt, and it never rises into the screen's middle. */
