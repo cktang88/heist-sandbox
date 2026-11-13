@@ -20,7 +20,14 @@
 .sg-drop-plan input:focus-visible { outline: 2px solid var(--sg-cyan); outline-offset: 3px; }
 .sg-plan-status { color: var(--sg-amber-hi); font-size: 0.9em; letter-spacing: 0.08em; }
 .sg-plan-note { color: var(--sg-dim); font-size: 0.8em; line-height: 1.7; }
-.sg-plan-launch { width: 100%; margin-top: 0.5em; padding: 0.9em !important; }
+/*
+ * Pinned to the bottom of the scrolling body: under the loadout it sat a screen's height below the fold on a laptop,
+ * so the one button that starts the heist could only be found by scrolling past everything. A wide shadow in the
+ * panel's colour covers the kit scrolling behind it, focused or not.
+ */
+.sg-plan-launch { position: sticky; bottom: 0; z-index: 1; width: 100%; margin-top: 0.5em; padding: 0.9em !important; }
+.sg-drop-plan .sg-btn.sg-plan-launch { box-shadow: 0 0 0 1.3em var(--sg-panel); }
+.sg-drop-plan .sg-btn.sg-plan-launch:hover, .sg-drop-plan .sg-btn.sg-plan-launch:focus-visible { box-shadow: 0 0 0 2px rgba(255, 210, 122, 0.4), 0 0 0 1.3em var(--sg-panel); }
 /* Loadout: a ruled section under the drop slider. Green edge quiet, red edge loud, as on the HUD tool bar. */
 .sg-kit { margin: 1.2em 0 0.4em; padding-top: 1em; border-top: 1px dashed rgba(255, 255, 255, 0.08); }
 .sg-kit-title { margin: 0 0 0.4em; font-size: 0.8em; letter-spacing: 0.25em; text-transform: uppercase; color: var(--sg-amber); }
