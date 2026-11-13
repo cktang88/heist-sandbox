@@ -4,6 +4,7 @@ import { windowAt } from '../grapple/windows'
 import { tileAt } from '../tiles'
 import { createWorld } from '../world'
 import { createComplex } from './complex'
+import { shaftWatchProblems } from './shaftWatch'
 import { STOREY } from './kit'
 import { CAMERAS } from '../security/tuning'
 import { cameraBlindSpots, doorsBlockedByDevices, hidesPerStorey, quietEntries } from '../stealthRuns/audit'
@@ -71,6 +72,11 @@ describe('the generated complex', () => {
     const floorOf = (device: Level['devices'][number]) => level.rooms[device.roomId!].floorY
     const devices = level.devices.filter((device) => device.kind !== 'camera' && !reachedSpot(level, seen, device.x, floorOf(device)))
     expect(devices.map((device) => `${device.kind} at ${device.x},${device.y}`)).toEqual([])
+  })
+
+  it.each(SEEDS)('seed %i leaves every elevator door and shaft maintenance door unwatched: no post in view, no patrol turning beside it', (seed) => {
+    const level = site(seed)
+    expect(shaftWatchProblems(level.grid, level.elevators, level.guards)).toEqual([])
   })
 
   it.each(SEEDS)('seed %i can be won: from the drop to the loot, and from the loot to the van', (seed) => {

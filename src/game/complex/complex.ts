@@ -8,6 +8,7 @@ import { buildBlock, staff } from './block'
 import { addDucts } from './ducts'
 import { finishDoorways } from './doorways'
 import { secondWays } from './secondWay'
+import { clearShaftSightlines } from './shaftWatch'
 import { addRoom, chance, circuitOf, createDraft, fill, pick, ROOM_HEIGHT, STOREY, type SiteDraft } from './kit'
 
 export const COMPLEX_WIDTH = 300
@@ -97,6 +98,7 @@ export function createComplex(seed: number): Level {
   const vault = placeVault(site)
   roamingPatrols(site)
   assignGuardRooms(site)
+  clearShaftSightlines(site.grid, site.rooms, site.elevators, site.guards)
   // Furnish first, so the ducts can re-hang whatever ceiling fittings end up under them. The stealth routes come
   // last, around what is already there: the hatch where no furniture stands, open doorways where no duct rests.
   furnishSite(site)

@@ -130,9 +130,12 @@ function carveShaft(site: SiteDraft, spec: BlockSpec, shaft: ShaftSpec, floorY: 
   const stops: number[] = []
   for (let storey = shaft.from; storey <= shaft.to; storey += 1) {
     fill(site, wallX, floorY(storey) - 3, wallX, floorY(storey) - 1, 'door')
+    // A central shaft's back wall has a maintenance door at every stop, onto its service ladder: a second way between
+    // floors, and (walking past in front of the shaft, as at any stop) through to the lobby side of the same floor.
+    if (shaft.central) fill(site, shaft.doorSide === 1 ? shaft.x - 1 : shaft.x + shaft.w, floorY(storey) - 3, shaft.doorSide === 1 ? shaft.x - 1 : shaft.x + shaft.w, floorY(storey) - 1, 'door')
     stops.push(floorY(storey))
   }
-  // A service ladder runs up the far side of every shaft.
+  // A service ladder runs up the far side of every shaft (beside the maintenance doors of a central one).
   const ladderX = shaft.doorSide === 1 ? shaft.x : shaft.x + shaft.w - 1
   fill(site, ladderX, top, ladderX, pit, 'ladder')
   site.elevators.push({ id: site.elevators.length, building: spec.name, x: shaft.x, w: shaft.w, stops, doorSide: shaft.doorSide })
