@@ -31,8 +31,11 @@ describe('the local support check', () => {
           for (let row = y; row < y + h; row += 1) for (let column = x; column < x + w; column += 1) setTile(grid, column, row, 'air')
         }
       } else {
-        // C4 all along a room's floor, as the benchmark's big fight does.
-        const room = world.rooms[(round * 7) % world.rooms.length]
+        // C4 all along a room's floor, as the benchmark's big fight does. The room is drawn from the same random stream
+        // rather than stepped through by index: stepping by a fixed stride ties which buildings get blown to how many
+        // rooms the generator happens to make (with the tower's elevator cores it hit only tower rooms, held by their
+        // slabs, so nothing was ever left loose to check).
+        const room = world.rooms[Math.floor(rng() * world.rooms.length)]
         for (let x = room.x; x < room.x + room.w; x += 3) explode(world, { x: x + 0.5, y: room.floorY + 0.5 }, C4_BLAST)
       }
       const near = findUnsupportedNear(grid, slabs, changedSince(grid, mark))

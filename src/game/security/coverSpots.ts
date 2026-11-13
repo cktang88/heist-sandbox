@@ -5,6 +5,7 @@ import { propSpec } from '../propCatalog'
 import { isSolidAt } from '../tiles'
 import type { Vec } from '../types'
 import type { World } from '../world'
+import { sameStretch } from './places'
 
 /**
  * Furniture that stops bullets, looked up by floor. Props never block walking; standing beside one,
@@ -76,7 +77,8 @@ export function findCover(world: World, feet: Vec, threat: Vec, reach: number, r
     const side = Math.sign(threat.x - centre) || 1
     const spot = { x: side > 0 ? entry.left - 0.45 : entry.right + 0.45, y: feet.y, high: entry.high }
     const gap = Math.abs(spot.x - threat.x)
-    if (gap < 3 || !standable(world, spot)) continue
+    // Cover across an elevator core or a void is no cover he can get to along this floor.
+    if (gap < 3 || !standable(world, spot) || !sameStretch(world, feet, spot)) continue
     if (taken.some((other) => Math.abs(other.x - spot.x) < 0.9 && Math.abs(other.y - spot.y) < 1)) continue
     if (retreat && gap <= Math.abs(feet.x - threat.x)) continue
     const score = retreat

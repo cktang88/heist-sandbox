@@ -1,5 +1,6 @@
 import { GRAVITY, moveBody } from '../physics'
 import { centerOf, distance, type Body, type Vec } from '../types'
+import { isSolidAt, tileAt } from '../tiles'
 import { hasLineOfSight } from '../vision'
 import type { World } from '../world'
 import { barkLine, nameOf } from './barks'
@@ -7,7 +8,7 @@ import { shelteredFrom } from './coverSpots'
 import { freeOfSolid, goTo } from './movement'
 import { eyeOf, feetOf, isActive, type Guard } from './model'
 import { frighten, isShaken } from './nerve'
-import { isDoorway, sameFloor } from './places'
+import { isDoorway, sameFloor, sameStretch } from './places'
 import { NERVE, PATROL, UNDER_FIRE } from './tuning'
 
 /**
@@ -20,6 +21,8 @@ const DIVE_DRAG = 3
 const GRENADE_FLOOR = 2.5
 const DRAG_STEP = 3
 const DRAG_HOLD = 0.9
+/** Open floor he needs behind him to go on hauling a man back. */
+const BACK_OFF_ROOM = 1.5
 const DRAG_REACH_LOST = 2.5
 const DOORWAY_STEP = 1.5
 
@@ -67,7 +70,15 @@ export function dragWounded(world: World, guard: Guard, threat: Vec, dt: number)
   if (isShaken(guard) || guard.reloadSeconds > 0) return false
   const index = world.guards.indexOf(guard)
   const feet = feetOf(guard)
+  const away = Math.sign(feet.x - threat.x) || -guard.facing
   let casualty = world.guards.find((other) => other.draggedBy === index)
+  // Backed up against a wall (an elevator core, the end of the floor) or the edge of a drop: no further to haul him,
+  // so he lets go and fights rather than heave at the wall for good. He only takes hold of a man with a whole drag
+  // step of floor behind him, so he does not grab and drop him again at the wall.
+  if (!roomToBackOff(world, feet, away, casualty ? BACK_OFF_ROOM : DRAG_STEP)) {
+    if (casualty) casualty.draggedBy = null
+    return false
+  }
   if (!casualty) {
     casualty = world.guards.find((other) => other !== guard && needsPulling(world, other, feet, threat))
     if (!casualty) return false
@@ -75,9 +86,18 @@ export function dragWounded(world: World, guard: Guard, threat: Vec, dt: number)
     casualty.dragSeconds = UNDER_FIRE.dragSeconds
     barkLine(world, guard, 'drag', true, world.people?.nameOf(casualty) ?? nameOf(world.guards.indexOf(casualty)))
   }
-  const away = Math.sign(feet.x - threat.x) || -guard.facing
   goTo(world, guard, { x: feet.x + away * DRAG_STEP, y: feet.y }, PATROL.walkSpeed, dt, false)
   guard.facing = away > 0 ? -1 : 1
+  return true
+}
+
+/** Open floor `room` tiles behind him: floor underfoot all the way, and nothing but doors in the way. */
+function roomToBackOff(world: World, feet: Vec, away: number, room: number): boolean {
+  for (let offset = 0.5; offset <= room; offset += 0.5) {
+    const x = feet.x + away * offset
+    if (!isSolidAt(world.grid, x, feet.y + 0.5) || !sameStretch(world, feet, { x, y: feet.y })) return false
+    if ([0.5, 1.5].some((up) => isSolidAt(world.grid, x, feet.y - up) && tileAt(world.grid, Math.floor(x), Math.floor(feet.y - up)) !== 'door')) return false
+  }
   return true
 }
 

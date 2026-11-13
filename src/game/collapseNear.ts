@@ -306,12 +306,16 @@ function slabStands(grid: Grid, slabs: readonly SlabRow[], entry: number): Answe
     anySolid = true
     if (search(grid, slabs, row + x) === GROUNDED) return settle(entry, SLAB_STANDS)
   }
+  // One piece of the row that is held is enough: a piece held only through a ring of slabs (unsure) does not settle it
+  // either way, so the rest of the row is still looked at before giving up.
+  let unsure = false
   for (let x = band.x0; x <= band.x1 && anySolid; x += 1) {
     if (!SOLID[grid.kinds[row + x]]) continue
     const held = pieceHeld(grid, slabs, pieceOf[row + x], entry)
-    if (held === UNSURE) return UNSURE
     if (held === YES) return settle(entry, SLAB_STANDS)
+    if (held === UNSURE) unsure = true
   }
+  if (unsure) return UNSURE
   // Down: whatever it held may be loose now, so every tile it held is searched from.
   settle(entry, SLAB_DOWN)
   for (let y = band.y0; y <= band.y1; y += 1) {
