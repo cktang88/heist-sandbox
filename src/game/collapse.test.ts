@@ -188,6 +188,21 @@ describe('collapse', () => {
     expect(loose.filter((kind) => kind === 'duct')).toEqual([])
   })
 
+  it('a door that comes down with the wall around it lands as splintered wood, not as a door in the heap', () => {
+    const world = createWorld(1)
+    world.guards = []
+    Object.assign(world.player, { x: 5, y: 37, hp: 1e6 })
+    // A free-standing doorway on the street: brick under a door, then knock out the base.
+    for (let y = 36; y <= 39; y += 1) setTile(world.grid, 40, y, 'brick')
+    for (let y = 33; y <= 35; y += 1) setTile(world.grid, 40, y, 'door')
+    hurtTile(world, 40, 39, 1000)
+    hurtTile(world, 40, 38, 1000)
+    for (let frame = 0; frame < 120; frame += 1) stepWorld(world, idleInput(), 1 / 60)
+    expect(world.falling.length).toBe(0)
+    const column = [34, 35, 36, 37, 38, 39].map((y) => tileAt(world.grid, 40, y))
+    expect(column).toEqual(['air', 'wood', 'wood', 'wood', 'brick', 'brick'])
+  })
+
   it('drops a cut-off chunk and lets it land as tiles again', () => {
     const world = createWorld(1)
     world.guards = []
