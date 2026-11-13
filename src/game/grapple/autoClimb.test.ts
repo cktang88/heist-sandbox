@@ -71,4 +71,18 @@ describe('E with the grapple in hand', () => {
     }
     expect(world.player.y + world.player.h).toBeCloseTo(24, 1)
   })
+
+  it('is not frozen half done by W at a stair landing straight after E', () => {
+    const world = twoStoreys()
+    fillTiles(world.grid, 20, 24, 22, 24, 'air')
+    world.stairwells = [{ id: 0, building: 'test', leftX: 21.5, rightX: 40, stops: [30, 24] }]
+    standAt(world, 21.5, 30)
+    run(world, 0.2)
+    run(world, FRAME, { interact: true, interactPressed: true })
+    run(world, 0.3, { up: true })
+    expect(world.player.stairs).toBeNull()
+    run(world, 2)
+    expect(world.player.y + world.player.h).toBeCloseTo(24, 1)
+    expect(world.player.mantle).toBeNull()
+  })
 })
