@@ -2,7 +2,7 @@ import type { RoomKind } from '../site'
 import type { Vec } from '../types'
 import type { World } from '../world'
 import type { SearchPlan } from './model'
-import { buildingAt, roomOf, storeyAt } from './places'
+import { buildingAt, roomOf, sameStretch, storeyAt } from './places'
 import { TIMING } from './tuning'
 
 /**
@@ -29,7 +29,10 @@ export function planSearch(world: World, center: Vec, seconds: number = TIMING.s
     .filter((room) => room.building === building && room !== here && !OPEN_AIR.has(room.kind) && Math.abs(room.storey - storey) <= 1)
     .map((room) => {
       const claimed = world.clock - (world.security.searched.get(room.id) ?? -Infinity) < SEARCHED_FOR
-      const cost = Math.abs(room.x + room.w / 2 - center.x) + Math.abs(room.storey - storey) * FLOOR_PENALTY
+      const middle = { x: room.x + room.w / 2, y: room.floorY }
+      // A room across an elevator core (or a void) on this floor is reached up a flight and back down: two floors' walk.
+      const around = room.storey === storey && !sameStretch(world, center, middle) ? 2 * FLOOR_PENALTY : 0
+      const cost = Math.abs(middle.x - center.x) + Math.abs(room.storey - storey) * FLOOR_PENALTY + around
       return { room, score: cost * (claimed ? 4 : 1) }
     })
     .sort((a, b) => a.score - b.score)
