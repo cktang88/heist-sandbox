@@ -171,4 +171,20 @@ describe('grappling hook', () => {
     }
     expect(play()).toEqual(play())
   })
+
+  it('standing up from a crouch on the line just above the floor does not sink his legs into it', () => {
+    const world = underBar()
+    run(world, 0.1, { crouch: true })
+    shootAt(world, { x: 40.2, y: BAR + 0.5 })
+    // Reeled in crouched, then let out again until his feet are just off the floor, on the way up out of a dip.
+    run(world, FRAME, { up: true, crouch: true })
+    for (let frame = 0; frame < 60 && world.player.y + world.player.h < 28 - 0.6; frame += 1) run(world, FRAME, { down: true, crouch: true })
+    expect(onLine(world.grapple)).toBe(true)
+    expect(world.player.crouching).toBe(true)
+    world.grapple.vel = { x: 0, y: -3 }
+    for (let frame = 0; frame < 30; frame += 1) {
+      run(world, FRAME)
+      expect(boxHitsSolid(world.grid, world.player)).toBe(false)
+    }
+  })
 })

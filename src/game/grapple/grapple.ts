@@ -1,5 +1,6 @@
 import type { Input } from '../input'
 import { bodyControl } from '../movement/control'
+import { boxHitsSolid } from '../physics'
 import { TOOLS, type ToolId } from '../toolDefs'
 import { distance } from '../types'
 import type { World } from '../world'
@@ -44,7 +45,11 @@ export function stepGrapple(world: World, input: Input, dt: number): void {
     Object.assign(grapple, { hanging: false, fling: 0, reeling: 0 })
     return
   }
-  if (carried && distance(player, grapple.body) < TELEPORT) Object.assign(player, { x: grapple.body.x, y: grapple.body.y })
+  // Not where he no longer fits: standing up from a crouch on the line keeps his feet and moves his head, so his old
+  // top corner would put the taller body's legs into the floor just under him.
+  if (carried && distance(player, grapple.body) < TELEPORT && !boxHitsSolid(world.grid, { ...player, x: grapple.body.x, y: grapple.body.y })) {
+    Object.assign(player, { x: grapple.body.x, y: grapple.body.y })
+  }
 
   if (crashThrough(world, grapple.lastVel)) {
     // Through the glass on the swing: let go of the line and keep flying.
