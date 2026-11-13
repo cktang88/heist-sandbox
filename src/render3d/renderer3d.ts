@@ -1,6 +1,7 @@
-import { DoubleSide, Group, type Light, Mesh, MeshBasicMaterial, PCFShadowMap, PlaneGeometry, Scene, SRGBColorSpace, WebGLRenderer } from 'three'
+import { DoubleSide, Group, type Light, Mesh, MeshBasicMaterial, PCFShadowMap, PlaneGeometry, Scene, SRGBColorSpace, Vector2, WebGLRenderer } from 'three'
 // First, so its material hook is in place before any module below creates a material with its own hook.
 import { setSurfaceStyle } from './style/materialStyle'
+import { outlineTarget } from '../game/hover'
 import type { Grid } from '../game/tiles'
 import type { Vec } from '../game/types'
 import type { World } from '../game/world'
@@ -24,10 +25,12 @@ import { setPeopleOutdoorFill, setPeopleStandOut } from './people/surface'
 import { setCardView } from './propbatch/cardAtlas'
 import { createSky, setSkyStyle } from './sky'
 import { BACKDROP_LAYER, createCameraRig, TILES_TALL } from './style/cameraRig'
-import { pixelGrid, type PixelGrid } from './style/pixelGrid'
+import { aimOnBackWall, createOutline } from './style/outline'
+import { pixelGrid, type PixelGrid, type Snap } from './style/pixelGrid'
 import { STYLES, styleFromQuery, type Style, type StyleName } from './style/styles'
 
 const MAX_SHAKE_TILES = 0.4
+const drawingSize = new Vector2()
 /** Very large or high-density screens are drawn at no more than about this many pixels, then stretched. */
 const MAX_PIXELS = 1920 * 1200
 /** Longest wait for shaders and the sky before drawing a new level anyway. */
@@ -74,7 +77,8 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   let post: PostChain = createPost(renderer, scene, cameras, style)
   applySurfaceStyle(style)
   const quality = createQualityController(lowDetail ? LOW_DETAIL : 0, lowDetail || pinnedHigh)
-  const info = createRenderInfo(renderer, options.get('debug') === '1')
+  const debug = options.get('debug') === '1'
+  const info = createRenderInfo(renderer, debug)
 
   let grid: Grid | null = null
   let stage: { level: LevelMesh; actors: Actors; group: Group; sky: SkyShading; backdrop: Group } | null = null
@@ -85,6 +89,8 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   let appliedLevel = -1
   let lastFrame = performance.now()
   let artGrid: PixelGrid | null = null
+  let snap: Snap | null = null
+  const outline = createOutline()
   applyQuality(quality.level)
   if (options.get('debug') === '1') {
     ;(globalThis as { __setLook?: (name: StyleName) => void }).__setLook = setStyle
@@ -203,7 +209,22 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
   }
 
   function placeCamera(world: World, view: Vec): void {
-    post.setSnap(cameras.place(view, world.shake * world.shake * MAX_SHAKE_TILES, artGrid))
+    snap = cameras.place(view, world.shake * world.shake * MAX_SHAKE_TILES, artGrid)
+    post.setSnap(snap)
+  }
+
+  /** The yellow outline round what the cursor is over (or what E acts on), over the finished frame. */
+  function drawOutline(world: World, aim: Vec, actors: Actors, time: number): void {
+    const camera = style.camera === 'ortho' ? cameras.orthographic : cameras.perspective
+    const wallAim = aimOnBackWall(camera, aim)
+    const choice = outlineTarget(world, aim, wallAim)
+    // `?debug=1`: what is outlined and where the cursor landed, for tests driving the page.
+    if (debug) (globalThis as { __outline?: unknown }).__outline = { aim, wallAim, key: choice?.target.key ?? null, hovered: choice?.hovered ?? false }
+    if (!choice) return
+    const size = renderer.getDrawingBufferSize(drawingSize)
+    outline.draw(renderer, choice.target, actors.silhouette(choice.target), {
+      camera, width: size.x, height: size.y, grid: artGrid, snap, strength: choice.hovered ? 1 : 0.7, time,
+    })
   }
 
   return {
@@ -241,6 +262,7 @@ export function createRenderer3d(canvas: HTMLCanvasElement, lowDetail = false): 
       drawnThisLevel = true
       renderer.info.reset()
       timedPart('draw (three.js and WebGL calls)', () => post.render(now / 1000))
+      timedPart('outline', () => drawOutline(world, aim, stage!.actors, now / 1000))
       info.publish(now, LADDER[quality.level].scale, quality.level, quality.averageMs)
     },
     setLook: setStyle,

@@ -1,4 +1,4 @@
-import { Group, Matrix4, Vector3 } from 'three'
+import { Group, Matrix4, Vector3, type Object3D } from 'three'
 import type { PropState } from '../game/cover'
 import { propSpec, type PropSpec } from '../game/propCatalog'
 import type { World } from '../game/world'
@@ -135,8 +135,32 @@ export const createPropsLayer: LayerFactory = (world, materials) => {
     }
   }
 
+  // Stand-alone models of the last few outlined props, built from their recipes but never added to the scene: the
+  // batched copy is what is drawn, and this only gives the outline its shape (see style/outline.ts).
+  const shapes = new Map<number, Group>()
+  function shapeOf(index: number): Object3D {
+    let shape = shapes.get(index)
+    if (!shape) {
+      if (shapes.size >= 8) shapes.delete(shapes.keys().next().value!)
+      const entry = placedOf(index)
+      shape = modelFromRecipe(entry.recipe, false)
+      shape.matrixAutoUpdate = false
+      shape.matrix.copy(entry.placement)
+      shape.updateMatrixWorld(true)
+      shapes.set(index, shape)
+    }
+    return shape
+  }
+
   return {
     group,
+    silhouette(target) {
+      if (target.kind !== 'prop') return null
+      const index = indexOf.get(target.prop.id)
+      if (index === undefined || props[index].broken) return null
+      const moved = loose.get(index)
+      return moved ?? shapeOf(index)
+    },
     update(now, frame) {
       if (cardsFor !== cardViewVersion()) {
         cardsFor = cardViewVersion()

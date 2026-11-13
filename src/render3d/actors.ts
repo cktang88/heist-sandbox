@@ -1,4 +1,5 @@
-import { Group, Mesh, type ShaderMaterial, type Texture } from 'three'
+import { Group, Mesh, type Object3D, type ShaderMaterial, type Texture } from 'three'
+import type { OutlineTarget } from '../game/hover'
 import { guardMood, type Guard } from '../game/guards'
 import type { TileKind } from '../game/tiles'
 import type { Vec } from '../game/types'
@@ -34,6 +35,8 @@ export type Actors = {
   /** Sets up the next layer; true once all are set up. Spread over frames, so starting a level never freezes the page for long. */
   buildNext(): boolean
   update(world: World, aim: Vec, view: Vec): void
+  /** The drawn model of an interactive thing, for the hover outline; null when it has none (doors, windows) or is not drawn. */
+  silhouette(target: OutlineTarget): Object3D | null
   dispose(): void
 }
 
@@ -240,6 +243,19 @@ export function createActors(world: World, materials: SurfaceMaterials): Actors 
       }
       runBuildJobs(view, lastFrameMs(), leadOf(now, view))
       lastClock = now.clock
+    },
+    silhouette(target) {
+      if (target.kind === 'person') {
+        const figure = guards.get(target.guard)
+        return figure?.group.parent && figure.group.visible ? figure.group : null
+      }
+      if (target.kind === 'loot') return loot.visible ? loot : null
+      if (target.kind === 'pickup') return pickups.find((entry) => entry.pickup === target.pickup)?.model ?? null
+      for (const { layer } of layers) {
+        const found = layer.silhouette?.(target)
+        if (found) return found
+      }
+      return null
     },
     dispose() {
       // Each heist builds its own canvases (window atlas, signs, smoke puffs...). Free their GPU copies, or every new

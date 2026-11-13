@@ -23,6 +23,10 @@ const IN_THE_KNOW: readonly RoomKind[] = ['security', 'executive', 'archive']
 const USEFUL_DOCUMENTS = 8
 const READ_REACH = 2
 const READ_SECONDS = 1.2
+/** Papers that can be read for intel (whiteboards, notice boards, paper stacks). */
+export function isReadable(kind: PropKind): boolean {
+  return READABLE.includes(kind)
+}
 const MUNDANE = ['A cleaning rota.', 'Fire drill: Thursday.', 'Someone wants their stapler back.', 'Canteen menu. Fish again.', 'Shift swaps. Nothing useful.']
 
 /** Picks which papers hold something useful, spread over the rooms that might know. */

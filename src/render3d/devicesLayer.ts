@@ -107,5 +107,10 @@ export const createDevicesLayer: LayerFactory = (world) => {
         aimCamera(world, device, entry.model)
       }
     },
+    silhouette(target) {
+      if (target.kind !== 'device') return null
+      const root = placed.get(target.device)?.model.root
+      return root?.parent ? root : null
+    },
   }
 }

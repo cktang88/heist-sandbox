@@ -22,6 +22,11 @@ const NOISY: Partial<Record<PropKind, string>> = {
 }
 const REACH = 1.6
 
+/** A machine of a kind that can be switched on to make a racket. */
+export function isNoisemaker(kind: PropKind): boolean {
+  return NOISY[kind] !== undefined
+}
+
 /** A machine in reach the player could switch on, if any. */
 export function noisemakerInReach(world: World): PropState | null {
   const center = centerOf(world.player)
