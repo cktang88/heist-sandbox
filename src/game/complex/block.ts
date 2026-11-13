@@ -5,8 +5,12 @@ import { addRoom, chance, circuitOf, fill, pick, ROOM_HEIGHT, STOREY, type SiteD
 
 /** A stair lobby (the staircase itself runs up the back of it). `to` may be one above the top storey, meaning the roof. */
 export type StairSpec = { x: number; w: number; from: number; to: number }
-/** An elevator shaft against an outside wall. Doors open toward `doorSide`. */
-export type ShaftSpec = { x: number; w: number; from: number; to: number; doorSide: 1 | -1 }
+/**
+ * An elevator shaft. Doors open toward `doorSide`. An edge shaft stands against an outside wall; a `central` one stands
+ * in the middle of the floors with a reinforced wall on both sides, so each storey it passes is split in two there:
+ * the spec must give both halves a staircase on every storey the shaft serves, so guards can still walk everywhere.
+ */
+export type ShaftSpec = { x: number; w: number; from: number; to: number; doorSide: 1 | -1; central?: boolean }
 
 export type BlockSpec = {
   name: string
@@ -34,6 +38,8 @@ const MIN_ROOM = 8
  */
 const MIN_LEFTOVER = 6
 const MAX_ROOM = 22
+/** A run between a central elevator core and a stair lobby at least this wide is split into two rooms. */
+const PAIR_WIDTH = 2 * MIN_ROOM + 5
 const TALL_ROOM_ODDS = 0.55
 /** Rooms that are only what they are above a width: a garage holds a car and a locker. A narrower one is a store room. */
 const MIN_WIDTH: Partial<Record<RoomKind, number>> = { garage: 10 }
@@ -41,7 +47,7 @@ const fitted = (kind: RoomKind, width: number): RoomKind => (width >= (MIN_WIDTH
 const OPEN_ARCH_ODDS = 0.3
 
 type Span = { from: number; to: number }
-type Zone = Span & { kind: 'stairs' | 'void' }
+type Zone = Span & { kind: 'stairs' | 'void' | 'shaft' }
 
 /**
  * Raises one building: a reinforced frame that cannot be destroyed (slab ends, beams, shaft walls, basement walls)
@@ -81,6 +87,10 @@ export function buildBlock(site: SiteDraft, spec: BlockSpec): void {
     })
   }
 
+  // A central shaft cuts each floor it passes, just as a void does: routes on that floor go round by the stairs.
+  for (const shaft of spec.shafts.filter((candidate) => candidate.central)) {
+    for (let storey = shaft.from; storey <= shaft.to; storey += 1) splits.push({ y: floorY(storey), from: shaft.x - 1, to: shaft.x + shaft.w })
+  }
   let voids: Span[] = []
   for (let storey = -basements; storey < storeys; storey += 1) {
     for (const span of voids) splits.push({ y: floorY(storey), from: span.from, to: span.to })
@@ -112,6 +122,11 @@ function carveShaft(site: SiteDraft, spec: BlockSpec, shaft: ShaftSpec, floorY: 
   const wallX = shaft.doorSide === 1 ? shaft.x + shaft.w : shaft.x - 1
   fill(site, shaft.x, top, shaft.x + shaft.w - 1, pit, 'air')
   fill(site, wallX, top - 1, wallX, pit + 1, 'reinforced')
+  if (shaft.central) {
+    const backX = shaft.doorSide === 1 ? shaft.x - 1 : shaft.x + shaft.w
+    fill(site, backX, top - 1, backX, pit + 1, 'reinforced')
+    fill(site, shaft.x, top - 1, shaft.x + shaft.w - 1, top - 1, 'reinforced')
+  }
   const stops: number[] = []
   for (let storey = shaft.from; storey <= shaft.to; storey += 1) {
     fill(site, wallX, floorY(storey) - 3, wallX, floorY(storey) - 1, 'door')
@@ -130,17 +145,19 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
   const zones: Zone[] = [
     ...spec.stairs.filter((stair) => storey >= stair.from && storey <= stair.to).map((stair) => ({ from: stair.x, to: stair.x + stair.w - 1, kind: 'stairs' as const })),
     ...voidsHere.map((span) => ({ ...span, kind: 'void' as const })),
+    ...centralShafts(spec, storey).map((shaft) => ({ from: shaft.x - 1, to: shaft.x + shaft.w, kind: 'shaft' as const })),
   ].sort((a, b) => a.from - b.from)
 
   const voidsAbove: Span[] = []
   let madeTall = false
   const kinds = spec.plan(storey)
   const canGoTall = (span: Span) => storey + 1 < spec.storeys && storey >= 0
+    && !spec.shafts.some((shaft) => storey + 1 >= shaft.from && storey + 1 <= shaft.to && shaft.x - 2 <= span.to && shaft.x + shaft.w + 1 >= span.from)
     && !spec.stairs.some((stair) => storey + 1 >= stair.from && storey + 1 <= stair.to && stair.x <= span.to + 1 && stair.x + stair.w - 1 >= span.from - 1)
     && upperFloorStaysConnected(spec, storey + 1, span)
 
-  const furnish = (span: Span): void => {
-    const rooms = splitSpan(site, span)
+  const furnish = (span: Span, halve = false): void => {
+    const rooms = splitSpan(site, span, halve)
     rooms.forEach((room, index) => {
       const kind = fitted(pick(site.rng, kinds), room.to - room.from + 1)
       const tall = !madeTall && TALL.includes(kind) && room.to - room.from >= 13 && canGoTall(room) && chance(site.rng, TALL_ROOM_ODDS)
@@ -160,6 +177,15 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
 
   let cursor = left
   zones.forEach((zone, index) => {
+    if (zone.kind === 'shaft') {
+      // The shaft's own walls bound the rooms either side: no partition to build.
+      // Boxed in by the core, a run wide enough for two rooms is split in half: neighbouring rooms keep a duct and a
+      // patrol between them, as the long runs of rooms elsewhere do.
+      if (zone.from - 1 >= cursor + MIN_LEFTOVER - 1) furnish({ from: cursor, to: zone.from - 1 }, zone.from - cursor >= PAIR_WIDTH)
+      else if (zone.from - 1 >= cursor) fill(site, cursor, floorY - ROOM_HEIGHT, zone.from - 1, floorY - 1, spec.facade)
+      cursor = zone.to + 1
+      return
+    }
     if (zone.from - 2 >= cursor + MIN_LEFTOVER - 1) {
       furnish({ from: cursor, to: zone.from - 2 })
       partition(site, zone.from - 1, floorY, zone.kind === 'void' ? 'overlook' : 'door')
@@ -178,6 +204,8 @@ function layOutStorey(site: SiteDraft, spec: BlockSpec, storey: number, floorY: 
     // that a guard would open and walk out of into the drop.
     const next = zones[index + 1]
     const ontoVoid = zone.kind === 'void' || (next?.kind === 'void' && next.from === zone.to + 2)
+    // A central shaft right beside the lobby: its doors are the lobby's wall on that side.
+    if (next?.kind === 'shaft' && next.from <= zone.to + 2) return
     if (cursor - 1 <= right) partition(site, zone.to + 1, floorY, ontoVoid ? 'overlook' : 'door')
   })
   if (right >= cursor + MIN_LEFTOVER - 1) furnish({ from: cursor, to: right })
@@ -191,7 +219,7 @@ function storeySpan(spec: BlockSpec, storey: number): Span {
   let from = spec.x0 + 1
   let to = spec.x1 - 1
   for (const shaft of spec.shafts) {
-    if (storey < shaft.from || storey > shaft.to) continue
+    if (storey < shaft.from || storey > shaft.to || shaft.central) continue
     if (shaft.doorSide === 1) from = Math.max(from, shaft.x + shaft.w + 1)
     else to = Math.min(to, shaft.x - 2)
   }
@@ -205,18 +233,41 @@ function storeySpan(spec: BlockSpec, storey: number): Span {
  */
 function upperFloorStaysConnected(spec: BlockSpec, above: number, span: Span): boolean {
   const { from: left, to: right } = storeySpan(spec, above)
-  const stairs = spec.stairs.filter((stair) => above >= stair.from && above <= stair.to)
+  // A central shaft splits the storey: only the part between shafts that holds the void matters.
+  let segLeft = left
+  let segRight = right
+  for (const shaft of centralShafts(spec, above)) {
+    if (shaft.x + shaft.w < span.from) segLeft = Math.max(segLeft, shaft.x + shaft.w + 1)
+    else if (shaft.x - 1 > span.to) segRight = Math.min(segRight, shaft.x - 2)
+    else return false
+  }
+  const stairs = spec.stairs.filter((stair) => above >= stair.from && above <= stair.to && stair.x >= segLeft && stair.x + stair.w - 1 <= segRight)
   const stairsLeft = stairs.some((stair) => stair.x + stair.w - 1 < span.from)
   const stairsRight = stairs.some((stair) => stair.x > span.to)
-  if (!stairsLeft && span.from - left > MIN_LEFTOVER) return false
-  if (!stairsRight && right - span.to > MIN_LEFTOVER) return false
-  return spec.shafts.every((shaft) => above < shaft.from || above > shaft.to || (shaft.doorSide === 1 ? stairsLeft : stairsRight))
+  if (!stairsLeft && span.from - segLeft > MIN_LEFTOVER) return false
+  if (!stairsRight && segRight - span.to > MIN_LEFTOVER) return false
+  return spec.shafts.every((shaft) => {
+    if (above < shaft.from || above > shaft.to) return true
+    const outside = (shaft.doorSide === 1 ? shaft.x + shaft.w : shaft.x - 1) + shaft.doorSide
+    if (outside < segLeft || outside > segRight) return true
+    if (outside >= span.from - 1 && outside <= span.to + 1) return false
+    return outside < span.from ? stairsLeft : stairsRight
+  })
+}
+
+/** The central shafts that pass through a storey. */
+function centralShafts(spec: BlockSpec, storey: number): ShaftSpec[] {
+  return spec.shafts.filter((shaft) => shaft.central && storey >= shaft.from && storey <= shaft.to)
 }
 
 /** Cuts a run of floor into rooms of varied width, with a wall and doorway between each pair. */
-function splitSpan(site: SiteDraft, span: Span): Span[] {
+function splitSpan(site: SiteDraft, span: Span, halve = false): Span[] {
   const rooms: Span[] = []
   let from = span.from
+  if (halve && span.to - span.from + 1 <= MAX_ROOM + MIN_ROOM) {
+    const middle = span.from + Math.floor((span.to - span.from) / 2)
+    return [{ from: span.from, to: middle - 1 }, { from: middle + 1, to: span.to }]
+  }
   while (span.to - from + 1 > MAX_ROOM + MIN_ROOM) {
     const width = randomInt(site.rng, MIN_ROOM + 1, MAX_ROOM)
     rooms.push({ from, to: from + width - 1 })

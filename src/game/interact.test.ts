@@ -133,8 +133,8 @@ describe('the E key with several things in reach', () => {
     const world = createWorld(1, 'complex')
     world.guards = []
     // A sink with no other furniture beside it: a stall or locker next to it would take E to hide.
-    const alone = (prop: World['props'][number]) => !world.props.some((other) => other !== prop && other.y === prop.y && Math.abs(other.x - prop.x) < 2.5)
-    const sink = world.props.find((prop) => prop.kind === 'sink' && prop.roomId !== undefined && alone(prop))!
+    const sink = world.props.find((prop) => prop.kind === 'sink' && prop.roomId !== undefined)!
+    world.props = world.props.filter((other) => other === sink || other.y !== sink.y || Math.abs(other.x - sink.x) >= 2.5)
     placePlayer(world, sink.x + 0.5, world.rooms[sink.roomId!].floorY)
     play(world, 0.1)
     expect(world.prompt).toBe('E: open valve')

@@ -1,6 +1,7 @@
 import { createRng, randomInt } from '../rng'
 import { LIGHT, roomAt, type Level, type Room, type RoomKind } from '../site'
-import { createGrid, setTile, tileAt } from '../tiles'
+import { createGrid, isSolidAt, setTile, tileAt } from '../tiles'
+import { boxHitsSolid } from '../physics'
 import { fillOutBareRooms, furnishSite } from '../furnish/furnish'
 import { propSpec } from '../propCatalog'
 import { buildBlock, staff } from './block'
@@ -70,8 +71,15 @@ export function createComplex(seed: number): Level {
     stairs: [
       { x: 130, w: 12, from: -3, to: storeys },
       { x: 160, w: 10, from: 0, to: Math.floor(storeys * 0.7) },
+      { x: 92, w: 8, from: 0, to: storeys - 3 },
     ],
-    shafts: [{ x: TOWER.x0 + 1, w: 4, from: -3, to: storeys - 3, doorSide: 1 }],
+    // One shaft up the west wall and two central ones, each opening into a stair lobby: elevator and stairs together
+    // make a core. A central shaft splits the storeys it serves, so each side keeps a staircase there.
+    shafts: [
+      { x: TOWER.x0 + 1, w: 4, from: -3, to: storeys - 3, doorSide: 1 },
+      { x: 125, w: 4, from: 1, to: storeys - 4, doorSide: 1, central: true },
+      { x: 155, w: 4, from: 1, to: Math.floor(storeys * 0.7) - 1, doorSide: 1, central: true },
+    ],
   })
   buildBlock(site, {
     name: 'quarters', ...QUARTERS, storeys: 6, basements: 1, facade: 'brick', doors: [-1],
@@ -192,7 +200,11 @@ function hatchColumns(site: SiteDraft, room: Room): number[] {
   const sewerLamps = site.lamps.filter((lamp) => lamp.y > SEWER.top - 1 && lamp.y < SEWER.bottom)
   const inTheWay = site.props.filter((prop) => prop.roomId === room.id && propSpec(prop.kind).mount === 'floor' && propSpec(prop.kind).h > 0.1)
   const stood = site.guards.flatMap((guard) => [guard, ...(guard.route ?? [])]).filter((spot) => spot.y === room.floorY)
-  const clear = (x: number) => tileAt(site.grid, x, room.floorY) === 'concrete'
+  // Where a case hidden in this room is set down (the clear floor nearest the middle): never a hatch under it.
+  // Even seeds are mirrored, which moves that spot to its mirror image when the room is an even width: keep both clear.
+  const caseX = caseColumn(site, room)
+  const caseXs = caseX === null ? [] : [caseX, 2 * room.x + room.w - 1 - caseX]
+  const clear = (x: number) => tileAt(site.grid, x, room.floorY) === 'concrete' && !caseXs.includes(x)
     && !stood.some((spot) => spot.x === x)
     && !inTheWay.some((prop) => Math.abs(prop.x - x) < propSpec(prop.kind).w / 2 + 0.5)
     && !sewerLamps.some((lamp) => Math.abs(lamp.x - (x + 0.5)) < 1.5)
@@ -201,6 +213,18 @@ function hatchColumns(site: SiteDraft, room: Room): number[] {
   for (let x = room.x; x < room.x + room.w; x += 1) if (clear(x)) columns.push(x)
   const fromWall = (x: number) => Math.min(x - room.x, room.x + room.w - 1 - x) || Infinity
   return columns.sort((a, b) => fromWall(a) - fromWall(b)).slice(0, 2)
+}
+
+/** The column nearest a room's middle with a floor and headroom for the case, as the heist and the site audit pick it. */
+function caseColumn(site: SiteDraft, room: Room): number | null {
+  const middle = Math.floor(room.x + room.w / 2)
+  for (let offset = 0; offset < room.w; offset += 1) {
+    for (const x of [middle + offset, middle - offset]) {
+      if (x < room.x || x + 1 > room.x + room.w) continue
+      if (!boxHitsSolid(site.grid, { x: x + 0.1, y: room.floorY - 0.81, w: 0.8, h: 0.8 }) && isSolidAt(site.grid, x, room.floorY)) return x
+    }
+  }
+  return null
 }
 
 /** A glazed walkway from the tower to the living quarters, several storeys up. */

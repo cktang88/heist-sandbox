@@ -91,7 +91,7 @@ describe('createComplex', () => {
     expect(level.rooms.some((room) => room.h > STOREY)).toBe(true)
     expect(level.rooms.filter((room) => room.kind === 'vault').length).toBe(1)
     expect(tileAt(level.grid, 34, COMPLEX_GROUND - 5)).toBe('fence')
-    expect(level.elevators.length).toBe(2)
+    expect(level.elevators.length).toBe(4)
     expect(level.guards.length).toBeGreaterThan(40)
   })
 
