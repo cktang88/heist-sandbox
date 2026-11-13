@@ -15,7 +15,7 @@ import { eyeOf, feetOf, magazineOf, setMode, type CombatRole, type Guard } from 
 import { goTo, hold, type MoveStatus } from './movement'
 import { companyOf, isShaken } from './nerve'
 import { startSearch } from './orders'
-import { floorBelow, isDoorway, landingsOnFloor, sameFloor } from './places'
+import { floorBelow, isDoorway, landingsOnFloor, sameFloor, sameStretch } from './places'
 import { clearOfDoorway, dragWounded } from './selfPreservation'
 import { GUARD_PISTOL, GUARD_RIFLE, roundReaches } from './lineOfFire'
 import { ducked, takeShelter } from './takingFire'
@@ -279,7 +279,9 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
   if (role !== 'fallback' && role !== 'stack' && respectKillZones(world, guard, heading, dt)) return
   switch (role) {
     case 'fallback': {
-      guard.cover ??= findCover(world, feet, threat, COMBAT.coverSearch * 1.5, true, taken) ?? { x: feet.x + Math.sign(feet.x - threat.x || 1) * 6, y: feet.y, high: false }
+      // With no cover behind him, open floor further back: never a spot through the wall or across the elevator core
+      // at his back, which he could only reach round by the stairs. At a dead end he stays where he is.
+      guard.cover ??= findCover(world, feet, threat, COMBAT.coverSearch * 1.5, true, taken) ?? furtherBack(world, feet, threat, taken) ?? { x: feet.x, y: feet.y, high: false }
       // Back in cover with the man out of sight, there is nothing for him to do there: he pulls further back out of the fight.
       if (takeCover(world, guard, guard.cover, dt) === 'arrived' && !guard.seesPlayer && guard.lostSeconds > COMBAT.coverPatience) {
         guard.cover = furtherBack(world, feet, threat, taken) ?? guard.cover
@@ -287,8 +289,9 @@ function moveForRole(world: World, guard: Guard, known: Vec, role: CombatRole, d
       return
     }
     case 'assault': {
-      // On another floor, or out of sight for a while from behind his cover: he moves to get eyes on the man again.
-      if (!sameFloor(feet, threat) || (!guard.seesPlayer && guard.lostSeconds > COMBAT.coverPatience)) {
+      // On another floor (or across an elevator core or a void on this one, where the way is round by the stairs), or out
+      // of sight for a while from behind his cover: he moves to get eyes on the man again.
+      if (!sameStretch(world, feet, threat) || (!guard.seesPlayer && guard.lostSeconds > COMBAT.coverPatience)) {
         guard.cover = null
         if (goTo(world, guard, threat, PATROL.runSpeed, dt, false) !== 'blocked') return
         // No way to him from here (down a manhole, across a gap): he holds his own floor over the spot instead.
@@ -434,7 +437,7 @@ function furtherBack(world: World, feet: Vec, threat: Vec, taken: readonly Vec[]
   const away = Math.sign(feet.x - threat.x) || 1
   for (let step = 1; step <= PULL_BACK_OPEN; step += 1) {
     const x = feet.x + away * step
-    if (isSolidAt(world.grid, x, feet.y - 0.5) || isSolidAt(world.grid, x, feet.y - 1.5) || !isSolidAt(world.grid, x, feet.y + 0.5)) {
+    if (isSolidAt(world.grid, x, feet.y - 0.5) || isSolidAt(world.grid, x, feet.y - 1.5) || !isSolidAt(world.grid, x, feet.y + 0.5) || !sameStretch(world, feet, { x, y: feet.y })) {
       return step > PULL_BACK_MIN + 1 ? { x: x - away, y: feet.y, high: false } : null
     }
   }
@@ -455,7 +458,8 @@ function spaced(world: World, guard: Guard, spot: Vec, side: number): Vec {
 /** Aimed fire for token holders, slower wild fire for the suppressor, never through a colleague. */
 function tryFire(world: World, guard: Guard, known: Vec): void {
   // With the man in his sights he fires even while still on the radio (the call carries on over his shoulder mic), unless he is busy getting to cover.
-  if (guard.drawSeconds > 0 || !guard.seesPlayer || guard.shootCooldown > 0 || (guard.radio && guard.shelter !== null)) return
+  // A shelter he has given up on (spent: nowhere better to get to) is no longer keeping him busy.
+  if (guard.drawSeconds > 0 || !guard.seesPlayer || guard.shootCooldown > 0 || (guard.radio && guard.shelter !== null && !guard.shelter.spent)) return
   // A man hanging on a grappling line has nowhere to hide: everyone with a shot takes it.
   const aimed = world.security.shooters.includes(world.guards.indexOf(guard)) || onLine(world.grapple)
   const eye = eyeOf(guard)
@@ -588,13 +592,16 @@ function throwFlash(world: World, guard: Guard): void {
  * or the stair landing on this floor when he is on another one. Null when there is nothing to hold.
  */
 function chokepoint(world: World, feet: Vec, threat: Vec): Vec | null {
-  if (!sameFloor(feet, threat)) {
-    const landing = landingsOnFloor(world, feet.y).sort((a, b) => Math.abs(a.x - feet.x) - Math.abs(b.x - feet.x))[0]
+  // On another floor, or across an elevator core or a void on this one: the man comes by the stairs, and only a
+  // landing he can walk to along his own floor is his to hold.
+  if (!sameStretch(world, feet, threat)) {
+    const landing = landingsOnFloor(world, feet.y).filter((spot) => sameStretch(world, feet, spot)).sort((a, b) => Math.abs(a.x - feet.x) - Math.abs(b.x - feet.x))[0]
     return landing ? { x: landing.x + (feet.x > landing.x ? 1.5 : -1.5), y: landing.y } : null
   }
   const side = Math.sign(threat.x - feet.x) || 1
   for (let step = 1; step <= CHOKE_SCAN && step < Math.abs(threat.x - feet.x) - 2; step += 1) {
     const column = Math.floor(feet.x + side * step) + 0.5
+    if (!sameStretch(world, feet, { x: column, y: feet.y })) break
     if (isDoorway(world, column, feet.y)) return { x: column - side * 1.5, y: feet.y }
   }
   return null

@@ -67,8 +67,8 @@ function carRow(world: World, shaft: ElevatorShaft, y: number): string[] {
 }
 
 describe('elevators', () => {
-  // The tower's shaft opens to the right, the quarters' to the left.
-  it.each([0, 1])('comes when called, lets the player ride up two stops and walk out on that floor (shaft %i)', (index) => {
+  // The tower's west-wall shaft opens to the right, the quarters' (the last one built) to the left.
+  it.each([0, 3])('comes when called, lets the player ride up two stops and walk out on that floor (shaft %i)', (index) => {
     const { world, shaft, car } = setUp(index)
     const start = rideableStop(world, shaft)
     const pitRow = carRow(world, shaft, shaft.stops[0])

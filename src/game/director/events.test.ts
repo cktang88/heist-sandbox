@@ -84,7 +84,8 @@ describe('director events, each through public game state', () => {
   it('two guards meet to chat in a room near the player', () => {
     const world = directedWorld(2, 'complex', [])
     const office = world.rooms.filter((room) => room.building === 'tower' && room.storey === 5 && room.kind !== 'stairwell').sort((a, b) => b.w - a.w)[0]
-    Object.assign(world.player, standingAt(world, { x: office.x + 2, y: office.floorY }))
+    // At the end of the room nearest the next one, so a room on his floor is within meeting distance.
+    Object.assign(world.player, standingAt(world, { x: office.x + office.w - 3, y: office.floorY }))
     const running = event('chatter').start(world, createRng(3))
     expect(running).not.toBeNull()
     const pair = world.guards.filter((guard) => guard.station !== null)

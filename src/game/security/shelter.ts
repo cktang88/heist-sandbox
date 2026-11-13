@@ -4,7 +4,7 @@ import type { World } from '../world'
 import { zoneAt } from './killZones'
 import { exposedTo } from './lineOfFire'
 import { feetOf, type Guard, type Shelter } from './model'
-import { isDoorway } from './places'
+import { isDoorway, sameStretch } from './places'
 
 /**
  * Where to go when rounds are coming in. Every spot along his floor he can walk to is judged against the shooter's
@@ -68,13 +68,16 @@ export function shelterHolds(world: World, shelter: Shelter, threat: Vec): boole
   return shelter.hidden && !exposedTo(world, threat, shelter, shelter.crouch)
 }
 
-/** Every half tile along his floor that he can walk to without meeting a wall or a drop, nearest first. */
+/**
+ * Every half tile along his floor that he can walk to without meeting a wall, a drop, or an elevator core cutting the
+ * floor (its doors open with the car there, but a car is no place to hide), nearest first.
+ */
 function walkable(world: World, feet: Vec, reach: number): Candidate[] {
   const found: Candidate[] = [{ spot: { x: feet.x, y: feet.y }, offset: 0 }]
   for (const side of [-1, 1]) {
     for (let offset = STEP; offset <= reach; offset += STEP) {
       const spot = { x: feet.x + side * offset, y: feet.y }
-      if (!passable(world, spot)) break
+      if (!passable(world, spot) || !sameStretch(world, feet, spot)) break
       found.push({ spot, offset })
     }
   }

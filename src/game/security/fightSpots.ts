@@ -3,6 +3,8 @@ import { landingX } from '../stairs'
 import { isSolidAt, tileAt } from '../tiles'
 import type { Vec } from '../types'
 import type { World } from '../world'
+import { isActive } from './model'
+import { sameStretch } from './places'
 
 /**
  * Spots on the complex for the scripted fights (fightScript.ts), found from the site itself rather than written down
@@ -27,18 +29,53 @@ function roomAround(world: World, at: Vec, kind: Room['kind']): Room {
   return room
 }
 
-/** Doorway columns in the side walls of a room (a door tile, or an opening under a lintel, in the row above the floor). */
+/**
+ * Doorway columns in the side walls of a room (a door tile, or an opening under a lintel, in the row above the floor).
+ * An elevator's doors are no way through: a stair lobby beside an elevator core has the shaft's doors in that wall.
+ */
 function doorColumns(world: World, room: Room): number[] {
+  const intoShaft = (x: number) => {
+    const beyond = x < room.x ? x - 1 : x + 1
+    return world.elevators.some((shaft) => beyond >= shaft.x && beyond < shaft.x + shaft.w)
+  }
   return [room.x - 1, room.x + room.w].filter((x) => {
+    if (intoShaft(x)) return false
     const kind = tileAt(world.grid, x, room.floorY - 1)
     return kind === 'door' || (!isSolidAt(world.grid, x, room.floorY - 1) && isSolidAt(world.grid, x, room.floorY - 4))
   })
 }
 
-/** On a middle storey's landing of the tower's west stairs, at the end nearest a door of the stairwell. */
+/** Guards are about on the stretch of floor this side of any elevator core or void, within a rifle shot of the spot. */
+function manned(world: World, at: Vec): boolean {
+  return world.guards.some((guard) => {
+    const feet = { x: guard.x + guard.w / 2, y: guard.y + guard.h }
+    return isActive(guard) && Math.abs(feet.x - at.x) < MANNED_REACH && sameStretch(world, feet, at)
+  })
+}
+
+/**
+ * The stop nearest the middle of the west stairs whose stairwell has a door onto floor where guards are about, or the
+ * middle stop if none has. An elevator core splits most storeys of the tower now, and the stretch of floor beyond a
+ * stairwell's one door can be empty: then there is no fight to watch there.
+ */
+function fightingStop(world: World, well: Stairwell): number {
+  const middle = middleStop(well)
+  const byMiddle = well.stops.map((_, stop) => stop).sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle))
+  return byMiddle.find((stop) => {
+    const y = well.stops[stop]
+    const room = world.rooms.find((candidate) => candidate.kind === 'stairwell' && Math.abs(candidate.floorY - y) < 0.5
+      && landingX(well, stop) >= candidate.x && landingX(well, stop) <= candidate.x + candidate.w)
+    return room !== undefined && doorColumns(world, room).some((door) => manned(world, { x: door < room.x ? door - 1 : door + 1.5, y }))
+  }) ?? middle
+}
+
+/**
+ * On a storey's landing of the tower's west stairs, near the middle of them (see fightingStop), at the end nearest a
+ * door of the stairwell.
+ */
 export function stairLandingSpot(world: World): Vec {
   const well = westStairs(world)
-  const stop = middleStop(well)
+  const stop = fightingStop(world, well)
   const y = well.stops[stop]
   const room = roomAround(world, { x: landingX(well, stop), y }, 'stairwell')
   const doors = doorColumns(world, room)
@@ -74,17 +111,27 @@ function openAbove(world: World, room: Room): boolean {
   return isSolidAt(world.grid, x, room.floorY - 6) && [1, 2, 3, 4].every((up) => !isSolidAt(world.grid, x, room.floorY - 6 - up))
 }
 
-/** Hanging outside the tower's west wall, level with a window, on the storey nearest the middle of the west stairs. */
+/**
+ * Hanging outside the tower's west wall, level with a window, on the storey nearest the middle of the west stairs that
+ * has guards about inside the window (any storey with a window, if none has). Any storey of the tower will do, not
+ * only the west stairs' own: the west stairs may be a short flight beside the west elevator, whose shaft blinds the
+ * west wall on every storey they serve.
+ */
 export function outsideWindowSpot(world: World): Vec {
   const well = westStairs(world)
   const wall = well.bounds?.x0
   if (wall === undefined) throw new Error('tower has no bounds')
   const middle = well.stops[middleStop(well)]
-  const floors = [...well.stops].sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle))
-  const y = floors.find((floor) => [1, 2, 3].some((up) => tileAt(world.grid, wall, floor - up) === 'glass'))
+  const storeys = new Set(world.stairwells.filter((other) => other.building === well.building).flatMap((other) => other.stops))
+  const floors = [...storeys].sort((a, b) => Math.abs(a - middle) - Math.abs(b - middle))
+    .filter((floor) => [1, 2, 3].some((up) => tileAt(world.grid, wall, floor - up) === 'glass'))
+  const y = floors.find((floor) => manned(world, { x: wall + 1.5, y: floor })) ?? floors[0]
   if (y === undefined) throw new Error('no west window')
   return { x: wall - 1.4, y }
 }
+
+/** How far from a spot guards count as about: the player's rifle reach in the scripted fights. */
+const MANNED_REACH = 25
 
 function gapToDoor(x: number, doors: number[]): number {
   return Math.min(...doors.map((door) => Math.abs(door + 0.5 - x)))

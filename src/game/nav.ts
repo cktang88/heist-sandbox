@@ -107,6 +107,27 @@ function graphOf(plan: Plan, building: string | null): Graph {
   return graph
 }
 
+/**
+ * Can someone walk straight along floor `y` from x `a` to x `b`, or does a split (the open void over a double-height
+ * room, an elevator core through the middle of the floor) cut the way? Every building's splits count: they never
+ * overlap another building's floors.
+ */
+export function floorJoins(wells: readonly Stairwell[], y: number, a: number, b: number): boolean {
+  return walkable(allSplits(wells), y, a, b)
+}
+
+const splitLists = new WeakMap<readonly Stairwell[], Split[]>()
+
+function allSplits(wells: readonly Stairwell[]): Split[] {
+  const known = splitLists.get(wells)
+  if (known) return known
+  const lists = new Set<readonly Split[]>()
+  for (const well of wells) if (well.bounds?.splits) lists.add(well.bounds.splits)
+  const splits = [...lists].flat()
+  splitLists.set(wells, splits)
+  return splits
+}
+
 /** Can someone walk along floor `y` from `a` to `b`, or does a void cut the way? */
 function walkable(splits: readonly Split[], y: number, a: number, b: number): boolean {
   const low = Math.min(a, b)

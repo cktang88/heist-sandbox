@@ -20,7 +20,7 @@ function play(world: World, seconds: number, input: Partial<Input> = {}, until?:
 
 /** A plain office on a middle storey of the tower, with a room directly above it. */
 function officeWithRoomAbove(world: World) {
-  const rooms = world.rooms.filter((room) => room.kind === 'office' && room.building === 'tower' && room.w >= 14)
+  const rooms = world.rooms.filter((room) => room.kind === 'office' && room.building === 'tower' && room.w >= 20)
   return rooms.find((room) => world.rooms.some((above) => above.floorY === room.floorY - 6 && above.x <= room.x + room.w / 2 && above.x + above.w > room.x + room.w / 2))!
 }
 
@@ -44,6 +44,8 @@ function climbToHang(): { world: World; upper: number } {
     play(world, 1.5)
     play(world, 3, { right: true }, () => world.player.x + world.player.w / 2 >= x - 0.2)
     play(world, 0.3)
+    // In a narrow room the blast was close enough to knock him about: wait until he has his feet back.
+    play(world, 2, {}, () => world.player.stunSeconds <= 0 && world.player.onGround)
 
     // Fire the hook up through the hole into the ceiling of the storey above, and reel up.
     world.player.tool = actionIndex('grapple')
@@ -79,6 +81,8 @@ describe('climbing floors with C4 and the grapple', () => {
     expect(isSolidAt(world.grid, x, feet - 5.5)).toBe(false)
     play(world, 3, { right: true }, () => world.player.x + world.player.w / 2 >= x - 0.2)
     play(world, 0.3)
+    // In a narrow room the blast was close enough to knock him about: wait until he has his feet back.
+    play(world, 2, {}, () => world.player.stunSeconds <= 0 && world.player.onGround)
 
     // Fire the hook up through the hole into the ceiling of the storey above, and reel up.
     world.player.tool = actionIndex('grapple')

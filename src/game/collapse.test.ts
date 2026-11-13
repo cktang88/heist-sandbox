@@ -231,7 +231,7 @@ describe('floors held by the back wall', () => {
   const officeFloor = () => {
     const world = createWorld(1, 'complex')
     world.guards = []
-    const room = world.rooms.find((candidate) => candidate.building === 'tower' && candidate.storey === 6 && candidate.w >= 18)!
+    const room = world.rooms.find((candidate) => candidate.building === 'tower' && candidate.storey >= 6 && candidate.kind !== 'stairwell' && candidate.h === 5 && candidate.w >= 18)!
     return { world, room }
   }
   const row = (world: World, y: number, x0: number, x1: number) => {

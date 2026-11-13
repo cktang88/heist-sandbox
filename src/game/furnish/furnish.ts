@@ -44,6 +44,8 @@ function furnishRoom(rng: Rng, site: SiteDraft, room: Room): Span[] {
   const floor = layFloor(rng, room, spans, style)
   topUpCover(rng, room, spans, floor, style, coverNeeded(room))
   addHides(room, spans, floor)
+  // A hiding place may have been swapped in for a piece of cover: top it up again if so.
+  topUpCover(rng, room, spans, floor, style, coverNeeded(room))
   const rug = style.rug ? layRug(rng, room, spans, floor, style.rug) : null
 
   if (!NO_SWITCH.has(room.kind)) addLightSwitch(rng, site, room, circuit)

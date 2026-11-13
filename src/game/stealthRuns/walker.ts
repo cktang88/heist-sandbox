@@ -100,6 +100,18 @@ export function walkTo(run: Run, goal: Vec, options: WalkOptions = {}): WalkResu
       continue
     }
     const backingOff = plan !== 0 && plan !== direction
+    // Backed off into a ladder hole (the open hatch he came up by, beside the wall): stay down in it while someone is
+    // facing this way, then climb back out the way he was going.
+    if (world.player.onLadder && hop.kind === 'walk' && at.y - goal.y > 0.3 && at.y - goal.y < SAME_FLOOR) {
+      if (plan === direction && direction !== 0) {
+        // Too near the top for the climb to carry him over the lip: a hop off the ladder toward the goal.
+        tick(run, { up: true, jumpPressed: true, jumpHeld: true, crouch: false, left: direction < 0, right: direction > 0 })
+      } else {
+        holdBack(run)
+        tick(run)
+      }
+      continue
+    }
     cornered = backingOff && Math.abs(world.player.x - lastX) < 0.002 ? cornered + FRAME : 0
     if (cornered > CORNERED) {
       cornered = 0
@@ -289,7 +301,8 @@ function openAhead(run: Run, move: number, maxAlert: number): boolean {
   for (let frame = 0; frame < 600 && doorAhead(world, move); frame += 1) {
     if (blown(run, maxAlert)) return false
     const prompt = world.prompt ?? ''
-    const door = /door|lock|keypad|keycard/.test(prompt) && !/shut|close/.test(prompt)
+    // An elevator's doors are not the door ahead: prying them open is loud and goes nowhere.
+    const door = /door|lock|keypad|keycard/.test(prompt) && !/shut|close|pry/.test(prompt)
     tick(run, door ? { interact: true, interactPressed: prompt.startsWith('E:') && frame % 2 === 0 } : { left: move < 0, right: move > 0 })
   }
   return true

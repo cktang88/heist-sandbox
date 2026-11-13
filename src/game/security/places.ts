@@ -1,4 +1,5 @@
 import { roomAt, type Room } from '../site'
+import { floorJoins } from '../nav'
 import { landingX } from '../stairs'
 import { isSolidAt } from '../tiles'
 import type { Vec } from '../types'
@@ -44,6 +45,22 @@ export function travelCost(from: Vec, to: Vec): number {
 
 export function sameFloor(a: Vec, b: Vec): boolean {
   return Math.abs(a.y - b.y) < 1.5
+}
+
+/**
+ * Can he walk straight from `a` to `b` along one floor: the same floor, with no void or elevator core cutting it
+ * between them? A spot across a split is on the same floor in name only: the way there is round by the stairs.
+ * The car of an elevator, at a stop or not, is no part of the floor either.
+ */
+export function sameStretch(world: World, a: Vec, b: Vec): boolean {
+  if (!sameFloor(a, b) || !floorJoins(world.stairwells, a.y, a.x, b.x)) return false
+  const low = Math.min(a.x, b.x)
+  const high = Math.max(a.x, b.x)
+  return !world.elevators.some((shaft) => {
+    if (low >= shaft.x + shaft.w || high <= shaft.x || shaft.stops.length === 0) return false
+    const ends = [shaft.stops[0], shaft.stops[shaft.stops.length - 1]]
+    return a.y > Math.min(...ends) - 1.5 && a.y < Math.max(...ends) + 1.5
+  })
 }
 
 /** Feet position of every stair landing on the floor with this feet row. */

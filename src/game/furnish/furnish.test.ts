@@ -183,7 +183,8 @@ describe('furnishSite', () => {
   it('does not dress two rooms of the same kind identically', () => {
     const site = level(1)
     const offices = site.rooms.filter((room) => room.kind === 'office')
-    const layouts = offices.map((room) => site.props.filter((p) => p.roomId === room.id && mount(p) === 'floor').map((p) => p.kind).join(','))
+    // The same pieces can come up in two small rooms; dressed identically means the same pieces in the same places.
+    const layouts = offices.map((room) => site.props.filter((p) => p.roomId === room.id && mount(p) === 'floor').map((p) => `${p.kind}@${p.x - room.x}`).join(','))
     expect(new Set(layouts).size).toBe(offices.length)
   })
 
