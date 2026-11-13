@@ -100,7 +100,7 @@ export type Style = {
 
 export const STYLE_NAMES = ['real', 'pixel', 'pixel-hd', 'sketch', 'paint'] as const
 /** The look used when the address names none. */
-export const DEFAULT_STYLE: StyleName = 'pixel'
+export const DEFAULT_STYLE: StyleName = 'real'
 export type StyleName = (typeof STYLE_NAMES)[number]
 
 const PIXEL_SURFACE: SurfaceStyle = {
