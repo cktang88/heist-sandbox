@@ -1,3 +1,4 @@
+import { GADGET_SLOTS } from '../game/loadout'
 import { TOOLS } from '../game/toolDefs'
 import { morePressesLine } from './controls'
 
@@ -113,6 +114,7 @@ export const HELP_TABS: readonly HelpTab[] = [
     title: 'Tools',
     blocks: [
       { kind: 'text', text: `Number keys pick a tool; press a key again for the tool it shares (${morePressesLine()}). Green slots are quiet, red are loud.` },
+      { kind: 'text', text: `You pack a loadout on the drop planner before each heist: the pistol, one primary gun (rifle, shotgun, sniper or rockets) and up to ${GADGET_SLOTS} gadgets. What you leave behind is not in the mission; the tool bar shows only what you carry. Your last loadout is remembered.` },
       { kind: 'list', items: toolItems() },
     ],
   },

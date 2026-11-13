@@ -1,6 +1,10 @@
 import { dropPointAt } from '../game/insertion'
+import { applyLoadout, GADGET_SLOTS, GADGETS, loadoutToolIndex, PRIMARIES, SIDEARM, toggleGadget, type Gadget, type Loadout, type Primary } from '../game/loadout'
+import { TOOLS } from '../game/toolDefs'
 import type { World } from '../game/world'
 import { h, keyCaps } from './dom'
+import { TOOL_NOTES } from './helpContent'
+import { loadLoadout, saveLoadout } from './store'
 import './dropPlan.css'
 
 function svgNode<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number>, text?: string): SVGElementTagNameMap[K] {
@@ -8,6 +12,48 @@ function svgNode<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<str
   for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, String(value))
   if (text) node.textContent = text
   return node
+}
+
+/** One pickable item: a radio for the primary gun, a checkbox for a gadget. Green edge quiet, red edge loud. */
+function kitOption(item: Primary | Gadget | typeof SIDEARM, type: 'radio' | 'checkbox', name: string): { row: HTMLLabelElement; input: HTMLInputElement } {
+  const tool = TOOLS[loadoutToolIndex(item)]
+  const input = h('input', { attrs: { type, name, value: item } })
+  const ammo = Number.isFinite(tool.ammo) ? `${tool.ammo}` : '∞'
+  const row = h('label', { class: `sg-kit-item ${tool.quiet ? 'sg-kit-quiet' : 'sg-kit-loud'}`, attrs: { title: TOOL_NOTES[tool.name] ?? '' } },
+    input, h('span', { class: 'sg-kit-name', text: tool.name }), h('span', { class: 'sg-kit-ammo', text: ammo }))
+  return { row, input }
+}
+
+/** The kit picker: the pistol always, one primary gun, and up to `GADGET_SLOTS` gadgets. Remembered between heists. */
+function loadoutPicker(): { element: HTMLElement; current: () => Loadout } {
+  let loadout = loadLoadout()
+  const count = h('span', { class: 'sg-kit-count', attrs: { 'aria-live': 'polite' } })
+  const sidearm = kitOption(SIDEARM, 'checkbox', 'sg-kit-sidearm')
+  sidearm.input.checked = true
+  sidearm.input.disabled = true
+  sidearm.row.classList.add('sg-kit-fixed')
+  const primaries = PRIMARIES.map((item) => ({ item, ...kitOption(item, 'radio', 'sg-kit-primary') }))
+  const gadgets = GADGETS.map((item) => ({ item, ...kitOption(item, 'checkbox', 'sg-kit-gadget') }))
+  function sync(): void {
+    for (const option of primaries) option.input.checked = option.item === loadout.primary
+    const full = loadout.gadgets.length >= GADGET_SLOTS
+    for (const option of gadgets) {
+      option.input.checked = loadout.gadgets.includes(option.item)
+      option.input.disabled = full && !option.input.checked
+      option.row.classList.toggle('sg-kit-off', option.input.disabled)
+    }
+    count.textContent = `${loadout.gadgets.length} / ${GADGET_SLOTS}`
+  }
+  for (const option of primaries) option.input.addEventListener('change', () => { loadout = { ...loadout, primary: option.item }; sync() })
+  for (const option of gadgets) option.input.addEventListener('change', () => { loadout = toggleGadget(loadout, option.item); sync() })
+  sync()
+  const element = h('div', { class: 'sg-kit' },
+    h('h3', { class: 'sg-kit-title' }, 'Loadout'),
+    h('p', { class: 'sg-kit-intro', text: `Pack for the job. What you leave behind is not in the mission: its number key does nothing.` }),
+    h('fieldset', { class: 'sg-kit-group' }, h('legend', { text: 'Sidearm' }), h('div', { class: 'sg-kit-grid' }, sidearm.row)),
+    h('fieldset', { class: 'sg-kit-group' }, h('legend', { text: 'Primary gun - pick one' }), h('div', { class: 'sg-kit-grid' }, ...primaries.map((option) => option.row))),
+    h('fieldset', { class: 'sg-kit-group' }, h('legend', {}, 'Gadgets - packed ', count), h('div', { class: 'sg-kit-grid' }, ...gadgets.map((option) => option.row))))
+  return { element, current: () => loadout }
 }
 
 /** A schematic of this seed's real compound, with a selectable roof or ground entry. No live intel is revealed. */
@@ -55,15 +101,22 @@ export function dropPlan(world: World, launch: (x: number) => void): HTMLElement
     if (matrix) select(new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse()).x)
   })
   select(chosen.x)
+  const kit = loadoutPicker()
+  function begin(): void {
+    saveLoadout(kit.current())
+    applyLoadout(world.player, kit.current())
+    launch(chosen.x)
+  }
   return h('section', { class: 'sg-panel sg-drop-plan', attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'sg-drop-title', 'data-drop-planner': '' } },
     h('div', { class: 'sg-strip' }),
-    h('header', { class: 'sg-head' }, h('h2', { text: 'Choose your drop', attrs: { id: 'sg-drop-title' } }), h('span', { class: 'sg-tag', text: world.name })),
+    h('header', { class: 'sg-head' }, h('h2', { text: 'Plan the drop', attrs: { id: 'sg-drop-title' } }), h('span', { class: 'sg-tag', text: world.name })),
     h('div', { class: 'sg-body' },
       h('p', { class: 'sg-plan-intro', text: 'Pick a roof or a ground approach. Click the compound blueprint or move the slider.' }),
       h('div', { class: 'sg-plan-map' }, svg),
       h('div', { class: 'sg-plan-legend' }, h('span', { text: 'CYAN / BUILDINGS' }), h('span', { text: 'GREEN / EXTRACTION VAN' }), h('span', { text: 'AMBER / YOUR DROP' })),
       h('label', { attrs: { for: 'sg-drop-position' }, text: 'Drop position' }), slider, status,
+      kit.element,
       h('p', { class: 'sg-plan-note' }, 'You still have to land it. Hold ', keyCaps('Space'), ' while falling to open your parachute; ', keyCaps('A'), ' / ', keyCaps('D'), ' to steer. The case location is unknown.'),
-      h('button', { class: 'sg-btn sg-primary sg-plan-launch', text: 'Begin drop', attrs: { type: 'button' }, on: { click: () => launch(chosen.x) } })),
+      h('button', { class: 'sg-btn sg-primary sg-plan-launch', text: 'Begin drop', attrs: { type: 'button' }, on: { click: begin } })),
     h('footer', { class: 'sg-foot' }, h('span', {}, keyCaps('←'), ' / ', keyCaps('→'), ' adjust slider'), h('span', {}, keyCaps('Tab'), ' move · ', keyCaps('Enter'), ' choose')))
 }
