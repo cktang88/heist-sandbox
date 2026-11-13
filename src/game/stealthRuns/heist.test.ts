@@ -14,12 +14,12 @@ import { startRun } from './kit'
  * route) is table.test.ts, run with STEALTH_TABLE=1.
  * (Seeds 1 and 7 by the roof and 5 by the sewer were the sample before the tower's central elevator cores, which cut
  * the storeys they pass in two and lengthen the script's routes; it does not yet use the cores' maintenance doors.
- * The table won 5 of 16 when this sample was picked.)
+ * The table won 8 of 16 when this sample was picked.)
  */
 const RUNS: [number, Entry][] = [
-  [4, 'roof'],
-  [2, 'sewer'],
-  [8, 'sewer'],
+  [2, 'roof'],
+  [8, 'roof'],
+  [5, 'sewer'],
 ]
 
 describe('a quiet heist from start to van (long)', () => {
