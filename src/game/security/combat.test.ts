@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { createProps } from '../cover'
 import { smokeBetween, throwGrenade } from '../hazards/hazards'
-import { colleagueInLine } from './combat'
+import { colleagueInLine, enterCombat } from './combat'
+import { isShaken } from './nerve'
+import { centerOf } from '../types'
 import { eyeOf, feetOf } from './model'
-import { addGuard, addLamp, addWall, arena, GROUND, putPlayer, run } from './testArena'
+import { addGuard, addLamp, addUpperFloor, addWall, arena, GROUND, putPlayer, run } from './testArena'
 
 function litStandoff(guardXs: number[]) {
   const world = arena()
@@ -122,3 +124,25 @@ describe('guard combat', () => {
     expect(world.security.barks.length).toBeGreaterThan(0)
   })
 })
+
+describe('a shaken man on his own', () => {
+  it('holds the stair landing a while, then goes up after the man on the floor above rather than waiting there for good', () => {
+    const world = arena()
+    const upper = addUpperFloor(world, 12, 120)
+    world.stairwells.push({ id: 0, building: 'site', leftX: 5, rightX: 9, stops: [GROUND, upper] })
+    putPlayer(world, 60, upper)
+    const guard = addGuard(world, 40, -1, 'patrol')
+    enterCombat(world, guard, centerOf(world.player))
+    guard.shock = 0.3
+    let climbed = false
+    run(world, 10, {}, () => {
+      // He keeps hearing the man's gun up there, so the fight never goes cold.
+      guard.heardAt = world.clock
+      climbed ||= feetOf(guard).y < GROUND - 0.5
+    })
+    expect(isShaken(guard)).toBe(true)
+    expect(guard.mode).toBe('combat')
+    expect(climbed).toBe(true)
+  })
+})
+

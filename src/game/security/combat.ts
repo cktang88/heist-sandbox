@@ -151,11 +151,14 @@ export function combatBehaviour(world: World, guard: Guard, dt: number): void {
     // Shaken and on his own, he does not push forward: he holds and waits for help. Holding a choke point the man never
     // comes through is no use either: after a while the holder moves up to find him, and at once when the man has dug in
     // somewhere (he is not on his way to the door, so there is nothing to wait for).
-    const restless = guard.combatRole === 'hold' && !guard.seesPlayer && (guard.lostSeconds > COMBAT.holdPatience || dugIn(world))
+    // That goes for a shaken man holding in place of assaulting too: otherwise, alone at the stair landing while the man
+    // sits on the floor above, he would wait there for good.
+    const role = guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : guard.combatRole
+    const restless = role === 'hold' && !guard.seesPlayer && (guard.lostSeconds > COMBAT.holdPatience || dugIn(world))
     if (restless) moveUp(world, guard, known, dt)
     else {
       shoulderUp(world, guard, known)
-      moveForRole(world, guard, known, guard.combatRole === 'assault' && alone && isShaken(guard) ? 'hold' : guard.combatRole, dt)
+      moveForRole(world, guard, known, role, dt)
     }
   }
   faceThreat(guard, known)
