@@ -153,11 +153,28 @@ export function keepOffCharges(world: World, guard: Guard, dt: number): boolean 
   const seen = world.security.chargesSeen
   const spotted = visibleCharge(world, guard, (charge) => !seen.has(charge))
   if (spotted) spotCharge(world, guard, spotted)
-  const near = world.charges.find((charge) => seen.has(charge) && charge.fuse === null && distance(centerOf(charge), feet) < chargeKeepOff() && sameFloor(floorBelow(world, centerOf(charge)), feet))
+  const near = chargeToKeepOff(world, feet)
   if (!near) return false
   const away = Math.sign(feet.x - centerOf(near).x) || -guard.facing
   goTo(world, guard, { x: centerOf(near).x + away * (chargeKeepOff() + 1), y: feet.y }, PATROL.runSpeed, dt, false)
   return true
+}
+
+/** A charge someone has seen whose blast reaches this feet position on its floor, if any. */
+function chargeToKeepOff(world: World, feet: Vec): Charge | undefined {
+  const seen = world.security.chargesSeen
+  return world.charges.find((charge) => seen.has(charge) && charge.fuse === null && distance(centerOf(charge), feet) < chargeKeepOff() && sameFloor(floorBelow(world, centerOf(charge)), feet))
+}
+
+/**
+ * Would his next step take him from clear floor into the blast of a charge someone has seen? Then he does not take it,
+ * whatever he is walking to: his post, a search point or the far end of his round may lie inside it, and walking on
+ * in only to be sent straight back out by keepOffCharges had him dancing on the edge of the blast every frame.
+ */
+export function stepsIntoCharge(world: World, guard: Guard): boolean {
+  if (world.charges.length === 0 || world.security.chargesSeen.size === 0) return false
+  const feet = feetOf(guard)
+  return !chargeToKeepOff(world, feet) && chargeToKeepOff(world, { x: feet.x + guard.facing * 0.8, y: feet.y }) !== undefined
 }
 
 // --- A colleague tied up ----------------------------------------------------------------------------------------------

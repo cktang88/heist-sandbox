@@ -113,6 +113,30 @@ describe('C4 in plain view', () => {
   })
 })
 
+describe('C4 by a post', () => {
+  it('a guard whose post lies inside a seen charge\'s blast stands off at its edge instead of stepping in and out of it every frame', () => {
+    const world = arena()
+    addWall(world, 50)
+    putPlayer(world, 46)
+    throwCharge(world, { x: 48.8, y: GROUND - 2 }, { x: 1, y: 0 }, { x: 49.9, y: GROUND - 2 })
+    run(world, 0.3)
+    putPlayer(world, 120)
+    const guard = addGuard(world, 46, -1, 'post')
+    guard.hp = guard.maxHp = 1e5
+    let entries = 0
+    let inside = false
+    run(world, 60, {}, () => {
+      const now = distance(feetOf(guard), centerOf(world.charges[0])) < chargeKeepOff()
+      if (now && !inside) entries += 1
+      inside = now
+    })
+    expect(world.security.chargesSeen.size).toBe(1)
+    // He starts inside it and backs out once; nothing takes him back in.
+    expect(entries).toBe(1)
+    expect(inside).toBe(false)
+  })
+})
+
 describe('a colleague tied up', () => {
   it('is untied, and says the intruder asked about the case: the alert is confirmed at once', () => {
     const world = arena()
